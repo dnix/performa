@@ -1,0 +1,39 @@
+[project]
+name = "performa"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "uv",
+    "ruff",
+    "numpy",
+    "numpy-financial",
+    "pandas",
+    "scipy",
+    "orjson",
+    "pydantic",
+    "matplotlib",
+    "pyxirr",
+    "pyobsplot",
+    "mypy",
+    "squarify",
+]
+
+[project.optional-dependencies]
+dev =[
+    "ruff",
+    "marimo",
+    "streamlit",
+    "streamlit-extras",
+    "git+https://github.com/HIL340/streamlit-pydantic.git@pydantic-2.7",
+    "watchdog",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff.lint]
+ignore = ["E501"]
+exclude = ["src/red copy.py"]
