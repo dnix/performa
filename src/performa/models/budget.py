@@ -4,18 +4,18 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
-from .cash_flow import CashFlowItem
-from .model import Model
-
 from ..utils.types import PositiveFloat, PositiveInt
-
+from .cash_flow import CashFlowModel
+from .model import Model
 
 ##########################
 ######### BUDGET #########
 ##########################
 
-class BudgetItem(CashFlowItem):
+
+class BudgetItem(CashFlowModel):
     """Class for a generic cost line item"""
+
     # TODO: subclass for specific budget line items (Developer, A&E, Soft Costs, FF&E, Other)
     # TODO: add optional details list for more granular budgeting (i.e., rolling-up to a parent budget item)
     # GENERAL
@@ -26,7 +26,9 @@ class BudgetItem(CashFlowItem):
     # COST
     cost_total: PositiveFloat  # 1_000_000.00
     # DRAW SCHEDULE
-    draw_sched_kind: Literal["s-curve", "uniform", "manual"]  # TODO: use enum? add triang? others?
+    draw_sched_kind: Literal[
+        "s-curve", "uniform", "manual"
+    ]  # TODO: use enum? add triang? others?
     draw_sched_sigma: Optional[PositiveFloat]  # more info for s-curve (and others?)
     # draw_sched_manual: Optional[np.ndarray]  # full cash flow manual input
 
@@ -35,14 +37,25 @@ class BudgetItem(CashFlowItem):
         """Construct cash flow for budget costs with categories and subcategories"""
         if self.draw_sched_kind == "s-curve":
             timeline_int = np.arange(0, self.active_duration)
-            cf = pd.Series((
-                norm.cdf(timeline_int + 1, self.active_duration / 2, self.draw_sched_sigma) - norm.cdf(timeline_int, self.active_duration / 2, self.draw_sched_sigma)) / (1 - 2 * norm.cdf(0, self.active_duration / 2, self.draw_sched_sigma)) * self.cost_total,
-                index=self.timeline_active
+            cf = pd.Series(
+                (
+                    norm.cdf(
+                        timeline_int + 1,
+                        self.active_duration / 2,
+                        self.draw_sched_sigma,
+                    )
+                    - norm.cdf(
+                        timeline_int, self.active_duration / 2, self.draw_sched_sigma
+                    )
+                )
+                / (1 - 2 * norm.cdf(0, self.active_duration / 2, self.draw_sched_sigma))
+                * self.cost_total,
+                index=self.timeline_active,
             )
         elif self.draw_sched_kind == "uniform":
             cf = pd.Series(
                 np.ones(self.active_duration) * self.cost_total / self.active_duration,
-                index=self.timeline_active
+                index=self.timeline_active,
             )
         # elif self.draw_sched_kind == "manual":
         #     cf = pd.Series(self.draw_sched_manual,
@@ -55,7 +68,7 @@ class BudgetItem(CashFlowItem):
         df["Category"] = self.category
         df["Subcategory"] = self.subcategory
         return df
-    
+
     # CONSTRUCTORS
     @classmethod
     def from_unitized(
@@ -86,7 +99,7 @@ class BudgetItem(CashFlowItem):
             draw_sched_kind=draw_sched_kind,
             draw_sched_sigma=draw_sched_sigma,
         )
-    
+
     @classmethod
     def from_reference_items(
         cls,
@@ -105,7 +118,10 @@ class BudgetItem(CashFlowItem):
     ) -> "BudgetItem":
         """Construct a budget item as a percentage of another budget item or multiple items"""
         if reference_kind == "sum":
-            cost_total = sum([item.cost_total for item in reference_budget_items]) * reference_percentage
+            cost_total = (
+                sum([item.cost_total for item in reference_budget_items])
+                * reference_percentage
+            )
         elif reference_kind == "passthrough":
             cost_total = reference_budget_items[0].cost_total * reference_percentage
         return cls(
@@ -120,6 +136,7 @@ class BudgetItem(CashFlowItem):
             draw_sched_kind=draw_sched_kind,
             draw_sched_sigma=draw_sched_sigma,
         )
+
     # TODO: just consider a factor-like approach a la opex items below
 
 
@@ -130,9 +147,7 @@ class Budget(Model):
     def budget_df(self) -> pd.DataFrame:
         return pd.concat([item.budget_df for item in self.budget_items])
         # TODO: just use a list for performance? (pd.concat copies data...)
-    
+
     # TODO: individual cash flow items for each budget item?
 
     # TODO: add methods to sum up budget items by category and subcategory after shifting to project start date
-
-    

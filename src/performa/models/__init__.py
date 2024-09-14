@@ -1,7 +1,7 @@
 # Import all model classes
 
 from .budget import Budget, BudgetItem
-from .cash_flow import CashFlowItem
+from .cash_flow import CashFlowModel
 from .deal import CarryPromote, Deal, Partner, Promote, WaterfallPromote, WaterfallTier
 from .expense import Expense, ExpenseCostItem, ExpenseFactorItem, ExpenseItem
 from .financing import ConstructionFinancing, PermanentFinancing
@@ -18,7 +18,7 @@ from .revenue import (
 # Define __all__ to specify what gets imported with "from performa.models import *"
 __all__ = [
     "Model",
-    "CashFlowItem",
+    "CashFlowModel",
     "BudgetItem",
     "Budget",
     "Program",

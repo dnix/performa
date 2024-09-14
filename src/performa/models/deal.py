@@ -3,21 +3,20 @@ from typing import Literal, Optional
 import pandas as pd
 from pyxirr import xirr
 
+from ..utils.types import FloatBetween0And1, PositiveFloat
 from .model import Model
 from .project import Project
-
-from ..utils.types import PositiveFloat, FloatBetween0And1
-
-
 
 ########################
 ######### DEAL #########
 ########################
 
+
 class Partner(Model):
     name: str
     kind: Literal["GP", "LP"]
     share: FloatBetween0And1  # percentage of total equity
+
 
 class Promote(Model):
     # different kinds of promotes:
@@ -26,34 +25,46 @@ class Promote(Model):
     # - carry (e.g., simple 20% after pref)
     kind: Literal["waterfall", "carry"]
 
+
 class WaterfallTier(Model):
     """Class for a waterfall tier"""
+
     tier_hurdle_rate: PositiveFloat  # tier irr or em hurdle rate
     metric: Literal["IRR", "EM"]  # metric for the promote
     promote_rate: FloatBetween0And1  # promote as a percentage of total profits
 
+
 class WaterfallPromote(Promote):
     """Class for a waterfall promote"""
+
     kind: Literal["waterfall"]
-    pref_hurdle_rate: PositiveFloat  # minimum IRR or EM to trigger promote (tier 1); the 'pref'
+    pref_hurdle_rate: (
+        PositiveFloat  # minimum IRR or EM to trigger promote (tier 1); the 'pref'
+    )
     tiers: list[WaterfallTier]
     final_promote_rate: FloatBetween0And1  # final tier, how remainder is split after all tiers (usually 50/50)
 
+
 class CarryPromote(Promote):
     """Class for a GP carry promote"""
+
     kind: Literal["carry"]
     pref_hurdle_rate: PositiveFloat  # minimum IRR or EM to trigger promote; the 'pref'
     promote_rate: FloatBetween0And1  # promote as a percentage of total profits
     # TODO: consider clawbacks and other carry structures
 
+
 class Deal(Model):
     """Class for a generic deal"""
+
     project: Project
     partners: list[Partner]
-    promote: Optional[WaterfallPromote | CarryPromote]  # there can also be no GP promote, just pari passu
+    promote: Optional[
+        WaterfallPromote | CarryPromote
+    ]  # there can also be no GP promote, just pari passu
     # param for running calculations on monthly or annual basis
     time_basis: Literal["monthly", "annual"] = "monthly"
-    
+
     # TODO: add property-level GP fees (mgmt/deal fees, acquisition/disposition fees, etc.)
 
     @property
@@ -68,26 +79,29 @@ class Deal(Model):
         # set index to timestamp for pyxirr
         project_df.set_index(project_df.index.to_timestamp(), inplace=True)
         # get net cash flow column as Series
-        project_net_cf = project_df['Levered Cash Flow']
+        project_net_cf = project_df["Levered Cash Flow"]
         return project_net_cf
 
     @property
     def project_equity_cf(self) -> pd.Series:
         """Compute project equity cash flow"""
-        return self.project_net_cf[self.project_net_cf < 0].reindex(self.project.project_timeline).fillna(0)
+        return (
+            self.project_net_cf[self.project_net_cf < 0]
+            .reindex(self.project.project_timeline)
+            .fillna(0)
+        )
 
     @property
     def project_irr(self) -> float:
         """Compute project IRR"""
         return xirr(self.project_net_cf)
-    
+
     @property
     def partner_irrs(self) -> dict[str, float]:
         """Compute partner IRRs"""
         partner_df = self.calculate_distributions()
         partner_irrs = {
-            partner: xirr(partner_df[partner])
-            for partner in partner_df.columns
+            partner: xirr(partner_df[partner]) for partner in partner_df.columns
         }
         return partner_irrs
 
@@ -95,7 +109,7 @@ class Deal(Model):
     def project_equity_multiple(self) -> float:
         """Compute project equity multiple"""
         return Deal.equity_multiple(self.project_net_cf)
-    
+
     @property
     def partner_equity_multiples(self) -> dict[str, float]:
         """Compute partner Equity Multiples"""
@@ -105,7 +119,7 @@ class Deal(Model):
             for partner in partner_df.columns
         }
         return partner_equity_multiples
-        
+
     @property
     def distributions(self) -> pd.DataFrame:
         """Calculate and return distributions based on the promote structure."""
@@ -134,7 +148,10 @@ class Deal(Model):
         remaining_cf = self.project_net_cf - pref_distribution.sum(axis=1)
 
         # Initialize distributions for each partner
-        distributions = {partner.name: pd.Series(0, index=self.project_net_cf.index) for partner in self.partners}
+        distributions = {
+            partner.name: pd.Series(0, index=self.project_net_cf.index)
+            for partner in self.partners
+        }
 
         # Allocate preferred distributions
         for partner in self.partners:
@@ -155,11 +172,10 @@ class Deal(Model):
                 distributions[partner.name] += lp_remaining_cf * partner.share
             else:
                 distributions[partner.name] += gp_remaining_cf
-        
+
         # Return distributions
         distributions_df = pd.DataFrame(distributions)
         return distributions_df
-
 
     # TODO: this is a european waterfall, how would an american style work? support both? https://www.adventuresincre.com/watch-me-build-american-style-real-estate-equity-waterfall/
     # TODO: catchup provision in (european) waterfall
@@ -175,8 +191,14 @@ class Deal(Model):
         lp_share = sum(p.share for p in self.partners if p.kind == "LP")
         gp_share = 1 - lp_share
         remaining_cf = net_cf.copy()
-        distributions = {partner.name: pd.Series(0, index=net_cf.index) for partner in self.partners}
-        tier_distributions = {f"{partner.name}_Tier_{i+1}": pd.Series(0, index=net_cf.index) for i in range(len(self.promote.tiers) + 1) for partner in self.partners}
+        distributions = {
+            partner.name: pd.Series(0, index=net_cf.index) for partner in self.partners
+        }
+        tier_distributions = {
+            f"{partner.name}_Tier_{i+1}": pd.Series(0, index=net_cf.index)
+            for i in range(len(self.promote.tiers) + 1)
+            for partner in self.partners
+        }
 
         # PREF (Tier 1)
         pref_rate = self.promote.pref_hurdle_rate
@@ -196,7 +218,9 @@ class Deal(Model):
             tier_rate = tier.tier_hurdle_rate
             promote_rate = tier.promote_rate
             # Calculate the accrued return for the current tier
-            accrued_return = self._accrue_interest(equity_cf, tier_rate, self.time_basis)
+            accrued_return = self._accrue_interest(
+                equity_cf, tier_rate, self.time_basis
+            )
             required_return = accrued_return - pref_accrued
             # Distribute the return required for the current tier
             tier_distribution = required_return.clip(upper=remaining_cf)
@@ -205,26 +229,42 @@ class Deal(Model):
             for partner in self.partners:
                 if partner.kind == "LP":
                     # Allocate the tier distribution to each LP partner
-                    tier_distributions[f"{partner.name}_Tier_{i+2}"] = tier_distribution * lp_share_after_promote
-                    distributions[partner.name] += tier_distribution * lp_share_after_promote
+                    tier_distributions[f"{partner.name}_Tier_{i+2}"] = (
+                        tier_distribution * lp_share_after_promote
+                    )
+                    distributions[partner.name] += (
+                        tier_distribution * lp_share_after_promote
+                    )
                 else:
                     # Allocate the tier distribution to the GP partner
-                    tier_distributions[f"{partner.name}_Tier_{i+2}"] = tier_distribution * gp_share_after_promote
-                    distributions[partner.name] += tier_distribution * gp_share_after_promote
+                    tier_distributions[f"{partner.name}_Tier_{i+2}"] = (
+                        tier_distribution * gp_share_after_promote
+                    )
+                    distributions[partner.name] += (
+                        tier_distribution * gp_share_after_promote
+                    )
             remaining_cf -= tier_distribution.sum(axis=1)
             pref_accrued += tier_distribution
-        
+
         # FINAL PROMOTE
         final_promote_rate = self.promote.final_promote_rate
         for partner in self.partners:
             if partner.kind == "LP":
                 # Allocate the final promote distribution to each LP partner
-                tier_distributions[f"{partner.name}_Final"] = remaining_cf * lp_share * (1 - final_promote_rate)
-                distributions[partner.name] += remaining_cf * lp_share * (1 - final_promote_rate)
+                tier_distributions[f"{partner.name}_Final"] = (
+                    remaining_cf * lp_share * (1 - final_promote_rate)
+                )
+                distributions[partner.name] += (
+                    remaining_cf * lp_share * (1 - final_promote_rate)
+                )
             else:
                 # Allocate the final promote distribution to the GP partner
-                tier_distributions[f"{partner.name}_Final"] = remaining_cf * (1 - lp_share * (1 - final_promote_rate))
-                distributions[partner.name] += remaining_cf * (1 - lp_share * (1 - final_promote_rate))
+                tier_distributions[f"{partner.name}_Final"] = remaining_cf * (
+                    1 - lp_share * (1 - final_promote_rate)
+                )
+                distributions[partner.name] += remaining_cf * (
+                    1 - lp_share * (1 - final_promote_rate)
+                )
 
         # RETURN DISTRIBUTIONS
         distributions_df = pd.DataFrame(distributions)
@@ -243,7 +283,9 @@ class Deal(Model):
         return distributions_df
 
     @staticmethod
-    def _accrue_interest(equity_cf: pd.Series, rate: float, time_basis: str) -> pd.Series:
+    def _accrue_interest(
+        equity_cf: pd.Series, rate: float, time_basis: str
+    ) -> pd.Series:
         """Accrue interest on equity cash flows using capital account logic."""
         periods = 12 if time_basis == "monthly" else 1
         accrued = pd.Series(0, index=equity_cf.index)
@@ -253,9 +295,10 @@ class Deal(Model):
             # Adjust capital account based on previous balance, equity contribution, and distribution
             capital_account.iloc[i] = capital_account.iloc[i - 1] + equity_cf.iloc[i]
             # Calculate accrued interest on adjusted capital account balance
-            accrued.iloc[i] = capital_account.iloc[i] * ((1 + rate / periods) ** (1 / periods) - 1)
+            accrued.iloc[i] = capital_account.iloc[i] * (
+                (1 + rate / periods) ** (1 / periods) - 1
+            )
         return accrued
-
 
     #####################
     # HELPERS/UTILITIES #
@@ -265,7 +308,6 @@ class Deal(Model):
     def equity_multiple(cash_flows: pd.Series) -> float:
         """Compute equity multiple from cash flows"""
         return cash_flows[cash_flows > 0].sum() / abs(cash_flows[cash_flows < 0].sum())
-
 
     # FIXME: bring back validators updating to new fields
     # @model_validator(mode="before")
@@ -280,7 +322,7 @@ class Deal(Model):
     #     if sum(partner.share for partner in self.partners) != 1.0:
     #         raise ValueError("Partner shares must sum to 1.0")
     #     return self
-    
+
     # @model_validator(mode="before")
     # def validate_promote(self):
     #     """Validate the promote structure"""
@@ -292,5 +334,3 @@ class Deal(Model):
     #         if any(tier.tier_hurdle < self.promote.hurdle for tier in self.promote.tiers):
     #             raise ValueError("All tiers must be higher than the hurdle")
     #     return self
-
-
