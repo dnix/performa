@@ -294,7 +294,7 @@ op = Obsplot()
 
 # a function to take a multi-index dataframe and return a long format dataframe
 def reshape_dataframe(df):
-    """Reshape a multi-index dataframe to long format"""
+    """Reshape a multi-index dataframe to long format for D3js/Plot"""
     # FIXME: add param for column names/mapping
     # Stack the inner-most level of the column index (level=-1 will stack the last level)
     df_long = df.stack(level=[0, 1, 2])
