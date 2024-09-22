@@ -60,10 +60,6 @@ class BudgetItem(CashFlowModel):
                 raise ValueError(
                     "Manual draw schedule length must match active_duration"
                 )
-            if (
-                abs(sum(v) - info.data["cost_total"]) > 1e-6
-            ):  # Allow for small floating-point errors
-                raise ValueError("Sum of manual draw schedule must equal cost_total")
         return v
 
     @model_validator(mode="before")
@@ -102,9 +98,13 @@ class BudgetItem(CashFlowModel):
                 index=self.timeline_active,
             )
         elif self.draw_sched_kind == "manual":
-            # Use provided manual draw schedule
+            # Scale provided manual draw schedule to the total cost
             # Inspo: curve shaping of draws https://www.adventuresincre.com/draw-schedule-custom-cash-flows/
-            cf = pd.Series(self.draw_sched_manual, index=self.timeline_active)
+            total_manual = sum(self.draw_sched_manual)
+            cf = pd.Series(
+                np.array(self.draw_sched_manual) * (self.cost_total / total_manual),
+                index=self.timeline_active,
+            )
 
         # Create a dataframe with the cash flow and add category and subcategory for downstream analysis
         df = pd.DataFrame(cf)
