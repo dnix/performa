@@ -444,18 +444,37 @@ class Project(Model):
         Compute the refinance value.
 
         Returns:
-            float: The refinance value.
+            float: The total refinance value across all program uses.
 
         Example:
             50000000.0
         """
-        return (
-            self.net_operating_income_cf.loc[
-                self.stabilization_date : (self.stabilization_date + 11)
-            ]
-            / self._cap_rates_table["Refinance Cap Rate"]
-        ).sum()
-        # FIXME: check this math/shape
+        # Calculate the sum of NOI for each program use over the stabilization period
+        noi_by_use = self.net_operating_income_cf.loc[
+            self.stabilization_date : (self.stabilization_date + 11)
+        ].sum()
+        # noi_by_use is now a Series with program uses as index, e.g.:
+        # Office    1000000
+        # Retail     500000
+        
+        # Get the refinance cap rates for each program use
+        cap_rates = self._cap_rates_table["Refinance Cap Rate"]
+        # cap_rates is a Series with program uses as index, e.g.:
+        # Office    0.05
+        # Retail    0.06
+        
+        # Divide NOI by cap rate for each program use
+        # This operation aligns the Series by their index (program use)
+        refinance_values_by_use = noi_by_use / cap_rates.loc[noi_by_use.index]
+        # refinance_values_by_use is now a Series, e.g.:
+        # Office    20000000  (1000000 / 0.05)
+        # Retail     8333333  (500000 / 0.06)
+        
+        # Sum up the refinance values across all program uses
+        total_refinance_value = refinance_values_by_use.sum()
+        # total_refinance_value is now a single float: 28333333
+        
+        return total_refinance_value
 
     @property
     def construction_loan_repayment_cf(self) -> pd.DataFrame:
@@ -508,7 +527,7 @@ class Project(Model):
             {
                 "Refinance Infusion": (
                     self.refinance_value * self.permanent_financing.ltv_ratio
-                )[0],
+                ),
             },
             index=[self.stabilization_date],
         )
@@ -605,18 +624,37 @@ class Project(Model):
         Compute the sale value.
 
         Returns:
-            float: The sale value.
+            float: The total sale value across all program uses.
 
         Example:
             75000000.0
         """
-        return (
-            self.net_operating_income_cf.loc[
-                self.project_end_date : (self.project_end_date + 11)
-            ].sum()
-            / self._cap_rates_table["Sale Cap Rate"]
-        ).sum()
-        # FIXME: check this math/shape with multiple program uses
+        # Calculate the sum of NOI for each program use over the last year
+        noi_by_use = self.net_operating_income_cf.loc[
+            self.project_end_date : (self.project_end_date + 11)
+        ].sum()
+        # noi_by_use is now a Series with program uses as index, e.g.:
+        # Office    1200000
+        # Retail     600000
+        
+        # Get the sale cap rates for each program use
+        cap_rates = self._cap_rates_table["Sale Cap Rate"]
+        # cap_rates is a Series with program uses as index, e.g.:
+        # Office    0.04
+        # Retail    0.05
+        
+        # Divide NOI by cap rate for each program use
+        # This operation aligns the Series by their index (program use)
+        sale_values_by_use = noi_by_use / cap_rates.loc[noi_by_use.index]
+        # sale_values_by_use is now a Series, e.g.:
+        # Office    30000000  (1200000 / 0.04)
+        # Retail    12000000  (600000 / 0.05)
+        
+        # Sum up the sale values across all program uses
+        total_sale_value = sale_values_by_use.sum()
+        # total_sale_value is now a single float: 42000000
+        
+        return total_sale_value
 
     @property
     def disposition_cf(self) -> pd.DataFrame:
