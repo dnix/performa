@@ -1,9 +1,9 @@
 from datetime import date
-from typing import Literal, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pyxirr import pmt  # , npv, xnpv, irr, xirr, mirr, fv
 
 from ..utils.types import FloatBetween0And1, PositiveInt, PositiveIntGt1
@@ -11,6 +11,7 @@ from .budget import Budget
 from .expense import Expense
 from .financing import ConstructionFinancing, PermanentFinancing
 from .model import Model
+from .program import ProgramUseEnum
 from .revenue import Revenue
 
 # %%
@@ -23,15 +24,7 @@ class CapRates(Model):
     """Class for a generic cap rate model"""
 
     name: str  # "Residential Cap Rates"
-    # program_use: ProgramUseEnum  # program use for the cap rate model
-    program_use: Literal[
-        "Residential",
-        "Affordable Residential",
-        "Office",
-        "Retail",
-        "Amenity",
-        "Other",
-    ]
+    program_use: ProgramUseEnum  # program use for the cap rate model
     development_cap_rate: FloatBetween0And1  # cap rate at development
     refinance_cap_rate: FloatBetween0And1  # cap rate at refinance
     sale_cap_rate: FloatBetween0And1  # cap rate at sale
@@ -70,7 +63,7 @@ class Project(Model):
 
     # DISPOSITION
     # -> rental:
-    cap_rates: list[CapRates]  # market cap rates FOR EACH PROGRAM USE
+    cap_rates: list[CapRates] | float  # market cap rates FOR EACH PROGRAM USE
     hold_duration: Optional[
         PositiveIntGt1
     ]  # years to hold before disposition (required for rental revenues only)
@@ -83,6 +76,20 @@ class Project(Model):
 
     @property
     def _budget_table(self) -> pd.DataFrame:
+        """
+        Pivot table of budget costs.
+
+        Returns:
+            pd.DataFrame: A DataFrame with a multi-index of Category, Subcategory, and Name.
+
+        Example:
+                                 Hard Costs       Soft Costs
+        Category Subcategory Name
+        2023-01  Construction Land  1000000.0     0.0
+                              Building  0.0        50000.0
+        2023-02  Construction Building  500000.0   0.0
+                 Fees        Architect  0.0        25000.0
+        """
         shifted = self.shift_ordinal_to_project_timeline(self.budget.budget_df)
         return shifted.pivot_table(
             values=0,
@@ -93,6 +100,20 @@ class Project(Model):
 
     @property
     def _revenue_table(self) -> pd.DataFrame:
+        """
+        Pivot table of revenue.
+
+        Returns:
+            pd.DataFrame: A DataFrame with a multi-index of Category, Subcategory, Use, and Name.
+
+        Example:
+                                             Revenue
+        Category Subcategory Use    Name
+        2023-01  Lease       Office Rent    100000.0
+                             Retail Rent     50000.0
+        2023-02  Lease       Office Rent    102000.0
+                             Retail Rent     51000.0
+        """
         shifted = self.shift_ordinal_to_project_timeline(self.revenue.revenue_df)
         return shifted.pivot_table(
             values=0,
@@ -130,23 +151,35 @@ class Project(Model):
     @property
     def construction_before_financing_cf(self) -> pd.DataFrame:
         """
-        Pivot table of budget costs before financing
+        Pivot table of budget costs before financing.
 
-        Returns a dataframe with a multi-index of Category, Subcategory, and Name, and the following structure:
-        - Index: Project timeline
-        - Columns: Category, Subcategory, Name
-        - Values: Total costs before financing
+        Returns:
+            pd.DataFrame: A DataFrame with a multi-index of Category, Subcategory, and Name.
 
+        Example:
+                                 Hard Costs       Soft Costs
+        Category Subcategory Name
+        2023-01  Construction Land  1000000.0     0.0
+                              Building  0.0        50000.0
+        2023-02  Construction Building  500000.0   0.0
+                 Fees        Architect  0.0        25000.0
         """
         return self._budget_table
 
     @property
     def construction_financing_cf(self) -> pd.DataFrame:
         """
-        Compute construction financing cash flow with debt and equity draws, fees, and interest reserve (interest/fees accrued)
+        Compute construction financing cash flow with debt and equity draws, fees, and interest reserve.
 
-        Financing fees, if applicable, are based on the total pre-interest reserve debt and are drawn in the period where debt draws begin
+        Returns:
+            pd.DataFrame: A DataFrame with columns for financing components.
 
+        Example:
+                 Total Costs  Cumulative  Equity     Debt    Financing  Interest
+                 Before       Costs       Draw       Draw    Fees       Reserve
+                 Financing
+        2023-01  1050000.0    1050000.0   1050000.0  0.0     0.0        0.0
+        2023-02  525000.0     1575000.0   0.0        525000.0 26250.0   2625.0
         """
         total_project_cost = self._budget_table.sum().sum()
         debt_portion = (
@@ -217,6 +250,17 @@ class Project(Model):
 
     @property
     def equity_cf(self) -> pd.DataFrame:
+        """
+        Compute equity cash flow.
+
+        Returns:
+            pd.DataFrame: A DataFrame with a single column 'Equity'.
+
+        Example:
+                 Equity
+        2023-01  1050000.0
+        2023-02  0.0
+        """
         return self.construction_financing_cf["Equity Draw"].to_frame("Equity")
 
     ##################
@@ -225,13 +269,16 @@ class Project(Model):
 
     @property
     def total_potential_income_cf(self) -> pd.DataFrame:
-        """Construct cash flow for total potential income by program use
+        """
+        Construct cash flow for total potential income by program use.
 
-        Use      Office    Residential
-        1972-01  30000.00  21000.00
-        1972-02  30000.00  21000.00
-        ...      ...       ...
+        Returns:
+            pd.DataFrame: A DataFrame with columns for each program use.
 
+        Example:
+                 Office    Retail
+        2023-01  100000.0  50000.0
+        2023-02  102000.0  51000.0
         """
         # TODO: rental only?
         return (
@@ -243,7 +290,17 @@ class Project(Model):
 
     @property
     def losses_cf(self) -> pd.DataFrame:
-        """Construct cash flow for structural losses by program use"""
+        """
+        Construct cash flow for structural losses by program use.
+
+        Returns:
+            pd.DataFrame: A DataFrame with columns for each program use.
+
+        Example:
+                 Office   Retail
+        2023-01  5000.0   2500.0
+        2023-02  5100.0   2550.0
+        """
         # rental only
         return (
             self._structural_losses_table.loc[
@@ -255,11 +312,32 @@ class Project(Model):
 
     @property
     def effective_gross_revenue_cf(self) -> pd.DataFrame:
-        """Construct cash flow for effective gross revenue by program use"""
+        """
+        Construct cash flow for effective gross revenue by program use.
+
+        Returns:
+            pd.DataFrame: A DataFrame with columns for each program use.
+
+        Example:
+                 Office    Retail
+        2023-01  95000.0   47500.0
+        2023-02  96900.0   48450.0
+        """
         return self.total_potential_income_cf - self.losses_cf
 
     @property
     def opex_cf(self) -> pd.DataFrame:
+        """
+        Compute operating expenses cash flow.
+
+        Returns:
+            pd.DataFrame: A DataFrame with columns for each program use.
+
+        Example:
+                 Office   Retail
+        2023-01  20000.0  10000.0
+        2023-02  20400.0  10200.0
+        """
         return (
             self._expense_table.loc[:, ("Expense", "OpEx", slice(None), slice(None))]
             .groupby(level=2, axis=1)
@@ -268,10 +346,32 @@ class Project(Model):
 
     @property
     def net_operating_income_cf(self) -> pd.DataFrame:
+        """
+        Compute net operating income cash flow.
+
+        Returns:
+            pd.DataFrame: A DataFrame with columns for each program use.
+
+        Example:
+                 Office   Retail
+        2023-01  75000.0  37500.0
+        2023-02  76500.0  38250.0
+        """
         return self.effective_gross_revenue_cf - self.opex_cf
 
     @property
     def capex_cf(self) -> pd.DataFrame:
+        """
+        Compute capital expenditure cash flow.
+
+        Returns:
+            pd.DataFrame: A DataFrame with columns for each program use.
+
+        Example:
+                 Office  Retail
+        2023-01  5000.0  2500.0
+        2023-02  5100.0  2550.0
+        """
         return (
             self._expense_table.loc[:, ("Expense", "CapEx", slice(None), slice(None))]
             .groupby(level=2, axis=1)
@@ -280,6 +380,17 @@ class Project(Model):
 
     @property
     def cash_flow_from_operations_cf(self) -> pd.DataFrame:
+        """
+        Compute cash flow from operations.
+
+        Returns:
+            pd.DataFrame: A DataFrame with columns for each program use.
+
+        Example:
+                 Office   Retail
+        2023-01  70000.0  35000.0
+        2023-02  71400.0  35700.0
+        """
         return (
             (self.net_operating_income_cf - self.capex_cf)
             .reindex(self.project_timeline)
@@ -288,6 +399,18 @@ class Project(Model):
 
     @property
     def _cap_rates_table(self) -> pd.DataFrame:
+        """
+        Compute cap rates table.
+
+        Returns:
+            pd.DataFrame: A DataFrame with cap rates for each program use.
+
+        Example:
+                Development  Refinance  Sale
+                Cap Rate     Cap Rate   Cap Rate
+        Office  0.05         0.045      0.04
+        Retail  0.06         0.055      0.05
+        """
         df = pd.DataFrame(
             [
                 {
@@ -304,6 +427,15 @@ class Project(Model):
 
     @property
     def stabilization_date(self) -> pd.Period:
+        """
+        Compute the stabilization date.
+
+        Returns:
+            pd.Period: The stabilization date.
+
+        Example:
+            pd.Period('2026-01', freq='M')
+        """
         # FIXME: this should use lease-up logic(?)
         # return self.project_start_date + self.stabilization_year * 12
         return (
@@ -315,7 +447,15 @@ class Project(Model):
 
     @property
     def refinance_value(self) -> float:
-        """Compute the refinance value by program use and combine into a single value"""
+        """
+        Compute the refinance value.
+
+        Returns:
+            float: The refinance value.
+
+        Example:
+            50000000.0
+        """
         return (
             self.net_operating_income_cf.loc[
                 self.stabilization_date : (self.stabilization_date + 11)
@@ -326,7 +466,16 @@ class Project(Model):
 
     @property
     def construction_loan_repayment_cf(self) -> pd.DataFrame:
-        """Compute the construction loan repayment (cumulative draw + interest) at stabilization"""
+        """
+        Compute the construction loan repayment cash flow.
+
+        Returns:
+            pd.DataFrame: A DataFrame with a single column 'Construction Loan Repayment'.
+
+        Example:
+                             Construction Loan Repayment
+        2026-01              20000000.0
+        """
         # TODO: refactor this more cleanly
         repayment_flow = self.construction_financing_cf["Cumulative Debt Drawn"]
         repayment_at_stabilization = repayment_flow.loc[self.stabilization_date]
@@ -339,12 +488,29 @@ class Project(Model):
 
     @property
     def refinance_amount(self) -> float:
-        """Compute the refinance amount by program use and combine into a single value"""
+        """
+        Compute the refinance amount.
+
+        Returns:
+            float: The refinance amount.
+
+        Example:
+            35000000.0
+        """
         return self.refinance_value * self.permanent_financing.ltv_ratio
 
     @property
     def refinance_infusion_cf(self) -> pd.DataFrame:
-        """Compute the refinance infusion cash flow"""
+        """
+        Compute the refinance infusion cash flow.
+
+        Returns:
+            pd.DataFrame: A DataFrame with a single column 'Refinance Infusion'.
+
+        Example:
+                             Refinance Infusion
+        2026-01              35000000.0
+        """
         return pd.DataFrame(
             {
                 "Refinance Infusion": (
@@ -356,7 +522,17 @@ class Project(Model):
 
     @property
     def permanent_financing_cf(self) -> pd.DataFrame:
-        """Compute the permanent financing cash flow"""
+        """
+        Compute the permanent financing cash flow.
+
+        Returns:
+            pd.DataFrame: A DataFrame with columns for payment components.
+
+        Example:
+                 Payment    Interest   Principal  End Balance
+        2026-01  200000.0   145833.33  54166.67   34945833.33
+        2026-02  200000.0   145607.64  54392.36   34891440.97
+        """
         # amortize the loan
         # FIXME: add refinancing fees!
         df, _ = Project.amortize_loan(
@@ -369,7 +545,16 @@ class Project(Model):
 
     @property
     def permanent_financing_repayment_cf(self) -> pd.DataFrame:
-        """Compute the permanent financing repayment cash flow"""
+        """
+        Compute the permanent financing repayment cash flow.
+
+        Returns:
+            pd.DataFrame: A DataFrame with a single column 'Permanent Financing Repayment'.
+
+        Example:
+                             Permanent Financing Repayment
+        2036-01              30000000.0
+        """
         repayment_flow = self.permanent_financing_cf["End Balance"]
         repayment_at_end = repayment_flow.loc[self.project_end_date]
         return pd.DataFrame(
@@ -381,7 +566,17 @@ class Project(Model):
 
     @property
     def cash_flow_after_financing_cf(self) -> pd.DataFrame:
-        """Compute cash flow after financing"""
+        """
+        Compute cash flow after financing.
+
+        Returns:
+            pd.DataFrame: A DataFrame with a single column 'Cash Flow After Financing'.
+
+        Example:
+                 Cash Flow After Financing
+        2026-01  105000.0
+        2026-02  107100.0
+        """
         # flatten noi by summing across program uses and subtract financing_cf payment column
         return (
             (
@@ -395,7 +590,17 @@ class Project(Model):
 
     @property
     def dscr(self) -> pd.DataFrame:
-        """Compute the debt service coverage ratio over time"""
+        """
+        Compute the debt service coverage ratio over time.
+
+        Returns:
+            pd.DataFrame: A DataFrame with DSCR for each program use.
+
+        Example:
+                 Office  Retail
+        2026-01  1.5     1.2
+        2026-02  1.53    1.22
+        """
         return (
             self.net_operating_income_cf
             / self.permanent_financing_cf["Payment"].iloc[0]
@@ -403,7 +608,15 @@ class Project(Model):
 
     @property
     def sale_value(self) -> float:
-        """Compute the sale value by program use and combine into a single value"""
+        """
+        Compute the sale value.
+
+        Returns:
+            float: The sale value.
+
+        Example:
+            75000000.0
+        """
         return (
             self.net_operating_income_cf.loc[
                 self.project_end_date : (self.project_end_date + 11)
@@ -414,7 +627,16 @@ class Project(Model):
 
     @property
     def disposition_cf(self) -> pd.DataFrame:
-        """Compute the sale infusion cash flow"""
+        """
+        Compute the sale infusion cash flow.
+
+        Returns:
+            pd.DataFrame: A DataFrame with a single column 'Disposition'.
+
+        Example:
+                 Disposition
+        2036-01  75000000.0
+        """
         # create df with project timeline and assign sale value to the project end date
         df = pd.DataFrame(
             {
@@ -430,7 +652,17 @@ class Project(Model):
 
     @property
     def total_sales_revenue_cf(self) -> pd.DataFrame:
-        """Construct cash flow for total sales revenue by program use"""
+        """
+        Construct cash flow for total sales revenue by program use.
+
+        Returns:
+            pd.DataFrame: A DataFrame with columns for each program use.
+
+        Example:
+                 Condos    Retail
+        2024-01  5000000.0 2000000.0
+        2024-02  5100000.0 2040000.0
+        """
         if not self.is_sales_project:
             return pd.Series(0, index=self.project_timeline)
         return (
@@ -443,7 +675,16 @@ class Project(Model):
 
     @property
     def sale_proceeds_cf(self) -> pd.DataFrame:
-        """Compute the sale proceeds cash flow"""
+        """
+        Compute the sale proceeds cash flow.
+
+        Returns:
+            pd.DataFrame: A DataFrame with columns for sale proceeds and cost of sale.
+
+        Example:
+                 Sale Proceeds  Cost of Sale
+        2036-01  75000000.0    -2250000.0
+        """
         df = pd.DataFrame(index=self.project_timeline)
         df["Sale Proceeds"] = 0  # initialize
         df["Sale Proceeds"] += (
@@ -463,7 +704,19 @@ class Project(Model):
 
     @property
     def unlevered_cash_flow(self) -> pd.DataFrame:
-        """Compute unlevered cash flow"""
+        """
+        Compute unlevered cash flow.
+
+        Returns:
+            pd.DataFrame: A DataFrame with a single column 'Unlevered Cash Flow'.
+
+        Example:
+                 Unlevered Cash Flow
+        2023-01  -1050000.0
+        2023-02  -525000.0
+        ...
+        2036-01  72750000.0
+        """
         # TODO: revisit performance of using concat
         return (
             pd.concat(
@@ -487,7 +740,19 @@ class Project(Model):
 
     @property
     def levered_cash_flow(self) -> pd.DataFrame:
-        """Compute levered cash flow"""
+        """
+        Compute levered cash flow.
+
+        Returns:
+            pd.DataFrame: A DataFrame with a single column 'Levered Cash Flow'.
+
+        Example:
+                 Levered Cash Flow
+        2023-01  -1050000.0
+        2023-02  0.0
+        ...
+        2036-01  42750000.0
+        """
         # PERF: revisit performance of using concat
         return (
             pd.concat(
@@ -695,3 +960,20 @@ class Project(Model):
         df_start_date = pd.Period(ordinal=0, freq="M")
         difference = self.project_start_date - df_start_date
         return df.shift(difference.n, freq="M")
+
+    @model_validator(mode="before")
+    def validate_cap_rates(cls, values):
+        cap_rates = values.get("cap_rates")
+        if isinstance(cap_rates, float):
+            # Convert single float to a list of CapRates objects with the same rate for all uses
+            values["cap_rates"] = [
+                CapRates(
+                    name=f"{use} Cap Rate",
+                    program_use=use,
+                    development_cap_rate=cap_rates,
+                    refinance_cap_rate=cap_rates,
+                    sale_cap_rate=cap_rates,
+                )
+                for use in ProgramUseEnum
+            ]
+        return values
