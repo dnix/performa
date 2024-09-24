@@ -6,6 +6,7 @@ from pydantic import Field
 
 from ..utils.types import FloatBetween0And1, PositiveFloat
 from .model import Model
+from .program import ProgramUseEnum
 from .revenue import Revenue
 
 # %%
@@ -25,10 +26,9 @@ class ExpenseItem(Model):
     # subcategory: Optional[str]  # TBD use
 
     # PROGRAM
-    # program_use: ProgramUseEnum  # use of the program (residential, office, retail, etc.)
-    program_use: Literal[
-        "Residential", "Affordable Residential", "Office", "Retail", "Amenity", "Other"
-    ]
+    program_use: (
+        ProgramUseEnum  # use of the program (residential, office, retail, etc.)
+    )
 
     # EXPENSE
     expense_kind: Literal["cost", "factor"]  # FIXME: create an enum for kind?
@@ -114,10 +114,9 @@ class ExpenseFactorItem(ExpenseItem):
     # GENERAL
     expense_kind: Literal["factor"] = "factor"
     # FACTOR
-    # program_use: ProgramUseEnum  # use of the program (residential, office, retail, etc.)
-    program_use: Literal[
-        "Residential", "Affordable Residential", "Office", "Retail", "Amenity", "Other"
-    ]
+    program_use: (
+        ProgramUseEnum  # use of the program (residential, office, retail, etc.)
+    )
     expense_factor: FloatBetween0And1  # expense factor as a percentage of *revenue*
 
     @property

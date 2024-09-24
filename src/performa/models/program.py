@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Literal, Optional
+from typing import Optional
 
 from ..utils.types import PositiveFloat, PositiveInt
 from .model import Model
@@ -25,10 +25,7 @@ class Program(Model):  # CashFlowModel???
 
     # PROGRAM BASICS
     name: str  # "Studio Apartments"
-    # use: ProgramUseEnum  # use of the program (residential, office, retail, etc.)
-    use: Literal[
-        "Residential", "Affordable Residential", "Office", "Retail", "Amenity", "Other"
-    ]
+    use: ProgramUseEnum  # use of the program (residential, office, retail, etc.)
 
     # UNITS/AREA
     gross_area: Optional[PositiveFloat]  # gross area in square feet
