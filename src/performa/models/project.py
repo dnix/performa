@@ -77,18 +77,11 @@ class Project(Model):
     @property
     def _budget_table(self) -> pd.DataFrame:
         """
-        Pivot table of budget costs.
+        Pivot table of budget costs over time.
 
         Returns:
             pd.DataFrame: A DataFrame with a multi-index of Category, Subcategory, and Name.
-
-        Example:
-                                 Hard Costs       Soft Costs
-        Category Subcategory Name
-        2023-01  Construction Land  1000000.0     0.0
-                              Building  0.0        50000.0
-        2023-02  Construction Building  500000.0   0.0
-                 Fees        Architect  0.0        25000.0
+        
         """
         shifted = self.shift_ordinal_to_project_timeline(self.budget.budget_df)
         return shifted.pivot_table(
@@ -101,18 +94,18 @@ class Project(Model):
     @property
     def _revenue_table(self) -> pd.DataFrame:
         """
-        Pivot table of revenue.
+        Pivot table of revenue sources over time.
 
         Returns:
             pd.DataFrame: A DataFrame with a multi-index of Category, Subcategory, Use, and Name.
 
         Example:
-                                             Revenue
+                                                Revenue
         Category Subcategory Use    Name
-        2023-01  Lease       Office Rent    100000.0
-                             Retail Rent     50000.0
-        2023-02  Lease       Office Rent    102000.0
-                             Retail Rent     51000.0
+        2023-01  Lease       Office Kodak       100000.0
+                             Retail Blockbuster 50000.0
+        2023-02  Lease       Office Kodak       102000.0
+                             Retail Blockbuster 51000.0
         """
         shifted = self.shift_ordinal_to_project_timeline(self.revenue.revenue_df)
         return shifted.pivot_table(
@@ -157,12 +150,12 @@ class Project(Model):
             pd.DataFrame: A DataFrame with a multi-index of Category, Subcategory, and Name.
 
         Example:
-                                 Hard Costs       Soft Costs
-        Category Subcategory Name
-        2023-01  Construction Land  1000000.0     0.0
-                              Building  0.0        50000.0
-        2023-02  Construction Building  500000.0   0.0
-                 Fees        Architect  0.0        25000.0
+                                        Hard Costs  Soft Costs
+        Category Subcategory  Name
+        2023-01  Construction Land      1000000.0   0.0
+                              Building  0.0         50000.0
+        2023-02  Construction Building  500000.0    0.0
+                 Fees         Architect 0.0         25000.0
         """
         return self._budget_table
 
