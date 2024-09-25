@@ -35,8 +35,7 @@ land = BudgetItem(
     cost_total=4_000_000.0,
     periods_until_start=0,
     active_duration=1,
-    draw_sched_kind="uniform",
-    draw_sched_sigma=None,
+    draw_schedule={"kind": "uniform"},
 )
 constr_costs = BudgetItem(
     name="Construction Costs",
@@ -44,27 +43,10 @@ constr_costs = BudgetItem(
     cost_total=12_000_000.0,
     periods_until_start=6,
     active_duration=18,
-    draw_sched_kind="manual",
-    draw_sched_manual=[
-        1,
-        2,
-        3,
-        5,
-        7,
-        9,
-        7,
-        6,
-        10,
-        11,
-        8,
-        7,
-        5,
-        2,
-        1,
-        3,
-        1,
-        1,
-    ],
+    draw_schedule={
+        "kind": "manual",
+        "values": [1, 2, 3, 5, 7, 9, 7, 6, 10, 11, 8, 7, 5, 2, 1, 3, 1, 1],
+    },
 )
 demo_costs = BudgetItem(
     name="Demolition",
@@ -72,8 +54,7 @@ demo_costs = BudgetItem(
     cost_total=550_000.0,
     periods_until_start=3,
     active_duration=3,
-    draw_sched_kind="s-curve",
-    draw_sched_sigma=1.0,
+    draw_schedule={"kind": "s-curve", "sigma": 1.0},
 )
 soft_costs = BudgetItem.from_reference_items(
     name="Total Soft Costs",
@@ -83,8 +64,7 @@ soft_costs = BudgetItem.from_reference_items(
     reference_percentage=0.2,
     periods_until_start=1,
     active_duration=31,
-    draw_sched_kind="uniform",
-    draw_sched_sigma=None,
+    draw_schedule={"kind": "uniform"},
 )
 budget = Budget(budget_items=[land, constr_costs, demo_costs, soft_costs])
 

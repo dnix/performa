@@ -1,9 +1,10 @@
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Union
 
 import numpy as np
 import pandas as pd
-from pydantic import Field, ValidationInfo, field_validator, model_validator
+from pydantic import Field, field_validator
 from scipy.stats import norm
+from typing_extensions import Annotated
 
 from ..utils.types import PositiveFloat, PositiveInt
 from .cash_flow import CashFlowModel
@@ -14,8 +15,50 @@ from .model import Model
 ##########################
 
 
+class DrawSchedule(Model):
+    """Base class for all draw schedules."""
+
+    kind: Literal["s-curve", "uniform", "manual"]
+
+
+class SCurveDrawSchedule(DrawSchedule):
+    """S-curve draw schedule with a sigma parameter."""
+
+    kind: Literal["s-curve"] = "s-curve"
+    sigma: PositiveFloat
+
+
+class UniformDrawSchedule(DrawSchedule):
+    """Uniform draw schedule (evenly distributed)."""
+
+    kind: Literal["uniform"] = "uniform"
+
+
+class ManualDrawSchedule(DrawSchedule):
+    """Manual draw schedule with user-defined values."""
+
+    kind: Literal["manual"] = "manual"
+    values: List[PositiveFloat]
+
+
+# Union type for all draw schedules, using discriminator for type differentiation
+DrawScheduleUnion = Annotated[
+    Union[SCurveDrawSchedule, UniformDrawSchedule, ManualDrawSchedule],
+    Field(discriminator="kind"),
+]
+
+
 class BudgetItem(CashFlowModel):
-    """Class for a generic cost line item in a budget"""
+    """
+    Class for a generic cost line item in a budget.
+
+    Inputs coming from parent class CashFlowModel:
+    - name: str  # "Construction Cost"
+    - notes: Optional[str] = None  # optional notes on the item
+    - start_date: pd.Period  # month zero (need to shift to project start date)
+    - periods_until_start: PositiveInt  # months, from global start date of project
+    - active_duration: PositiveInt  # months
+    """
 
     # TODO: subclass for specific budget line items (Developer, A&E, Soft Costs, FF&E, Other)
     # TODO: add optional details list for more granular budgeting (i.e., rolling-up to a parent budget item)
@@ -28,167 +71,127 @@ class BudgetItem(CashFlowModel):
     cost_total: PositiveFloat  # Total cost of the budget item, e.g., 1_000_000.00
 
     # DRAW SCHEDULE
-    draw_sched_kind: Literal["s-curve", "uniform", "manual"]  # Type of draw schedule
-    # TODO: use enum? add triang? others?
-    draw_sched_sigma: Optional[PositiveFloat] = Field(
-        None, description="Required for s-curve, optional for others"
-    )
-    draw_sched_manual: Optional[List[PositiveFloat]] = (
-        None  # Manual draw schedule values
+    draw_schedule: Optional[DrawScheduleUnion] = Field(
+        default=None,
+        description="Draw schedule for the budget item. Defaults to UniformDrawSchedule if not specified.",
     )
 
-    @field_validator("draw_sched_sigma")
+    @field_validator("draw_schedule")
     @classmethod
-    def validate_draw_sched_sigma(cls, v, info: ValidationInfo):
-        """Ensure draw_sched_sigma is provided when using s-curve draw schedule"""
-        if info.data["draw_sched_kind"] == "s-curve" and v is None:
-            raise ValueError(
-                "draw_sched_sigma is required when draw_sched_kind is 's-curve'"
-            )
-        return v
-
-    @field_validator("draw_sched_manual")
-    @classmethod
-    def validate_manual_draw_schedule(cls, v, info: ValidationInfo):
-        """Validate manual draw schedule when provided"""
-        if info.data["draw_sched_kind"] == "manual":
-            if v is None:
-                raise ValueError(
-                    "Manual draw schedule must be provided when draw_sched_kind is 'manual'"
-                )
-            if len(v) != info.data["active_duration"]:
+    def validate_draw_schedule(cls, v, info):
+        """Validate the draw schedule, ensuring it's set and consistent with active_duration."""
+        if v is None:
+            return UniformDrawSchedule()
+        if isinstance(v, ManualDrawSchedule):
+            if len(v.values) != info.data["active_duration"]:
                 raise ValueError(
                     "Manual draw schedule length must match active_duration"
                 )
         return v
 
-    @model_validator(mode="before")
-    @classmethod
-    def check_draw_sched_sigma(cls, values):
-        """Set draw_sched_sigma to None if not using s-curve"""
-        if values.get("draw_sched_kind") != "s-curve":
-            values["draw_sched_sigma"] = None
-        return values
-
     @property
     def budget_df(self) -> pd.DataFrame:
-        """Construct cash flow for budget costs with categories and subcategories"""
-        if self.draw_sched_kind == "s-curve":
-            # Calculate s-curve distribution
-            timeline_int = np.arange(0, self.active_duration)
-            cf = pd.Series(
-                (
-                    norm.cdf(
-                        timeline_int + 1,
-                        self.active_duration / 2,
-                        self.draw_sched_sigma,
-                    )
-                    - norm.cdf(
-                        timeline_int, self.active_duration / 2, self.draw_sched_sigma
-                    )
-                )
-                / (1 - 2 * norm.cdf(0, self.active_duration / 2, self.draw_sched_sigma))
-                * self.cost_total,
-                index=self.timeline_active,
-            )
-        elif self.draw_sched_kind == "uniform":
-            # Calculate uniform distribution
-            cf = pd.Series(
-                np.ones(self.active_duration) * self.cost_total / self.active_duration,
-                index=self.timeline_active,
-            )
-        elif self.draw_sched_kind == "manual":
-            # Scale provided manual draw schedule to the total cost
-            # Inspo: curve shaping of draws https://www.adventuresincre.com/draw-schedule-custom-cash-flows/
-            total_manual = sum(self.draw_sched_manual)
-            cf = pd.Series(
-                np.array(self.draw_sched_manual) * (self.cost_total / total_manual),
-                index=self.timeline_active,
-            )
+        """Construct cash flow for budget costs with categories and subcategories."""
+        draw_schedule = self.draw_schedule or UniformDrawSchedule()
+        # Calculate cash flow based on draw schedule type
+        if isinstance(draw_schedule, SCurveDrawSchedule):
+            cf = self._calculate_s_curve(draw_schedule)
+        elif isinstance(draw_schedule, UniformDrawSchedule):
+            cf = self._calculate_uniform()
+        elif isinstance(draw_schedule, ManualDrawSchedule):
+            cf = self._calculate_manual(draw_schedule)
 
-        # Create a dataframe with the cash flow and add category and subcategory for downstream analysis
+        # Create a dataframe with the cash flow and add category and subcategory
         df = pd.DataFrame(cf)
-        # Add name, category and subcategory
         df["Name"] = self.name
         df["Category"] = self.category
         df["Subcategory"] = self.subcategory
         return df
 
-    # CONSTRUCTORS
+    def _calculate_s_curve(self, draw_schedule: SCurveDrawSchedule) -> pd.Series:
+        """Calculate S-curve distribution."""
+        timeline_int = np.arange(0, self.active_duration)
+        return pd.Series(
+            (
+                norm.cdf(
+                    timeline_int + 1, self.active_duration / 2, draw_schedule.sigma
+                )
+                - norm.cdf(timeline_int, self.active_duration / 2, draw_schedule.sigma)
+            )
+            / (1 - 2 * norm.cdf(0, self.active_duration / 2, draw_schedule.sigma))
+            * self.cost_total,
+            index=self.timeline_active,
+        )
+
+    def _calculate_uniform(self) -> pd.Series:
+        """Calculate uniform distribution."""
+        return pd.Series(
+            np.ones(self.active_duration) * self.cost_total / self.active_duration,
+            index=self.timeline_active,
+        )
+
+    def _calculate_manual(self, draw_schedule: ManualDrawSchedule) -> pd.Series:
+        """Calculate manual draw schedule."""
+        total_manual = sum(draw_schedule.values)
+        return pd.Series(
+            np.array(draw_schedule.values) * (self.cost_total / total_manual),
+            index=self.timeline_active,
+        )
+
     @classmethod
     def from_unitized(
         cls,
         name: str,
-        # category: Literal["Budget"],
         subcategory: Literal["Land", "Hard Costs", "Soft Costs", "Other"],
         unitized_cost: PositiveFloat,  # Cost per unit (e.g., per GSF, NSF/SSF/RSF, unit)
         unit_count: PositiveInt,  # Number of units or area
         periods_until_start: PositiveInt,
         active_duration: PositiveInt,
-        draw_sched_kind: Literal["s-curve", "uniform", "manual"],
-        # start_date: Optional[pd.Period] = None,
+        draw_schedule: Optional[DrawScheduleUnion] = None,
         notes: Optional[str] = None,
-        draw_sched_sigma: Optional[PositiveFloat] = None,
-        draw_sched_manual: Optional[List[PositiveFloat]] = None,
     ) -> "BudgetItem":
         """Construct a budget item from unitized cost and count"""
         cost_total = unitized_cost * unit_count
         return cls(
             name=name,
-            # category=category,
             subcategory=subcategory,
             notes=notes,
             cost_total=cost_total,
-            # start_date=start_date,
             periods_until_start=periods_until_start,
             active_duration=active_duration,
-            draw_sched_kind=draw_sched_kind,
-            draw_sched_sigma=draw_sched_sigma,
-            draw_sched_manual=draw_sched_manual,
+            draw_schedule=draw_schedule,
         )
 
     @classmethod
     def from_reference_items(
         cls,
         name: str,
-        # category: Literal["Budget"],
         subcategory: Literal["Land", "Hard Costs", "Soft Costs", "Other"],
         reference_budget_items: list["BudgetItem"],
         reference_kind: Literal["sum", "passthrough"],
         reference_percentage: PositiveFloat,
         periods_until_start: PositiveInt,
         active_duration: PositiveInt,
-        draw_sched_kind: Literal["s-curve", "uniform", "manual"],
-        # start_date: Optional[pd.Period] = None,
+        draw_schedule: Optional[DrawScheduleUnion] = None,
         notes: Optional[str] = None,
-        draw_sched_sigma: Optional[PositiveFloat] = None,
-        draw_sched_manual: Optional[List[PositiveFloat]] = None,
     ) -> "BudgetItem":
         """Construct a budget item as a percentage of another budget item or multiple items"""
         if reference_kind == "sum":
-            # Calculate cost as a percentage of the sum of reference items
             cost_total = (
                 sum([item.cost_total for item in reference_budget_items])
                 * reference_percentage
             )
         elif reference_kind == "passthrough":
-            # Calculate cost as a percentage of the first reference item
             cost_total = reference_budget_items[0].cost_total * reference_percentage
         return cls(
             name=name,
-            # category=category,
             subcategory=subcategory,
             notes=notes,
             cost_total=cost_total,
-            # start_date=start_date,
             periods_until_start=periods_until_start,
             active_duration=active_duration,
-            draw_sched_kind=draw_sched_kind,
-            draw_sched_sigma=draw_sched_sigma,
-            draw_sched_manual=draw_sched_manual,
+            draw_schedule=draw_schedule,
         )
-
-    # TODO: just consider a factor-like approach a la opex items below
 
 
 class Budget(Model):
@@ -201,7 +204,5 @@ class Budget(Model):
         """Combine all budget items into a single DataFrame"""
         return pd.concat([item.budget_df for item in self.budget_items])
         # TODO: just use a list for performance? (pd.concat copies data...)
-
-    # TODO: individual cash flow items for each budget item?
 
     # TODO: add methods to sum up budget items by category and subcategory after shifting to project start date
