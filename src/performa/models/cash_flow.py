@@ -1,7 +1,6 @@
 from typing import Optional
 
 import pandas as pd
-from pydantic import field_validator
 
 from ..utils.types import PositiveInt
 from .model import Model
@@ -21,12 +20,13 @@ class CashFlowModel(Model):
     notes: Optional[str] = None  # optional notes on the item
 
     # TIMELINE
-    start_date: pd.Period = pd.Period(
-        ordinal=0,
-        freq="M",
-    )  # month zero (need to shift to project start date)  # TODO: move to property? because not user-defined anymore
     periods_until_start: PositiveInt  # months, from global start date of project
     active_duration: PositiveInt  # months
+
+    @property
+    def start_date(self) -> pd.Period:
+        """Return the global start date (month zero)"""
+        return pd.Period(ordinal=0, freq="M")
 
     @property
     def total_duration(self) -> PositiveInt:
@@ -46,8 +46,3 @@ class CashFlowModel(Model):
             periods=self.active_duration,
             freq="M",
         )
-
-    @field_validator("start_date", mode="before")
-    def to_period(value) -> pd.Period:
-        """Cast as a pandas period"""
-        return pd.Period(value, freq="M")
