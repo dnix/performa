@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from pyobsplot import Obsplot, Plot, js
 from pyxirr import xirr
 
-from performa.models import (
+from performa.development import (
     Budget,
     BudgetItem,
     ConstructionFinancing,

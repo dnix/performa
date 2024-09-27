@@ -1,4 +1,4 @@
-# Import all model classes
+# Import all development classes
 
 from .budget import Budget, BudgetItem
 from .cash_flow import CashFlowModel
@@ -15,7 +15,7 @@ from .revenue import (
     SalesRevenueItem,
 )
 
-# Define __all__ to specify what gets imported with "from performa.models import *"
+# Define __all__ to specify what gets imported with "from performa.development import *"
 __all__ = [
     "Model",
     "CashFlowModel",
