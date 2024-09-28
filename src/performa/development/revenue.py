@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from enum import Enum
 from typing import Annotated, Literal, Optional, Union
 
 import numpy as np
@@ -8,35 +7,17 @@ from pydantic import Field
 
 from ..utils.types import FloatBetween0And1, PositiveFloat, PositiveInt
 from .cash_flow import CashFlowModel
+from .enums import (
+    CashFlowCategoryEnum,
+    RevenueMultiplicandEnum,
+    RevenueSubcategoryEnum,
+)
 from .model import Model
 from .program import Program
 
 ###########################
 ######### REVENUE #########
 ###########################
-
-
-class RevenueCategoryEnum(str, Enum):
-    """Enum for revenue categories"""
-
-    sale = "Sale"
-    lease = "Lease"
-    # TODO: make category models with subcategories built-in (and maybe a hierarchy)
-
-
-class RevenueSubcategoryEnum(str, Enum):
-    """Enum for revenue subcategories"""
-
-    # TODO: develop more subcategories
-
-
-class RevenueMultiplicandEnum(str, Enum):
-    """Enum for program unit kinds (what is being multiplied against)"""
-
-    whole = "Whole Unit"
-    rsf = "RSF"  # rentable square feet
-    parking_space = "Parking Space"
-    other = "Other"
 
 
 class RevenueItem(CashFlowModel, ABC):
@@ -46,8 +27,8 @@ class RevenueItem(CashFlowModel, ABC):
     """
 
     # GENERAL
-    category: Literal["Revenue"] = "Revenue"
-    subcategory: Literal["Sale", "Lease"]  # "Sale" or "Lease"
+    category: CashFlowCategoryEnum = "Revenue"
+    subcategory: RevenueSubcategoryEnum  # "Sale" or "Lease"
     # subcategory: Optional[str] = None  # TBD use, maybe: unit type, use, etc.
 
     # PROGRAM
@@ -55,7 +36,7 @@ class RevenueItem(CashFlowModel, ABC):
 
     # REVENUE
     # revenue_multiplicand: RevenueMultiplicandEnum  # whole unit, rsf, parking space, etc.
-    revenue_multiplicand: Literal["Whole Unit", "RSF", "Parking Space", "Other"]
+    revenue_multiplicand: RevenueMultiplicandEnum  #
     revenue_multiplier: (
         PositiveFloat  # sales: $/{unit,space}; rental: $/{unit,rsf,space}/mo
     )
@@ -80,9 +61,11 @@ class SalesRevenueItem(RevenueItem):
     """
 
     # GENERAL
-    subcategory: Literal["Sale"]
+    subcategory: Literal["Sale"] = "Sale"
     # REVENUE/SALES SCHEDULE
-    revenue_sched_kind: Literal["s-curve", "uniform", "manual"]
+    revenue_sched_kind: Literal[
+        "s-curve", "uniform", "manual"
+    ]  # FIXME: only uniform is implemented for now
     revenue_sched_sigma: Optional[PositiveFloat]
     # revenue_sched_manual: Optional[np.ndarray]  # full cash flow manual input
 
@@ -111,6 +94,7 @@ class SalesRevenueItem(RevenueItem):
         Construct cash flow for sales revenue with categories and subcategories.
         Currently implements a uniform sales distribution.
         """
+        # FIXME: other revenue schedules besides uniform
         # TODO: curve shaping
         # TODO: schedule by unit if applicable (discrete distribution function), not just dollars
         # uniform sales, for now:
@@ -137,7 +121,7 @@ class RentalRevenueItem(RevenueItem):
     # TODO: full lease config (lease-up, rollover, downtime, LC, TI, etc.)
 
     # GENERAL
-    subcategory: Literal["Lease"]
+    subcategory: Literal["Lease"] = "Lease"
     # TIMING
     active_duration: PositiveInt = (
         30 * 12

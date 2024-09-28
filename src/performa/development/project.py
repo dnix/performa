@@ -8,10 +8,10 @@ from pyxirr import pmt  # , npv, xnpv, irr, xirr, mirr, fv
 
 from ..utils.types import FloatBetween0And1, PositiveInt, PositiveIntGt1
 from .budget import Budget
+from .enums import ProgramUseEnum
 from .expense import Expense
 from .financing import ConstructionFinancing, PermanentFinancing
 from .model import Model
-from .program import ProgramUseEnum
 from .revenue import Revenue
 
 # %%
@@ -260,7 +260,12 @@ class Project(Model):
     # RENTAL REVENUE #
     ##################
 
-    def _group_by_program_use(self, df: pd.DataFrame, category: str, subcategory: str) -> pd.DataFrame:
+    def _group_by_program_use(
+        self,
+        df: pd.DataFrame,
+        category: str,
+        subcategory: str,
+    ) -> pd.DataFrame:
         """
         Group a DataFrame by program use for a specific category and subcategory.
 
@@ -306,7 +311,11 @@ class Project(Model):
         2023-02  5100.0   2550.0
         """
         # rental only
-        return self._group_by_program_use(self._structural_losses_table, "Losses", "Lease")
+        return self._group_by_program_use(
+            self._structural_losses_table,
+            "Losses",
+            "Lease",
+        )
 
     @property
     def effective_gross_revenue_cf(self) -> pd.DataFrame:
@@ -693,7 +702,11 @@ class Project(Model):
         """
         if not self.is_sales_project:
             return pd.Series(0, index=self.project_timeline)
-        return self._group_by_program_use(self._revenue_table, "Revenue", "Sale").reindex(self.project_timeline)
+        return self._group_by_program_use(
+            self._revenue_table,
+            "Revenue",
+            "Sale",
+        ).reindex(self.project_timeline)
         # NOTE: to get all revenue per period, use .sum(axis=1)
 
     @property

@@ -13,6 +13,7 @@ from .draw_schedule import (
     SCurveDrawSchedule,
     UniformDrawSchedule,
 )
+from .enums import BudgetSubcategoryEnum, CashFlowCategoryEnum
 from .model import Model
 
 ##########################
@@ -33,9 +34,8 @@ class BudgetItem(CashFlowModel):
     """
 
     # GENERAL
-    category: Literal["Budget"] = "Budget"
-    subcategory: Literal["Land", "Hard Costs", "Soft Costs", "Other"]
-    # subcategory: Optional[BudgetSubcategoryEnum] = None
+    category: CashFlowCategoryEnum = "Budget"
+    subcategory: BudgetSubcategoryEnum  # "Land", "Hard Costs", "Soft Costs", "Other"
 
     # COST
     cost_total: PositiveFloat  # Total cost of the budget item, e.g., 1_000_000.00
@@ -112,7 +112,7 @@ class BudgetItem(CashFlowModel):
     def from_unitized(
         cls,
         name: str,
-        subcategory: Literal["Land", "Hard Costs", "Soft Costs", "Other"],
+        subcategory: BudgetSubcategoryEnum,
         unitized_cost: PositiveFloat,  # Cost per unit (e.g., per GSF, NSF/SSF/RSF, unit)
         unit_count: PositiveInt,  # Number of units or area
         periods_until_start: PositiveInt,
@@ -136,9 +136,9 @@ class BudgetItem(CashFlowModel):
     def from_reference_items(
         cls,
         name: str,
-        subcategory: Literal["Land", "Hard Costs", "Soft Costs", "Other"],
+        subcategory: BudgetSubcategoryEnum,
         reference_budget_items: list["BudgetItem"],
-        reference_kind: Literal["sum", "passthrough"],
+        reference_kind: Literal["sum", "passthrough"],  # sum or passthrough
         reference_percentage: PositiveFloat,
         periods_until_start: PositiveInt,
         active_duration: PositiveInt,

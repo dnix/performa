@@ -6,8 +6,13 @@ import pandas as pd
 from pydantic import Field
 
 from ..utils.types import FloatBetween0And1, PositiveFloat
+from .enums import (
+    CashFlowCategoryEnum,
+    ExpenseKindEnum,
+    ExpenseSubcategoryEnum,
+    ProgramUseEnum,
+)
 from .model import Model
-from .program import ProgramUseEnum
 from .revenue import Revenue
 
 # %%
@@ -25,8 +30,8 @@ class ExpenseItem(Model, ABC):
 
     # GENERAL
     name: str  # "Property Management Fee"
-    category: Literal["Expense"] = "Expense"
-    subcategory: Literal["OpEx", "CapEx"]  # operating expense vs capital expense
+    category: CashFlowCategoryEnum = "Expense"
+    subcategory: ExpenseSubcategoryEnum  # OpEx, CapEx
 
     # PROGRAM
     program_use: (
@@ -34,7 +39,7 @@ class ExpenseItem(Model, ABC):
     )
 
     # EXPENSE
-    expense_kind: Literal["cost", "factor"]  # FIXME: create an enum for kind?
+    expense_kind: ExpenseKindEnum
 
     # REVENUE
     revenue: Revenue  # all revenue rolled together
@@ -76,7 +81,7 @@ class ExpenseCostItem(ExpenseItem):
     """
 
     # GENERAL
-    expense_kind: Literal["cost"] = "cost"
+    expense_kind: Literal["Cost"] = "Cost"
     # COST
     initial_annual_cost: PositiveFloat  # total expense per year
     expense_growth_rate: FloatBetween0And1 = 0.03  # expense growth, simple annual
@@ -129,11 +134,10 @@ class ExpenseFactorItem(ExpenseItem):
     """
 
     # GENERAL
-    expense_kind: Literal["factor"] = "factor"
+    expense_kind: Literal["Factor"] = "Factor"
     # FACTOR
-    program_use: (
-        ProgramUseEnum  # use of the program (residential, office, retail, etc.)
-    )
+    program_use: ProgramUseEnum  # residential, office, retail, etc.
+
     expense_factor: FloatBetween0And1  # expense factor as a percentage of *revenue*
 
     @property
@@ -192,9 +196,5 @@ class Expense(Model):
         Returns:
             pd.DataFrame: Combined DataFrame of all expense items.
 
-        Note:
-        - This method currently uses pd.concat which may have performance implications for large datasets.
-        - TODO: Consider using a list comprehension for performance optimization.
         """
         return pd.concat([item.expense_df for item in self.expense_items])
-        # TODO: Evaluate using a list comprehension for performance: [item.expense_df for item in self.expense_items]

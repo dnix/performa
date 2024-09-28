@@ -1,6 +1,7 @@
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional, Union
 
 import pandas as pd
+from pydantic import Field
 from pyxirr import xirr
 
 from ..utils.types import FloatBetween0And1, PositiveFloat
@@ -37,7 +38,7 @@ class WaterfallTier(Model):
 class WaterfallPromote(Promote):
     """Class for a waterfall promote"""
 
-    kind: Literal["waterfall"]
+    kind: Literal["waterfall"] = "waterfall"
     pref_hurdle_rate: (
         PositiveFloat  # minimum IRR or EM to trigger promote (tier 1); the 'pref'
     )
@@ -48,7 +49,7 @@ class WaterfallPromote(Promote):
 class CarryPromote(Promote):
     """Class for a GP carry promote"""
 
-    kind: Literal["carry"]
+    kind: Literal["carry"] = "carry"
     pref_hurdle_rate: PositiveFloat  # minimum IRR or EM to trigger promote; the 'pref'
     promote_rate: FloatBetween0And1  # promote as a percentage of total profits
     # TODO: consider clawbacks and other carry structures
@@ -60,7 +61,9 @@ class Deal(Model):
     project: Project
     partners: list[Partner]
     promote: Optional[
-        WaterfallPromote | CarryPromote
+        Annotated[
+            Union[WaterfallPromote, CarryPromote], Field(..., discriminator="kind")
+        ]
     ]  # there can also be no GP promote, just pari passu
     # param for running calculations on monthly or annual basis
     time_basis: Literal["monthly", "annual"] = "monthly"

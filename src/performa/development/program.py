@@ -1,23 +1,12 @@
-from enum import Enum
 from typing import Optional
 
 from ..utils.types import PositiveFloat, PositiveInt
+from .enums import ProgramUseEnum
 from .model import Model
 
 ###########################
 ######### PROGRAM #########
 ###########################
-
-
-class ProgramUseEnum(str, Enum):
-    """Enum for program uses"""
-
-    residential = "Residential"
-    affordable_residential = "Affordable Residential"
-    office = "Office"
-    retail = "Retail"
-    amenity = "Amenity"
-    other = "Other"
 
 
 class Program(Model):  # CashFlowModel???

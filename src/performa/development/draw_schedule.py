@@ -4,6 +4,7 @@ from pydantic import Field
 from typing_extensions import Annotated
 
 from ..utils.types import PositiveFloat
+from .enums import DrawScheduleKindEnum
 from .model import Model
 
 ##################################
@@ -14,7 +15,7 @@ from .model import Model
 class DrawSchedule(Model):
     """Base class for all draw schedules."""
 
-    kind: Literal["s-curve", "uniform", "manual"]
+    kind: DrawScheduleKindEnum
 
 
 class SCurveDrawSchedule(DrawSchedule):
