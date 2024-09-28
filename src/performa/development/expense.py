@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from typing import Annotated, Literal, Union
 
 import numpy as np
@@ -15,15 +16,17 @@ from .revenue import Revenue
 ###########################
 
 
-# class ExpenseItem(CashFlowModel):  # FIXME: should be this not Model!?
-class ExpenseItem(Model):
-    """Class for a generic expense line item (rental use case) per program use"""
+# class ExpenseItem(CashFlowModel):  # NOTE: should this extend CashFlowModel instead of Model?
+class ExpenseItem(Model, ABC):
+    """
+    Abstract base class for a generic expense line item (rental use case) per program use.
+    This class defines the common structure and interface for all expense items.
+    """
 
     # GENERAL
     name: str  # "Property Management Fee"
     category: Literal["Expense"] = "Expense"
     subcategory: Literal["OpEx", "CapEx"]  # operating expense vs capital expense
-    # subcategory: Optional[str]  # TBD use
 
     # PROGRAM
     program_use: (
@@ -38,18 +41,28 @@ class ExpenseItem(Model):
 
     @property
     def revenue_df(self) -> pd.DataFrame:
+        """
+        Returns the revenue DataFrame from the associated Revenue object.
+        This is used to align expense calculations with revenue periods.
+        """
         return self.revenue.revenue_df
 
-    # @property
-    # def expense_df(self) -> pd.DataFrame:
-    #     # FIXME: implement and/or make abstract method
-    #     raise NotImplementedError
+    @property
+    @abstractmethod
+    def expense_df(self) -> pd.DataFrame:
+        """
+        Abstract method to construct cash flow for expense with categories and subcategories.
+        This method must be implemented by all concrete subclasses.
+        """
+        pass
 
 
 class ExpenseCostItem(ExpenseItem):
     """
-    Class for a generic operational expense line item (rental use case). Examples:
+    Class for a generic operational expense line item (rental use case).
+    This class represents expenses that are based on a fixed cost that grows over time.
 
+    Examples:
     ### OpEx
     - Repairs and Maintenance
     - Payroll
@@ -60,7 +73,6 @@ class ExpenseCostItem(ExpenseItem):
     - Capital Reserves
     - Insurance
     - Taxes @ millage * assessment (external calculation)
-
     """
 
     # GENERAL
@@ -71,26 +83,31 @@ class ExpenseCostItem(ExpenseItem):
 
     @property
     def expense_df(self) -> pd.DataFrame:
-        """Construct cash flow for expense costs with categories and subcategories"""
+        """
+        Construct cash flow for expense costs with categories and subcategories.
+        This method calculates the expense over time, applying the growth rate annually.
+        """
+        # Filter revenue data to match this expense's program use
         mask = (
             (self.revenue_df["Category"] == "Revenue")
             & (self.revenue_df["Subcategory"] == "Lease")
             & (self.revenue_df["Use"] == self.program_use)
         )
+        # Create a timeline matching the revenue periods
         new_timeline = pd.period_range(
             self.revenue_df.loc[mask].index.min(),
             self.revenue_df.loc[mask].index.max(),
             freq="M",
         )
-        growth_factors = np.ones(mask.sum())
-        growth_factors[12::12] = (
-            1 + self.expense_growth_rate
-        )  # Apply growth factor at the beginning of each year after the first year
+        # Calculate growth factors (applied annually)
+        growth_factors = np.ones(len(new_timeline))
+        growth_factors[12::12] = 1 + self.expense_growth_rate
         cumulative_growth = np.cumprod(growth_factors)
+        # Calculate monthly expenses with growth applied
         monthly_expenses = self.initial_annual_cost / 12 * cumulative_growth
-        cf = pd.Series(monthly_expenses, index=new_timeline)
-        df = pd.DataFrame(cf)
-        # add name, category and subcategory columns
+        # Create DataFrame with calculated expenses
+        df = pd.DataFrame(monthly_expenses, index=new_timeline, columns=[0])
+        # Add metadata columns
         df["Name"] = self.name
         df["Category"] = self.category
         df["Subcategory"] = self.subcategory
@@ -100,15 +117,15 @@ class ExpenseCostItem(ExpenseItem):
 
 class ExpenseFactorItem(ExpenseItem):
     """
+    Class for a generic expense factor (rental use case), calculated as a percentage of gross revenue.
+    This class represents expenses that are directly proportional to revenue.
 
-    Class for a generic expense factor (rental use case), of gross revenue. Examples:
-
+    Examples:
     ### OpEx
-    - Management Fee @ X% of EGR
+    - Management Fee @ X% of EGR (Effective Gross Revenue)
 
-    ### OpEx
-    - Capital account @ X% of EGR?
-
+    ### CapEx
+    - Capital account @ X% of EGR
     """
 
     # GENERAL
@@ -121,22 +138,27 @@ class ExpenseFactorItem(ExpenseItem):
 
     @property
     def expense_df(self) -> pd.DataFrame:
-        """Construct cash flow for expense factors with categories and subcategories"""
+        """
+        Construct cash flow for expense factors with categories and subcategories.
+        This method calculates the expense as a percentage of the corresponding revenue.
+        """
+        # Filter revenue data to match this expense's program use
         mask = (
             (self.revenue_df["Category"] == "Revenue")
             & (self.revenue_df["Subcategory"] == "Lease")
             & (self.revenue_df["Use"] == self.program_use)
         )
+        # Create a timeline matching the revenue periods
         new_timeline = pd.period_range(
             self.revenue_df.loc[mask].index.min(),
             self.revenue_df.loc[mask].index.max(),
             freq="M",
         )
-        cf = pd.Series(
-            self.revenue_df.loc[mask][0] * self.expense_factor, index=new_timeline
-        )
-        df = pd.DataFrame(cf)
-        # add name, category and subcategory columns
+        # Calculate expense as a factor of revenue
+        cf = self.revenue_df.loc[mask][0] * self.expense_factor
+        # Create DataFrame with calculated expenses
+        df = pd.DataFrame(cf.values, index=new_timeline, columns=[0])
+        # Add metadata columns
         df["Name"] = self.name
         df["Category"] = self.category
         df["Subcategory"] = self.subcategory
@@ -144,24 +166,35 @@ class ExpenseFactorItem(ExpenseItem):
         return df
 
 
+# Union type for any kind of expense item
 AnyExpenseItem = Union[ExpenseCostItem, ExpenseFactorItem]
 
 
 class Expense(Model):
-    """Wrapper class for expense items"""
+    """
+    Wrapper class for expense items.
+    This class aggregates multiple expense items and provides methods to access the combined expense data.
+    """
 
     # EXPENSES ITEMS
     expense_items: list[
         Annotated[AnyExpenseItem, Field(..., discriminator="expense_kind")]
     ]
 
-    # need to disagregate by opex/capex and program use
-
-    # FIXME: aggregate all expense dfs into a master df
-
-    # TODO: summary statistics on expenses (opex, capex)
+    # TODO: Implement method to disaggregate by opex/capex and program use
+    # TODO: Implement summary statistics on expenses (opex, capex)
 
     @property
     def expense_df(self) -> pd.DataFrame:
+        """
+        Aggregates all expense items into a single DataFrame.
+
+        Returns:
+            pd.DataFrame: Combined DataFrame of all expense items.
+
+        Note:
+        - This method currently uses pd.concat which may have performance implications for large datasets.
+        - TODO: Consider using a list comprehension for performance optimization.
+        """
         return pd.concat([item.expense_df for item in self.expense_items])
-        # TODO: just use a list for performance? (pd.concat copies data...)
+        # TODO: Evaluate using a list comprehension for performance: [item.expense_df for item in self.expense_items]

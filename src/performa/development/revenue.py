@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Annotated, Literal, Optional, Union
 
@@ -38,8 +39,11 @@ class RevenueMultiplicandEnum(str, Enum):
     other = "Other"
 
 
-class RevenueItem(CashFlowModel):  # use abstract class?
-    """Class for a generic revenue line item"""
+class RevenueItem(CashFlowModel, ABC):
+    """
+    Abstract base class for a generic revenue line item.
+    This class defines the common structure and interface for all revenue items.
+    """
 
     # GENERAL
     category: Literal["Revenue"] = "Revenue"
@@ -56,9 +60,24 @@ class RevenueItem(CashFlowModel):  # use abstract class?
         PositiveFloat  # sales: $/{unit,space}; rental: $/{unit,rsf,space}/mo
     )
 
+    @property
+    @abstractmethod
+    def revenue_total(self) -> PositiveFloat:
+        """Calculate the total revenue for the item"""
+        pass
+
+    @property
+    @abstractmethod
+    def revenue_df(self) -> pd.DataFrame:
+        """Construct cash flow for revenue with categories and subcategories"""
+        pass
+
 
 class SalesRevenueItem(RevenueItem):
-    """Class for a sales revenue line item"""
+    """
+    Class for a sales revenue line item.
+    This class represents revenue generated from sales of units or spaces.
+    """
 
     # GENERAL
     subcategory: Literal["Sale"]
@@ -75,6 +94,9 @@ class SalesRevenueItem(RevenueItem):
 
     @property
     def revenue_total(self) -> PositiveFloat:
+        """
+        Calculate the total revenue for the sales item based on the revenue multiplicand.
+        """
         # compute multiplier based on multiplicand
         if self.revenue_multiplicand in ("Whole Unit", "Parking Space"):
             return self.revenue_multiplier * self.program.unit_count
@@ -85,7 +107,10 @@ class SalesRevenueItem(RevenueItem):
 
     @property
     def revenue_df(self) -> pd.DataFrame:
-        """Construct cash flow for sales revenue with categories and subcategories"""
+        """
+        Construct cash flow for sales revenue with categories and subcategories.
+        Currently implements a uniform sales distribution.
+        """
         # TODO: curve shaping
         # TODO: schedule by unit if applicable (discrete distribution function), not just dollars
         # uniform sales, for now:
@@ -103,7 +128,10 @@ class SalesRevenueItem(RevenueItem):
 
 
 class RentalRevenueItem(RevenueItem):
-    """Class for a rental revenue line item"""
+    """
+    Class for a rental revenue line item.
+    This class represents revenue generated from leasing units or spaces.
+    """
 
     # FIXME: revisit pre-lease, lease-up pace logic
     # TODO: full lease config (lease-up, rollover, downtime, LC, TI, etc.)
@@ -120,7 +148,26 @@ class RentalRevenueItem(RevenueItem):
     vacancy_rate: FloatBetween0And1 = 0.05  # 5% vacancy/credit loss rate
 
     @property
+    def revenue_total(self) -> PositiveFloat:
+        """
+        Calculate the total potential revenue over the active duration for rental items.
+        """
+        # FIXME: check this logic
+        initial_rent = self.initial_rent_rate
+        total_months = self.active_duration
+        annual_growth = 1 + self.revenue_growth_rate
+        total_revenue = (
+            initial_rent
+            * ((annual_growth ** (total_months / 12) - 1) / (annual_growth - 1))
+            * 12
+        )
+        return total_revenue
+
+    @property
     def initial_rent_rate(self) -> PositiveFloat:
+        """
+        Calculate the initial rent rate based on the revenue multiplicand.
+        """
         # compute multiplier based on multiplicand
         if self.revenue_multiplicand in ("Whole Unit", "Parking Space"):
             return (
@@ -133,7 +180,9 @@ class RentalRevenueItem(RevenueItem):
 
     @property
     def revenue_df(self) -> pd.DataFrame:
-        """Construct cash flow for rental revenue, with growth, with categories and subcategories"""
+        """
+        Construct cash flow for rental revenue, with growth, categories and subcategories.
+        """
         # build rental cash flow from initial rent and growth rate
         growth_factors = np.ones(self.active_duration)
         growth_factors[12::12] = (
@@ -155,7 +204,9 @@ class RentalRevenueItem(RevenueItem):
 
     @property
     def structural_losses_df(self) -> pd.Series:
-        """Construct cash flow for vacancy/credit losses"""
+        """
+        Construct cash flow for vacancy/credit losses.
+        """
         cf = self.revenue_df[0] * self.vacancy_rate
         df = pd.DataFrame(cf)
         # add name, category and subcategory columns
@@ -172,7 +223,10 @@ AnyRevenueItem = Union[SalesRevenueItem, RentalRevenueItem]
 
 
 class Revenue(Model):
-    """Wrapper class for revenue items"""
+    """
+    Wrapper class for revenue items.
+    This class aggregates multiple revenue items and provides methods to access the combined revenue data.
+    """
 
     # REVENUE
     revenue_items: list[
@@ -183,11 +237,17 @@ class Revenue(Model):
 
     @property
     def revenue_df(self) -> pd.DataFrame:
+        """
+        Aggregates all revenue items into a single DataFrame.
+        """
         return pd.concat([item.revenue_df for item in self.revenue_items])
         # TODO: just use a list for performance? (pd.concat copies data...)
 
     @property
     def structural_losses_df(self) -> pd.Series:
+        """
+        Aggregates structural losses (e.g., vacancy) from all applicable revenue items.
+        """
         return pd.concat(
             [
                 item.structural_losses_df
@@ -200,7 +260,10 @@ class Revenue(Model):
 
     @property
     def program_summary(self) -> pd.DataFrame:
-        """Summarize programs in the revenue items"""
+        """
+        Summarize programs in the revenue items.
+        Returns a DataFrame with key metrics for each unique program.
+        """
         programs = list(
             set([item.program for item in self.revenue_items])
         )  # unique programs
