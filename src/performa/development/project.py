@@ -260,6 +260,21 @@ class Project(Model):
     # RENTAL REVENUE #
     ##################
 
+    def _group_by_program_use(self, df: pd.DataFrame, category: str, subcategory: str) -> pd.DataFrame:
+        """
+        Group a DataFrame by program use for a specific category and subcategory.
+
+        Args:
+            df (pd.DataFrame): The input DataFrame with a multi-level column structure.
+            category (str): The category to select (e.g., 'Revenue', 'Expense').
+            subcategory (str): The subcategory to select (e.g., 'Lease', 'Sale', 'OpEx', 'CapEx').
+
+        Returns:
+            pd.DataFrame: A DataFrame grouped by program use.
+        """
+        selected = df.loc[:, (category, subcategory, slice(None), slice(None))]
+        return selected.T.groupby(level=2).sum().T
+
     @property
     def total_potential_income_cf(self) -> pd.DataFrame:
         """
@@ -274,11 +289,7 @@ class Project(Model):
         2023-02  102000.0  51000.0
         """
         # TODO: rental only?
-        return (
-            self._revenue_table.loc[:, ("Revenue", "Lease", slice(None), slice(None))]
-            .groupby(level=2, axis=1)
-            .sum()
-        )
+        return self._group_by_program_use(self._revenue_table, "Revenue", "Lease")
         # to get all revenue per period, use sum(axis=1)
 
     @property
@@ -295,13 +306,7 @@ class Project(Model):
         2023-02  5100.0   2550.0
         """
         # rental only
-        return (
-            self._structural_losses_table.loc[
-                :, ("Losses", "Lease", slice(None), slice(None))
-            ]
-            .groupby(level=2, axis=1)
-            .sum()
-        )
+        return self._group_by_program_use(self._structural_losses_table, "Losses", "Lease")
 
     @property
     def effective_gross_revenue_cf(self) -> pd.DataFrame:
@@ -331,11 +336,7 @@ class Project(Model):
         2023-01  20000.0  10000.0
         2023-02  20400.0  10200.0
         """
-        return (
-            self._expense_table.loc[:, ("Expense", "OpEx", slice(None), slice(None))]
-            .groupby(level=2, axis=1)
-            .sum()
-        )
+        return self._group_by_program_use(self._expense_table, "Expense", "OpEx")
 
     @property
     def net_operating_income_cf(self) -> pd.DataFrame:
@@ -365,11 +366,7 @@ class Project(Model):
         2023-01  5000.0  2500.0
         2023-02  5100.0  2550.0
         """
-        return (
-            self._expense_table.loc[:, ("Expense", "CapEx", slice(None), slice(None))]
-            .groupby(level=2, axis=1)
-            .sum()
-        )
+        return self._group_by_program_use(self._expense_table, "Expense", "CapEx")
 
     @property
     def cash_flow_from_operations_cf(self) -> pd.DataFrame:
@@ -696,13 +693,8 @@ class Project(Model):
         """
         if not self.is_sales_project:
             return pd.Series(0, index=self.project_timeline)
-        return (
-            self._revenue_table.loc[:, ("Revenue", "Sale", slice(None), slice(None))]
-            .groupby(level=2, axis=1)
-            .sum()
-            .reindex(self.project_timeline)
-        )
-        # to get all revenue per period, use sum(axis=1)
+        return self._group_by_program_use(self._revenue_table, "Revenue", "Sale").reindex(self.project_timeline)
+        # NOTE: to get all revenue per period, use .sum(axis=1)
 
     @property
     def sale_proceeds_cf(self) -> pd.DataFrame:
