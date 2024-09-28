@@ -1,51 +1,23 @@
-from typing import List, Literal, Optional, Union
+from typing import Literal, Optional
 
 import numpy as np
 import pandas as pd
 from pydantic import Field, field_validator
 from scipy.stats import norm
-from typing_extensions import Annotated
 
 from ..utils.types import PositiveFloat, PositiveInt
 from .cash_flow import CashFlowModel
+from .draw_schedule import (
+    AnyDrawSchedule,
+    ManualDrawSchedule,
+    SCurveDrawSchedule,
+    UniformDrawSchedule,
+)
 from .model import Model
 
 ##########################
 ######### BUDGET #########
 ##########################
-
-
-class DrawSchedule(Model):
-    """Base class for all draw schedules."""
-
-    kind: Literal["s-curve", "uniform", "manual"]
-
-
-class SCurveDrawSchedule(DrawSchedule):
-    """S-curve draw schedule with a sigma parameter."""
-
-    kind: Literal["s-curve"] = "s-curve"
-    sigma: PositiveFloat
-
-
-class UniformDrawSchedule(DrawSchedule):
-    """Uniform draw schedule (evenly distributed)."""
-
-    kind: Literal["uniform"] = "uniform"
-
-
-class ManualDrawSchedule(DrawSchedule):
-    """Manual draw schedule with user-defined values."""
-
-    kind: Literal["manual"] = "manual"
-    values: List[PositiveFloat]
-
-
-# Union type for all draw schedules, using discriminator for type differentiation
-DrawScheduleUnion = Annotated[
-    Union[SCurveDrawSchedule, UniformDrawSchedule, ManualDrawSchedule],
-    Field(discriminator="kind"),
-]
 
 
 class BudgetItem(CashFlowModel):
@@ -60,8 +32,6 @@ class BudgetItem(CashFlowModel):
     - active_duration: PositiveInt  # months
     """
 
-    # TODO: subclass for specific budget line items (Developer, A&E, Soft Costs, FF&E, Other)
-    # TODO: add optional details list for more granular budgeting (i.e., rolling-up to a parent budget item)
     # GENERAL
     category: Literal["Budget"] = "Budget"
     subcategory: Literal["Land", "Hard Costs", "Soft Costs", "Other"]
@@ -71,7 +41,7 @@ class BudgetItem(CashFlowModel):
     cost_total: PositiveFloat  # Total cost of the budget item, e.g., 1_000_000.00
 
     # DRAW SCHEDULE
-    draw_schedule: Optional[DrawScheduleUnion] = Field(
+    draw_schedule: Optional[AnyDrawSchedule] = Field(
         default=None,
         description="Draw schedule for the budget item. Defaults to UniformDrawSchedule if not specified.",
     )
@@ -147,7 +117,7 @@ class BudgetItem(CashFlowModel):
         unit_count: PositiveInt,  # Number of units or area
         periods_until_start: PositiveInt,
         active_duration: PositiveInt,
-        draw_schedule: Optional[DrawScheduleUnion] = None,
+        draw_schedule: Optional[AnyDrawSchedule] = None,
         notes: Optional[str] = None,
     ) -> "BudgetItem":
         """Construct a budget item from unitized cost and count"""
@@ -172,7 +142,7 @@ class BudgetItem(CashFlowModel):
         reference_percentage: PositiveFloat,
         periods_until_start: PositiveInt,
         active_duration: PositiveInt,
-        draw_schedule: Optional[DrawScheduleUnion] = None,
+        draw_schedule: Optional[AnyDrawSchedule] = None,
         notes: Optional[str] = None,
     ) -> "BudgetItem":
         """Construct a budget item as a percentage of another budget item or multiple items"""
@@ -204,5 +174,3 @@ class Budget(Model):
         """Combine all budget items into a single DataFrame"""
         return pd.concat([item.budget_df for item in self.budget_items])
         # TODO: just use a list for performance? (pd.concat copies data...)
-
-    # TODO: add methods to sum up budget items by category and subcategory after shifting to project start date
