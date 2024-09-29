@@ -20,13 +20,14 @@ dependencies = [
     "squarify",
 ]
 
-[project.dev-dependencies]
-dev = [
+[tool.uv]
+dev-dependencies = [
     "ruff",
+    "deptry",
     "marimo",
     "streamlit",
     "streamlit-extras",
-    "git+https://github.com/HIL340/streamlit-pydantic.git@pydantic-2.7",
+    "streamlit-pydantic @ git+https://github.com/HIL340/streamlit-pydantic.git@pydantic-2.7",
     "watchdog",
 ]
 
