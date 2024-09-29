@@ -1,9 +1,9 @@
 from datetime import date
-from typing import Optional
+from typing import Dict, Optional, Union
 
 import numpy as np
 import pandas as pd
-from pydantic import field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from pyxirr import pmt  # , npv, xnpv, irr, xirr, mirr, fv
 
 from ..utils.types import FloatBetween0And1, PositiveInt, PositiveIntGt1
@@ -20,18 +20,28 @@ from .revenue import Revenue
 ###########################
 
 
-class CapRates(Model):
-    """Class for a generic cap rate model"""
+class CapRate(BaseModel):
+    """
+    Represents the cap rates for different stages of a project.
 
-    name: str  # "Residential Cap Rates"
-    program_use: ProgramUseEnum  # program use for the cap rate model
-    development_cap_rate: FloatBetween0And1  # cap rate at development
-    refinance_cap_rate: FloatBetween0And1  # cap rate at refinance
-    sale_cap_rate: FloatBetween0And1  # cap rate at sale
+    Attributes:
+        `development_cap_rate` (FloatBetween0And1): Cap rate during development phase.
+        `refinance_cap_rate` (FloatBetween0And1): Cap rate at refinancing.
+        `sale_cap_rate` (FloatBetween0And1): Cap rate at sale.
+    """
+
+    development_cap_rate: FloatBetween0And1
+    refinance_cap_rate: FloatBetween0And1
+    sale_cap_rate: FloatBetween0And1
 
 
 class Project(Model):
-    """Class for a generic project"""
+    """
+    Represents a generic real estate development project.
+
+    This class encapsulates all aspects of a real estate project, including financing,
+    revenue, expenses, and disposition strategies.
+    """
 
     # GENERAL INFO
     # name: str  # "La Tour Eiffel"
@@ -63,25 +73,25 @@ class Project(Model):
 
     # DISPOSITION
     # -> rental:
-    cap_rates: list[CapRates] | float  # market cap rates FOR EACH PROGRAM USE
+    cap_rates: Union[Dict[ProgramUseEnum, Union[CapRate, float]], float] = Field(
+        ...,  # This makes the field required
+        description="Cap rates for each program use (as CapRate objects or floats) or a single float for all uses",
+    )
     hold_duration: Optional[
         PositiveIntGt1
     ]  # years to hold before disposition (required for rental revenues only)
     # -> sales and rental:
     cost_of_sale: FloatBetween0And1 = 0.03  # cost of sale as a percentage of sale price (broker fees, closing costs, etc.)
 
-    # FIXME: validator to ensure a cap rate for each program use!
-
-    # PROPERTIES  for important cash flows
+    # PROPERTIES for important cash flows
 
     @property
     def _budget_table(self) -> pd.DataFrame:
         """
-        Pivot table of budget costs over time.
+        Creates a pivot table of budget costs over time.
 
         Returns:
             pd.DataFrame: A DataFrame with a multi-index of Category, Subcategory, and Name.
-
         """
         shifted = self.shift_ordinal_to_project_timeline(self.budget.budget_df)
         return shifted.pivot_table(
@@ -94,7 +104,7 @@ class Project(Model):
     @property
     def _revenue_table(self) -> pd.DataFrame:
         """
-        Pivot table of revenue sources over time.
+        Creates a pivot table of revenue sources over time.
 
         Returns:
             pd.DataFrame: A DataFrame with a multi-index of Category, Subcategory, Use, and Name.
@@ -117,6 +127,12 @@ class Project(Model):
 
     @property
     def _structural_losses_table(self) -> pd.DataFrame:
+        """
+        Creates a pivot table of structural losses over time.
+
+        Returns:
+            pd.DataFrame: A DataFrame with a multi-index of Category, Subcategory, Use, and Name.
+        """
         shifted = self.shift_ordinal_to_project_timeline(
             self.revenue.structural_losses_df
         )
@@ -129,6 +145,12 @@ class Project(Model):
 
     @property
     def _expense_table(self) -> pd.DataFrame:
+        """
+        Creates a pivot table of expenses over time.
+
+        Returns:
+            pd.DataFrame: A DataFrame with a multi-index of Category, Subcategory, Use, and Name.
+        """
         shifted = self.shift_ordinal_to_project_timeline(self.expenses.expense_df)
         return shifted.pivot_table(
             values=0,
@@ -144,7 +166,7 @@ class Project(Model):
     @property
     def construction_before_financing_cf(self) -> pd.DataFrame:
         """
-        Pivot table of budget costs before financing.
+        Computes the construction cash flow before financing.
 
         Returns:
             pd.DataFrame: A DataFrame with a multi-index of Category, Subcategory, and Name.
@@ -162,7 +184,7 @@ class Project(Model):
     @property
     def construction_financing_cf(self) -> pd.DataFrame:
         """
-        Compute construction financing cash flow with debt and equity draws, fees, and interest reserve.
+        Computes the construction financing cash flow with debt and equity draws, fees, and interest reserve.
 
         Returns:
             pd.DataFrame: A DataFrame with columns for financing components.
@@ -244,7 +266,7 @@ class Project(Model):
     @property
     def equity_cf(self) -> pd.DataFrame:
         """
-        Compute equity cash flow.
+        Computes the equity cash flow.
 
         Returns:
             pd.DataFrame: A DataFrame with a single column 'Equity'.
@@ -267,7 +289,7 @@ class Project(Model):
         subcategory: str,
     ) -> pd.DataFrame:
         """
-        Group a DataFrame by program use for a specific category and subcategory.
+        Groups a DataFrame by program use for a specific category and subcategory.
 
         Args:
             df (pd.DataFrame): The input DataFrame with a multi-level column structure.
@@ -283,7 +305,7 @@ class Project(Model):
     @property
     def total_potential_income_cf(self) -> pd.DataFrame:
         """
-        Construct cash flow for total potential income by program use.
+        Constructs cash flow for total potential income by program use.
 
         Returns:
             pd.DataFrame: A DataFrame with columns for each program use.
@@ -300,7 +322,7 @@ class Project(Model):
     @property
     def losses_cf(self) -> pd.DataFrame:
         """
-        Construct cash flow for structural losses by program use.
+        Constructs cash flow for structural losses by program use.
 
         Returns:
             pd.DataFrame: A DataFrame with columns for each program use.
@@ -320,7 +342,7 @@ class Project(Model):
     @property
     def effective_gross_revenue_cf(self) -> pd.DataFrame:
         """
-        Construct cash flow for effective gross revenue by program use.
+        Constructs cash flow for effective gross revenue by program use.
 
         Returns:
             pd.DataFrame: A DataFrame with columns for each program use.
@@ -335,7 +357,7 @@ class Project(Model):
     @property
     def opex_cf(self) -> pd.DataFrame:
         """
-        Compute operating expenses cash flow.
+        Computes operating expenses cash flow.
 
         Returns:
             pd.DataFrame: A DataFrame with columns for each program use.
@@ -350,7 +372,7 @@ class Project(Model):
     @property
     def net_operating_income_cf(self) -> pd.DataFrame:
         """
-        Compute net operating income cash flow.
+        Computes net operating income cash flow.
 
         Returns:
             pd.DataFrame: A DataFrame with columns for each program use.
@@ -365,7 +387,7 @@ class Project(Model):
     @property
     def capex_cf(self) -> pd.DataFrame:
         """
-        Compute capital expenditure cash flow.
+        Computes capital expenditure cash flow.
 
         Returns:
             pd.DataFrame: A DataFrame with columns for each program use.
@@ -380,7 +402,7 @@ class Project(Model):
     @property
     def cash_flow_from_operations_cf(self) -> pd.DataFrame:
         """
-        Compute cash flow from operations.
+        Computes cash flow from operations.
 
         Returns:
             pd.DataFrame: A DataFrame with columns for each program use.
@@ -399,7 +421,7 @@ class Project(Model):
     @property
     def _cap_rates_table(self) -> pd.DataFrame:
         """
-        Compute cap rates table.
+        Computes cap rates table.
 
         Returns:
             pd.DataFrame: A DataFrame with cap rates for each program use.
@@ -410,24 +432,21 @@ class Project(Model):
         Office  0.05         0.045      0.04
         Retail  0.06         0.055      0.05
         """
-        df = pd.DataFrame(
-            [
-                {
-                    "Use": cap_rate.program_use,
-                    "Development Cap Rate": cap_rate.development_cap_rate,
-                    "Refinance Cap Rate": cap_rate.refinance_cap_rate,
-                    "Sale Cap Rate": cap_rate.sale_cap_rate,
+        return pd.DataFrame(
+            {
+                use: {
+                    "Development Cap Rate": rates.development_cap_rate,
+                    "Refinance Cap Rate": rates.refinance_cap_rate,
+                    "Sale Cap Rate": rates.sale_cap_rate,
                 }
-                for cap_rate in self.cap_rates
-            ]
-        )
-        df.set_index("Use", inplace=True)  # lookups by program use
-        return df
+                for use, rates in self.cap_rates.items()
+            }
+        ).T
 
     @property
     def stabilization_date(self) -> pd.Period:
         """
-        Compute the stabilization date.
+        Computes the stabilization date.
 
         Returns:
             pd.Period: The stabilization date.
@@ -447,7 +466,7 @@ class Project(Model):
     @property
     def refinance_value(self) -> float:
         """
-        Compute the refinance value.
+        Computes the refinance value.
 
         Returns:
             float: The total refinance value across all program uses.
@@ -485,7 +504,7 @@ class Project(Model):
     @property
     def construction_loan_repayment_cf(self) -> pd.DataFrame:
         """
-        Compute the construction loan repayment cash flow.
+        Computes the construction loan repayment cash flow.
 
         Returns:
             pd.DataFrame: A DataFrame with a single column 'Construction Loan Repayment'.
@@ -507,7 +526,7 @@ class Project(Model):
     @property
     def refinance_amount(self) -> float:
         """
-        Compute the refinance amount.
+        Computes the refinance amount.
 
         Returns:
             float: The refinance amount.
@@ -520,7 +539,7 @@ class Project(Model):
     @property
     def refinance_infusion_cf(self) -> pd.DataFrame:
         """
-        Compute the refinance infusion cash flow.
+        Computes the refinance infusion cash flow.
 
         Returns:
             pd.DataFrame: A DataFrame with a single column 'Refinance Infusion'.
@@ -541,7 +560,7 @@ class Project(Model):
     @property
     def permanent_financing_cf(self) -> pd.DataFrame:
         """
-        Compute the permanent financing cash flow.
+        Computes the permanent financing cash flow.
 
         Returns:
             pd.DataFrame: A DataFrame with columns for payment components.
@@ -564,7 +583,7 @@ class Project(Model):
     @property
     def permanent_financing_repayment_cf(self) -> pd.DataFrame:
         """
-        Compute the permanent financing repayment cash flow.
+        Computes the permanent financing repayment cash flow.
 
         Returns:
             pd.DataFrame: A DataFrame with a single column 'Permanent Financing Repayment'.
@@ -585,7 +604,7 @@ class Project(Model):
     @property
     def cash_flow_after_financing_cf(self) -> pd.DataFrame:
         """
-        Compute cash flow after financing.
+        Computes cash flow after financing.
 
         Returns:
             pd.DataFrame: A DataFrame with a single column 'Cash Flow After Financing'.
@@ -609,7 +628,7 @@ class Project(Model):
     @property
     def dscr(self) -> pd.DataFrame:
         """
-        Compute the debt service coverage ratio over time.
+        Computes the debt service coverage ratio over time.
 
         Returns:
             pd.DataFrame: A DataFrame with DSCR for each program use.
@@ -627,7 +646,7 @@ class Project(Model):
     @property
     def sale_value(self) -> float:
         """
-        Compute the sale value.
+        Computes the sale value.
 
         Returns:
             float: The total sale value across all program uses.
@@ -665,7 +684,7 @@ class Project(Model):
     @property
     def disposition_cf(self) -> pd.DataFrame:
         """
-        Compute the sale infusion cash flow.
+        Computes the sale infusion cash flow.
 
         Returns:
             pd.DataFrame: A DataFrame with a single column 'Disposition'.
@@ -753,7 +772,6 @@ class Project(Model):
         ...
         2036-01  72750000.0
         """
-        # TODO: revisit performance of using concat
         return (
             pd.concat(
                 [
@@ -789,7 +807,6 @@ class Project(Model):
         ...
         2036-01  42750000.0
         """
-        # PERF: revisit performance of using concat
         return (
             pd.concat(
                 [
@@ -997,19 +1014,38 @@ class Project(Model):
         difference = self.project_start_date - df_start_date
         return df.shift(difference.n, freq="M")
 
-    @model_validator(mode="before")
-    def validate_cap_rates(cls, values):
-        cap_rates = values.get("cap_rates")
-        if isinstance(cap_rates, float):
-            # Convert single float to a list of CapRates objects with the same rate for all uses
-            values["cap_rates"] = [
-                CapRates(
-                    name=f"{use} Cap Rate",
-                    program_use=use,
-                    development_cap_rate=cap_rates,
-                    refinance_cap_rate=cap_rates,
-                    sale_cap_rate=cap_rates,
+    @model_validator(mode="after")
+    def validate_cap_rates(self):
+        program_uses = set(self.revenue.program_summary["Use"])
+        if isinstance(self.cap_rates, float):
+            # Convert single float to a dictionary of CapRate objects for all project uses
+            self.cap_rates = {
+                use: CapRate(
+                    development_cap_rate=self.cap_rates,
+                    refinance_cap_rate=self.cap_rates,
+                    sale_cap_rate=self.cap_rates,
                 )
-                for use in ProgramUseEnum
-            ]
-        return values
+                for use in program_uses
+            }
+        elif isinstance(self.cap_rates, dict):
+            # Ensure all project program uses are present in the dictionary
+            missing_uses = program_uses - set(self.cap_rates.keys())
+            if missing_uses:
+                raise ValueError(
+                    f"Missing cap rates for project program uses: {missing_uses}"
+                )
+            # Convert any float values to CapRate objects
+            for use, rate in self.cap_rates.items():
+                if isinstance(rate, float):
+                    self.cap_rates[use] = CapRate(
+                        development_cap_rate=rate,
+                        refinance_cap_rate=rate,
+                        sale_cap_rate=rate,
+                    )
+                elif not isinstance(rate, CapRate):
+                    raise ValueError(
+                        f"Cap rate for {use} must be either a float or a CapRate object"
+                    )
+        else:
+            raise ValueError("cap_rates must be either a float or a dictionary")
+        return self
