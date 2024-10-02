@@ -185,9 +185,6 @@ class Expense(Model):
         Annotated[AnyExpenseItem, Field(..., discriminator="expense_kind")]
     ]
 
-    # TODO: Implement method to disaggregate by opex/capex and program use
-    # TODO: Implement summary statistics on expenses (opex, capex)
-
     @property
     def expense_df(self) -> pd.DataFrame:
         """
