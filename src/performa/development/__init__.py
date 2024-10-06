@@ -1,5 +1,6 @@
 # Import all development classes
 
+# Import and apply custom pandas settings
 from .budget import Budget, BudgetItem
 from .cash_flow import CashFlowModel
 from .deal import CarryPromote, Deal, Partner, Promote, WaterfallPromote, WaterfallTier
@@ -7,7 +8,7 @@ from .expense import Expense, ExpenseCostItem, ExpenseFactorItem, ExpenseItem
 from .financing import ConstructionFinancing, PermanentFinancing
 from .model import Model
 from .program import Program
-from .project import CapRates, Project
+from .project import CapRate, Project
 from .revenue import (
     RentalRevenueItem,
     Revenue,
@@ -33,7 +34,7 @@ __all__ = [
     "ConstructionFinancing",
     "PermanentFinancing",
     "Project",
-    "CapRates",
+    "CapRate",
     "Partner",
     "Promote",
     "WaterfallTier",
