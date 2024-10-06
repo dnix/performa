@@ -1,5 +1,7 @@
 from typing import Optional
 
+from pydantic import ConfigDict
+
 from ..utils.types import PositiveFloat, PositiveInt
 from .enums import ProgramUseEnum
 from .model import Model
@@ -21,3 +23,7 @@ class Program(Model):  # CashFlowModel???
     net_area: PositiveFloat  # net sellable/rentable area in square feet
     unit_count: PositiveInt  # number of income-generating units/spaces
     # program_multiplier: PositiveInt = 1  # if modeling more than one of the same program
+
+    model_config = ConfigDict(
+        frozen=True,  # make the program object immutable to enable hashing/set operations
+    )
