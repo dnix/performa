@@ -1,6 +1,10 @@
-# Import all development classes
+# Copyright 2024 David Gordon Nix
+# SPDX-License-Identifier: Apache-2.0
 
-# Import and apply custom pandas settings
+# Import the custom decimal types to ensure they're registered
+from ..utils import decimal as _decimal  # noqa
+
+# Import all development classes
 from .budget import Budget, BudgetItem
 from .cash_flow import CashFlowModel
 from .deal import CarryPromote, Deal, Partner, Promote, WaterfallPromote, WaterfallTier
