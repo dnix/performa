@@ -32,10 +32,9 @@ class DecimalDtype(ExtensionDtype):
         _metadata (tuple): A tuple containing the attributes that should be considered when comparing two instances.
     """
 
+    base = np.dtype("O")
     type: decimal.Decimal
     _match = re.compile(r"decimal\[(\d+)\]")
-
-    base = np.dtype("O")
     _metadata = ("scale",)
 
     def __new__(cls, scale=0):
