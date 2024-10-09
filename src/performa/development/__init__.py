@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Import the custom decimal types to ensure they're registered
-from ..utils import decimal as _decimal  # noqa
+from ..utils import _decimal  # noqa
 
 # Import all development classes
 from ._budget import Budget, BudgetItem

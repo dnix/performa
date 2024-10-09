@@ -4,7 +4,7 @@ import pandas as pd
 from pydantic import Field
 from pyxirr import xirr
 
-from ..utils.types import FloatBetween0And1, PositiveFloat
+from ..utils._types import FloatBetween0And1, PositiveFloat
 from ._model import Model
 from ._project import Project
 

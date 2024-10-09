@@ -2,7 +2,7 @@ from typing import Optional
 
 import pandas as pd
 
-from ..utils.types import PositiveInt
+from ..utils._types import PositiveInt
 from ._model import Model
 
 ########################

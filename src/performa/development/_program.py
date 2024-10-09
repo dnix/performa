@@ -2,7 +2,7 @@ from typing import Optional
 
 from pydantic import ConfigDict
 
-from ..utils.types import PositiveFloat, PositiveInt
+from ..utils._types import PositiveFloat, PositiveInt
 from ._enums import ProgramUseEnum
 from ._model import Model
 

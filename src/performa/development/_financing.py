@@ -1,4 +1,4 @@
-from ..utils.types import FloatBetween0And1, PositiveInt
+from ..utils._types import FloatBetween0And1, PositiveInt
 from ._model import Model
 
 # %%

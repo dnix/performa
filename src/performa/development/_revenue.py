@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from pydantic import Field
 
-from ..utils.types import FloatBetween0And1, PositiveFloat, PositiveInt
+from ..utils._types import FloatBetween0And1, PositiveFloat, PositiveInt
 from ._cash_flow import CashFlowModel
 from ._enums import (
     CashFlowCategoryEnum,

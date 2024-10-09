@@ -3,7 +3,7 @@ from typing import List, Literal, Union
 from pydantic import Field
 from typing_extensions import Annotated
 
-from ..utils.types import PositiveFloat
+from ..utils._types import PositiveFloat
 from ._enums import DrawScheduleKindEnum
 from ._model import Model
 
