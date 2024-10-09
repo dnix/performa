@@ -3,7 +3,7 @@ from typing import Optional
 import pandas as pd
 
 from ..utils.types import PositiveInt
-from .model import Model
+from ._model import Model
 
 ########################
 ######### TIME #########

@@ -3,8 +3,8 @@ from typing import Optional
 from pydantic import ConfigDict
 
 from ..utils.types import PositiveFloat, PositiveInt
-from .enums import ProgramUseEnum
-from .model import Model
+from ._enums import ProgramUseEnum
+from ._model import Model
 
 ###########################
 ######### PROGRAM #########

@@ -6,14 +6,14 @@ import pandas as pd
 from pydantic import Field
 
 from ..utils.types import FloatBetween0And1, PositiveFloat, PositiveInt
-from .cash_flow import CashFlowModel
-from .enums import (
+from ._cash_flow import CashFlowModel
+from ._enums import (
     CashFlowCategoryEnum,
     RevenueMultiplicandEnum,
     RevenueSubcategoryEnum,
 )
-from .model import Model
-from .program import Program
+from ._model import Model
+from ._program import Program
 
 ###########################
 ######### REVENUE #########

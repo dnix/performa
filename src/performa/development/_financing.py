@@ -1,5 +1,5 @@
 from ..utils.types import FloatBetween0And1, PositiveInt
-from .model import Model
+from ._model import Model
 
 # %%
 #############################

@@ -5,8 +5,8 @@ from pydantic import Field
 from pyxirr import xirr
 
 from ..utils.types import FloatBetween0And1, PositiveFloat
-from .model import Model
-from .project import Project
+from ._model import Model
+from ._project import Project
 
 ########################
 ######### DEAL #########

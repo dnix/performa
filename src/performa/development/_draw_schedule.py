@@ -4,8 +4,8 @@ from pydantic import Field
 from typing_extensions import Annotated
 
 from ..utils.types import PositiveFloat
-from .enums import DrawScheduleKindEnum
-from .model import Model
+from ._enums import DrawScheduleKindEnum
+from ._model import Model
 
 ##################################
 ######### DRAW SCHEDULE ##########
