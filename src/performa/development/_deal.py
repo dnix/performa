@@ -210,6 +210,22 @@ class Deal(Model):
     def partner_cash_flows(self) -> pd.DataFrame:
         return self._calculate_distributions()
 
+    @property
+    def partner_summary(self) -> pd.DataFrame:
+        """Returns a summary DataFrame with partner details and returns.
+        
+        Returns:
+            DataFrame with columns: Kind, Share, IRR, Equity Multiple
+        """
+        df = pd.DataFrame({
+            'Kind': [p.kind for p in self.partners],
+            'Share': [p.share for p in self.partners],
+            'IRR': self.partner_irrs,
+            'Equity Multiple': self.partner_equity_multiples
+        }, index=[p.name for p in self.partners])
+        
+        return df
+
     ####################
     #### VALIDATORS ####
     ####################
