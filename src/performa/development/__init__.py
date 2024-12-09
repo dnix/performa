@@ -1,13 +1,22 @@
 # Copyright 2024 David Gordon Nix
 # SPDX-License-Identifier: Apache-2.0
 
-# Import the custom decimal types to ensure they're registered
-from ..utils import _decimal  # noqa
-
 # Import all development classes
 from ._budget import Budget, BudgetItem
 from ._cash_flow import CashFlowModel
-from ._deal import CarryPromote, Deal, Partner, Promote, WaterfallPromote, WaterfallTier
+from ._deal import (
+    CarryPromote,
+    Deal,
+    Partner,
+    Promote,
+    WaterfallPromote,
+    WaterfallTier,
+)
+from ._draw_schedule import (
+    ManualDrawSchedule,
+    SCurveDrawSchedule,
+    UniformDrawSchedule,
+)
 from ._expense import Expense, ExpenseCostItem, ExpenseFactorItem, ExpenseItem
 from ._financing import ConstructionFinancing, PermanentFinancing
 from ._model import Model
@@ -41,6 +50,9 @@ __all__ = [
     "CapRate",
     "Partner",
     "Promote",
+    "ManualDrawSchedule",
+    "SCurveDrawSchedule",
+    "UniformDrawSchedule",
     "WaterfallTier",
     "WaterfallPromote",
     "CarryPromote",
