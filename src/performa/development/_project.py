@@ -5,9 +5,10 @@ from typing import Dict, Optional, Union
 import numpy as np
 import pandas as pd
 from pydantic import BaseModel, Field, field_validator, model_validator
-from pyxirr import pmt  # , npv, xnpv, irr, xirr, mirr, fv
+from pyxirr import pmt, xirr, xnpv  #, mirr, fv
 
 from ..utils._types import FloatBetween0And1, PositiveInt, PositiveIntGt1
+from ..utils._utils import equity_multiple
 from ._budget import Budget
 from ._enums import ProgramUseEnum
 from ._expense import Expense
@@ -242,7 +243,7 @@ class Project(Model):
 
         # calculate cumulative debt and interest
         df["Cumulative Debt Drawn"] = df["Debt Draw"].cumsum()
-        df["Interest Reserve"] = 0
+        df["Interest Reserve"] = np.zeros(len(df), dtype=np.float64)
         cumulative_interest = 0
 
         # update debt and interest calculation with recursion for accurate compounding
@@ -830,18 +831,72 @@ class Project(Model):
     # STATISTICS #
     ##############
 
-    def summary_metrics(self, period: Optional[pd.Period] = None) -> dict:
-        """Roll up summary metrics for the project"""
-        # FIXME: implement
+    @property
+    def total_investment(self) -> float:
+        """Total equity investment (absolute sum of negative cash flows)"""
+        return np.abs(self.levered_cash_flow["Levered Cash Flow"].where(
+            self.levered_cash_flow["Levered Cash Flow"] < 0, 0
+        ).sum())
 
+    @property
+    def total_profit(self) -> float:
+        """Total profit (sum of all cash flows)"""
+        return self.levered_cash_flow["Levered Cash Flow"].sum()
+    
+    @property
+    def total_distributions(self) -> float:
+        """Total cash returned (sum of positive cash flows)"""
+        return self.levered_cash_flow["Levered Cash Flow"].where(
+            self.levered_cash_flow["Levered Cash Flow"] > 0, 0
+        ).sum()
+
+    @property 
+    def total_unlevered_investment(self) -> float:
+        """Total unlevered investment (absolute sum of negative unlevered cash flows)"""
+        return np.abs(self.unlevered_cash_flow["Unlevered Cash Flow"].where(
+            self.unlevered_cash_flow["Unlevered Cash Flow"] < 0, 0
+        ).sum())
+
+    @property
+    def total_unlevered_profit(self) -> float:
+        """Total unlevered profit (sum of all unlevered cash flows)"""
+        return self.unlevered_cash_flow["Unlevered Cash Flow"].sum()
+    
+    @property
+    def total_unlevered_distributions(self) -> float:
+        """Total unlevered cash returned (sum of positive unlevered cash flows)"""
+        return self.unlevered_cash_flow["Unlevered Cash Flow"].where(
+            self.unlevered_cash_flow["Unlevered Cash Flow"] > 0, 0
+        ).sum()
+    
+    @property
+    def irr(self) -> float:
+        """Internal rate of return (xirr)"""
+        return xirr(self.levered_cash_flow["Levered Cash Flow"])
+    
+    @property
+    def npv(self) -> float:
+        """Net present value (xnpv)"""
+        return xnpv(0.10, self.levered_cash_flow["Levered Cash Flow"])  # Using 10% discount rate as default
+    
+    @property
+    def equity_multiple(self) -> float:
+        """Equity multiple (total_distributions / total_investment)"""
+        return equity_multiple(self.levered_cash_flow["Levered Cash Flow"])
+
+    @property
+    def summary_metrics(self) -> dict:
+        """Roll up summary metrics for the project"""
         # return dict of:
-        # - levered cash flow
-        # - unlevered cash flow
+        # - total investment
+        # - total disbursement
         # - irr
         # - npv
         # - dscr
         # - equity multiple
         # - development spreads (untrended, trended, reversion/sale)
+        # FIXME: implement
+        ...
 
     #####################
     # HELPERS/UTILITIES #

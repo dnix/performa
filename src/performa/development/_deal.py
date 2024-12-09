@@ -6,6 +6,7 @@ from pydantic import Field, field_validator
 from pyxirr import xirr
 
 from ..utils._types import FloatBetween0And1, PositiveFloat
+from ..utils._utils import equity_multiple
 from ._model import Model
 from ._project import Project
 
@@ -77,7 +78,7 @@ class Deal(Model):
 
     @property
     def project_equity_multiple(self) -> float:
-        return self.equity_multiple(self.project_net_cf)
+        return equity_multiple(self.project_net_cf)
     
     @property
     def is_promoted_deal(self) -> bool:
@@ -195,16 +196,8 @@ class Deal(Model):
     @property
     def partner_equity_multiples(self) -> pd.Series:
         dist = self._calculate_distributions()
-        em_values = {p.name: self.equity_multiple(dist[p.name]) for p in self.partners}
+        em_values = {p.name: equity_multiple(dist[p.name]) for p in self.partners}
         return pd.Series(em_values, name="Equity Multiple")
-
-    @staticmethod
-    def equity_multiple(cash_flows: pd.Series) -> float:
-        invested = cash_flows.where(cash_flows < 0, 0).sum()
-        returned = cash_flows.where(cash_flows > 0, 0).sum()
-        if invested == 0:
-            return np.inf
-        return returned / abs(invested)
 
     @property
     def partner_cash_flows(self) -> pd.DataFrame:
@@ -215,16 +208,35 @@ class Deal(Model):
         """Returns a summary DataFrame with partner details and returns.
         
         Returns:
-            DataFrame with columns: Kind, Share, IRR, Equity Multiple
+            DataFrame with columns: Kind, Share, IRR, Equity Multiple, Investment, Profit, Cash
         """
+        cash_flows = self.partner_cash_flows
         df = pd.DataFrame({
             'Kind': [p.kind for p in self.partners],
             'Share': [p.share for p in self.partners],
             'IRR': self.partner_irrs,
-            'Equity Multiple': self.partner_equity_multiples
+            'Equity Multiple': self.partner_equity_multiples,
+            'Investment': cash_flows.where(cash_flows < 0, 0).sum(axis=0).abs(),
+            'Profit': cash_flows.sum(axis=0),
+            'Cash': cash_flows.where(cash_flows > 0, 0).sum(axis=0)
         }, index=[p.name for p in self.partners])
         
         return df
+
+    @property
+    def project_summary(self) -> pd.DataFrame:
+        """Returns a summary DataFrame with project-level returns.
+        
+        Returns:
+            DataFrame with columns: IRR, Equity Multiple, Investment, Profit, Cash
+        """
+        return pd.DataFrame({
+            'IRR': [self.project_irr],
+            'Equity Multiple': [self.project_equity_multiple],
+            'Investment': [self.project.total_investment],
+            'Profit': [self.project.total_profit],
+            'Cash': [self.project.total_distributions]
+        }, index=['Project'])
 
     ####################
     #### VALIDATORS ####

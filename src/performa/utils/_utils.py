@@ -1,7 +1,13 @@
+import numpy as np
 import pandas as pd
+
 
 def equity_multiple(cash_flows: pd.Series) -> float:
     """Compute equity multiple from cash flows"""
-    return cash_flows[cash_flows > 0].sum() / abs(cash_flows[cash_flows < 0].sum())
+    invested = cash_flows.where(cash_flows < 0, 0).sum()
+    returned = cash_flows.where(cash_flows > 0, 0).sum()
+    if invested == 0:
+        return np.inf
+    return returned / abs(invested)
 
 # TODO: put static methods in this helper file, if re-used across classes
