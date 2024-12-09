@@ -112,11 +112,11 @@ class Deal(Model):
         # Pre-extract dates for IRR calculation
         date_array = pd.to_datetime(periods).to_pydatetime()
 
-        def current_irr(flows: np.ndarray, up_to_idx: int) -> float:
+        def current_irr(flows: np.ndarray, up_to_idx: int) -> Optional[float]:
             cf = flows[:up_to_idx+1].sum(axis=1)
-            # Need both neg and pos
+            # Need both neg and pos flows for IRR to be meaningful
             if not (np.any(cf < 0) and np.any(cf > 0)):
-                return -9999.0
+                return None
             s = pd.Series(cf, index=date_array[:up_to_idx+1])
             return xirr(s)
 
@@ -132,7 +132,9 @@ class Deal(Model):
             test_flows = flows.copy()
             dist_array = allocate_cf_at_rate(cf_amount, promote_rate)
             test_flows[period_idx, :] += dist_array
-            return current_irr(test_flows, period_idx)
+            irr = current_irr(test_flows, period_idx)
+            # If IRR can't be calculated, treat as very low return
+            return irr if irr is not None else float('-inf')
 
         def solve_for_x(flows: np.ndarray, period_idx: int, cf_amount: float, promote_rate: float, hurdle_rate: float) -> float:
             # Binary search within this period's CF
