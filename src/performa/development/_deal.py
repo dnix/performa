@@ -84,9 +84,21 @@ class Deal(Model):
         return self.promote is not None
 
     def _calculate_distributions(self) -> pd.DataFrame:
+        """Calculate distributions for all partners"""
+        
         net_cf = self.project_net_cf
+        periods = net_cf.index
         partner_names = [p.name for p in self.partners]
-        dist = pd.DataFrame(index=net_cf.index, columns=partner_names, data=0.0)
+        n_periods = len(periods)
+        n_partners = len(self.partners)
+
+        # Precompute partner arrays
+        partner_shares = np.array([p.share for p in self.partners])
+        gp_mask = np.array([p.kind == "GP" for p in self.partners])
+        gp_shares_total = partner_shares[gp_mask].sum() or 1e-9
+
+        # allocate memory for partner flows
+        partner_flows = np.zeros((n_periods, n_partners))
 
         # Set up tiers
         if self.is_promoted_deal:
@@ -94,53 +106,58 @@ class Deal(Model):
         else:
             tiers = []
             final_promote_rate = 0.0
+
         current_tier_index = 0
 
-        def current_irr(allocation: pd.DataFrame, up_to) -> float:
-            cf = allocation.loc[:up_to].sum(axis=1)
+        # Pre-extract dates for IRR calculation
+        date_array = pd.to_datetime(periods).to_pydatetime()
+
+        def current_irr(flows: np.ndarray, up_to_idx: int) -> float:
+            cf = flows[:up_to_idx+1].sum(axis=1)
             # Need both neg and pos
-            if not (cf.lt(0).any() and cf.gt(0).any()):
+            if not (np.any(cf < 0) and np.any(cf > 0)):
                 return -9999.0
-            return xirr(cf)
+            s = pd.Series(cf, index=date_array[:up_to_idx+1])
+            return xirr(s)
 
-        def distribute_at_rate(cf_amount: float, promote_rate: float, period) -> pd.DataFrame:
-            df_add = pd.DataFrame(index=[period], columns=partner_names, data=0.0)
-            gp_names = [p.name for p in self.partners if p.kind == "GP"]
-            total_gp_share = sum(p.share for p in self.partners if p.kind == "GP") or 1e-9
-            base_share = (1 - promote_rate)
-            for p_obj in self.partners:
-                df_add.at[period, p_obj.name] = cf_amount * p_obj.share * base_share
+        def allocate_cf_at_rate(cf_amount: float, promote_rate: float) -> np.ndarray:
+            # Vectorized distribution at given promote_rate
+            base_dist = cf_amount * partner_shares * (1 - promote_rate)
             promote_amount = cf_amount * promote_rate
-            for g in gp_names:
-                gp_share = next(pr.share for pr in self.partners if pr.name == g)
-                df_add.at[period, g] += promote_amount * (gp_share / total_gp_share)
-            return df_add
+            base_dist[gp_mask] += promote_amount * (partner_shares[gp_mask] / gp_shares_total)
+            return base_dist
 
-        def solve_for_x(dist_state: pd.DataFrame, cf_amount: float, promote_rate: float, hurdle_rate: float, period) -> float:
+        def test_allocation(flows: np.ndarray, period_idx: int, cf_amount: float, promote_rate: float) -> float:
+            # Test allocating entire cf_amount at this tier rate
+            test_flows = flows.copy()
+            dist_array = allocate_cf_at_rate(cf_amount, promote_rate)
+            test_flows[period_idx, :] += dist_array
+            return current_irr(test_flows, period_idx)
+
+        def solve_for_x(flows: np.ndarray, period_idx: int, cf_amount: float, promote_rate: float, hurdle_rate: float) -> float:
             # Binary search within this period's CF
             low, high = 0.0, cf_amount
             for _ in range(30):
                 mid = (low + high) / 2
-                test_dist = dist_state.copy()
-                dist_mid = distribute_at_rate(mid, promote_rate, period)
-                for col in dist_mid.columns:
-                    test_dist.at[period, col] += dist_mid.at[period, col]
-                irr_val = current_irr(test_dist, period)
+                test_flows = flows.copy()
+                dist_array = allocate_cf_at_rate(mid, promote_rate)
+                test_flows[period_idx, :] += dist_array
+                irr_val = current_irr(test_flows, period_idx)
                 if irr_val < hurdle_rate:
                     low = mid
                 else:
                     high = mid
             return (low + high) / 2
 
-        # Iterate by period
-        for period in net_cf.index:
-            month_cf = net_cf.loc[period]
-            if month_cf < 0:
+        # Iterate over each period
+        # TODO: handle EM-based tiers if implemented
+        for period_idx, period in enumerate(periods):
+            cf_value = net_cf.iloc[period_idx]
+            if cf_value < 0:
                 # Negative CF: Equity contribution once
-                for p in self.partners:
-                    dist.at[period, p.name] += month_cf * p.share
-            elif month_cf > 0:
-                remaining_cf = month_cf
+                partner_flows[period_idx, :] += cf_value * partner_shares
+            elif cf_value > 0:
+                remaining_cf = cf_value
                 while remaining_cf > 1e-9:
                     # If no more tiers left, use final promote
                     if current_tier_index < len(tiers):
@@ -150,31 +167,21 @@ class Deal(Model):
                         promote_rate = final_promote_rate
 
                     # Test allocating all remaining_cf
-                    test_dist = dist.copy()
-                    dist_all = distribute_at_rate(remaining_cf, promote_rate, period)
-                    for col in dist_all.columns:
-                        test_dist.at[period, col] += dist_all.at[period, col]
-
-                    test_irr = current_irr(test_dist, period)
-
-                    if test_irr < hurdle_rate:
+                    test_irr_val = test_allocation(partner_flows, period_idx, remaining_cf, promote_rate)
+                    if test_irr_val < hurdle_rate:
                         # Allocate all at this tier
-                        dist = test_dist
+                        partner_flows[period_idx, :] += allocate_cf_at_rate(remaining_cf, promote_rate)
                         remaining_cf = 0.0
                     else:
-                        # We surpass the hurdle
-                        # Find exact fraction x
-                        x = solve_for_x(dist, remaining_cf, promote_rate, hurdle_rate, period)
-                        dist_x = distribute_at_rate(x, promote_rate, period)
-                        for col in dist_x.columns:
-                            dist.at[period, col] += dist_x.at[period, col]
+                        # surpasses hurdle mid-allocation
+                        x = solve_for_x(partner_flows, period_idx, remaining_cf, promote_rate, hurdle_rate)
+                        partner_flows[period_idx, :] += allocate_cf_at_rate(x, promote_rate)
                         remaining_cf -= x
                         # Move to next tier
                         current_tier_index += 1
 
-                        # If we still have leftover CF after hitting hurdle exactly,
-                        # we continue while loop at next tier
-
+        # Convert to DataFrame at the end
+        dist = pd.DataFrame(partner_flows, index=periods, columns=partner_names)
         return dist
 
     @property
@@ -201,11 +208,9 @@ class Deal(Model):
     def partner_cash_flows(self) -> pd.DataFrame:
         return self._calculate_distributions()
 
-
     ####################
     #### VALIDATORS ####
     ####################
-
     @field_validator("time_basis", mode="before")
     def infer_time_basis(cls, v, values):
         # If user didn't provide time_basis, infer it from project's levered_cash_flow frequency
@@ -219,9 +224,8 @@ class Deal(Model):
 
         df = project.levered_cash_flow
         if isinstance(df.index, pd.PeriodIndex):
-            freq = df.index.freqstr or pd.infer_freq(df.index)
+            freq = df.index.freqstr or pd.infer_freq(df.index.to_timestamp())
         else:
-            # If TimestampIndex, try infer_freq
             freq = pd.infer_freq(df.index)
 
         # Determine monthly or annual from freq
