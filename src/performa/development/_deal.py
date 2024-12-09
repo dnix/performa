@@ -1,7 +1,8 @@
 from typing import Annotated, Literal, Optional, Union
 
+import numpy as np
 import pandas as pd
-from pydantic import Field
+from pydantic import Field, field_validator
 from pyxirr import xirr
 
 from ..utils._types import FloatBetween0And1, PositiveFloat
@@ -18,6 +19,11 @@ class Partner(Model):
     kind: Literal["GP", "LP"]
     share: FloatBetween0And1  # percentage of total equity
 
+class WaterfallTier(Model):
+    tier_hurdle_rate: PositiveFloat
+    metric: Literal["IRR", "EM"] = "IRR"
+    # FIXME: handle EM-based promotes throughout
+    promote_rate: FloatBetween0And1
 
 class Promote(Model):
     # different kinds of promotes:
@@ -26,314 +32,209 @@ class Promote(Model):
     # - carry (e.g., simple 20% after pref)
     kind: Literal["waterfall", "carry"]
 
-
-class WaterfallTier(Model):
-    """Class for a waterfall tier"""
-
-    tier_hurdle_rate: PositiveFloat  # tier irr or em hurdle rate
-    metric: Literal["IRR", "EM"]  # metric for the promote
-    promote_rate: FloatBetween0And1  # promote as a percentage of total profits
-
-
 class WaterfallPromote(Promote):
-    """Class for a waterfall promote"""
-
     kind: Literal["waterfall"] = "waterfall"
-    pref_hurdle_rate: (
-        PositiveFloat  # minimum IRR or EM to trigger promote (tier 1); the 'pref'
-    )
+    pref_hurdle_rate: PositiveFloat
     tiers: list[WaterfallTier]
-    final_promote_rate: FloatBetween0And1  # final tier, how remainder is split after all tiers (usually 50/50)
+    final_promote_rate: FloatBetween0And1
 
+    @property
+    def all_tiers(self):
+        sorted_tiers = sorted(self.tiers, key=lambda x: x.tier_hurdle_rate)
+        tier_list = [(self.pref_hurdle_rate, 0.0)]
+        tier_list.extend((t.tier_hurdle_rate, t.promote_rate) for t in sorted_tiers)
+        return tier_list, self.final_promote_rate
 
 class CarryPromote(Promote):
-    """Class for a GP carry promote"""
-
     kind: Literal["carry"] = "carry"
-    pref_hurdle_rate: PositiveFloat  # minimum IRR or EM to trigger promote; the 'pref'
-    promote_rate: FloatBetween0And1  # promote as a percentage of total profits
-    # TODO: consider clawbacks and other carry structures
+    pref_hurdle_rate: PositiveFloat
+    promote_rate: FloatBetween0And1
 
+    @property
+    def all_tiers(self):
+        # one pref tier @0 promote, then final tier infinite
+        tier_list = [(self.pref_hurdle_rate, 0.0)]
+        return tier_list, self.promote_rate
 
 class Deal(Model):
-    """Class for a generic deal"""
-
     project: Project
     partners: list[Partner]
-    promote: Optional[
-        Annotated[
-            Union[WaterfallPromote, CarryPromote], Field(..., discriminator="kind")
-        ]
-    ]  # there can also be no GP promote, just pari passu
-    # param for running calculations on monthly or annual basis
-    time_basis: Literal["monthly", "annual"] = "monthly"
-
-    # TODO: add property-level GP fees (mgmt/deal fees, acquisition/disposition fees, etc.)
+    promote: Optional[Annotated[Union[WaterfallPromote, CarryPromote], Field(..., discriminator="kind")]] = None
+    time_basis: Optional[Literal["monthly", "annual"]] = None
 
     @property
     def project_net_cf(self) -> pd.Series:
-        """Compute project net cash flow"""
-        # TODO: correct for property-level GP fees
-        # get unlevered cash flow df from project
-        project_df = self.project.levered_cash_flow
-        # if time_basis is annual, convert to annual
+        project_df = self.project.levered_cash_flow.copy()
         if self.time_basis == "annual":
-            project_df = Project.convert_to_annual(project_df)
-        # set index to timestamp for pyxirr
-        project_df.set_index(project_df.index.to_timestamp(), inplace=True)
-        # get net cash flow column as Series
-        project_net_cf = project_df["Levered Cash Flow"]
-        return project_net_cf
-
-    @property
-    def project_equity_cf(self) -> pd.Series:
-        """Compute project equity cash flow"""
-        return (
-            self.project_net_cf[self.project_net_cf < 0]
-            .reindex(self.project.project_timeline)
-            .fillna(0)
-        )
+            project_df = self.project.convert_to_annual(project_df)
+        if isinstance(project_df.index, pd.PeriodIndex):
+            project_df.index = project_df.index.to_timestamp()
+        return project_df["Levered Cash Flow"]
 
     @property
     def project_irr(self) -> float:
-        """Compute project IRR"""
         return xirr(self.project_net_cf)
 
     @property
-    def partner_irrs(self) -> dict[str, float]:
-        """Compute partner IRRs"""
-        partner_df = self.calculate_distributions()
-        partner_irrs = {
-            partner: xirr(partner_df[partner]) for partner in partner_df.columns
-        }
-        return partner_irrs
-
-    @property
     def project_equity_multiple(self) -> float:
-        """Compute project equity multiple"""
-        return Deal.equity_multiple(self.project_net_cf)
-
+        return self.equity_multiple(self.project_net_cf)
+    
     @property
-    def partner_equity_multiples(self) -> dict[str, float]:
-        """Compute partner Equity Multiples"""
-        partner_df = self.calculate_distributions()
-        partner_equity_multiples = {
-            partner: Deal.equity_multiple(partner_df[partner])
-            for partner in partner_df.columns
-        }
-        return partner_equity_multiples
+    def is_promoted_deal(self) -> bool:
+        return self.promote is not None
 
-    @property
-    def distributions(self) -> pd.DataFrame:
-        """Calculate and return distributions based on the promote structure."""
-        if self.promote.kind == "carry":
-            return self._distribute_carry_promote()
-        elif self.promote.kind == "waterfall":
-            distributions_df, _ = self._distribute_waterfall_promote()
-            # TODO: handle partner tiers return gracefully (maybe in another details method?)
-            return distributions_df
-        else:
-            return self._distribute_pari_passu()
-
-    def _distribute_carry_promote(self) -> pd.DataFrame:
-        """Distribute cash flows with carry promote structure."""
-        equity_cf = self.project_equity_cf
-        lp_share = sum(p.share for p in self.partners if p.kind == "LP")
-        gp_share = 1 - lp_share
-        promote_rate = self.promote.promote_rate
-        pref_rate = self.promote.pref_hurdle_rate
-
-        # Calculate accrued preferred return interest
-        pref_accrued = self._accrue_interest(equity_cf, pref_rate, self.time_basis)
-        pref_distribution = pref_accrued.clip(upper=self.project_net_cf)
-
-        # Distribute preferred return first
-        remaining_cf = self.project_net_cf - pref_distribution.sum(axis=1)
-
-        # Initialize distributions for each partner
-        distributions = {
-            partner.name: pd.Series(0, index=self.project_net_cf.index)
-            for partner in self.partners
-        }
-
-        # Allocate preferred distributions
-        for partner in self.partners:
-            if partner.kind == "LP":
-                distributions[partner.name] += pref_distribution * partner.share
-            else:
-                distributions[partner.name] += pref_distribution * gp_share
-
-        # Distribute remaining cash flows
-        lp_remaining_cf = remaining_cf * lp_share
-        gp_carry = remaining_cf * promote_rate
-        gp_remaining_cf = remaining_cf * gp_share + gp_carry
-        lp_remaining_cf -= gp_carry
-
-        # Allocate remaining cash flows
-        for partner in self.partners:
-            if partner.kind == "LP":
-                distributions[partner.name] += lp_remaining_cf * partner.share
-            else:
-                distributions[partner.name] += gp_remaining_cf
-
-        # Return distributions
-        distributions_df = pd.DataFrame(distributions)
-        return distributions_df
-
-    # TODO: this is a european waterfall, how would an american style work? support both? https://www.adventuresincre.com/watch-me-build-american-style-real-estate-equity-waterfall/
-    # TODO: catchup provision in (european) waterfall
-    # TODO: lookback/clawback provision in (american) waterfall
-    # TODO: if both IRR and EMx are used, manage this
-
-    # FIXME: disaggregate GP coinvestment return from promote return
-
-    def _distribute_waterfall_promote(self) -> pd.DataFrame:
-        """Distribute cash flows with waterfall promote structure."""
-        equity_cf = self.project_equity_cf
+    def _calculate_distributions(self) -> pd.DataFrame:
         net_cf = self.project_net_cf
-        lp_share = sum(p.share for p in self.partners if p.kind == "LP")
-        gp_share = 1 - lp_share
-        remaining_cf = net_cf.copy()
-        distributions = {
-            partner.name: pd.Series(0, index=net_cf.index) for partner in self.partners
-        }
-        tier_distributions = {
-            f"{partner.name}_Tier_{i+1}": pd.Series(0, index=net_cf.index)
-            for i in range(len(self.promote.tiers) + 1)
-            for partner in self.partners
-        }
+        partner_names = [p.name for p in self.partners]
+        dist = pd.DataFrame(index=net_cf.index, columns=partner_names, data=0.0)
 
-        # PREF (Tier 1)
-        pref_rate = self.promote.pref_hurdle_rate
-        # Calculate the accrued preferred return interest
-        pref_accrued = self._accrue_interest(equity_cf, pref_rate, self.time_basis)
-        # Distribute preferred return based on the accrued interest
-        pref_distribution = pref_accrued.clip(upper=remaining_cf)
-        for partner in self.partners:
-            share = partner.share if partner.kind == "LP" else gp_share
-            # Allocate the preferred distribution to each partner
-            tier_distributions[f"{partner.name}_Tier_1"] = pref_distribution * share
-            distributions[partner.name] += pref_distribution * share
-        remaining_cf -= pref_distribution.sum(axis=1)
+        # Set up tiers
+        if self.is_promoted_deal:
+            tiers, final_promote_rate = self.promote.all_tiers
+        else:
+            tiers = []
+            final_promote_rate = 0.0
+        current_tier_index = 0
 
-        # SUBSEQUENT TIERS
-        for i, tier in enumerate(self.promote.tiers):
-            tier_rate = tier.tier_hurdle_rate
-            promote_rate = tier.promote_rate
-            # Calculate the accrued return for the current tier
-            accrued_return = self._accrue_interest(
-                equity_cf, tier_rate, self.time_basis
-            )
-            required_return = accrued_return - pref_accrued
-            # Distribute the return required for the current tier
-            tier_distribution = required_return.clip(upper=remaining_cf)
-            lp_share_after_promote = lp_share * (1 - promote_rate)
-            gp_share_after_promote = 1 - lp_share_after_promote
-            for partner in self.partners:
-                if partner.kind == "LP":
-                    # Allocate the tier distribution to each LP partner
-                    tier_distributions[f"{partner.name}_Tier_{i+2}"] = (
-                        tier_distribution * lp_share_after_promote
-                    )
-                    distributions[partner.name] += (
-                        tier_distribution * lp_share_after_promote
-                    )
+        def current_irr(allocation: pd.DataFrame, up_to) -> float:
+            cf = allocation.loc[:up_to].sum(axis=1)
+            # Need both neg and pos
+            if not (cf.lt(0).any() and cf.gt(0).any()):
+                return -9999.0
+            return xirr(cf)
+
+        def distribute_at_rate(cf_amount: float, promote_rate: float, period) -> pd.DataFrame:
+            df_add = pd.DataFrame(index=[period], columns=partner_names, data=0.0)
+            gp_names = [p.name for p in self.partners if p.kind == "GP"]
+            total_gp_share = sum(p.share for p in self.partners if p.kind == "GP") or 1e-9
+            base_share = (1 - promote_rate)
+            for p_obj in self.partners:
+                df_add.at[period, p_obj.name] = cf_amount * p_obj.share * base_share
+            promote_amount = cf_amount * promote_rate
+            for g in gp_names:
+                gp_share = next(pr.share for pr in self.partners if pr.name == g)
+                df_add.at[period, g] += promote_amount * (gp_share / total_gp_share)
+            return df_add
+
+        def solve_for_x(dist_state: pd.DataFrame, cf_amount: float, promote_rate: float, hurdle_rate: float, period) -> float:
+            # Binary search within this period's CF
+            low, high = 0.0, cf_amount
+            for _ in range(30):
+                mid = (low + high) / 2
+                test_dist = dist_state.copy()
+                dist_mid = distribute_at_rate(mid, promote_rate, period)
+                for col in dist_mid.columns:
+                    test_dist.at[period, col] += dist_mid.at[period, col]
+                irr_val = current_irr(test_dist, period)
+                if irr_val < hurdle_rate:
+                    low = mid
                 else:
-                    # Allocate the tier distribution to the GP partner
-                    tier_distributions[f"{partner.name}_Tier_{i+2}"] = (
-                        tier_distribution * gp_share_after_promote
-                    )
-                    distributions[partner.name] += (
-                        tier_distribution * gp_share_after_promote
-                    )
-            remaining_cf -= tier_distribution.sum(axis=1)
-            pref_accrued += tier_distribution
+                    high = mid
+            return (low + high) / 2
 
-        # FINAL PROMOTE
-        final_promote_rate = self.promote.final_promote_rate
-        for partner in self.partners:
-            if partner.kind == "LP":
-                # Allocate the final promote distribution to each LP partner
-                tier_distributions[f"{partner.name}_Final"] = (
-                    remaining_cf * lp_share * (1 - final_promote_rate)
-                )
-                distributions[partner.name] += (
-                    remaining_cf * lp_share * (1 - final_promote_rate)
-                )
-            else:
-                # Allocate the final promote distribution to the GP partner
-                tier_distributions[f"{partner.name}_Final"] = remaining_cf * (
-                    1 - lp_share * (1 - final_promote_rate)
-                )
-                distributions[partner.name] += remaining_cf * (
-                    1 - lp_share * (1 - final_promote_rate)
-                )
+        # Iterate by period
+        for period in net_cf.index:
+            month_cf = net_cf.loc[period]
+            if month_cf < 0:
+                # Negative CF: Equity contribution once
+                for p in self.partners:
+                    dist.at[period, p.name] += month_cf * p.share
+            elif month_cf > 0:
+                remaining_cf = month_cf
+                while remaining_cf > 1e-9:
+                    # If no more tiers left, use final promote
+                    if current_tier_index < len(tiers):
+                        hurdle_rate, promote_rate = tiers[current_tier_index]
+                    else:
+                        hurdle_rate = np.inf
+                        promote_rate = final_promote_rate
 
-        # RETURN DISTRIBUTIONS
-        distributions_df = pd.DataFrame(distributions)
-        tier_distributions_df = pd.DataFrame(tier_distributions)
-        return distributions_df, tier_distributions_df
+                    # Test allocating all remaining_cf
+                    test_dist = dist.copy()
+                    dist_all = distribute_at_rate(remaining_cf, promote_rate, period)
+                    for col in dist_all.columns:
+                        test_dist.at[period, col] += dist_all.at[period, col]
 
-    def _distribute_pari_passu(self) -> pd.DataFrame:
-        """
-        Assigns equity and distributes returns pari passu, without any promotes.
-        """
-        distributions = {
-            partner.name: self.project_net_cf * partner.share
-            for partner in self.partners
-        }
-        distributions_df = pd.DataFrame(distributions)
-        return distributions_df
+                    test_irr = current_irr(test_dist, period)
 
-    @staticmethod
-    def _accrue_interest(
-        equity_cf: pd.Series, rate: float, time_basis: str
-    ) -> pd.Series:
-        """Accrue interest on equity cash flows using capital account logic."""
-        periods = 12 if time_basis == "monthly" else 1
-        accrued = pd.Series(0, index=equity_cf.index)
-        capital_account = pd.Series(0, index=equity_cf.index)
-        # Loop through each period to adjust capital account and compute interest
-        for i in range(1, len(equity_cf)):
-            # Adjust capital account based on previous balance, equity contribution, and distribution
-            capital_account.iloc[i] = capital_account.iloc[i - 1] + equity_cf.iloc[i]
-            # Calculate accrued interest on adjusted capital account balance
-            accrued.iloc[i] = capital_account.iloc[i] * (
-                (1 + rate / periods) ** (1 / periods) - 1
-            )
-        return accrued
+                    if test_irr < hurdle_rate:
+                        # Allocate all at this tier
+                        dist = test_dist
+                        remaining_cf = 0.0
+                    else:
+                        # We surpass the hurdle
+                        # Find exact fraction x
+                        x = solve_for_x(dist, remaining_cf, promote_rate, hurdle_rate, period)
+                        dist_x = distribute_at_rate(x, promote_rate, period)
+                        for col in dist_x.columns:
+                            dist.at[period, col] += dist_x.at[period, col]
+                        remaining_cf -= x
+                        # Move to next tier
+                        current_tier_index += 1
 
-    #####################
-    # HELPERS/UTILITIES #
-    #####################
+                        # If we still have leftover CF after hitting hurdle exactly,
+                        # we continue while loop at next tier
+
+        return dist
+
+    @property
+    def partner_irrs(self) -> pd.Series:
+        dist = self._calculate_distributions()
+        irr_values = {p.name: xirr(dist[p.name]) for p in self.partners}
+        return pd.Series(irr_values, name="IRR")
+
+    @property
+    def partner_equity_multiples(self) -> pd.Series:
+        dist = self._calculate_distributions()
+        em_values = {p.name: self.equity_multiple(dist[p.name]) for p in self.partners}
+        return pd.Series(em_values, name="Equity Multiple")
 
     @staticmethod
     def equity_multiple(cash_flows: pd.Series) -> float:
-        """Compute equity multiple from cash flows"""
-        return cash_flows[cash_flows > 0].sum() / abs(cash_flows[cash_flows < 0].sum())
+        invested = cash_flows.where(cash_flows < 0, 0).sum()
+        returned = cash_flows.where(cash_flows > 0, 0).sum()
+        if invested == 0:
+            return np.inf
+        return returned / abs(invested)
 
-    # FIXME: bring back validators updating to new fields
-    # @model_validator(mode="before")
-    # def validate_partners(self):
-    #     """Validate the partner structure"""
-    #     # check that there is at least one GP and one LP
-    #     if len([partner for partner in self.partners if partner.kind == "GP"]) != 1:
-    #         raise ValueError("At least one (and only one) GP partner is required")
-    #     if not any(partner.kind == "LP" for partner in self.partners):
-    #         raise ValueError("At least one LP partner is required")
-    #     # check that partner shares sum to 1.0
-    #     if sum(partner.share for partner in self.partners) != 1.0:
-    #         raise ValueError("Partner shares must sum to 1.0")
-    #     return self
+    @property
+    def partner_cash_flows(self) -> pd.DataFrame:
+        return self._calculate_distributions()
 
-    # @model_validator(mode="before")
-    # def validate_promote(self):
-    #     """Validate the promote structure"""
-    #     if self.promote.kind == "waterfall":
-    #         # check that only metric is consistent across tiers (only IRR or EM)
-    #         if any(tier.metric != self.promote.tiers[0].metric for tier in self.promote.tiers):
-    #             raise ValueError("All tiers must use the same metric (IRR or EM)")
-    #         # check that all tiers are higher than the hurdle
-    #         if any(tier.tier_hurdle < self.promote.hurdle for tier in self.promote.tiers):
-    #             raise ValueError("All tiers must be higher than the hurdle")
-    #     return self
+
+    ####################
+    #### VALIDATORS ####
+    ####################
+
+    @field_validator("time_basis", mode="before")
+    def infer_time_basis(cls, v, values):
+        # If user didn't provide time_basis, infer it from project's levered_cash_flow frequency
+        if v is not None:
+            return v  # user specified
+
+        project = values.get("project")
+        if project is None:
+            # Can't infer without project
+            return "monthly"
+
+        df = project.levered_cash_flow
+        if isinstance(df.index, pd.PeriodIndex):
+            freq = df.index.freqstr or pd.infer_freq(df.index)
+        else:
+            # If TimestampIndex, try infer_freq
+            freq = pd.infer_freq(df.index)
+
+        # Determine monthly or annual from freq
+        # Common monthly freq: 'M', annual freq: 'A' or 'Y'
+        if freq is not None:
+            freq = freq.upper()
+            if freq.startswith('A') or freq.startswith('Y'):
+                return "annual"
+            elif freq.startswith('M'):
+                return "monthly"
+            else:
+                # If unclear, default to monthly
+                return "monthly"
+        else:
+            # No frequency inferred, default to monthly
+            return "monthly"
