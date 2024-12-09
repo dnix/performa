@@ -1,3 +1,4 @@
+import warnings
 from datetime import date
 from typing import Dict, Optional, Union
 
@@ -922,8 +923,9 @@ class Project(Model):
     @staticmethod
     def convert_to_annual(df: pd.DataFrame) -> pd.DataFrame:
         """Convert a dataframe to annual periods"""
-        # TODO: use anchored offsets?
-        return df.resample("Y").sum()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FutureWarning)
+            return df.resample("Y").sum()
 
     @staticmethod
     def amortize_loan(
