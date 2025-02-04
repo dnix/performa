@@ -77,7 +77,7 @@ class DebtTranche(Model):
         ...     ltc_threshold=0.45
         ... )
     """
-    name: str = Field(..., description="Tranche name (e.g. 'Senior', 'Mezzanine 1')")
+    name: str = Field(..., description="Tranche name (e.g. 'Senior', 'Mezzanine')")
     interest_rate: InterestRate
     fee_rate: FloatBetween0And1
     ltc_threshold: FloatBetween0And1 = Field(
