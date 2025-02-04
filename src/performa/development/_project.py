@@ -12,7 +12,7 @@ from ..utils._utils import equity_multiple
 from ._budget import Budget
 from ._enums import ProgramUseEnum
 from ._expense import Expense
-from ._financing import ConstructionFinancing, PermanentFinancing
+from ._financing import ConstructionFinancing, InterestRate, PermanentFinancing
 from ._model import Model
 from ._revenue import Revenue
 
@@ -56,11 +56,7 @@ class Project(Model):
     budget: Budget
 
     # CONSTRUCTION FINANCING
-    construction_financing: ConstructionFinancing  # TODO: make optional (?)
-    # financing_interest_rate: FloatBetween0And1
-    # financing_fee_rate: FloatBetween0And1
-    # financing_ltc: FloatBetween0And1
-    # TODO: mezzanine rollover
+    construction_financing: ConstructionFinancing  # FIXME: make optional (?)
 
     # REVENUES
     revenue: Revenue
@@ -70,7 +66,7 @@ class Project(Model):
     # TODO: maybe not optional if incorporate post-sales expenses?
 
     # PERMANENT FINANCING
-    permanent_financing: PermanentFinancing  # TODO: make optional (?)
+    permanent_financing: PermanentFinancing  # FIXME: make optional (?)
     stabilization_year: PositiveInt  # year of stabilization for permanent financing  # TODO: replace this with lease-up logic!?
 
     # DISPOSITION
@@ -185,83 +181,94 @@ class Project(Model):
 
     @property
     def construction_financing_cf(self) -> pd.DataFrame:
-        """
-        Computes the construction financing cash flow with debt and equity draws, fees, and interest reserve.
-
-        Returns:
-            pd.DataFrame: A DataFrame with columns for financing components.
-
-        Example:
-                 Total Costs  Cumulative  Equity     Debt    Financing  Interest
-                 Before       Costs       Draw       Draw    Fees       Reserve
-                 Financing
-        2023-01  1050000.0    1050000.0   1050000.0  0.0     0.0        0.0
-        2023-02  525000.0     1575000.0   0.0        525000.0 26250.0   2625.0
-        """
         total_project_cost = self._budget_table.sum().sum()
-        debt_portion = (
-            total_project_cost * self.debt_to_equity
-        )  # debt pre-interest reserve
         equity_portion = total_project_cost * (1 - self.debt_to_equity)
 
-        # sum up budget costs to get total costs before financing
-        df = (
+        # Initialize DataFrame
+        df = pd.DataFrame(index=self.project_timeline)
+        df["Total Costs Before Financing"] = (
             self._budget_table.sum(axis=1)
-            .to_frame("Budget")
-            .reindex(self.project_timeline, fill_value=0)
+            .reindex(self.project_timeline)
+            .fillna(0)
         )
-
-        # rename 'Budget' column to 'Total Costs Before Financing'
-        df.rename(columns={"Budget": "Total Costs Before Financing"}, inplace=True)
-
-        # calculate cumulative costs to decide draws
         df["Cumulative Costs"] = df["Total Costs Before Financing"].cumsum()
+        
+        # Initialize all draw and interest columns with zeros
+        df["Equity Draw"] = 0.0
+        for tranche in self.construction_financing.tranches:
+            df[f"{tranche.name} Draw"] = 0.0
+            df[f"{tranche.name} Interest"] = 0.0
+        
+        for period in df.index:
+            current_cost = df.loc[period, "Total Costs Before Financing"]
+            if current_cost == 0:
+                continue
+                
+            cumulative_cost = df.loc[period, "Cumulative Costs"]
+            cumulative_equity = df.loc[:period, "Equity Draw"].sum()
+            
+            # Calculate draws for this period
+            remaining_cost = current_cost
+            
+            # 1. Draw equity until equity portion is reached
+            if cumulative_equity < equity_portion:
+                equity_draw = min(
+                    remaining_cost,
+                    equity_portion - cumulative_equity
+                )
+                df.loc[period, "Equity Draw"] = equity_draw
+                remaining_cost -= equity_draw
+            
+            # 2. Draw debt tranches in order
+            previous_ltc = 0.0
+            for tranche in self.construction_financing.tranches:
+                if remaining_cost <= 0:
+                    break
+                    
+                tranche_ltc = tranche.ltc_threshold - previous_ltc
+                max_tranche_amount = total_project_cost * tranche_ltc
+                cumulative_tranche = df.loc[:period, f"{tranche.name} Draw"].sum()
+                
+                # Calculate available capacity for this tranche
+                available = min(
+                    max_tranche_amount - cumulative_tranche,  # Remaining in tranche
+                    (cumulative_cost * tranche_ltc) - cumulative_tranche  # LTC limit
+                )
+                
+                # Draw from this tranche
+                tranche_draw = min(remaining_cost, available)
+                if tranche_draw > 0:
+                    df.loc[period, f"{tranche.name} Draw"] = tranche_draw
+                    remaining_cost -= tranche_draw
+                
+                # Calculate interest on cumulative balance
+                if period > df.index[0]:
+                    previous_balance = df.loc[:period-1, f"{tranche.name} Draw"].sum()
+                    if previous_balance > 0:
+                        interest_dict = self.construction_financing.calculate_interest(
+                            {tranche.name: previous_balance},
+                            period_start=period,
+                        )
+                        df.loc[period, f"{tranche.name} Interest"] = interest_dict[tranche.name]
+                
+                previous_ltc = tranche.ltc_threshold
+            
+            # Any remaining cost goes back to equity
+            if remaining_cost > 0:
+                df.loc[period, "Equity Draw"] += remaining_cost
+        
+        # Aggregate interest across tranches
+        df["Interest Reserve"] = df[[f"{t.name} Interest" for t in self.construction_financing.tranches]].sum(axis=1)
 
-        # equity and debt draw calculations
-        df["Equity Draw"] = np.minimum(
-            df["Total Costs Before Financing"],
-            np.maximum(
-                equity_portion - df["Cumulative Costs"].shift(1, fill_value=0), 0
-            ),
-        )
-
-        # applying financing fee only once when crossing the threshold from equity to debt
+        # Calculate fees when crossing from equity to debt
         df["Financing Fees"] = np.where(
-            (df["Cumulative Costs"].shift(1, fill_value=0) < equity_portion)
-            & (df["Cumulative Costs"] >= equity_portion),
-            debt_portion * self.construction_financing.fee_rate,
-            0,
+            (df["Cumulative Costs"].shift(1, fill_value=0) < equity_portion) &
+            (df["Cumulative Costs"] >= equity_portion),
+            pd.Series(self.construction_financing.calculate_fees(
+                self.construction_financing.calculate_tranche_amounts(total_project_cost * self.debt_to_equity)
+            )).sum(),
+            0
         )
-
-        # debt draw calculations
-        # NOTE: fees are included in the debt draw
-        df["Debt Draw"] = (
-            df["Total Costs Before Financing"]
-            - df["Equity Draw"]
-            + df["Financing Fees"]
-        )
-
-        # calculate cumulative debt and interest
-        df["Cumulative Debt Drawn"] = df["Debt Draw"].cumsum()
-        df["Interest Reserve"] = np.zeros(len(df), dtype=np.float64)
-        cumulative_interest = 0
-
-        # update debt and interest calculation with recursion for accurate compounding
-        for i in range(len(df)):
-            if i > 0:
-                previous_balance = (
-                    df.loc[df.index[i - 1], "Cumulative Debt Drawn"]
-                    + cumulative_interest
-                )
-                interest_for_this_month = previous_balance * (
-                    self.construction_financing.interest_rate / 12
-                )
-                cumulative_interest += interest_for_this_month
-            else:
-                interest_for_this_month = 0
-
-            df.at[df.index[i], "Interest Reserve"] = interest_for_this_month
-            df.at[df.index[i], "Cumulative Debt Drawn"] += interest_for_this_month
 
         return df
 
@@ -506,22 +513,19 @@ class Project(Model):
     @property
     def construction_loan_repayment_cf(self) -> pd.DataFrame:
         """
-        Computes the construction loan repayment cash flow.
-
-        Returns:
-            pd.DataFrame: A DataFrame with a single column 'Construction Loan Repayment'.
-
-        Example:
-                             Construction Loan Repayment
-        2026-01              20000000.0
+        Computes the construction loan repayment cash flow for all tranches.
         """
-        # TODO: refactor this more cleanly
-        repayment_flow = self.construction_financing_cf["Cumulative Debt Drawn"]
-        repayment_at_stabilization = repayment_flow.loc[self.stabilization_date]
+        repayment_flow = {
+            tranche.name: self.construction_financing_cf[f"{tranche.name} Draw"].cumsum()
+            for tranche in self.construction_financing.tranches
+        }
+        
+        repayments = {}
+        for tranche_name, flow in repayment_flow.items():
+            repayments[f"{tranche_name} Repayment"] = flow.loc[self.stabilization_date]
+            
         return pd.DataFrame(
-            {
-                "Construction Loan Repayment": repayment_at_stabilization,
-            },
+            repayments,
             index=[self.stabilization_date],
         )
 
@@ -574,6 +578,7 @@ class Project(Model):
         """
         # amortize the loan
         # FIXME: add refinancing fees!
+        # FIXME: add permanent financing to _financing.py
         df, _ = Project.amortize_loan(
             loan_amount=self.refinance_amount,
             term=self.permanent_financing.amortization,
@@ -986,7 +991,7 @@ class Project(Model):
     def amortize_loan(
         loan_amount,  # initial loan amount
         term: PositiveInt,  # in years
-        interest_rate: FloatBetween0And1,  # annual interest rate
+        interest_rate: InterestRate,  # annual interest rate
         start_date: pd.Period = pd.Period(date.today(), freq="M"),
     ) -> tuple[pd.DataFrame]:
         """
@@ -995,21 +1000,14 @@ class Project(Model):
         Parameters:
         - loan_amount: Initial loan amount.
         - term: Loan term in years.
-        - interest_rate: Annual interest rate as a decimal between 0 and 1.
+        - interest_rate: InterestRate object containing rate configuration.
         - start_date: Start date of the loan amortization schedule. Defaults to the current date.
 
         Returns:
         - df: DataFrame containing the loan amortization schedule.
         - summary: Summary statistics of the loan amortization.
-
-        Example usage:
-        >>> loan_amount = 100000
-        >>> term = 5
-        >>> interest_rate = 0.05
-        >>> start_date = pd.Period('2022-01', freq='M')
-        >>> df, summary = amortize_loan(loan_amount, term, interest_rate, start_date)
         """
-        monthly_rate = interest_rate / 12
+        monthly_rate = interest_rate.effective_rate / 12  # Use effective_rate property
         total_payments = term * 12
         payment = pmt(monthly_rate, total_payments, loan_amount) * -1
 
@@ -1105,4 +1103,16 @@ class Project(Model):
                     )
         else:
             raise ValueError("cap_rates must be either a float or a dictionary")
+        return self
+
+    @model_validator(mode='after')
+    def validate_financing(self) -> 'Project':
+        """Validate that financing structure matches project parameters"""
+        # TODO: should this go into _financing.py?
+        if self.construction_financing:
+            if self.construction_financing.max_ltc != self.debt_to_equity:
+                raise ValueError(
+                    f"Maximum LTC threshold ({self.construction_financing.max_ltc:.1%}) "
+                    f"must match project debt-to-equity ratio ({self.debt_to_equity:.1%})"
+                )
         return self

@@ -18,7 +18,13 @@ from ._draw_schedule import (
     UniformDrawSchedule,
 )
 from ._expense import Expense, ExpenseCostItem, ExpenseFactorItem, ExpenseItem
-from ._financing import ConstructionFinancing, PermanentFinancing
+from ._financing import (
+    ConstructionFinancing,
+    DebtTranche,
+    InterestRate,
+    InterestRateType,
+    PermanentFinancing,
+)
 from ._model import Model
 from ._program import Program
 from ._project import CapRate, Project
@@ -45,6 +51,9 @@ __all__ = [
     "ExpenseFactorItem",
     "Expense",
     "ConstructionFinancing",
+    "DebtTranche",
+    "InterestRate", 
+    "InterestRateType",
     "PermanentFinancing",
     "Project",
     "CapRate",
