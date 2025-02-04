@@ -12,19 +12,18 @@ from ._deal import (
     WaterfallPromote,
     WaterfallTier,
 )
+from ._debt import (
+    ConstructionFinancing,
+    DebtTranche,
+    InterestRate,
+    PermanentFinancing,
+)
 from ._draw_schedule import (
     ManualDrawSchedule,
     SCurveDrawSchedule,
     UniformDrawSchedule,
 )
 from ._expense import Expense, ExpenseCostItem, ExpenseFactorItem, ExpenseItem
-from ._financing import (
-    ConstructionFinancing,
-    DebtTranche,
-    InterestRate,
-    InterestRateType,
-    PermanentFinancing,
-)
 from ._model import Model
 from ._program import Program
 from ._project import CapRate, Project
@@ -52,8 +51,7 @@ __all__ = [
     "Expense",
     "ConstructionFinancing",
     "DebtTranche",
-    "InterestRate", 
-    "InterestRateType",
+    "InterestRate",
     "PermanentFinancing",
     "Project",
     "CapRate",

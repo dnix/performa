@@ -7,9 +7,9 @@ from pydantic import Field, model_validator
 from ..utils._types import FloatBetween0And1, PositiveFloat, PositiveInt
 from ._model import Model
 
-#############################
-######### FINANCING #########
-#############################
+########################
+######### DEBT #########
+########################
 
 class InterestRateType(str, Enum):
     """Type of interest rate"""

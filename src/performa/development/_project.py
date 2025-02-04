@@ -10,9 +10,9 @@ from pyxirr import pmt, xirr, xnpv  #, mirr, fv
 from ..utils._types import FloatBetween0And1, PositiveInt, PositiveIntGt1
 from ..utils._utils import equity_multiple
 from ._budget import Budget
+from ._debt import ConstructionFinancing, InterestRate, PermanentFinancing
 from ._enums import ProgramUseEnum
 from ._expense import Expense
-from ._financing import ConstructionFinancing, InterestRate, PermanentFinancing
 from ._model import Model
 from ._revenue import Revenue
 
