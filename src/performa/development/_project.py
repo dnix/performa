@@ -4,12 +4,12 @@ from typing import Dict, Optional, Union
 import numpy as np
 import pandas as pd
 from pydantic import BaseModel, Field, field_validator, model_validator
-from pyxirr import xirr, xnpv  #, mirr, fv
+from pyxirr import xirr, xnpv  # , mirr, fv
 
+from ..debt import ConstructionFacility, PermanentFacility
 from ..utils._types import FloatBetween0And1, PositiveInt, PositiveIntGt1
 from ..utils._utils import equity_multiple
 from ._budget import Budget
-from ._debt import ConstructionFinancing, PermanentFinancing
 from ._enums import ProgramUseEnum
 from ._expense import Expense
 from ._model import Model
@@ -55,7 +55,7 @@ class Project(Model):
     budget: Budget
 
     # CONSTRUCTION FINANCING
-    construction_financing: ConstructionFinancing  # FIXME: make optional (?)
+    construction_financing: ConstructionFacility  # FIXME: make optional (?)
 
     # REVENUES
     revenue: Revenue
@@ -65,7 +65,7 @@ class Project(Model):
     # TODO: maybe not optional if incorporate post-sales expenses?
 
     # PERMANENT FINANCING
-    permanent_financing: PermanentFinancing  # FIXME: make optional (?)
+    permanent_financing: PermanentFacility  # FIXME: make optional (?)
     stabilization_year: PositiveInt  # year of stabilization for permanent financing  # TODO: replace this with lease-up logic!?
 
     # DISPOSITION
@@ -185,7 +185,7 @@ class Project(Model):
             total_project_cost=self._budget_table.sum().sum(),
             budget_cash_flows=self._budget_table,
             debt_to_equity=self.debt_to_equity,
-            project_timeline=self.project_timeline
+            project_timeline=self.project_timeline,
         )
 
     @property
@@ -395,14 +395,13 @@ class Project(Model):
         noi_by_use = self.net_operating_income_cf.loc[
             self.stabilization_date : (self.stabilization_date + 11)
         ].sum()
-        
+
         # Get refinance cap rates
         cap_rates = self._cap_rates_table["Refinance Cap Rate"]
-        
+
         # Calculate refinance amount using permanent financing
         return self.permanent_financing.calculate_refinance_amount(
-            noi_by_use=noi_by_use,
-            cap_rates=cap_rates
+            noi_by_use=noi_by_use, cap_rates=cap_rates
         )
 
     @property
@@ -411,14 +410,16 @@ class Project(Model):
         Computes the construction loan repayment cash flow for all tranches.
         """
         repayment_flow = {
-            tranche.name: self.construction_financing_cf[f"{tranche.name} Draw"].cumsum()
+            tranche.name: self.construction_financing_cf[
+                f"{tranche.name} Draw"
+            ].cumsum()
             for tranche in self.construction_financing.tranches
         }
-        
+
         repayments = {}
         for tranche_name, flow in repayment_flow.items():
             repayments[f"{tranche_name} Repayment"] = flow.loc[self.stabilization_date]
-            
+
         return pd.DataFrame(
             repayments,
             index=[self.stabilization_date],
@@ -462,8 +463,7 @@ class Project(Model):
     def permanent_financing_cf(self) -> pd.DataFrame:
         """Calculate permanent financing cash flows"""
         return self.permanent_financing.generate_amortization(
-            loan_amount=self.refinance_amount,
-            start_date=self.stabilization_date
+            loan_amount=self.refinance_amount, start_date=self.stabilization_date
         )
 
     @property
@@ -545,8 +545,8 @@ class Project(Model):
             self.project_end_date : (self.project_end_date + 11)
         ].sum()
         # noi_by_use is now a Series with program uses as index, e.g.:
-        # Office    1200000
-        # Retail     600000
+        # Office    12000000
+        # Retail     6000000
 
         # Get the sale cap rates for each program use
         cap_rates = self._cap_rates_table["Sale Cap Rate"]
@@ -558,12 +558,12 @@ class Project(Model):
         # This operation aligns the Series by their index (program use)
         sale_values_by_use = noi_by_use / cap_rates.loc[noi_by_use.index]
         # sale_values_by_use is now a Series, e.g.:
-        # Office    30000000  (1200000 / 0.04)
-        # Retail    12000000  (600000 / 0.05)
+        # Office    300000000  (12000000 / 0.04)
+        # Retail    120000000  (6000000 / 0.05)
 
         # Sum up the sale values across all program uses
         total_sale_value = sale_values_by_use.sum()
-        # total_sale_value is now a single float: 42000000
+        # total_sale_value is now a single float: 420000000
 
         return total_sale_value
 
@@ -718,51 +718,61 @@ class Project(Model):
     @property
     def total_investment(self) -> float:
         """Total equity investment (absolute sum of negative cash flows)"""
-        return np.abs(self.levered_cash_flow["Levered Cash Flow"].where(
-            self.levered_cash_flow["Levered Cash Flow"] < 0, 0
-        ).sum())
+        return np.abs(
+            self.levered_cash_flow["Levered Cash Flow"]
+            .where(self.levered_cash_flow["Levered Cash Flow"] < 0, 0)
+            .sum()
+        )
 
     @property
     def total_profit(self) -> float:
         """Total profit (sum of all cash flows)"""
         return self.levered_cash_flow["Levered Cash Flow"].sum()
-    
+
     @property
     def total_distributions(self) -> float:
         """Total cash returned (sum of positive cash flows)"""
-        return self.levered_cash_flow["Levered Cash Flow"].where(
-            self.levered_cash_flow["Levered Cash Flow"] > 0, 0
-        ).sum()
+        return (
+            self.levered_cash_flow["Levered Cash Flow"]
+            .where(self.levered_cash_flow["Levered Cash Flow"] > 0, 0)
+            .sum()
+        )
 
-    @property 
+    @property
     def total_unlevered_investment(self) -> float:
         """Total unlevered investment (absolute sum of negative unlevered cash flows)"""
-        return np.abs(self.unlevered_cash_flow["Unlevered Cash Flow"].where(
-            self.unlevered_cash_flow["Unlevered Cash Flow"] < 0, 0
-        ).sum())
+        return np.abs(
+            self.unlevered_cash_flow["Unlevered Cash Flow"]
+            .where(self.unlevered_cash_flow["Unlevered Cash Flow"] < 0, 0)
+            .sum()
+        )
 
     @property
     def total_unlevered_profit(self) -> float:
         """Total unlevered profit (sum of all unlevered cash flows)"""
         return self.unlevered_cash_flow["Unlevered Cash Flow"].sum()
-    
+
     @property
     def total_unlevered_distributions(self) -> float:
         """Total unlevered cash returned (sum of positive unlevered cash flows)"""
-        return self.unlevered_cash_flow["Unlevered Cash Flow"].where(
-            self.unlevered_cash_flow["Unlevered Cash Flow"] > 0, 0
-        ).sum()
-    
+        return (
+            self.unlevered_cash_flow["Unlevered Cash Flow"]
+            .where(self.unlevered_cash_flow["Unlevered Cash Flow"] > 0, 0)
+            .sum()
+        )
+
     @property
     def irr(self) -> float:
         """Internal rate of return (xirr)"""
         return xirr(self.levered_cash_flow["Levered Cash Flow"])
-    
+
     @property
     def npv(self) -> float:
         """Net present value (xnpv)"""
-        return xnpv(0.10, self.levered_cash_flow["Levered Cash Flow"])  # Using 10% discount rate as default
-    
+        return xnpv(
+            0.10, self.levered_cash_flow["Levered Cash Flow"]
+        )  # Using 10% discount rate as default
+
     @property
     def equity_multiple(self) -> float:
         """Equity multiple (total_distributions / total_investment)"""
@@ -908,8 +918,8 @@ class Project(Model):
             raise ValueError("cap_rates must be either a float or a dictionary")
         return self
 
-    @model_validator(mode='after')
-    def validate_financing(self) -> 'Project':
+    @model_validator(mode="after")
+    def validate_financing(self) -> "Project":
         """Validate that financing structure matches project parameters"""
         # TODO: should this go into _financing.py?
         if self.construction_financing:
