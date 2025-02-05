@@ -1,16 +1,15 @@
 import warnings
-from datetime import date
 from typing import Dict, Optional, Union
 
 import numpy as np
 import pandas as pd
 from pydantic import BaseModel, Field, field_validator, model_validator
-from pyxirr import pmt, xirr, xnpv  #, mirr, fv
+from pyxirr import xirr, xnpv  #, mirr, fv
 
 from ..utils._types import FloatBetween0And1, PositiveInt, PositiveIntGt1
 from ..utils._utils import equity_multiple
 from ._budget import Budget
-from ._debt import ConstructionFinancing, InterestRate, PermanentFinancing
+from ._debt import ConstructionFinancing, PermanentFinancing
 from ._enums import ProgramUseEnum
 from ._expense import Expense
 from ._model import Model
@@ -181,96 +180,13 @@ class Project(Model):
 
     @property
     def construction_financing_cf(self) -> pd.DataFrame:
-        total_project_cost = self._budget_table.sum().sum()
-        equity_portion = total_project_cost * (1 - self.debt_to_equity)
-
-        # Initialize DataFrame
-        df = pd.DataFrame(index=self.project_timeline)
-        df["Total Costs Before Financing"] = (
-            self._budget_table.sum(axis=1)
-            .reindex(self.project_timeline)
-            .fillna(0)
+        """Calculate construction financing cash flows"""
+        return self.construction_financing.calculate_financing_cash_flows(
+            total_project_cost=self._budget_table.sum().sum(),
+            budget_cash_flows=self._budget_table,
+            debt_to_equity=self.debt_to_equity,
+            project_timeline=self.project_timeline
         )
-        df["Cumulative Costs"] = df["Total Costs Before Financing"].cumsum()
-        
-        # Initialize all draw and interest columns with zeros
-        df["Equity Draw"] = 0.0
-        for tranche in self.construction_financing.tranches:
-            df[f"{tranche.name} Draw"] = 0.0
-            df[f"{tranche.name} Interest"] = 0.0
-        
-        for period in df.index:
-            current_cost = df.loc[period, "Total Costs Before Financing"]
-            if current_cost == 0:
-                continue
-                
-            cumulative_cost = df.loc[period, "Cumulative Costs"]
-            cumulative_equity = df.loc[:period, "Equity Draw"].sum()
-            
-            # Calculate draws for this period
-            remaining_cost = current_cost
-            
-            # 1. Draw equity until equity portion is reached
-            if cumulative_equity < equity_portion:
-                equity_draw = min(
-                    remaining_cost,
-                    equity_portion - cumulative_equity
-                )
-                df.loc[period, "Equity Draw"] = equity_draw
-                remaining_cost -= equity_draw
-            
-            # 2. Draw debt tranches in order
-            previous_ltc = 0.0
-            for tranche in self.construction_financing.tranches:
-                if remaining_cost <= 0:
-                    break
-                    
-                tranche_ltc = tranche.ltc_threshold - previous_ltc
-                max_tranche_amount = total_project_cost * tranche_ltc
-                cumulative_tranche = df.loc[:period, f"{tranche.name} Draw"].sum()
-                
-                # Calculate available capacity for this tranche
-                available = min(
-                    max_tranche_amount - cumulative_tranche,  # Remaining in tranche
-                    (cumulative_cost * tranche_ltc) - cumulative_tranche  # LTC limit
-                )
-                
-                # Draw from this tranche
-                tranche_draw = min(remaining_cost, available)
-                if tranche_draw > 0:
-                    df.loc[period, f"{tranche.name} Draw"] = tranche_draw
-                    remaining_cost -= tranche_draw
-                
-                # Calculate interest on cumulative balance
-                if period > df.index[0]:
-                    previous_balance = df.loc[:period-1, f"{tranche.name} Draw"].sum()
-                    if previous_balance > 0:
-                        interest_dict = self.construction_financing.calculate_interest(
-                            {tranche.name: previous_balance},
-                            period_start=period,
-                        )
-                        df.loc[period, f"{tranche.name} Interest"] = interest_dict[tranche.name]
-                
-                previous_ltc = tranche.ltc_threshold
-            
-            # Any remaining cost goes back to equity
-            if remaining_cost > 0:
-                df.loc[period, "Equity Draw"] += remaining_cost
-        
-        # Aggregate interest across tranches
-        df["Interest Reserve"] = df[[f"{t.name} Interest" for t in self.construction_financing.tranches]].sum(axis=1)
-
-        # Calculate fees when crossing from equity to debt
-        df["Financing Fees"] = np.where(
-            (df["Cumulative Costs"].shift(1, fill_value=0) < equity_portion) &
-            (df["Cumulative Costs"] >= equity_portion),
-            pd.Series(self.construction_financing.calculate_fees(
-                self.construction_financing.calculate_tranche_amounts(total_project_cost * self.debt_to_equity)
-            )).sum(),
-            0
-        )
-
-        return df
 
     @property
     def equity_cf(self) -> pd.DataFrame:
@@ -474,41 +390,20 @@ class Project(Model):
 
     @property
     def refinance_value(self) -> float:
-        """
-        Computes the refinance value.
-
-        Returns:
-            float: The total refinance value across all program uses.
-
-        Example:
-            50000000.0
-        """
-        # Calculate the sum of NOI for each program use over the stabilization period
+        """Calculate refinance value"""
+        # Calculate NOI for stabilization period
         noi_by_use = self.net_operating_income_cf.loc[
             self.stabilization_date : (self.stabilization_date + 11)
         ].sum()
-        # noi_by_use is now a Series with program uses as index, e.g.:
-        # Office    1000000
-        # Retail     500000
-
-        # Get the refinance cap rates for each program use
+        
+        # Get refinance cap rates
         cap_rates = self._cap_rates_table["Refinance Cap Rate"]
-        # cap_rates is a Series with program uses as index, e.g.:
-        # Office    0.05
-        # Retail    0.06
-
-        # Divide NOI by cap rate for each program use
-        # This operation aligns the Series by their index (program use)
-        refinance_values_by_use = noi_by_use / cap_rates.loc[noi_by_use.index]
-        # refinance_values_by_use is now a Series, e.g.:
-        # Office    20000000  (1000000 / 0.05)
-        # Retail     8333333  (500000 / 0.06)
-
-        # Sum up the refinance values across all program uses
-        total_refinance_value = refinance_values_by_use.sum()
-        # total_refinance_value is now a single float: 28333333
-
-        return total_refinance_value
+        
+        # Calculate refinance amount using permanent financing
+        return self.permanent_financing.calculate_refinance_amount(
+            noi_by_use=noi_by_use,
+            cap_rates=cap_rates
+        )
 
     @property
     def construction_loan_repayment_cf(self) -> pd.DataFrame:
@@ -565,27 +460,11 @@ class Project(Model):
 
     @property
     def permanent_financing_cf(self) -> pd.DataFrame:
-        """
-        Computes the permanent financing cash flow.
-
-        Returns:
-            pd.DataFrame: A DataFrame with columns for payment components.
-
-        Example:
-                 Payment    Interest   Principal  End Balance
-        2026-01  200000.0   145833.33  54166.67   34945833.33
-        2026-02  200000.0   145607.64  54392.36   34891440.97
-        """
-        # amortize the loan
-        # FIXME: add refinancing fees!
-        # FIXME: add permanent financing to _financing.py
-        df, _ = Project.amortize_loan(
+        """Calculate permanent financing cash flows"""
+        return self.permanent_financing.generate_amortization(
             loan_amount=self.refinance_amount,
-            term=self.permanent_financing.amortization,
-            interest_rate=self.permanent_financing.interest_rate,
-            start_date=self.stabilization_date,
+            start_date=self.stabilization_date
         )
-        return df
 
     @property
     def permanent_financing_repayment_cf(self) -> pd.DataFrame:
@@ -986,82 +865,6 @@ class Project(Model):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", FutureWarning)
             return df.resample("Y").sum()
-
-    @staticmethod
-    def amortize_loan(
-        loan_amount,  # initial loan amount
-        term: PositiveInt,  # in years
-        interest_rate: InterestRate,  # annual interest rate
-        start_date: pd.Period = pd.Period(date.today(), freq="M"),
-    ) -> tuple[pd.DataFrame]:
-        """
-        Amortize a loan with a fixed interest rate over a fixed term.
-
-        Parameters:
-        - loan_amount: Initial loan amount.
-        - term: Loan term in years.
-        - interest_rate: InterestRate object containing rate configuration.
-        - start_date: Start date of the loan amortization schedule. Defaults to the current date.
-
-        Returns:
-        - df: DataFrame containing the loan amortization schedule.
-        - summary: Summary statistics of the loan amortization.
-        """
-        monthly_rate = interest_rate.effective_rate / 12  # Use effective_rate property
-        total_payments = term * 12
-        payment = pmt(monthly_rate, total_payments, loan_amount) * -1
-
-        # Time array for the payment schedule
-        months = pd.period_range(start_date, periods=total_payments, freq="M")
-
-        # Payments are constant, just repeat the fixed payment
-        payments = np.full(shape=(total_payments,), fill_value=payment)
-
-        # Calculate interest for each period
-        interest_paid = np.empty(shape=(total_payments,))
-        balances = np.empty(shape=(total_payments,))
-
-        balances[0] = loan_amount
-        for i in range(total_payments):
-            interest_paid[i] = balances[i] * monthly_rate
-            principal_paid = payments[i] - interest_paid[i]
-            if i < total_payments - 1:
-                balances[i + 1] = balances[i] - principal_paid
-
-        # The final balance is zero
-        balances[-1] = 0
-
-        # Create DataFrame
-        df = pd.DataFrame(
-            {
-                "Period": np.arange(1, total_payments + 1),
-                "Month": months,
-                "Begin Balance": np.roll(balances, 1),
-                "Payment": payments,
-                "Interest": interest_paid,
-                "Principal": payments - interest_paid,
-                "End Balance": balances,
-            }
-        )
-        df.iloc[0, df.columns.get_loc("Begin Balance")] = (
-            loan_amount  # Fix the first beginning balance
-        )
-
-        # Set 'Month' as the index
-        df.set_index("Month", inplace=True)
-
-        # Summary statistics
-        summary = pd.Series(
-            {
-                "Payoff Date": df.index[-1],
-                "Total Payments": df["Payment"].sum(),
-                "Total Principal Paid": df["Principal"].sum(),
-                "Total Interest Paid": df["Interest"].sum(),
-                "Last Payment Amount": df["Payment"].iloc[-1],
-            }
-        )
-
-        return df, summary
 
     def shift_ordinal_to_project_timeline(self, df: pd.DataFrame) -> pd.DataFrame:
         """Shift a dataframe to the project start date from ordinal time (1970)"""
