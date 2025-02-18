@@ -2,7 +2,9 @@ from datetime import date
 from typing import Dict, Literal, Optional
 
 from ..utils._model import Model
-from ..utils._types import FloatBetween0And1
+from ..utils._types import FloatBetween0And1, PositiveFloat
+from ._enums import AssetUseEnum
+from ._types import SquareFootRange
 
 
 class GrowthRate(Model):
@@ -23,6 +25,7 @@ class GrowthRates(Model):
     operating_expense_growth: GrowthRate
     leasing_costs_growth: GrowthRate
     capital_expense_growth: GrowthRate
+    # TODO: consider manual kinds of growth rates
 
     def get_rate(self, name: str, date: date) -> FloatBetween0And1:
         """Get growth rate for a specific profile and date"""
@@ -77,3 +80,27 @@ class GrowthRates(Model):
                 yearly_rates={},
             ),
         )
+
+
+class MarketProfile(Model):
+    """Market leasing assumptions"""
+
+    # Market Rents
+    base_rent: PositiveFloat  # per sq ft
+    rent_growth_rate: FloatBetween0And1
+
+    # Typical Terms
+    lease_term_months: int
+    free_rent_months: int = 0
+
+    # Leasing Costs
+    ti_allowance: PositiveFloat  # per sq ft
+    leasing_commission: FloatBetween0And1  # percent of rent
+
+    # Turnover
+    renewal_probability: FloatBetween0And1
+    downtime_months: int
+
+    # Applies To
+    space_type: AssetUseEnum
+    size_range: Optional[SquareFootRange] = None  # sq ft range

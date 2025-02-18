@@ -3,7 +3,7 @@ from typing import Literal, Optional
 from ..utils._model import Model
 from ..utils._types import FloatBetween0And1, PositiveFloat
 from ._enums import UnitOfMeasureEnum
-from ._growth import GrowthRates
+from ._market import GrowthRates
 
 
 class LineItem(Model):
@@ -19,3 +19,5 @@ class LineItem(Model):
     growth_rate: GrowthRates | PositiveFloat
     is_variable: bool = False
     percent_variable: Optional[FloatBetween0And1] = None
+
+    # TODO: class constructor method for line item based on another line item(s)
