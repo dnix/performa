@@ -1,6 +1,3 @@
-# Created by https://www.toptal.com/developers/gitignore/api/python,asdf,jupyternotebooks
-# Edit at https://www.toptal.com/developers/gitignore?templates=python,asdf,jupyternotebooks
-
 ### asdf ###
 /.tool-versions
 
@@ -187,4 +184,6 @@ poetry.toml
 # LSP config files
 pyrightconfig.json
 
-# End of https://www.toptal.com/developers/gitignore/api/python,asdf,jupyternotebooks
+# Cursor
+.cursorrules
+.cursor/
