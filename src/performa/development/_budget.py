@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -138,21 +138,17 @@ class BudgetItem(CashFlowModel):
         name: str,
         subcategory: BudgetSubcategoryEnum,
         reference_budget_items: list["BudgetItem"],
-        reference_kind: Literal["sum", "passthrough"],  # sum or passthrough
-        reference_percentage: PositiveFloat,
+        reference_factor: PositiveFloat,
         periods_until_start: PositiveInt,
         active_duration: PositiveInt,
         draw_schedule: Optional[AnyDrawSchedule] = None,
         notes: Optional[str] = None,
     ) -> "BudgetItem":
-        """Construct a budget item as a percentage of another budget item or multiple items"""
-        if reference_kind == "sum":
-            cost_total = (
-                sum([item.cost_total for item in reference_budget_items])
-                * reference_percentage
-            )
-        elif reference_kind == "passthrough":
-            cost_total = reference_budget_items[0].cost_total * reference_percentage
+        """Construct a budget item as a percentage of the sum of reference budget items"""
+        cost_total = (
+            sum([item.cost_total for item in reference_budget_items])
+            * reference_factor
+        )
         return cls(
             name=name,
             subcategory=subcategory,
