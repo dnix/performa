@@ -186,4 +186,5 @@ pyrightconfig.json
 
 # Cursor
 .cursorrules
+.cursorignore
 .cursor/
