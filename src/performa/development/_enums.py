@@ -15,16 +15,16 @@ class CashFlowCategoryEnum(str, Enum):
     This enum represents the main categories of cash flows in a real estate development project.
 
     Attributes:
-        budget (str): Represents budget-related cash flows.
-        expense (str): Represents expense-related cash flows.
-        revenue (str): Represents revenue-related cash flows.
-        other (str): Represents any other type of cash flows not covered by the above categories.
+        BUDGET (str): Represents budget-related cash flows.
+        EXPENSE (str): Represents expense-related cash flows.
+        REVENUE (str): Represents revenue-related cash flows.
+        OTHER (str): Represents any other type of cash flows not covered by the above categories.
     """
 
-    budget = "Budget"
-    expense = "Expense"
-    revenue = "Revenue"
-    other = "Other"
+    BUDGET = "Budget"
+    EXPENSE = "Expense"
+    REVENUE = "Revenue"
+    OTHER = "Other"
 
 
 ##########################
@@ -35,12 +35,12 @@ class CashFlowCategoryEnum(str, Enum):
 class ProgramUseEnum(str, Enum):
     """Enum for program uses"""
 
-    residential = "Residential"
-    affordable_residential = "Affordable Residential"
-    office = "Office"
-    retail = "Retail"
-    amenity = "Amenity"
-    other = "Other"
+    RESIDENTIAL = "Residential"
+    AFFORDABLE_RESIDENTIAL = "Affordable Residential"
+    OFFICE = "Office"
+    RETAIL = "Retail"
+    AMENITY = "Amenity"
+    OTHER = "Other"
 
 
 ##########################
@@ -55,18 +55,18 @@ class BudgetSubcategoryEnum(str, Enum):
     This enum represents the main subcategories of budget in a real estate development project.
 
     Attributes:
-        sale (str): Represents revenue from property or unit sales.
-        land (str): Represents revenue from the sale of land.
-        hard_costs (str): Represents revenue from hard costs.
-        soft_costs (str): Represents revenue from soft costs.
-        other (str): Represents any other type of revenue not covered by the above categories.
+        SALE (str): Represents revenue from property or unit sales.
+        LAND (str): Represents revenue from the sale of land.
+        HARD_COSTS (str): Represents revenue from hard costs.
+        SOFT_COSTS (str): Represents revenue from soft costs.
+        OTHER (str): Represents any other type of revenue not covered by the above categories.
     """
 
-    sale = "Sale"
-    land = "Land"
-    hard_costs = "Hard Costs"
-    soft_costs = "Soft Costs"
-    other = "Other"
+    SALE = "Sale"
+    LAND = "Land"
+    HARD_COSTS = "Hard Costs"
+    SOFT_COSTS = "Soft Costs"
+    OTHER = "Other"
 
 
 class DrawScheduleKindEnum(str, Enum):
@@ -76,14 +76,14 @@ class DrawScheduleKindEnum(str, Enum):
     This enum represents the different types of draw schedules that can be used in a real estate development project.
 
     Attributes:
-        s_curve (str): Represents an S-curve draw schedule.
-        uniform (str): Represents a uniform draw schedule.
-        manual (str): Represents a manual draw schedule.
+        S_CURVE (str): Represents an S-curve draw schedule.
+        UNIFORM (str): Represents a uniform draw schedule.
+        MANUAL (str): Represents a manual draw schedule.
     """
 
-    s_curve = "s-curve"
-    uniform = "uniform"
-    manual = "manual"
+    S_CURVE = "s-curve"
+    UNIFORM = "uniform"
+    MANUAL = "manual"
 
 
 ###########################
@@ -99,12 +99,12 @@ class RevenueSubcategoryEnum(str, Enum):
     distinguishing between one-time sales and ongoing lease arrangements.
 
     Attributes:
-        `sale` (str): Revenue from property or unit SALES.
-        `lease` (str): Revenue from property or unit LEASES.
+        SALE (str): Revenue from property or unit SALES.
+        LEASE (str): Revenue from property or unit LEASES.
     """
 
-    sale = "Sale"
-    lease = "Lease"
+    SALE = "Sale"
+    LEASE = "Lease"
 
 
 class RevenueMultiplicandEnum(str, Enum):
@@ -114,16 +114,16 @@ class RevenueMultiplicandEnum(str, Enum):
     This enum represents the different units or bases against which revenue can be calculated.
 
     Attributes:
-        whole (str): Represents revenue calculated per whole unit (e.g., per apartment, per house).
-        rsf (str): Represents revenue calculated per Rentable Square Foot (RSF).
-        parking_space (str): Represents revenue calculated per parking space.
-        other (str): Represents any other basis for revenue calculation not covered by the above options.
+        WHOLE_UNIT (str): Represents revenue calculated per whole unit (e.g., per apartment, per house).
+        RSF (str): Represents revenue calculated per Rentable Square Foot (RSF).
+        PARKING_SPACE (str): Represents revenue calculated per parking space.
+        OTHER (str): Represents any other basis for revenue calculation not covered by the above options.
     """
 
-    whole = "Whole Unit"
-    rsf = "RSF"  # rentable square feet
-    parking_space = "Parking Space"
-    other = "Other"
+    WHOLE_UNIT = "Whole Unit"
+    RSF = "RSF"  # rentable square feet
+    PARKING_SPACE = "Parking Space"
+    OTHER = "Other"
 
 
 ###########################
@@ -134,16 +134,24 @@ class RevenueMultiplicandEnum(str, Enum):
 class ExpenseSubcategoryEnum(str, Enum):
     """
     Enum for expense subcategories in real estate development projects.
+
+    Attributes:
+        OP_EX (str): Represents operational expenses.
+        CAP_EX (str): Represents capital expenses.
     """
 
-    op_ex = "OpEx"
-    cap_ex = "CapEx"
+    OP_EX = "OpEx"
+    CAP_EX = "CapEx"
 
 
 class ExpenseKindEnum(str, Enum):
     """
     Enum for expense kinds in real estate development projects.
+
+    Attributes:
+        COST (str): Represents cost-based expenses.
+        FACTOR (str): Represents factor-based expenses.
     """
 
-    cost = "Cost"
-    factor = "Factor"
+    COST = "Cost"
+    FACTOR = "Factor"

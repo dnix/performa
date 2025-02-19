@@ -35,8 +35,7 @@ class RevenueItem(CashFlowModel, ABC):
     program: Program  # program generating the revenue
 
     # REVENUE
-    # revenue_multiplicand: RevenueMultiplicandEnum  # whole unit, rsf, parking space, etc.
-    revenue_multiplicand: RevenueMultiplicandEnum  #
+    revenue_multiplicand: RevenueMultiplicandEnum  # whole unit, rsf, parking space, etc.
     revenue_multiplier: (
         PositiveFloat  # sales: $/{unit,space}; rental: $/{unit,rsf,space}/mo
     )
