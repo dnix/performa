@@ -2,8 +2,8 @@ from typing import List, Literal, Optional
 
 from ..utils._model import Model
 from ..utils._types import FloatBetween0And1, PositiveFloat
-from ._growth import GrowthRate
 from ._line_item import LineItem
+from ._market import GrowthRate
 
 
 class ExpensePool(Model):
@@ -14,7 +14,25 @@ class ExpensePool(Model):
 
 
 class Recovery(Model):
-    # Recovery pools, structure, & admin fees
+    """
+    Model for cost recovery as defined by Argus Enterprise/Valuation DCF.
+
+    Attributes:
+        expense_pool: Represents the expense pool associated with this recovery.
+        structure: Indicates the recovery structure, which can be one of:
+            "net", "base_stop", "fixed", "base_year",
+            "base_year_plus1", or "base_year_minus1", mapping directly to Argus options.
+        base_amount: Base amount used in fixed or base-stop recovery calculations.
+        growth_rate: Optional growth rate applied to recoveries.
+        contribution_deduction: Deduction applied (if any) to tenant contributions.
+        admin_fee_percent: Administrative fee percent applied on recoveries.
+        prorata_share: The lease-specific share for allocation.
+        denominator: The overall property area used in the allocation process.
+        yoy_min_growth: Minimum allowed year-over-year recovery growth.
+        yoy_max_growth: Maximum allowed year-over-year recovery growth.
+        recovery_floor: Minimum recovery limit (floor).
+        recovery_ceiling: Maximum recovery limit (ceiling).
+    """
     expense_pool: ExpensePool
     structure: Literal[
         "net",

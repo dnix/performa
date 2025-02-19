@@ -4,10 +4,11 @@ from ..utils._model import Model
 from ..utils._types import FloatBetween0And1, PositiveFloat
 from ._enums import UnitOfMeasureEnum
 from ._recovery import RecoveryMethod
+from ._rollover import RolloverAssumption
 
 
 class RolloverMarketRent(Model):
-    """Market rent assumptions for new and renewal leases"""
+    """Defines market rent assumptions for new and renewal lease terms."""
 
     # TODO: maybe renewal rent needs a different object
     new_amount: PositiveFloat
@@ -18,7 +19,7 @@ class RolloverMarketRent(Model):
 
 
 class RolloverRentAdjustment(Model):
-    """Rent adjustments during lease term"""
+    """Defines rent adjustments applied during the lease term."""
 
     increase: PositiveFloat
     unit: UnitOfMeasureEnum
@@ -27,7 +28,7 @@ class RolloverRentAdjustment(Model):
 
 
 class RolloverFreeRent(Model):
-    """Free rent structure for new/renewal leases"""
+    """Defines free rent concessions for lease rollover scenarios."""
 
     new_months: int = 0
     renewal_months: int = 0
@@ -35,7 +36,7 @@ class RolloverFreeRent(Model):
 
 
 class RolloverTI(Model):
-    """TI allowances for new/renewal leases"""
+    """Defines tenant improvement allowances for lease rollover scenarios."""
 
     new_amount: PositiveFloat
     new_unit: UnitOfMeasureEnum
@@ -44,7 +45,7 @@ class RolloverTI(Model):
 
 
 class RolloverLC(Model):
-    """Leasing commission structure for new/renewal leases"""
+    """Defines leasing commission settings for lease rollover scenarios."""
 
     new_amount: PositiveFloat
     new_unit: UnitOfMeasureEnum
@@ -55,10 +56,24 @@ class RolloverLC(Model):
 
 class RolloverAssumption(Model):
     """
-    Market leasing assumptions for lease expiration.
+    Represents lease rollover assumptions as defined by Argus Enterprise/Valuation DCF.
 
-    Defines what happens when a lease expires, including renewal terms,
-    new lease terms, and associated costs.
+    Attributes:
+        name: Identifier for this rollover assumption.
+        active: Indicator if the rollover profile is currently active.
+        renewal_probability: Likelihood of lease renewal upon expiration.
+        term_months: Lease term (in months) for the rollover period.
+        downtime_months: Expected downtime (in months) before a new lease commences.
+        market_rents: Market rent assumptions covering both new leases and renewals.
+        in_term_adjustments: Adjustments applied during the active lease term.
+        free_rent: Free rent concessions provided during the lease rollover.
+        tenant_improvements: TI allowances offered as part of the rollover.
+        leasing_commissions: Leasing commission structure for the rollover.
+        renewal_free_rent: Free rent concessions specifically for lease renewals.
+        renewal_ti: Tenant improvement allowances for renewals.
+        renewal_lc: Leasing commission settings for lease renewals.
+        recovery_method_ref: Reference to the recovery method to apply across the rollover.
+        upon_expiration: Either a string label or self-reference indicating the designated rollover profile.
     """
 
     name: str
@@ -83,9 +98,7 @@ class RolloverAssumption(Model):
 
     # References to other objects
     recovery_method_ref: RecoveryMethod
-    upon_expiration: Union[str, "RolloverAssumption", None] = (
-        None  # Self-reference or RLA name
-    )
+    upon_expiration: Optional[Union[str, RolloverAssumption]] = None
 
     @property
     def is_terminal(self) -> bool:

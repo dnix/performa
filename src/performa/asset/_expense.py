@@ -1,15 +1,28 @@
-from datetime import date
-from typing import List, Optional
+from typing import List, Literal, Optional
+
+import pandas as pd
 
 from ..utils._model import Model
-from ..utils._types import PositiveFloat
+from ..utils._types import FloatBetween0And1, PositiveFloat
 from ._line_item import LineItem
 
 
 class ExpenseItem(LineItem):
-    """Base class for expenses"""
+    """
+    Class for a generic operational expense line item (rental use case).
+    This model is augmented to align with Argus Enterprise/Valuation DCF expense inputs.
 
-    is_recoverable: bool = False
+    Attributes:
+        expense_kind: Identifies the expense as a "Cost" type.
+        initial_annual_cost: The base annual expense amount.
+        expense_growth_rate: Annual growth rate for the expense.
+        is_recoverable: Flag indicating if the expense is recoverable (passed through to tenants).
+    """
+
+    expense_kind: Literal["Cost"] = "Cost"
+    initial_annual_cost: PositiveFloat
+    expense_growth_rate: FloatBetween0And1 = 0.03  # TODO: consider using GrowthRates
+    is_recoverable: bool = True
     parent_item: Optional[str] = None  # For grouping
 
 
@@ -22,9 +35,7 @@ class OpexItem(ExpenseItem):
 class CapexItem(ExpenseItem):
     """Capital expenditures with timeline"""
 
-    # TODO: handle this as a pandas Series? or date and value and cast to pandas?
-
-    timeline: dict[date, PositiveFloat]  # Detailed spending schedule
+    timeline: pd.Series  # this is a pandas Series of the timeline with length equal to the active duration of the item
 
 
 class OperatingExpenses(Model):
@@ -32,15 +43,15 @@ class OperatingExpenses(Model):
     Collection of property operating expenses.
 
     Attributes:
-        expense_items: List of operating expenses
+        expense_items: List of operational expense items.
     """
 
-    expense_items: List[OpexItem]
+    expense_items: List[ExpenseItem]
 
     @property
     def total_annual_expenses(self) -> PositiveFloat:
         """Calculate total annual base expenses"""
-        return sum(item.amount for item in self.expense_items)
+        return sum(item.initial_annual_cost for item in self.expense_items)
 
     @property
     def recoverable_expenses(self) -> List[ExpenseItem]:

@@ -7,19 +7,63 @@ from ..utils._model import Model
 from ..utils._types import (
     FloatBetween0And1,
     PositiveFloat,
-    SquareFootRange,
 )
 from ._enums import (
     AssetUseEnum,
     LeaseStatusEnum,
+    LeaseTypeEnum,
     UnitOfMeasureEnum,
 )
 from ._line_item import LineItem
+from ._market import MarketProfile
 from ._recovery import RecoveryMethod
-from ._tenant import Tenant
 
 
-class RentStep(Model):
+class Tenant(Model):
+    """
+    Individual tenant record representing a lease agreement.
+
+    Attributes:
+        id: Unique identifier
+        name: Tenant name
+        suite: Suite/unit identifier
+        leased_area: Square footage leased
+        percent_of_building: Percentage of total building area
+        use_type: Type of use (office, retail, etc)
+        lease_start: Start date of current lease
+        lease_end: End date of current lease
+        current_base_rent: Current annual/monthly rent
+        rent_type: Type of lease (gross, net, etc)
+        expense_base_year: Base year for expense stops
+        renewal_probability: Likelihood of renewal
+        market_profile: Applicable market assumptions
+    """
+
+    # Identity
+    id: str
+    name: str
+    suite: str
+
+    # Space
+    leased_area: PositiveFloat  # in square feet
+    percent_of_building: FloatBetween0And1
+
+    # Use
+    use_type: AssetUseEnum
+
+    # Current Lease Terms
+    lease_start: date
+    lease_end: date
+    current_base_rent: PositiveFloat  # annual or monthly rent
+    rent_type: LeaseTypeEnum  # options: Gross, Net, Modified Gross
+    expense_base_year: Optional[int] = None
+
+    # Renewal Terms
+    renewal_probability: FloatBetween0And1
+    market_profile: MarketProfile  # reference to applicable market assumptions
+
+
+class RentEscalation(Model):
     """
     Rent increase structure for a lease.
 
@@ -60,7 +104,30 @@ class FreeRentSchedule(Model):
 
 
 class Lease(Model):
-    """Enhanced lease model"""
+    """
+    Represents a lease agreement for a tenant space.
+
+    Attributes:
+        tenant: The tenant occupying the space
+        suite: Suite identifier
+        floor: Optional floor number/identifier
+        space_type: Type of use (office, retail, etc)
+        status: Current lease status
+        available_date: When space becomes available
+        start_date: Lease commencement date
+        end_date: Lease expiration date
+        lease_term_months: Duration of lease in months
+        area: Square footage of leased space
+        base_rent: Starting base rent amount
+        rent_unit: Units for base rent (e.g. $/SF/YR)
+        rent_escalations: Schedule of rent increases
+        free_rent: Schedule of free rent periods
+        recovery_method: How operating expenses are recovered
+        ti_allowance: Tenant improvement allowance
+        leasing_commission: Commission percentage
+        upon_expiration: What happens at lease end
+        rollover_assumption: Reference to rollover assumptions
+    """
 
     tenant: Tenant
     suite: str
@@ -79,8 +146,8 @@ class Lease(Model):
 
     # Rent
     base_rent: PositiveFloat
-    rent_unit: UnitOfMeasureEnum
-    rent_steps: List[RentStep]
+    rent_unit: UnitOfMeasureEnum  # e.g. $/SF/YR
+    rent_escalations: List[RentEscalation]
     free_rent: List[FreeRentSchedule]
 
     # Recovery
@@ -166,34 +233,10 @@ class RentRoll(Model):
     # TODO: property for stacked floors data (to enable viz)
 
 
-class MarketProfile(Model):
-    """Market leasing assumptions"""
-
-    # Market Rents
-    base_rent: PositiveFloat  # per sq ft
-    rent_growth_rate: FloatBetween0And1
-
-    # Typical Terms
-    lease_term_months: int
-    free_rent_months: int = 0
-
-    # Leasing Costs
-    ti_allowance: PositiveFloat  # per sq ft
-    leasing_commission: FloatBetween0And1  # percent of rent
-
-    # Turnover
-    renewal_probability: FloatBetween0And1
-    downtime_months: int
-
-    # Applies To
-    space_type: AssetUseEnum
-    size_range: Optional[SquareFootRange] = None  # sq ft range
-
-
 class MiscIncome(LineItem):
     """Miscellaneous income items like parking revenue"""
 
     ...
 
 
-# TODO: aggregate revenue items?
+# TODO: aggregate revenue items into unified Revenue object?

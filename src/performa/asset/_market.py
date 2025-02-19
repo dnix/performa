@@ -25,7 +25,7 @@ class GrowthRates(Model):
     operating_expense_growth: GrowthRate
     leasing_costs_growth: GrowthRate
     capital_expense_growth: GrowthRate
-    # TODO: consider manual kinds of growth rates
+    # TODO: consider arbitrary kinds of growth rates
 
     def get_rate(self, name: str, date: date) -> FloatBetween0And1:
         """Get growth rate for a specific profile and date"""
@@ -83,7 +83,23 @@ class GrowthRates(Model):
 
 
 class MarketProfile(Model):
-    """Market leasing assumptions"""
+    """
+    Market leasing assumptions.
+
+    This model maps directly to the Argus Enterprise Market Leasing inputs.
+    
+    Attributes:
+        base_rent: The market base rent per square foot (e.g., $/sq ft/year).
+        rent_growth_rate: The annual growth rate applied to market rent.
+        lease_term_months: The typical lease term duration in months.
+        free_rent_months: The number of months of free rent offered.
+        ti_allowance: The tenant improvement (TI) allowance per square foot.
+        leasing_commission: The leasing commission expressed as a percentage.
+        renewal_probability: The likelihood of lease renewal.
+        downtime_months: The expected downtime (in months) between leases.
+        space_type: The asset use type for which these assumptions apply.
+        size_range: An optional field to restrict the market profile to a given square footage range.
+    """
 
     # Market Rents
     base_rent: PositiveFloat  # per sq ft

@@ -142,16 +142,8 @@ class LeaseStatusEnum(str, Enum):
 
     Options:
         CONTRACT: Executed lease agreement in place
-        PROPOSAL: Proposed lease under negotiation
-        LETTER_OF_INTENT: Non-binding letter of intent stage
-        OPTION: Option period of existing lease
-        HOLDOVER: Tenant remaining after lease expiration
-        MONTH_TO_MONTH: Monthly periodic tenancy
+        SPECULATIVE: Lease is not yet in place, defer to market assumptions
     """
 
     CONTRACT = "contract"
-    PROPOSAL = "proposal"
-    LETTER_OF_INTENT = "letter_of_intent"
-    OPTION = "option"
-    HOLDOVER = "holdover"
-    MONTH_TO_MONTH = "month_to_month"
+    SPECULATIVE = "speculative"
