@@ -80,7 +80,7 @@ class SalesRevenueItem(RevenueItem):
         Calculate the total revenue for the sales item based on the revenue multiplicand.
         """
         # compute multiplier based on multiplicand
-        if self.revenue_multiplicand in ("Whole Unit", "Parking Space"):
+        if self.revenue_multiplicand in ("Whole Unit", "Parking Space"):  # FIXME: rename to unit of measure?
             return self.revenue_multiplier * self.program.unit_count
         elif self.revenue_multiplicand == "RSF":
             return self.revenue_multiplier * self.program.net_area
