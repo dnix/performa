@@ -6,7 +6,7 @@ import pandas as pd
 from pydantic import Field, model_validator
 from pyxirr import pmt
 
-from ..utils._types import FloatBetween0And1, PositiveFloat, PositiveInt
+from ..core._types import FloatBetween0And1, PositiveFloat, PositiveInt
 from ._model import Model
 
 ########################

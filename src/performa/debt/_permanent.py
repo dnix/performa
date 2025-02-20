@@ -5,7 +5,7 @@ from typing import Literal
 import pandas as pd
 from pydantic import Field, model_validator
 
-from ..utils._types import FloatBetween0And1, PositiveFloat, PositiveInt
+from ..core._types import FloatBetween0And1, PositiveFloat, PositiveInt
 from ._amortization import LoanAmortization
 from ._debt_facility import DebtFacility
 from ._rates import InterestRate

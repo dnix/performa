@@ -3,8 +3,8 @@ from typing import List, Literal, Optional
 
 from pydantic import model_validator
 
-from ..utils._model import Model
-from ..utils._types import (
+from ..core._model import Model
+from ..core._types import (
     FloatBetween0And1,
     PositiveFloat,
 )

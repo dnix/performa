@@ -1,8 +1,8 @@
 from datetime import date
 from typing import Literal, Optional
 
-from ..utils._model import Model
-from ..utils._types import FloatBetween0And1
+from ..core._model import Model
+from ..core._types import FloatBetween0And1
 
 
 class GlobalSettings(Model):

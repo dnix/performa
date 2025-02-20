@@ -2,11 +2,12 @@ from typing import List, Literal, Optional
 
 import pandas as pd
 
-from ..utils._model import Model
-from ..utils._types import FloatBetween0And1, PositiveFloat
+from ..core._model import Model
+from ..core._types import FloatBetween0And1, PositiveFloat
 from ._line_item import LineItem
 
 
+# FIXME: use cash flow model for expense items
 class ExpenseItem(LineItem):
     """
     Class for a generic operational expense line item (rental use case).

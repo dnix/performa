@@ -5,7 +5,7 @@ import pandas as pd
 from pydantic import Field, field_validator
 from pyxirr import xirr
 
-from ..utils._types import FloatBetween0And1, PositiveFloat
+from ..core._types import FloatBetween0And1, PositiveFloat
 from ..utils._utils import equity_multiple
 from ._model import Model
 from ._project import Project

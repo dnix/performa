@@ -2,13 +2,13 @@ from typing import Literal, Optional
 
 from pydantic import model_validator
 
-from ..utils._model import Model
-from ..utils._types import FloatBetween0And1, PositiveFloat
+from ..core._model import Model
+from ..core._types import FloatBetween0And1, PositiveFloat
 from ._enums import UnitOfMeasureEnum
 
 
 class LineItem(Model):
-    # TODO: consider using CashFlowModel for line items (after moving to `core`)
+    # FIXME: consider using CashFlowModel for line items (after moving to `core`)
     """
     Base model for any income/expense line item.
     

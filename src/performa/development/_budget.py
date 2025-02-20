@@ -6,14 +6,14 @@ from pydantic import Field, field_validator
 from scipy.stats import norm
 
 from ..core._cash_flow import CashFlowModel
-from ..utils._types import PositiveFloat, PositiveInt
+from ..core._enums import BudgetSubcategoryEnum, CashFlowCategoryEnum
+from ..core._types import PositiveFloat, PositiveInt
 from ._draw_schedule import (
     AnyDrawSchedule,
     ManualDrawSchedule,
     SCurveDrawSchedule,
     UniformDrawSchedule,
 )
-from ._enums import BudgetSubcategoryEnum, CashFlowCategoryEnum
 from ._model import Model
 
 ##########################

@@ -1,8 +1,8 @@
 from datetime import date
 from typing import Dict, Literal, Optional
 
-from ..utils._model import Model
-from ..utils._types import FloatBetween0And1, PositiveFloat
+from ..core._model import Model
+from ..core._types import FloatBetween0And1, PositiveFloat
 from ._enums import ProgramUseEnum
 from ._types import SquareFootRange
 

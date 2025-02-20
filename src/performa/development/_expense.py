@@ -5,11 +5,13 @@ import numpy as np
 import pandas as pd
 from pydantic import Field
 
-from ..utils._types import FloatBetween0And1, PositiveFloat
-from ._enums import (
+from ..core._enums import (
     CashFlowCategoryEnum,
-    ExpenseKindEnum,
     ExpenseSubcategoryEnum,
+)
+from ..core._types import FloatBetween0And1, PositiveFloat
+from ._enums import (
+    ExpenseKindEnum,
     ProgramUseEnum,
 )
 from ._model import Model

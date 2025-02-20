@@ -3,8 +3,8 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from ..utils._model import Model
-from ..utils._types import FloatBetween0And1
+from ..core._model import Model
+from ..core._types import FloatBetween0And1
 from ._rates import InterestRate
 
 

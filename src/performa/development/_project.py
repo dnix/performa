@@ -6,8 +6,8 @@ import pandas as pd
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pyxirr import xirr, xnpv  # , mirr, fv
 
+from ..core._types import FloatBetween0And1, PositiveInt, PositiveIntGt1
 from ..debt import ConstructionFacility, PermanentFacility
-from ..utils._types import FloatBetween0And1, PositiveInt, PositiveIntGt1
 from ..utils._utils import equity_multiple
 from ._budget import Budget
 from ._enums import ProgramUseEnum
