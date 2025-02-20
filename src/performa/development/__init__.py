@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Import all development classes
+from ..core._cash_flow import CashFlowModel
 from ._budget import Budget, BudgetItem
-from ._cash_flow import CashFlowModel
 from ._deal import (
     CarryPromote,
     Deal,

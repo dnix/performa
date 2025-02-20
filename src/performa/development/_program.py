@@ -11,7 +11,7 @@ from ._model import Model
 ###########################
 
 
-class Program(Model):  # CashFlowModel???
+class Program(Model):
     """Class for a generic sellable/rentable program"""
 
     # PROGRAM BASICS
