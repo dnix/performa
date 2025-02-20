@@ -3,7 +3,7 @@ from typing import Dict, Literal, Optional
 
 from ..utils._model import Model
 from ..utils._types import FloatBetween0And1, PositiveFloat
-from ._enums import AssetUseEnum
+from ._enums import ProgramUseEnum
 from ._types import SquareFootRange
 
 
@@ -118,5 +118,5 @@ class MarketProfile(Model):
     downtime_months: int
 
     # Applies To
-    space_type: AssetUseEnum
+    space_type: ProgramUseEnum
     size_range: Optional[SquareFootRange] = None  # sq ft range

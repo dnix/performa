@@ -9,9 +9,9 @@ from ..utils._types import (
     PositiveFloat,
 )
 from ._enums import (
-    AssetUseEnum,
     LeaseStatusEnum,
     LeaseTypeEnum,
+    ProgramUseEnum,
     UnitOfMeasureEnum,
 )
 from ._line_item import LineItem
@@ -49,7 +49,7 @@ class Tenant(Model):
     percent_of_building: FloatBetween0And1
 
     # Use
-    use_type: AssetUseEnum
+    use_type: ProgramUseEnum
 
     # Current Lease Terms
     lease_start: date
@@ -132,7 +132,7 @@ class Lease(Model):
     tenant: Tenant
     suite: str
     floor: Optional[str] = None
-    space_type: AssetUseEnum
+    space_type: ProgramUseEnum
     status: LeaseStatusEnum
 
     # Dates
@@ -191,7 +191,7 @@ class VacantSuite(Model):
 
     suite_id: str
     area: PositiveFloat
-    use_type: AssetUseEnum
+    use_type: ProgramUseEnum
     asking_rent: PositiveFloat
     last_lease_end: Optional[date] = None
 
@@ -240,3 +240,31 @@ class MiscIncome(LineItem):
 
 
 # TODO: aggregate revenue items into unified Revenue object?
+
+
+class SecurityDeposit(Model):
+    """
+    Model representing the security deposit configuration for a tenant,
+    based on Argus Enterprise's Security Deposits specification.
+
+    Attributes:
+        deposit_mode (Literal["Refundable", "Non-Refundable", "Hybrid"]):
+            Indicates if the security deposit is fully refundable, entirely non-refundable, 
+            or a hybrid approach where a portion is refundable.
+        deposit_unit (Literal["Months", "Dollar", "DollarPerSF"]):
+            Unit used to express the deposit. For example, the deposit may be determined 
+            as a number of months' rent, a fixed dollar amount, or a rate per square foot.
+        deposit_amount (PositiveFloat):
+            The total amount of the security deposit.
+        interest_rate (Optional[FloatBetween0And1]):
+            The interest rate applicable to the refundable portion of the deposit.
+            Relevant only if the deposit mode is "Refundable" or "Hybrid".
+        percent_to_refund (Optional[FloatBetween0And1]):
+            The percentage of the deposit that is refundable. When using a hybrid mode,
+            the remainder is retained.
+    """
+    deposit_mode: Literal["Refundable", "Non-Refundable", "Hybrid"]
+    deposit_unit: Literal["Months", "Dollar", "DollarPerSF"]
+    deposit_amount: PositiveFloat
+    interest_rate: Optional[FloatBetween0And1] = None
+    percent_to_refund: Optional[FloatBetween0And1] = None

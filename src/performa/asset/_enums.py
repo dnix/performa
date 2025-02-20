@@ -20,9 +20,9 @@ class AssetTypeEnum(str, Enum):
     MIXED_USE = "mixed_use"
 
 
-class AssetUseEnum(str, Enum):
+class ProgramUseEnum(str, Enum):
     """
-    Specific use type within an asset.
+    Specific program use type within an asset.
 
     Options:
         OFFICE: Professional office space
@@ -125,15 +125,34 @@ class UnitOfMeasureEnum(str, Enum):
 
     Options:
         AMOUNT: Absolute dollar amount
-        PER_AREA: Dollars per square foot/meter of area
-        PCT_EGR: Percentage of effective gross revenue
-        PCT_LINE: Percentage of another line item amount
+        PER_UNIT: Dollars per unit
+        BY_FACTOR: Factor of a reference amount
+        BY_PERCENT: Percentage of a reference amount
     """
 
+    # FIXME: let's standardize this (and in development) to use unitized with another enum for unit type
+    # amount (direct amt, as in $/yr or $/mo)
     AMOUNT = "$"
-    PER_AREA = "$/Area"
-    PCT_EGR = "% of EGR"
-    PCT_LINE = "% of Line"
+    # unitized (usually, $/sf or $/unit)
+    PER_UNIT = "$/Unit"
+    # by factor (compared to a reference) or percentage
+    BY_FACTOR = "Factor"  # e.g. 1.25, 0.85, etc. of a reference amount
+    BY_PERCENT = "%"  # e.g. % of a reference amount (e.g. % of EGR, % of Line, etc.)
+    # NOTE: make reference to another line item/object a la development's revenue from_reference_items classmethods?
+
+
+class UnitOfMeasureTypeEnum(str, Enum):
+    """
+    Type of unit of measure.
+
+    Options:
+        AREA: Square footage, area, etc.
+        UNIT: Number of units, parking spaces, etc.
+    """
+
+    AREA = "area"
+    UNIT = "unit"
+    # TODO: parking space, storage space, etc.
 
 
 class LeaseStatusEnum(str, Enum):
@@ -147,3 +166,18 @@ class LeaseStatusEnum(str, Enum):
 
     CONTRACT = "contract"
     SPECULATIVE = "speculative"
+
+
+class FrequencyEnum(str, Enum):
+    """
+    Frequency of a recurring event.
+
+    Options:
+        MONTHLY: Monthly
+        QUARTERLY: Quarterly
+        YEARLY: Yearly
+    """
+
+    MONTHLY = "monthly"
+    QUARTERLY = "quarterly"
+    YEARLY = "yearly"
