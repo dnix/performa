@@ -24,10 +24,12 @@ keywords:
   - "real estate modeling"
   - finance
   - "financial modeling"
+  - construction
   - "cash flow analysis"
   - dcf
   - "discounted cash flow"
   - "data analysis"
+  - analytics
 license: Apache-2.0
 license-url: https://github.com/dnix/performa/blob/main/LICENSE
 # FIXME: date-released: TBD
