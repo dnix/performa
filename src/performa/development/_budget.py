@@ -5,9 +5,9 @@ import pandas as pd
 from pydantic import Field, field_validator
 from scipy.stats import norm
 
-from ..core._cash_flow import CashFlowModel
 from ..core._enums import BudgetSubcategoryEnum, CashFlowCategoryEnum
 from ..core._types import PositiveFloat, PositiveInt
+from ._cash_flow import CashFlowModel
 from ._draw_schedule import (
     AnyDrawSchedule,
     ManualDrawSchedule,
