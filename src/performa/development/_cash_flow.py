@@ -46,3 +46,5 @@ class CashFlowModel(Model):
             periods=self.active_duration,
             freq="M",
         )
+
+    # TODO: consider property casting index to pd.DatetimeIndex from pd.PeriodIndex for later use but try to keep convenience of pd.PeriodIndex
