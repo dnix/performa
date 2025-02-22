@@ -47,6 +47,19 @@ class CashFlowModel(Model):
     
     Uses Timeline for date/period handling while focusing on cash flow specific logic.
     All cash flows use monthly frequency internally.
+
+    Attributes:
+        name (str): Name of the cash flow item (e.g., "Construction Cost")
+        category (str): Category of the item (investment, budget, revenue, expense, etc.)
+        subcategory (str): Subcategory of the item (land, hard costs, soft costs, etc.)
+        description (Optional[str]): Optional description of the cash flow item
+        account (Optional[str]): Optional account number for reference
+        timeline (Timeline): Timeline object defining the dates/periods for the cash flow
+        value (Union[PositiveFloat, pd.Series]): The cash flow value(s)
+        unit_of_measure (UnitOfMeasureEnum): Unit of measure for the value (e.g., currency, area)
+        frequency (FrequencyEnum): Frequency of the cash flow, defaults to monthly
+        reference (Optional[Union[float, pd.Series, str]]): Optional reference value or identifier
+            used for relative calculations
     """
 
     # GENERAL
@@ -60,7 +73,7 @@ class CashFlowModel(Model):
     timeline: Timeline
 
     # VALUE
-    value: Union[PositiveFloat, pd.Series]
+    value: Union[PositiveFloat, pd.Series, dict]
     unit_of_measure: UnitOfMeasureEnum
     frequency: FrequencyEnum = FrequencyEnum.MONTHLY
     # An optional reference which might be a direct value, a Series,
@@ -79,15 +92,15 @@ class CashFlowModel(Model):
 
     def resolve_reference(
         self,
-        lookup_fn: Optional[Callable[[str], Union[float, pd.Series]]] = None
-    ) -> Optional[Union[float, pd.Series]]:
+        lookup_fn: Optional[Callable[[str], Union[float, pd.Series, dict]]] = None
+    ) -> Optional[Union[float, pd.Series, dict]]:
         """
         Resolves the reference attribute.
         
         - If the reference is a numeric value or a pandas Series, returns it.
         - If it is a string identifier, uses the provided lookup function.
         """
-        if isinstance(self.reference, (int, float, pd.Series)):
+        if isinstance(self.reference, (int, float, pd.Series, dict)):
             return self.reference
         elif isinstance(self.reference, str):
             if lookup_fn is None:
@@ -95,7 +108,7 @@ class CashFlowModel(Model):
             return lookup_fn(self.reference)
         return None
 
-    def _convert_frequency(self, value: Union[float, pd.Series]) -> Union[float, pd.Series]:
+    def _convert_frequency(self, value: Union[float, pd.Series, dict]) -> Union[float, pd.Series, dict]:
         """
         Convert the value from its current frequency (e.g. annual) to monthly.
         """
@@ -103,22 +116,40 @@ class CashFlowModel(Model):
             conversion_factor = 1 / 12
         else:
             conversion_factor = 1
+
         if isinstance(value, (int, float)):
             return value * conversion_factor
         elif isinstance(value, pd.Series):
             return value * conversion_factor
+        elif isinstance(value, dict):
+            return {k: v * conversion_factor for k, v in value.items()}
         return value
 
-    def _cast_to_flow(self, value: Union[float, pd.Series]) -> pd.Series:
+    def _cast_to_flow(self, value: Union[float, pd.Series, dict]) -> pd.Series:
         """
-        Cast a scalar or series value into a full flow series spanning the model's timeline.
+        Cast a scalar, pandas Series, or dict value into a full flow series spanning the model's timeline.
+        
+        For a dict, the keys are expected to be dates (or strings representing dates) that can be converted to a
+        PeriodIndex with monthly frequency.
         """
         periods = self.timeline.period_index
-        if isinstance(value, (int, float)):
+        if isinstance(value, dict):
+            try:
+                flow_series = pd.Series(value)
+                # If the index is not already a PeriodIndex, try converting it.
+                if not isinstance(flow_series.index, pd.PeriodIndex):
+                    flow_series.index = pd.PeriodIndex(flow_series.index, freq="M")
+            except Exception as e:
+                raise ValueError(
+                    "Could not convert provided dict keys to a PeriodIndex with monthly frequency."
+                ) from e
+            return flow_series.reindex(periods, fill_value=0)
+        elif isinstance(value, (int, float)):
             return pd.Series([value] * len(periods), index=periods)
         elif isinstance(value, pd.Series):
             return value.reindex(periods, fill_value=0)
-        raise ValueError("Unsupported value type for casting to flow.")
+        else:
+            raise ValueError("Unsupported value type for casting to flow.")
 
     def align_flow_series(self, flow: pd.Series) -> pd.Series:
         """
