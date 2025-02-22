@@ -126,7 +126,7 @@ class CashFlowModel(Model):
         """
         return self.timeline.align_series(flow)
 
-    def compute_cash_flow(
+    def compute_cf(
         self,
         lookup_fn: Optional[Callable[[str], Union[float, pd.Series]]] = None
     ) -> pd.Series:
