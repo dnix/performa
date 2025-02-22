@@ -1,8 +1,8 @@
 from typing import Literal, Optional, Union
 
+from ..core._enums import UnitOfMeasureEnum
 from ..core._model import Model
 from ..core._types import FloatBetween0And1, PositiveFloat
-from ._enums import UnitOfMeasureEnum
 from ._recovery import RecoveryMethod
 from ._rollover import RolloverAssumption
 

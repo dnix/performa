@@ -4,16 +4,16 @@ from typing import List, Literal, Optional
 from pydantic import model_validator
 
 from ..core._cash_flow import CashFlowModel
-from ..core._model import Model
-from ..core._types import (
-    FloatBetween0And1,
-    PositiveFloat,
-)
-from ._enums import (
+from ..core._enums import (
     LeaseStatusEnum,
     LeaseTypeEnum,
     ProgramUseEnum,
     UnitOfMeasureEnum,
+)
+from ..core._model import Model
+from ..core._types import (
+    FloatBetween0And1,
+    PositiveFloat,
 )
 from ._market import MarketProfile
 from ._recovery import RecoveryMethod

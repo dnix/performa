@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pandas as pd
 
-from ._enums import FrequencyEnum, UnitOfMeasureEnum
+from ..core._enums import FrequencyEnum, UnitOfMeasureEnum
 from ._model import Model
 from ._timeline import Timeline
 from ._types import PositiveFloat
