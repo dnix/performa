@@ -1,5 +1,6 @@
 from typing import Callable, List, Optional, Union
 
+import numpy as np
 import pandas as pd
 
 from ..core._cash_flow import CashFlowModel
@@ -26,10 +27,11 @@ class OpExItem(ExpenseItem):
     """Operating expenses like utilities"""
 
     expense_kind: ExpenseSubcategoryEnum = "OpEx"
-    growth_rate: float  # or a GrowthRates instance (see project types)
-    # Occupancy rate will be provided by the orchestration layer via compute_cash_flow parameters.
+    growth_rate: Optional[float] = None  # annual growth rate (e.g., 0.02 for 2% growth)
+    # TODO: future support lookup of GrowthRates instance
+    # Occupancy rate will be provided by the orchestration layer via compute_cf parameters.
     variability: Optional[Variability] = None  # Default is not variable.
-    is_recoverable: bool = True
+    is_recoverable: bool = True  # Default is recoverable.
 
     @property
     def is_variable(self) -> bool:
@@ -42,24 +44,33 @@ class OpExItem(ExpenseItem):
         lookup_fn: Optional[Callable[[str], Union[float, pd.Series]]] = None
     ) -> pd.Series:
         """
-        Compute the cash flow for the operating expense with an optional occupancy adjustment.
+        Compute the cash flow for the operating expense with optional occupancy and growth adjustments.
         
         The base cash flow is computed using the parent's logic where `value`
-        represents the annual cost. If an occupancy rate is provided and the expense is variable,
-        the cash flow is adjusted as:
+        represents the annual cost.
+        
+        - If a growth rate is provided, growth is applied to the cash flow series starting from the first value.
+          For each subsequent month, the value is multiplied by:
+              (1 + growth_rate/12)^(months_since_start)
 
-            adjusted_cost = value * [(1 - p) + p * occupancy_rate]
-
-        where p is the fraction of the expense that is variable.
+        - If an occupancy rate is provided and the expense is variable, the cash flow is adjusted as:
+              adjusted_cost = value * [(1 - p) + p * occupancy_rate]
+          where p is the fraction of the expense that is variable.
         """
         # Compute the base cash flow using the parent method.
         base_flow = super().compute_cf(lookup_fn)
         
-        # If occupancy context is provided and the expense is variable, adjust the flow.
+        # Apply growth rate adjustment if provided.
+        if self.growth_rate is not None:
+            months = np.arange(len(base_flow))
+            growth_factors = np.power(1 + (self.growth_rate / 12), months)
+            base_flow = base_flow * growth_factors
+
+        # Apply occupancy adjustment if applicable.
         if occupancy_rate is not None and self.is_variable:
             percent_variable = self.variability.percent_variable  # e.g., 0.3 for 30% variability
             adjustment_ratio = (1 - percent_variable) + percent_variable * occupancy_rate
-            return base_flow * adjustment_ratio
+            base_flow = base_flow * adjustment_ratio
         
         return base_flow
 

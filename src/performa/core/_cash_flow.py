@@ -129,6 +129,7 @@ class CashFlowModel(Model):
     def compute_cf(
         self,
         lookup_fn: Optional[Callable[[str], Union[float, pd.Series]]] = None
+        # NOTE: consider functools.partial to pass callable to lookup_fn
     ) -> pd.Series:
         """
         Compute the final cash flow as a time series using the model's built-in timeline.
