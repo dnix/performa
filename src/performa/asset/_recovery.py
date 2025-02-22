@@ -1,8 +1,8 @@
 from typing import List, Literal, Optional
 
+from ..core._cash_flow import CashFlowModel
 from ..core._model import Model
 from ..core._types import FloatBetween0And1, PositiveFloat
-from ._line_item import LineItem
 from ._market import GrowthRate
 
 
@@ -10,7 +10,7 @@ class ExpensePool(Model):
     """Group of related expenses for recovery"""
 
     name: str
-    expenses: List[LineItem]
+    expenses: List[CashFlowModel]
 
 
 class Recovery(Model):

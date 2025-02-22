@@ -62,9 +62,9 @@ class ExpenseSubcategoryEnum(str, Enum):
     Enum for expense subcategories in real estate development projects.
 
     Attributes:
-        OP_EX (str): Represents operational expenses.
-        CAP_EX (str): Represents capital expenses.
+        OPEX (str): Represents operational expenses.
+        CAPEX (str): Represents capital expenses.
     """
 
-    OP_EX = "OpEx"
-    CAP_EX = "CapEx"
+    OPEX = "OpEx"
+    CAPEX = "CapEx"

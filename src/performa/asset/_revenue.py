@@ -3,6 +3,7 @@ from typing import List, Literal, Optional
 
 from pydantic import model_validator
 
+from ..core._cash_flow import CashFlowModel
 from ..core._model import Model
 from ..core._types import (
     FloatBetween0And1,
@@ -14,7 +15,6 @@ from ._enums import (
     ProgramUseEnum,
     UnitOfMeasureEnum,
 )
-from ._line_item import LineItem
 from ._market import MarketProfile
 from ._recovery import RecoveryMethod
 
@@ -233,7 +233,7 @@ class RentRoll(Model):
     # TODO: property for stacked floors data (to enable viz)
 
 
-class MiscIncome(LineItem):
+class MiscIncome(CashFlowModel):
     """Miscellaneous income items like parking revenue"""
 
     ...
@@ -241,8 +241,7 @@ class MiscIncome(LineItem):
 
 class SecurityDeposit(Model):
     """
-    Model representing the security deposit configuration for a tenant,
-    based on Argus Enterprise's Security Deposits specification.
+    Model representing the security deposit configuration for a tenant.
 
     Attributes:
         deposit_mode (Literal["Refundable", "Non-Refundable", "Hybrid"]):
@@ -276,7 +275,7 @@ class Revenues(Model):
     """
     # FIXME: develop this further
 
-    revenue_items: List[LineItem]
+    revenue_items: List[CashFlowModel]
 
     @property
     def total_revenue(self) -> PositiveFloat:

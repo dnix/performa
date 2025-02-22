@@ -97,6 +97,7 @@ class Property(Model):
     valuation_date: date
     analysis_start_date: date
     analysis_period_months: int = 120  # typical 10-year analysis
+    # FIXME: compare to cash flow timelines
 
     # Additional Attributes
     floors: List[Floor]

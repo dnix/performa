@@ -1,14 +1,44 @@
-from datetime import date
-from typing import List, Optional, Union
+from abc import ABC, abstractmethod
+from typing import Callable, Optional, Union
+from uuid import uuid4
 
 import pandas as pd
 
+from ._enums import FrequencyEnum, UnitOfMeasureEnum
 from ._model import Model
 from ._timeline import Timeline
+from ._types import PositiveFloat
 
-########################
-######### TIME #########
-########################
+
+class CashFlowStrategy(ABC):
+    @abstractmethod
+    def compute(self, cash_flow_model: "CashFlowModel") -> Union[float, pd.Series]:
+        """Compute the cash flow based on the model's state."""
+        pass
+
+
+class DirectAmountStrategy(CashFlowStrategy):
+    def compute(self, cash_flow_model: "CashFlowModel") -> Union[float, pd.Series]:
+        # Return the value stored on the model directly.
+        return cash_flow_model.value
+
+
+class UnitizedStrategy(CashFlowStrategy):
+    def __init__(self, reference: Union[float, pd.Series]):
+        self.reference = reference
+
+    def compute(self, cash_flow_model: "CashFlowModel") -> Union[float, pd.Series]:
+        # Multiply the per-unit rate with the resolved reference (e.g., rentable area).
+        return cash_flow_model.value * self.reference
+
+
+class PercentFactorStrategy(CashFlowStrategy):
+    def __init__(self, reference: Union[float, pd.Series]):
+        self.reference = reference
+
+    def compute(self, cash_flow_model: "CashFlowModel") -> Union[float, pd.Series]:
+        # Apply the percentage or factor to the resolved reference.
+        return cash_flow_model.value * self.reference
 
 
 class CashFlowModel(Model):
@@ -17,184 +47,118 @@ class CashFlowModel(Model):
     
     Uses Timeline for date/period handling while focusing on cash flow specific logic.
     All cash flows use monthly frequency internally.
-    
-    Attributes:
-        name: Name of the cash flow item
-        category: Category of the item (budget, revenue, expense, etc.)
-        subcategory: Subcategory of the item (land, hard costs, soft costs, condo sales, apartment rental, etc.)
-        notes: Optional notes
-        timeline: Timeline configuration for the cash flows
     """
 
     # GENERAL
-    name: str  # "Construction Cost"
-    category: str  # category of the item (budget, revenue, expense, etc.)
-    subcategory: str  # subcategory of the item (land, hard costs, soft costs, condo sales, apartment rental, etc.)
-    notes: Optional[str] = None  # optional notes on the item
+    name: str  # e.g., "Construction Cost"
+    category: str  # category of the item (investment, budget, revenue, expense, etc.)
+    subcategory: str  # subcategory of the item (land, hard costs, soft costs, etc.)
+    description: Optional[str] = None  # optional description
+    account: Optional[str] = None  # optional account number
 
     # TIMELINE
     timeline: Timeline
 
+    # VALUE
+    value: Union[PositiveFloat, pd.Series]
+    unit_of_measure: UnitOfMeasureEnum
+    frequency: FrequencyEnum = FrequencyEnum.MONTHLY
+    # An optional reference which might be a direct value, a Series,
+    # or a string identifier for deferred resolution.
+    reference: Optional[Union[float, pd.Series, str]] = None
+
     @property
-    def is_relative(self) -> bool:
-        """Check if cash flow uses relative timeline"""
+    def id(self) -> str:
+        """Unique identifier for the cash flow item."""
+        return str(uuid4())
+
+    @property
+    def is_relative_timeline(self) -> bool:
+        """Check if cash flow uses relative timeline."""
         return self.timeline.is_relative
 
-    # Timeline delegation methods
-    @property
-    def start_date(self) -> pd.Period:
-        """Get start date from timeline"""
-        return self.timeline.start_date
-    
-    @property
-    def end_date(self) -> pd.Period:
-        """Get end date from timeline"""
-        return self.timeline.end_date
-
-    @property
-    def period_index(self) -> pd.PeriodIndex:
-        """Get period index from timeline"""
-        return self.timeline.period_index
-
-    @property
-    def date_index(self) -> pd.DatetimeIndex:
-        """Get datetime index from timeline"""
-        return self.timeline.date_index
-
-    def align_series(self, series: pd.Series) -> pd.Series:
-        """Align a series to this cash flow's period index"""
-        return self.timeline.align_series(series)
-
-    def relative_period(self, months_offset: int) -> pd.Period:
-        """Get a period relative to start_date"""
-        return self.timeline.relative_period(months_offset)
-
-    def resample(self, freq: str) -> pd.DatetimeIndex:
-        """Resample cash flow timeline to a different frequency"""
-        return self.timeline.resample(freq)
-
-    def shift_to_index(self, reference_index: Union[pd.PeriodIndex, pd.DatetimeIndex]) -> None:
+    def resolve_reference(
+        self,
+        lookup_fn: Optional[Callable[[str], Union[float, pd.Series]]] = None
+    ) -> Optional[Union[float, pd.Series]]:
         """
-        Shift cash flow timeline to align with a reference index.
+        Resolves the reference attribute.
         
-        Args:
-            reference_index: Index to align with
+        - If the reference is a numeric value or a pandas Series, returns it.
+        - If it is a string identifier, uses the provided lookup function.
         """
-        self.timeline.shift_to_index(reference_index)
+        if isinstance(self.reference, (int, float, pd.Series)):
+            return self.reference
+        elif isinstance(self.reference, str):
+            if lookup_fn is None:
+                raise ValueError("A lookup function is required to resolve string references.")
+            return lookup_fn(self.reference)
+        return None
 
-    # Aggregation methods
-    # TODO: revisit these methods when starting to implement cash flow aggregation
-    def sum_by_category(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _convert_frequency(self, value: Union[float, pd.Series]) -> Union[float, pd.Series]:
         """
-        Sum cash flows by category.
-        
-        Args:
-            df: DataFrame with Category column and values to sum
-            
-        Returns:
-            DataFrame with periods as index and categories as columns
+        Convert the value from its current frequency (e.g. annual) to monthly.
         """
-        return df.pivot_table(
-            values=0,
-            index=self.period_index,
-            columns=["Category"],
-            aggfunc="sum"
-        ).fillna(0)
+        if self.frequency.name == "ANNUAL":
+            conversion_factor = 1 / 12
+        else:
+            conversion_factor = 1
+        if isinstance(value, (int, float)):
+            return value * conversion_factor
+        elif isinstance(value, pd.Series):
+            return value * conversion_factor
+        return value
 
-    def sum_by_subcategory(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _cast_to_flow(self, value: Union[float, pd.Series]) -> pd.Series:
         """
-        Sum cash flows by subcategory within category.
-        
-        Args:
-            df: DataFrame with Category and Subcategory columns and values to sum
-            
-        Returns:
-            DataFrame with periods as index and (category, subcategory) as columns
+        Cast a scalar or series value into a full flow series spanning the model's timeline.
         """
-        return df.pivot_table(
-            values=0,
-            index=self.period_index,
-            columns=["Category", "Subcategory"],
-            aggfunc="sum"
-        ).fillna(0)
+        periods = self.timeline.period_index
+        if isinstance(value, (int, float)):
+            return pd.Series([value] * len(periods), index=periods)
+        elif isinstance(value, pd.Series):
+            return value.reindex(periods, fill_value=0)
+        raise ValueError("Unsupported value type for casting to flow.")
 
-    # Factory methods
-    @classmethod
-    def from_dates(
-        cls,
-        name: str,
-        category: str,
-        subcategory: str,
-        start_date: Union[date, pd.Period],
-        end_date: Union[date, pd.Period],
-        notes: Optional[str] = None,
-    ) -> "CashFlowModel":
-        """Create cash flow model from start and end dates"""
-        timeline = Timeline.from_dates(
-            start_date=start_date,
-            end_date=end_date,
-        )
-        
-        return cls(
-            name=name,
-            category=category,
-            subcategory=subcategory,
-            timeline=timeline,
-            notes=notes
-        )
-
-    @classmethod
-    def from_relative(
-        cls,
-        name: str,
-        category: str,
-        subcategory: str,
-        months_until_start: int = 0,
-        active_duration: int = 1,
-        notes: Optional[str] = None,
-    ) -> "CashFlowModel":
-        """Create cash flow model using relative timing"""
-        timeline = Timeline.from_relative(
-            months_until_start=months_until_start,
-            duration_months=active_duration
-        )
-        
-        return cls(
-            name=name,
-            category=category,
-            subcategory=subcategory,
-            timeline=timeline,
-            notes=notes
-        )
-
-    @classmethod
-    def align_multiple(
-        cls,
-        cash_flows: List["CashFlowModel"],
-        reference_index: Optional[Union[pd.PeriodIndex, pd.DatetimeIndex]] = None
-    ) -> pd.PeriodIndex:
+    def align_flow_series(self, flow: pd.Series) -> pd.Series:
         """
-        Align multiple cash flows to a common timeline.
-        If no reference_index provided, uses the earliest start and latest end across all cash flows.
-        
-        Args:
-            cash_flows: List of cash flows to align
-            reference_index: Optional reference index to align to
-            
-        Returns:
-            Common PeriodIndex for all cash flows
+        Align the provided flow series to the model's timeline via the Timeline helper.
         """
-        if not reference_index:
-            # Find common timeline from all cash flows
-            start = min(cf.start_date for cf in cash_flows)
-            end = max(cf.end_date for cf in cash_flows)
-            reference_index = pd.period_range(start=start, end=end, freq="M")
-        
-        # Shift all relative cash flows to reference timeline
-        for cf in cash_flows:
-            if cf.is_relative:
-                cf.shift_to_index(reference_index)
-                
-        return reference_index
+        return self.timeline.align_series(flow)
 
-    # TODO: consider property casting index to pd.DatetimeIndex from pd.PeriodIndex for later use but try to keep convenience of pd.PeriodIndex
+    def compute_cash_flow(
+        self,
+        lookup_fn: Optional[Callable[[str], Union[float, pd.Series]]] = None
+    ) -> pd.Series:
+        """
+        Compute the final cash flow as a time series using the model's built-in timeline.
+        
+        This method performs these steps:
+          - Resolves any reference required to compute the value.
+          - Selects an appropriate strategy based on unit_of_measure.
+          - Converts frequency as needed (for example, from annual to monthly).
+          - Casts a scalar value into a full flow (time series) spanning self.timeline.
+          - Aligns the resulting series using the Timeline helper.
+          
+        The returned series represents the cash flow over the model's timeline, which the orchestration
+        layer can later align or stretch to match a global analysis timeframe.
+        """
+        resolved_reference = self.resolve_reference(lookup_fn)
+
+        if self.unit_of_measure == UnitOfMeasureEnum.AMOUNT:
+            strategy = DirectAmountStrategy()
+        elif self.unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
+            if resolved_reference is None:
+                raise ValueError("A reference is required for PER_UNIT calculations.")
+            strategy = UnitizedStrategy(reference=resolved_reference)
+        elif self.unit_of_measure in (UnitOfMeasureEnum.BY_FACTOR, UnitOfMeasureEnum.BY_PERCENT):
+            if resolved_reference is None:
+                raise ValueError("A reference is required for factor/percentage calculations.")
+            strategy = PercentFactorStrategy(reference=resolved_reference)
+        else:
+            raise ValueError(f"Unsupported unit_of_measure: {self.unit_of_measure}")
+
+        raw_value = strategy.compute(self)
+        monthly_value = self._convert_frequency(raw_value)
+        cash_flow_series = self._cast_to_flow(monthly_value)
+        return self.align_flow_series(cash_flow_series)
