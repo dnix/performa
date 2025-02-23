@@ -77,8 +77,9 @@ class OpExItem(ExpenseItem):
 
 class CapExItem(ExpenseItem):
     """Capital expenditures with timeline"""
-    expense_kind: ExpenseSubcategoryEnum = "CapEx"
-    # TODO: Future improvements: add logic to convert a dict of date:amount values or a pandas Series into a proper cash flow series.
+    subcategory: ExpenseSubcategoryEnum = "CapEx"
+
+    value: Union[pd.Series, Dict, List]  # no scalar values allowed
 
 
 class OperatingExpenses(Model):
