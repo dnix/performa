@@ -3,6 +3,7 @@ from typing import Callable, Optional, Union
 from uuid import uuid4
 
 import pandas as pd
+from pydantic import field_validator
 
 from ..core._enums import FrequencyEnum, UnitOfMeasureEnum
 from ._model import Model
@@ -194,3 +195,22 @@ class CashFlowModel(Model):
         monthly_value = self._convert_frequency(raw_value)
         cash_flow_series = self._cast_to_flow(monthly_value)
         return self.align_flow_series(cash_flow_series)
+
+    @field_validator("value")
+    @classmethod
+    def validate_value_dict(cls, v: Union[PositiveFloat, pd.Series, dict]) -> Union[PositiveFloat, pd.Series, dict]:
+        """
+        Validate that the value is a dict with valid keys and numeric values.
+        """
+        if isinstance(v, dict):
+            for key, amount in v.items():
+                try:
+                    # Validate that key can be interpreted as a monthly Period
+                    pd.Period(key, freq="M")
+                except Exception as e:
+                    raise ValueError(f"Invalid key in value dict: {key!r} cannot be converted to a monthly period.") from e
+                if not isinstance(amount, (int, float)):
+                    raise ValueError(f"Invalid value for key {key!r}: Must be numeric, got {type(amount).__name__}.")
+                if amount <= 0:
+                    raise ValueError(f"Invalid value for key {key!r}: Must be positive, got {amount}.")
+        return v
