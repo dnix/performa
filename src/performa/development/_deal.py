@@ -242,6 +242,7 @@ class Deal(Model):
     #### VALIDATORS ####
     ####################
     @field_validator("time_basis", mode="before")
+    @classmethod
     def infer_time_basis(cls, v, values):
         # If user didn't provide time_basis, infer it from project's levered_cash_flow frequency
         if v is not None:
