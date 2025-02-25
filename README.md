@@ -75,3 +75,4 @@ We welcome contributions! Please see:
 ### Finance
 
 - [ISDA Common Model](https://www.isda.org/a/7899)
+- [XLWings](https://www.xlwings.org/)
