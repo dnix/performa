@@ -6,11 +6,11 @@ import pandas as pd
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pyxirr import xirr, xnpv  # , mirr, fv
 
+from ..core._enums import ProgramUseEnum
 from ..core._types import FloatBetween0And1, PositiveInt, PositiveIntGt1
 from ..debt import ConstructionFacility, PermanentFacility
 from ..utils._utils import equity_multiple
 from ._budget import Budget
-from ._enums import ProgramUseEnum
 from ._expense import Expense
 from ._model import Model
 from ._revenue import Revenue
@@ -865,6 +865,7 @@ class Project(Model):
         return self._budget_table.index.max()
 
     @field_validator("project_start_date", mode="before")
+    @classmethod
     def to_period(value) -> pd.Period:
         """Cast as a pandas period"""
         return pd.Period(value, freq="M")
