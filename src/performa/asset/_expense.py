@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -11,32 +11,32 @@ from ..core._types import FloatBetween0And1, PositiveFloat
 
 class ExpenseItem(CashFlowModel):
     """Base class for all expense items."""
-    expense_kind: ExpenseSubcategoryEnum
+    category: str = "Expense"  # TODO: enum?
+    subcategory: ExpenseSubcategoryEnum  # NOTE: instead of expense_kind
     parent_item: Optional[str] = None  # For optional grouping
-
-
-class Variability(Model):
-    """
-    Represents the variability of an expense item.
-    """
-    percent_variable: Optional[FloatBetween0And1] = None
-    basis_value: Optional[PositiveFloat] = None  # value of the basis for variability (e.g., occupancy rate)
+    # TODO: rename parent_item to group?
 
 
 class OpExItem(ExpenseItem):
     """Operating expenses like utilities"""
-
-    expense_kind: ExpenseSubcategoryEnum = "OpEx"
+    subcategory: ExpenseSubcategoryEnum = "OpEx"
     growth_rate: Optional[float] = None  # annual growth rate (e.g., 0.02 for 2% growth)
     # TODO: future support lookup of GrowthRates instance
+    # TODO: maybe growth rate is passed by orchestration layer too?
     # Occupancy rate will be provided by the orchestration layer via compute_cf parameters.
-    variability: Optional[Variability] = None  # Default is not variable.
-    is_recoverable: bool = True  # Default is recoverable.
+    variable_ratio: Optional[FloatBetween0And1] = None  # Default is not variable.
+    recoverable_ratio: Optional[FloatBetween0And1] = 1.0  # Default is 100% recoverable.
+    # FIXME: confirm we want 100% recoverable by default
 
     @property
     def is_variable(self) -> bool:
         """Check if the expense is variable."""
-        return self.variability is not None and self.variability.percent_variable is not None
+        return self.variable_ratio is not None
+
+    @property
+    def is_recoverable(self) -> bool:
+        """Check if the expense is recoverable."""
+        return self.recoverable_ratio is not None
 
     def compute_cf(
         self,
@@ -68,8 +68,8 @@ class OpExItem(ExpenseItem):
 
         # Apply occupancy adjustment if applicable.
         if occupancy_rate is not None and self.is_variable:
-            percent_variable = self.variability.percent_variable  # e.g., 0.3 for 30% variability
-            adjustment_ratio = (1 - percent_variable) + percent_variable * occupancy_rate
+            variable_ratio = self.variable_ratio  # e.g., 0.3 for 30% variability
+            adjustment_ratio = (1 - variable_ratio) + variable_ratio * occupancy_rate
             base_flow = base_flow * adjustment_ratio
         
         return base_flow
@@ -123,7 +123,7 @@ class CapitalExpenses(Model):
         return sum(item.value for item in self.expense_items)
 
 
-class ExpenseCollection(Model):
+class Expenses(Model):
     """
     Collection of property operating expenses and capital expenditures.
     """
