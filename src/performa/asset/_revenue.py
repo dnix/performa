@@ -14,12 +14,13 @@ from ..core._enums import (
     UnitOfMeasureEnum,
 )
 from ..core._model import Model
+from ..core._timeline import Timeline
 from ..core._types import (
     FloatBetween0And1,
     PositiveFloat,
+    PositiveInt,
 )
 from ._market import MarketProfile
-from ._recovery import RecoveryMethod
 
 
 class Tenant(Model):
@@ -106,78 +107,166 @@ class FreeRentSchedule(Model):
     percent_abated: FloatBetween0And1 = 1.0
 
 
-class Lease(Model):
+class Lease(CashFlowModel):
     """
-    Represents a lease agreement for a tenant space.
-
+    Represents a lease agreement.
+    
+    This model handles the key lease attributes and cash flow modeling,
+    building on the CashFlowModel base class for timeline and computation.
+    
     Attributes:
-        tenant: The tenant occupying the space
-        suite: Suite identifier
-        floor: Optional floor number/identifier
-        space_type: Type of use (office, retail, etc)
-        status: Current lease status
-        available_date: When space becomes available
-        start_date: Lease commencement date
-        end_date: Lease expiration date
-        lease_term_months: Duration of lease in months
-        area: Square footage of leased space
-        base_rent: Starting base rent amount
-        rent_unit: Units for base rent (e.g. $/SF/YR)
-        rent_escalations: Schedule of rent increases
-        free_rent: Schedule of free rent periods
-        recovery_method: How operating expenses are recovered
-        ti_allowance: Tenant improvement allowance
-        leasing_commission: Commission percentage
-        upon_expiration: What happens at lease end
-        rollover_assumption: Reference to rollover assumptions
+        category: Fixed as "Revenue"
+        subcategory: Revenue subcategory (Office, Retail, etc.)
+        tenant_name: Name of the tenant
+        suite: Suite/unit identifier
+        status: Current status of the lease
+        lease_type: Type of lease arrangement (gross, net, etc.)
+        area: Square footage leased by tenant
     """
-
+    # Basic classification
+    category: str = "Revenue"
+    subcategory: RevenueSubcategoryEnum = RevenueSubcategoryEnum.LEASE
+    
+    # Tenant information
     tenant: Tenant
     suite: str
     floor: Optional[str] = None
-    space_type: ProgramUseEnum
+    use_type: ProgramUseEnum
+    
+    # Lease details
     status: LeaseStatusEnum
+    lease_type: LeaseTypeEnum
+    area: PositiveFloat  # in square feet
 
-    # Dates
-    available_date: date
-    start_date: date
-    end_date: date
-    lease_term_months: int
+    # TODO: Add rent escalation support
+    # TODO: Add recovery terms
+    # TODO: Add TI and leasing costs
+    # TODO: Add renewal options
+    # TODO: Add special provisions (percentage rent, etc.)
+    # TODO: Add rollover assumptions
 
-    # Area
-    area: PositiveFloat
+    # # Rent
+    # base_rent: PositiveFloat
+    # rent_unit: UnitOfMeasureEnum  # e.g. $/SF/YR
+    # rent_escalations: List[RentEscalation]
+    # free_rent: List[FreeRentSchedule]
 
-    # Rent
-    base_rent: PositiveFloat
-    rent_unit: UnitOfMeasureEnum  # e.g. $/SF/YR
-    rent_escalations: List[RentEscalation]
-    free_rent: List[FreeRentSchedule]
+    # # Recovery
+    # recovery_method: RecoveryMethod
 
-    # Recovery
-    recovery_method: RecoveryMethod
+    # # Leasing costs
+    # ti_allowance: PositiveFloat
+    # leasing_commission: FloatBetween0And1
 
-    # Leasing costs
-    ti_allowance: PositiveFloat
-    leasing_commission: FloatBetween0And1
-
-    # Rollover
-    upon_expiration: Literal["market", "renew", "vacate", "option", "reconfigured"]
-    rollover_assumption: Optional[str]  # Reference to RLA
-
+    # # Rollover
+    # upon_expiration: Literal["market", "renew", "vacate", "option", "reconfigured"]
+    # rollover_assumption: Optional[str]  # Reference to RLA
+    
     @property
     def is_active(self) -> bool:
-        """Whether lease is currently active"""
+        """Whether lease is currently active."""
         today = date.today()
-        return self.start_date <= today <= self.end_date
-
-    @model_validator(mode="after")
-    def validate_dates(self) -> "Lease":
-        """Validate lease dates are logical"""
-        if self.start_date >= self.end_date:
-            raise ValueError("Start date must be before end date")
-        if self.available_date > self.start_date:
-            raise ValueError("Available date must be before or on start date")
-        return self
+        return self.lease_start <= today <= self.lease_end
+    
+    @classmethod
+    def from_dates(
+        cls,
+        tenant_name: str,
+        suite: str,
+        lease_start: date,
+        lease_end: date,
+        **kwargs
+    ) -> "Lease":
+        """
+        Create a lease with specific start and end dates.
+        
+        Args:
+            tenant_name: Name of the tenant
+            suite: Suite/unit identifier
+            lease_start: Start date of the lease
+            lease_end: End date of the lease
+            **kwargs: Additional arguments to pass to the Lease constructor
+        
+        Returns:
+            A new Lease instance
+            
+        Raises:
+            ValueError: If lease_start is after lease_end
+        """
+        if lease_start >= lease_end:
+            raise ValueError("Lease start date must be before end date")
+        
+        # Set default name if not provided
+        if "name" not in kwargs:
+            kwargs["name"] = f"{tenant_name} - {suite}"
+        
+        # Create the timeline
+        timeline = Timeline.from_dates(
+            start_date=lease_start,
+            end_date=lease_end
+        )
+        
+        return cls(
+            tenant_name=tenant_name,
+            suite=suite,
+            timeline=timeline,
+            **kwargs
+        )
+    
+    @classmethod
+    def from_duration(
+        cls,
+        tenant_name: str,
+        suite: str,
+        lease_start: date,
+        lease_term_months: PositiveInt,
+        **kwargs
+    ) -> "Lease":
+        """
+        Create a lease with start date and duration in months.
+        
+        Args:
+            tenant_name: Name of the tenant
+            suite: Suite/unit identifier
+            lease_start: Start date of the lease
+            lease_term_months: Duration of lease in months
+            **kwargs: Additional arguments to pass to the Lease constructor
+        
+        Returns:
+            A new Lease instance
+        """
+        # Set default name if not provided
+        if "name" not in kwargs:
+            kwargs["name"] = f"{tenant_name} - {suite}"
+        
+        # Create the timeline
+        timeline = Timeline(
+            start_date=lease_start,
+            duration_months=lease_term_months
+        )
+        
+        return cls(
+            tenant_name=tenant_name,
+            suite=suite,
+            timeline=timeline,
+            **kwargs
+        )
+    
+    def compute_cf(
+        self,
+        lookup_fn: Optional[Callable[[str], Union[float, pd.Series]]] = None
+    ) -> pd.Series:
+        """
+        Compute the cash flow for the lease.
+        
+        Args:
+            lookup_fn: Optional function to resolve references
+            
+        Returns:
+            Monthly cash flow series
+        """
+        # Compute the base cash flow using CashFlowModel logic
+        return super().compute_cf(lookup_fn)
 
 
 class VacantSuite(Model):
@@ -200,19 +289,25 @@ class VacantSuite(Model):
 
 
 class RentRoll(Model):
-    """Collection of all leases and vacant spaces"""
+    """
+    Collection of all leases and vacant spaces.
+    
+    Attributes:
+        leases: List of all lease agreements
+        vacant_suites: List of all vacant suites
+    """
 
     leases: List[Lease]
     vacant_suites: List[VacantSuite]
 
     @property
     def total_occupied_area(self) -> PositiveFloat:
-        """Calculate total leased area"""
+        """Calculate total leased area in square feet."""
         return sum(lease.area for lease in self.leases)
 
     @property
     def occupancy_rate(self) -> FloatBetween0And1:
-        """Calculate current occupancy rate"""
+        """Calculate current occupancy rate as a decimal between 0 and 1."""
         total_area = self.total_occupied_area + sum(
             suite.area for suite in self.vacant_suites
         )
@@ -220,12 +315,20 @@ class RentRoll(Model):
 
     @model_validator(mode="after")
     def validate_lease_tenant_mapping(self) -> "RentRoll":
-        """Ensure all leases map to tenants in the rent roll"""
-        tenant_ids = {t.id for t in self.leases}
+        """
+        Ensure all leases map to tenants in the rent roll.
+        
+        Returns:
+            The validated RentRoll instance
+            
+        Raises:
+            ValueError: If a lease references a tenant not found in the rent roll
+        """
+        tenant_names = {lease.tenant_name for lease in self.leases}
         for lease in self.leases:
-            if lease.tenant.id not in tenant_ids:
+            if lease.tenant_name not in tenant_names:
                 raise ValueError(
-                    f"Lease references tenant {lease.tenant.id} "
+                    f"Lease references tenant {lease.tenant_name} "
                     f"not found in rent roll"
                 )
         return self
@@ -242,17 +345,12 @@ class MiscIncome(CashFlowModel):
 
     Attributes:
         category: Fixed as "Revenue"
-        subcategory: Revenue subcategory
-        description: Optional detailed description
+        subcategory: Revenue subcategory (e.g., "Miscellaneous")
         variable_ratio: Portion of income that varies with occupancy (0-1)
         growth_rate: Annual growth rate for income (e.g., 0.03 for 3% growth)
     """
     category: str = "Revenue"
-    subcategory: RevenueSubcategoryEnum = RevenueSubcategoryEnum.MISC
-    
-    # Income details
-    # description: Optional[str] = None
-    # this is already part of the parent class
+    subcategory: RevenueSubcategoryEnum = "Miscellaneous"
     
     # For variable calculation
     variable_ratio: Optional[FloatBetween0And1] = None
@@ -277,8 +375,6 @@ class MiscIncome(CashFlowModel):
         """
         Compute the cash flow for the miscellaneous income item with optional 
         occupancy and growth adjustments.
-        
-        The base cash flow is computed using the parent's logic.
         
         Args:
             occupancy_rate: Current or projected occupancy rate (0-1)
@@ -317,7 +413,13 @@ class MiscIncomeCollection(Model):
     @property
     def total_annual_income(self) -> PositiveFloat:
         """
-        Calculate total annual base income by summing the value field of each income item.
+        Calculate total annual base income by summing the cash flows of all income items.
+        
+        Returns:
+            Total annual income as a positive float
+            
+        Raises:
+            ValueError: If no income items are provided
         """
         if not self.income_items:
             raise ValueError("No income items provided")
@@ -329,7 +431,12 @@ class MiscIncomeCollection(Model):
     def total_annual_income_df(self) -> pd.DataFrame:
         """
         Calculate total annual base income using pandas DataFrame approach.
-        Returns a DataFrame with income items and their values.
+        
+        Returns:
+            DataFrame with income items and their values
+            
+        Raises:
+            ValueError: If no income items are provided
         """
         if not self.income_items:
             raise ValueError("No income items provided")
@@ -344,7 +451,7 @@ class MiscIncomeCollection(Model):
     
     # TODO: Add methods for handling expense offsetting income
     # TODO: Add methods for handling percentage rent eligible income
-    # TODO: Add methods for revenue sharing calculations
+    # TODO: Add methods for handling revenue sharing calculations
 
 
 class SecurityDeposit(Model):
@@ -352,20 +459,15 @@ class SecurityDeposit(Model):
     Model representing the security deposit configuration for a tenant.
 
     Attributes:
-        deposit_mode (Literal["Refundable", "Non-Refundable", "Hybrid"]):
-            Indicates if the security deposit is fully refundable, entirely non-refundable, 
-            or a hybrid approach where a portion is refundable.
-        deposit_unit (Literal["Months", "Dollar", "DollarPerSF"]):
-            Unit used to express the deposit. For example, the deposit may be determined 
-            as a number of months' rent, a fixed dollar amount, or a rate per square foot.
-        deposit_amount (PositiveFloat):
-            The total amount of the security deposit.
-        interest_rate (Optional[FloatBetween0And1]):
-            The interest rate applicable to the refundable portion of the deposit.
-            Relevant only if the deposit mode is "Refundable" or "Hybrid".
-        percent_to_refund (Optional[FloatBetween0And1]):
-            The percentage of the deposit that is refundable. When using a hybrid mode,
-            the remainder is retained.
+        deposit_mode: Indicates if the security deposit is fully refundable, 
+            entirely non-refundable, or a hybrid approach
+        deposit_unit: Unit used to express the deposit (months of rent, 
+            fixed dollar amount, or rate per square foot)
+        deposit_amount: The total amount of the security deposit
+        interest_rate: The interest rate applicable to the refundable portion
+            of the deposit (only relevant for "Refundable" or "Hybrid" modes)
+        percent_to_refund: The percentage of the deposit that is refundable
+            (only relevant for "Hybrid" mode)
     """
     deposit_mode: Literal["Refundable", "Non-Refundable", "Hybrid"]
     deposit_unit: Literal["Months", "Dollar", "DollarPerSF"]
@@ -379,7 +481,7 @@ class Revenues(Model):
     Represents the revenue generated by an asset.
 
     Attributes:
-        line_items: List of revenue line items
+        revenue_items: List of revenue line items as CashFlowModel instances
     """
     # FIXME: develop this further
 
@@ -387,5 +489,10 @@ class Revenues(Model):
 
     @property
     def total_revenue(self) -> PositiveFloat:
-        """Calculate total revenue"""
+        """
+        Calculate total revenue by summing all revenue items.
+        
+        Returns:
+            Total revenue as a positive float
+        """
         return sum(item.amount for item in self.line_items)
