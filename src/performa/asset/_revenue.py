@@ -237,18 +237,22 @@ class RentRoll(Model):
 
 
 class MiscIncome(CashFlowModel):
-    # FIXME: create a revenue base model like opexitem is to expense?
     """
     Represents miscellaneous income items like parking revenue, vending, antenna income, etc.
 
     Attributes:
-        type: Type of miscellaneous income
-        is_variable: Whether income varies with occupancy
-        percent_variable: Portion of income that varies with occupancy
-        growth_rate: Annual growth rate for income
+        category: Fixed as "Revenue"
+        subcategory: Revenue subcategory
+        description: Optional detailed description
+        variable_ratio: Portion of income that varies with occupancy (0-1)
+        growth_rate: Annual growth rate for income (e.g., 0.03 for 3% growth)
     """
     category: str = "Revenue"
-    subcategory: RevenueSubcategoryEnum = "Miscellaneous"
+    subcategory: RevenueSubcategoryEnum = RevenueSubcategoryEnum.MISC
+    
+    # Income details
+    # description: Optional[str] = None
+    # this is already part of the parent class
     
     # For variable calculation
     variable_ratio: Optional[FloatBetween0And1] = None
@@ -256,9 +260,13 @@ class MiscIncome(CashFlowModel):
     # For growth calculation
     growth_rate: Optional[FloatBetween0And1] = None
     
+    # TODO: Add support for expense offsetting in recovery calculations
+    # TODO: Add support for revenue sharing with tenants
+    # TODO: Add support for percentage rent exclusions
+    
     @property
     def is_variable(self) -> bool:
-        """Check if the income is variable."""
+        """Check if the income is variable with occupancy."""
         return self.variable_ratio is not None
     
     def compute_cf(
@@ -272,8 +280,12 @@ class MiscIncome(CashFlowModel):
         
         The base cash flow is computed using the parent's logic.
         
-        - If a growth rate is provided, growth is applied to the cash flow series.
-        - If occupancy rate is provided and income is variable, adjustments are applied.
+        Args:
+            occupancy_rate: Current or projected occupancy rate (0-1)
+            lookup_fn: Optional function to resolve references
+            
+        Returns:
+            Monthly cash flow series
         """
         # Compute the base cash flow
         base_flow = super().compute_cf(lookup_fn)
@@ -291,6 +303,48 @@ class MiscIncome(CashFlowModel):
             base_flow = base_flow * adjustment_ratio
         
         return base_flow
+
+
+class MiscIncomeCollection(Model):
+    """
+    Collection of miscellaneous income items.
+    
+    Attributes:
+        income_items: List of miscellaneous income items
+    """
+    income_items: List[MiscIncome]
+    
+    @property
+    def total_annual_income(self) -> PositiveFloat:
+        """
+        Calculate total annual base income by summing the value field of each income item.
+        """
+        if not self.income_items:
+            raise ValueError("No income items provided")
+        
+        # Sum the cash flows of all income items
+        return sum(item.compute_cf() for item in self.income_items)
+    
+    @property
+    def total_annual_income_df(self) -> pd.DataFrame:
+        """
+        Calculate total annual base income using pandas DataFrame approach.
+        Returns a DataFrame with income items and their values.
+        """
+        if not self.income_items:
+            raise ValueError("No income items provided")
+        
+        # Create a DataFrame with income items and their values
+        df = pd.DataFrame({
+            'name': [item.name for item in self.income_items],
+            'value': [item.value for item in self.income_items]
+        })
+        
+        return df
+    
+    # TODO: Add methods for handling expense offsetting income
+    # TODO: Add methods for handling percentage rent eligible income
+    # TODO: Add methods for revenue sharing calculations
 
 
 class SecurityDeposit(Model):
