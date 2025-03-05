@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Callable, List, Literal, Optional, Union
+from typing import Callable, Dict, List, Literal, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -7,6 +7,7 @@ from pydantic import model_validator
 
 from ..core._cash_flow import CashFlowModel
 from ..core._enums import (
+    FrequencyEnum,
     LeaseStatusEnum,
     LeaseTypeEnum,
     ProgramUseEnum,
@@ -84,7 +85,7 @@ class RentEscalation(Model):
     type: Literal["fixed", "percentage", "cpi"]
     amount: PositiveFloat
     unit_of_measure: UnitOfMeasureEnum
-    is_relative: bool  # True for relative to previous rent
+    is_relative: bool  # True for relative to base rent
     start_date: date
     recurring: bool = False
     frequency_months: Optional[int] = None
@@ -123,10 +124,15 @@ class Lease(CashFlowModel):
         lease_type: Type of lease arrangement (gross, net, etc.)
         area: Square footage leased by tenant
     """
-    # Basic classification
+    # Basic fields from CashFlowModel
+    name: str  # e.g., "Construction Cost"
     category: str = "Revenue"
     subcategory: RevenueSubcategoryEnum = RevenueSubcategoryEnum.LEASE
-    
+    timeline: Timeline
+    value: Union[PositiveFloat, pd.Series, Dict, List]
+    unit_of_measure: UnitOfMeasureEnum
+    frequency: FrequencyEnum = FrequencyEnum.MONTHLY
+
     # Tenant information
     tenant: Tenant
     suite: str
@@ -138,17 +144,14 @@ class Lease(CashFlowModel):
     lease_type: LeaseTypeEnum
     area: PositiveFloat  # in square feet
 
-    # TODO: Add rent escalation support
     # TODO: Add recovery terms
     # TODO: Add TI and leasing costs
     # TODO: Add renewal options
     # TODO: Add special provisions (percentage rent, etc.)
     # TODO: Add rollover assumptions
 
-    # # Rent
-    # base_rent: PositiveFloat
-    # rent_unit: UnitOfMeasureEnum  # e.g. $/SF/YR
-    # rent_escalations: List[RentEscalation]
+    # Rent modifications
+    rent_escalations: List[RentEscalation]
     # free_rent: List[FreeRentSchedule]
 
     # # Recovery
@@ -252,12 +255,117 @@ class Lease(CashFlowModel):
             **kwargs
         )
     
+    def _apply_escalations(self, base_flow: pd.Series) -> pd.Series:
+        """
+        Apply all rent escalations to the base rent flow.
+        
+        Args:
+            base_flow: Base rent cash flow series
+            
+        Returns:
+            Modified cash flow with all escalations applied
+        """
+        if not self.rent_escalations:
+            return base_flow
+        
+        rent_with_escalations = base_flow.copy()
+        periods = self.timeline.period_index
+        
+        for escalation in self.rent_escalations:
+            # Determine the effective start and end periods
+            if escalation.start_date:
+                start_period = pd.Period(escalation.start_date, freq='M')
+            else:
+                start_period = periods[0]
+                
+            if escalation.end_date:
+                end_period = pd.Period(escalation.end_date, freq='M')
+            else:
+                end_period = periods[-1]
+            
+            # Create a mask for periods where this escalation applies
+            mask = (periods >= start_period) & (periods <= end_period)
+            
+            # Apply the escalation based on its type
+            if escalation.type == "percentage":
+                # For percentage escalations
+                if escalation.recurring:
+                    # For recurring percentage increases, calculate compound growth
+                    freq = escalation.frequency_months or 12  # Default to annual
+                    # Calculate how many escalation cycles for each period
+                    months_elapsed = np.array([(p - start_period).n for p in periods])
+                    cycles = np.floor(months_elapsed / freq) 
+                    cycles[~mask] = 0  # Zero out cycles outside the mask
+                    
+                    # Apply compound growth: (1 + rate)^cycles
+                    # For relative escalations, use compound growth
+                    if escalation.is_relative:
+                        growth_factor = np.power(1 + (escalation.amount / 100), cycles)
+                        rent_with_escalations = rent_with_escalations * growth_factor
+                    else:
+                        # For absolute escalations, apply to base rent
+                        growth_factor = np.power(1 + (escalation.amount / 100), cycles)
+                        escalation_series = base_flow * (growth_factor - 1)
+                        rent_with_escalations += escalation_series
+                else:
+                    # For one-time percentage increases
+                    if escalation.is_relative:
+                        # Apply to the current rent
+                        growth_factor = 1 + (escalation.amount / 100)
+                        rent_with_escalations[mask] *= growth_factor
+                    else:
+                        # Apply to the base rent
+                        growth_factor = escalation.amount / 100
+                        escalation_series = pd.Series(0, index=periods)
+                        escalation_series[mask] = base_flow[mask] * growth_factor
+                        rent_with_escalations += escalation_series
+                
+            elif escalation.type == "fixed":
+                # For fixed amount escalations
+                if escalation.recurring:
+                    # For recurring fixed increases, calculate step increases
+                    freq = escalation.frequency_months or 12  # Default to annual
+                    months_elapsed = np.array([(p - start_period).n for p in periods])
+                    cycles = np.floor(months_elapsed / freq)
+                    cycles[~mask] = 0  # Zero out cycles outside the mask
+                    
+                    # Monthly equivalent of the fixed amount
+                    monthly_amount = escalation.amount / 12 if escalation.unit_of_measure == UnitOfMeasureEnum.AMOUNT else escalation.amount
+                    
+                    # For relative increases, each cycle adds another increment
+                    if escalation.is_relative:
+                        cumulative_increases = cycles * monthly_amount
+                        escalation_series = pd.Series(cumulative_increases, index=periods)
+                        rent_with_escalations += escalation_series
+                    else:
+                        # For absolute increases, apply to the base
+                        cumulative_increases = cycles * monthly_amount
+                        escalation_series = pd.Series(cumulative_increases, index=periods)
+                        rent_with_escalations += escalation_series
+                else:
+                    # For one-time fixed increases
+                    # Monthly equivalent of the fixed amount
+                    monthly_amount = escalation.amount / 12 if escalation.unit_of_measure == UnitOfMeasureEnum.AMOUNT else escalation.amount
+                    escalation_series = pd.Series(0, index=periods)
+                    escalation_series[mask] = monthly_amount
+                    rent_with_escalations += escalation_series
+                    
+            elif escalation.type == "cpi":
+                # TODO: Implement CPI-based escalations
+                # This would require a CPI index reference
+                raise NotImplementedError("CPI-based escalations are not yet implemented")
+        
+        return rent_with_escalations
+    
     def compute_cf(
         self,
         lookup_fn: Optional[Callable[[str], Union[float, pd.Series]]] = None
     ) -> pd.Series:
         """
         Compute the cash flow for the lease.
+        
+        First computes the base cash flow using the parent's logic,
+        then applies any rent escalations.
         
         Args:
             lookup_fn: Optional function to resolve references
@@ -266,8 +374,11 @@ class Lease(CashFlowModel):
             Monthly cash flow series
         """
         # Compute the base cash flow using CashFlowModel logic
-        return super().compute_cf(lookup_fn)
-
+        base_flow = super().compute_cf(lookup_fn)
+        
+        # Apply rent escalations if any exist
+        return self._apply_escalations(base_flow)
+    
 
 class VacantSuite(Model):
     """
