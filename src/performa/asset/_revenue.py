@@ -1,6 +1,8 @@
 from datetime import date
-from typing import List, Literal, Optional
+from typing import Callable, List, Literal, Optional, Union
 
+import numpy as np
+import pandas as pd
 from pydantic import model_validator
 
 from ..core._cash_flow import CashFlowModel
@@ -8,6 +10,7 @@ from ..core._enums import (
     LeaseStatusEnum,
     LeaseTypeEnum,
     ProgramUseEnum,
+    RevenueSubcategoryEnum,
     UnitOfMeasureEnum,
 )
 from ..core._model import Model
@@ -234,9 +237,60 @@ class RentRoll(Model):
 
 
 class MiscIncome(CashFlowModel):
-    """Miscellaneous income items like parking revenue"""
+    # FIXME: create a revenue base model like opexitem is to expense?
+    """
+    Represents miscellaneous income items like parking revenue, vending, antenna income, etc.
 
-    ...
+    Attributes:
+        type: Type of miscellaneous income
+        is_variable: Whether income varies with occupancy
+        percent_variable: Portion of income that varies with occupancy
+        growth_rate: Annual growth rate for income
+    """
+    category: str = "Revenue"
+    subcategory: RevenueSubcategoryEnum = "Miscellaneous"
+    
+    # For variable calculation
+    variable_ratio: Optional[FloatBetween0And1] = None
+    
+    # For growth calculation
+    growth_rate: Optional[FloatBetween0And1] = None
+    
+    @property
+    def is_variable(self) -> bool:
+        """Check if the income is variable."""
+        return self.variable_ratio is not None
+    
+    def compute_cf(
+        self,
+        occupancy_rate: Optional[float] = None,
+        lookup_fn: Optional[Callable[[str], Union[float, pd.Series]]] = None
+    ) -> pd.Series:
+        """
+        Compute the cash flow for the miscellaneous income item with optional 
+        occupancy and growth adjustments.
+        
+        The base cash flow is computed using the parent's logic.
+        
+        - If a growth rate is provided, growth is applied to the cash flow series.
+        - If occupancy rate is provided and income is variable, adjustments are applied.
+        """
+        # Compute the base cash flow
+        base_flow = super().compute_cf(lookup_fn)
+        
+        # Apply growth rate adjustment if provided
+        if self.growth_rate is not None:
+            months = np.arange(len(base_flow))
+            growth_factors = np.power(1 + (self.growth_rate / 12), months)
+            base_flow = base_flow * growth_factors
+
+        # Apply occupancy adjustment if applicable
+        if occupancy_rate is not None and self.is_variable:
+            variable_ratio = self.variable_ratio
+            adjustment_ratio = (1 - variable_ratio) + variable_ratio * occupancy_rate
+            base_flow = base_flow * adjustment_ratio
+        
+        return base_flow
 
 
 class SecurityDeposit(Model):
