@@ -1,3 +1,4 @@
+import math
 from datetime import date
 from typing import Callable, Dict, List, Literal, Optional, Union
 
@@ -31,17 +32,6 @@ class Tenant(Model):
     Attributes:
         id: Unique identifier
         name: Tenant name
-        suite: Suite/unit identifier
-        leased_area: Square footage leased
-        percent_of_building: Percentage of total building area
-        use_type: Type of use (office, retail, etc)
-        lease_start: Start date of current lease
-        lease_end: End date of current lease
-        current_base_rent: Current annual/monthly rent
-        rent_type: Type of lease (gross, net, etc)
-        expense_base_year: Base year for expense stops
-        renewal_probability: Likelihood of renewal
-        market_profile: Applicable market assumptions
     """
 
     # Identity
@@ -100,13 +90,250 @@ class RentAbatement(Model):
         months: Duration of free rent
         includes_recoveries: Whether recoveries are also abated
         start_month: When free rent begins (relative to lease start)
-        percent_abated: Portion of rent that is abated
+        abated_ratio: Portion of rent that is abated
     """
 
     months: int
     includes_recoveries: bool = False
     start_month: int = 1
     abated_ratio: FloatBetween0And1 = 1.0
+
+
+class TenantImprovementAllowance(CashFlowModel):
+    """
+    Represents tenant improvement allowance provided by landlord.
+    
+    Extends CashFlowModel to leverage existing cash flow calculation capabilities.
+    
+    Attributes:
+        category: Fixed as "Expense"
+        subcategory: Fixed as "TI Allowance"
+        payment_method: How TI is paid (upfront or amortized)
+        payment_date: When upfront payment is made (defaults to lease start)
+        interest_rate: Interest rate for amortization (if applicable)
+        amortization_term_months: Period over which to amortize (if applicable)
+    """
+    # Inherit core fields from CashFlowModel
+    # category will be fixed as "Expense"
+    category: str = "Expense"
+    subcategory: str = "TI Allowance"
+    
+    # TI-specific fields
+    payment_method: Literal["upfront", "amortized"] = "upfront"
+    payment_date: Optional[date] = None
+    interest_rate: Optional[FloatBetween0And1] = None
+    amortization_term_months: Optional[PositiveInt] = None
+    
+    @model_validator(mode='after')
+    def validate_amortization(self) -> 'TenantImprovementAllowance':
+        """Validate that amortization parameters are provided when needed."""
+        if self.payment_method == "amortized":
+            if self.interest_rate is None:
+                raise ValueError("interest_rate is required for amortized TI")
+            if self.amortization_term_months is None:
+                raise ValueError("amortization_term_months is required for amortized TI")
+        return self
+    
+    def compute_cf(
+        self,
+        lookup_fn: Optional[Callable[[str], Union[float, pd.Series]]] = None
+    ) -> pd.Series:
+        """
+        Compute TI cash flow series, handling both upfront and amortized payment methods.
+        
+        For upfront payments, returns a single payment at the specified date.
+        For amortized payments, calculates a loan-like payment schedule.
+        
+        Args:
+            lookup_fn: Optional function to resolve references
+            
+        Returns:
+            Monthly cash flow series
+        """
+        # Get the base cash flow using CashFlowModel logic
+        base_cf = super().compute_cf(lookup_fn)
+        
+        # If upfront payment, we return a single payment at the specified date
+        if self.payment_method == "upfront":
+            payment_date = self.payment_date or self.timeline.start_date.to_timestamp().date()
+            payment_period = pd.Period(payment_date, freq="M")
+            
+            # Create a series with zero values except for the payment period
+            ti_cf = pd.Series(0, index=self.timeline.period_index)
+            if payment_period in ti_cf.index:
+                # Put the entire TI amount in the payment period
+                total_amount = base_cf.sum()
+                ti_cf[payment_period] = total_amount
+            
+            return ti_cf
+        
+        # If amortized, we calculate a loan-like payment schedule
+        elif self.payment_method == "amortized":
+            assert self.interest_rate is not None
+            assert self.amortization_term_months is not None
+            
+            # Calculate total TI amount
+            total_amount = base_cf.sum()
+            
+            # Calculate monthly payment using standard loan amortization formula
+            monthly_rate = self.interest_rate / 12
+            monthly_payment = total_amount * (monthly_rate * (1 + monthly_rate) ** self.amortization_term_months) / \
+                             ((1 + monthly_rate) ** self.amortization_term_months - 1)
+            
+            # Create a series with the calculated monthly payments
+            # restricted to the amortization period
+            amort_end = self.timeline.start_date + self.amortization_term_months - 1
+            amort_periods = pd.period_range(
+                start=self.timeline.start_date,
+                end=min(amort_end, self.timeline.end_date),
+                freq="M"
+            )
+            
+            ti_cf = pd.Series(0, index=self.timeline.period_index)
+            ti_cf.loc[amort_periods] = monthly_payment
+            
+            return ti_cf
+        
+        # This should never happen due to the validator, but included for completeness
+        else:
+            return pd.Series(0, index=self.timeline.period_index)
+
+
+class CommissionTier(Model):
+    """
+    Represents a tier in the leasing commission structure.
+    
+    Attributes:
+        year_start: First lease year this commission applies to (default: 1)
+        year_end: Last lease year this commission applies to (None means all remaining years)
+        rate: Commission rate as percentage of rent
+    """
+    # FIXME: revisit this definition
+    year_start: PositiveInt = 1
+    year_end: Optional[PositiveInt] = None
+    rate: FloatBetween0And1
+    
+    @property
+    def years_description(self) -> str:
+        """
+        Human-readable description of the years range.
+        
+        Returns:
+            String representation of the years range (e.g., "1+", "1", "1-5")
+        """
+        if self.year_end is None:
+            return f"{self.year_start}+"
+        elif self.year_start == self.year_end:
+            return f"{self.year_start}"
+        else:
+            return f"{self.year_start}-{self.year_end}"
+
+
+class LeasingCommission(CashFlowModel):
+    """
+    Represents leasing commissions paid to brokers.
+    
+    Extends CashFlowModel to leverage existing cash flow calculation capabilities.
+    
+    Attributes:
+        category: Fixed as "Expense"
+        subcategory: Fixed as "Leasing Commission"
+        tiers: Commission tiers (different rates for different lease years)
+        landlord_broker_percentage: Percentage of commission going to landlord's broker (default: 0.5)
+        tenant_broker_percentage: Percentage of commission going to tenant's broker (default: 0.5)
+        payment_timing: When commissions are paid (default: "signing")
+        renewal_rate: Commission rate for renewal (if different)
+    """
+    # FIXME: revisit this class
+    # Inherit core fields from CashFlowModel
+    # category will be fixed as "Expense"
+    category: str = "Expense"
+    subcategory: str = "Leasing Commission"
+    
+    # LC-specific fields
+    tiers: List[CommissionTier]
+    landlord_broker_percentage: FloatBetween0And1 = 0.5
+    tenant_broker_percentage: FloatBetween0And1 = 0.5
+    payment_timing: Literal["signing", "commencement"] = "signing"
+    renewal_rate: Optional[FloatBetween0And1] = None
+    
+    # For LC, the value will represent the rent series used to calculate commissions
+    # This will typically be a reference to the lease's base rent
+    
+    @model_validator(mode='after')
+    def validate_broker_percentages(self) -> 'LeasingCommission':
+        """
+        Validate that broker percentages sum to 1.0.
+        
+        Returns:
+            The validated LeasingCommission instance
+            
+        Raises:
+            ValueError: If broker percentages don't sum to 1.0
+        """
+        if not math.isclose(self.landlord_broker_percentage + self.tenant_broker_percentage, 1.0):
+            raise ValueError("Broker percentages must sum to 1.0")
+        return self
+    
+    def compute_cf(
+        self,
+        lookup_fn: Optional[Callable[[str], Union[float, pd.Series]]] = None
+    ) -> pd.Series:
+        """
+        Compute leasing commission cash flow.
+        
+        Uses the reference (typically the lease's base rent) to calculate
+        commissions based on the defined tiers.
+        
+        Args:
+            lookup_fn: Optional function to resolve references
+            
+        Returns:
+            Monthly cash flow series
+        """
+        # Get the base rent series using CashFlowModel logic to resolve the reference
+        rent_series = super().compute_cf(lookup_fn)
+        
+        # Initialize commission cash flow series
+        lc_cf = pd.Series(0, index=self.timeline.period_index)
+        
+        # Get total months in lease and convert to years
+        lease_months = len(self.timeline.period_index)
+        lease_years = math.ceil(lease_months / 12)
+        
+        # Calculate commission for each tier
+        for tier in self.tiers:
+            # Determine which months this tier applies to
+            start_month = (tier.year_start - 1) * 12
+            if tier.year_end is None:
+                end_month = lease_months
+            else:
+                end_month = min(tier.year_end * 12, lease_months)
+            
+            # Skip if outside lease term
+            if start_month >= lease_months or end_month <= 0:
+                continue
+            
+            # Get the periods for this tier
+            tier_periods = self.timeline.period_index[start_month:end_month]
+            
+            # Calculate commission for this tier
+            tier_rent = rent_series.loc[tier_periods]
+            tier_commission = tier_rent.sum() * tier.rate
+            
+            # Determine payment period based on payment timing
+            if self.payment_timing == "signing":
+                # FIXME: should this be the first period of the lease?
+                payment_period = self.timeline.period_index[0]
+            else:  # "commencement"
+                # Find the first period of the tier
+                payment_period = tier_periods[0]
+            
+            # Add commission to the cash flow series
+            if payment_period in lc_cf.index:
+                lc_cf[payment_period] += tier_commission
+        
+        return lc_cf
 
 
 class Lease(CashFlowModel):
@@ -117,15 +344,24 @@ class Lease(CashFlowModel):
     building on the CashFlowModel base class for timeline and computation.
     
     Attributes:
+        name: Name of the lease (typically tenant name + suite)
         category: Fixed as "Revenue"
         subcategory: Revenue subcategory (Office, Retail, etc.)
+        timeline: Timeline for the lease
+        value: Base rent value (can be a single value, series, or reference)
+        unit_of_measure: Units for the value
+        frequency: Frequency of the value (default: monthly)
         tenant: The tenant entity
         suite: Suite/unit identifier
+        floor: Floor number or identifier (optional)
+        use_type: Type of use (office, retail, etc.)
         status: Current status of the lease
         lease_type: Type of lease arrangement (gross, net, etc.)
         area: Square footage leased by tenant
         rent_escalations: List of rent escalations applied to this lease
         recovery_method: Method for calculating expense recoveries
+        ti_allowance: Tenant improvement allowance (optional)
+        leasing_commission: Leasing commission structure (optional)
     """
     # Basic fields from CashFlowModel
     name: str
@@ -154,14 +390,13 @@ class Lease(CashFlowModel):
     # Recovery
     recovery_method: Optional[RecoveryMethod] = None
 
-    # TODO: Add TI and leasing costs
+    # TI and LC
+    ti_allowance: Optional[TenantImprovementAllowance] = None
+    leasing_commission: Optional[LeasingCommission] = None
+
     # TODO: Add renewal options
     # TODO: Add special provisions (percentage rent, etc.)
     # TODO: Add rollover assumptions
-
-    # # Leasing costs
-    # ti_allowance: PositiveFloat
-    # leasing_commission: FloatBetween0And1
 
     # # Rollover
     # upon_expiration: Literal["market", "renew", "vacate", "option", "reconfigured"]
@@ -169,17 +404,32 @@ class Lease(CashFlowModel):
 
     @property
     def lease_start(self) -> date:
-        """Start date of the lease."""
+        """
+        Get the start date of the lease.
+        
+        Returns:
+            Date object representing the lease start date
+        """
         return self.timeline.start_date.to_timestamp().date()
     
     @property
     def lease_end(self) -> date:
-        """End date of the lease."""
+        """
+        Get the end date of the lease.
+        
+        Returns:
+            Date object representing the lease end date
+        """
         return self.timeline.end_date.to_timestamp().date()
     
     @property
     def is_active(self) -> bool:
-        """Whether lease is currently active."""
+        """
+        Check if the lease is currently active.
+        
+        Returns:
+            True if today's date is within the lease term, False otherwise
+        """
         today = date.today()
         return self.lease_start <= today <= self.lease_end
     
@@ -366,7 +616,7 @@ class Lease(CashFlowModel):
         lookup_fn: Optional[Callable[[str], Union[float, pd.Series]]] = None
     ) -> Dict[str, pd.Series]:
         """
-        Compute cash flows for the lease including base rent and recoveries.
+        Compute cash flows for the lease including base rent, recoveries, TI, and LC.
         
         Args:
             property_area: Total property area for recovery calculations
@@ -374,15 +624,15 @@ class Lease(CashFlowModel):
             lookup_fn: Optional function to resolve references
             
         Returns:
-            Dictionary of cash flow series by type (base_rent, recoveries, total)
+            Dictionary of cash flow series by type (base_rent, recoveries, revenue, 
+            ti_allowance, leasing_commission, expenses, net)
         """
-        # Compute the base rent using CashFlowModel logic
+        # Get base cash flows using existing implementation
         base_rent = super().compute_cf(lookup_fn)
-        
-        # Apply rent escalations if any exist
         base_rent_with_escalations = self._apply_escalations(base_rent)
         
         # Calculate recoveries if applicable
+        # TODO: create a method to apply recoveries to the base rent
         recoveries = pd.Series(0, index=self.timeline.period_index)
         if self.recovery_method and property_area:
             recoveries = self.recovery_method.calculate_recoveries(
@@ -392,14 +642,38 @@ class Lease(CashFlowModel):
                 occupancy_rate=occupancy_rate
             )
         
-        # Calculate total cash flow
-        total_cf = base_rent_with_escalations + recoveries
+        # Calculate TI cash flows if applicable
+        # TODO: create a method to apply TI to the base rent
+        ti_cf = pd.Series(0, index=self.timeline.period_index)
+        if self.ti_allowance:
+            # Ensure TI timeline matches the lease timeline
+            ti_cf = self.ti_allowance.compute_cf(lookup_fn)
+            # Align to lease timeline in case of differences
+            ti_cf = ti_cf.reindex(self.timeline.period_index, fill_value=0)
         
-        # Return dictionary of cash flows
+        # Calculate LC cash flows if applicable
+        # TODO: create a method to apply LC to the base rent
+        lc_cf = pd.Series(0, index=self.timeline.period_index)
+        if self.leasing_commission:
+            # Ensure LC timeline matches the lease timeline
+            lc_cf = self.leasing_commission.compute_cf(lookup_fn)
+            # Align to lease timeline in case of differences
+            lc_cf = lc_cf.reindex(self.timeline.period_index, fill_value=0)
+        
+        # Calculate total cash flows
+        revenue_cf = base_rent_with_escalations + recoveries
+        expense_cf = ti_cf + lc_cf
+        net_cf = revenue_cf - expense_cf
+        
+        # Return all components
         return {
             "base_rent": base_rent_with_escalations,
             "recoveries": recoveries,
-            "total": total_cf
+            "revenue": revenue_cf,
+            "ti_allowance": ti_cf,
+            "leasing_commission": lc_cf,
+            "expenses": expense_cf,
+            "net": net_cf
         }
     # FIXME: dataframe all the things? how do we want to handle cash flow components for later disaggregation?
 
@@ -413,7 +687,7 @@ class VacantSuite(Model):
         area: Square footage
         use_type: Intended use
         asking_rent: Listed rental rate
-        last_lease_end: When space became vacant
+        last_lease_end: When space became vacant (optional)
     """
 
     suite_id: str
@@ -437,12 +711,22 @@ class RentRoll(Model):
 
     @property
     def total_occupied_area(self) -> PositiveFloat:
-        """Calculate total leased area in square feet."""
+        """
+        Calculate total leased area in square feet.
+        
+        Returns:
+            Sum of all leased areas
+        """
         return sum(lease.area for lease in self.leases)
 
     @property
     def occupancy_rate(self) -> FloatBetween0And1:
-        """Calculate current occupancy rate as a decimal between 0 and 1."""
+        """
+        Calculate current occupancy rate as a decimal between 0 and 1.
+        
+        Returns:
+            Occupancy rate (leased area / total area)
+        """
         total_area = self.total_occupied_area + sum(
             suite.area for suite in self.vacant_suites
         )
@@ -499,7 +783,12 @@ class MiscIncome(CashFlowModel):
     
     @property
     def is_variable(self) -> bool:
-        """Check if the income is variable with occupancy."""
+        """
+        Check if the income is variable with occupancy.
+        
+        Returns:
+            True if variable_ratio is set, False otherwise
+        """
         return self.variable_ratio is not None
     
     def compute_cf(
