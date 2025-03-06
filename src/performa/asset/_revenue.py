@@ -21,7 +21,6 @@ from ..core._types import (
     PositiveFloat,
     PositiveInt,
 )
-from ._market import MarketProfile
 
 
 class Tenant(Model):
@@ -47,25 +46,25 @@ class Tenant(Model):
     # Identity
     id: str
     name: str
-    suite: str
+    # suite: str
 
-    # Space
-    leased_area: PositiveFloat  # in square feet
-    percent_of_building: FloatBetween0And1
+    # # Space
+    # leased_area: PositiveFloat  # in square feet
+    # percent_of_building: FloatBetween0And1
 
-    # Use
-    use_type: ProgramUseEnum
+    # # Use
+    # use_type: ProgramUseEnum
 
-    # Current Lease Terms
-    lease_start: date
-    lease_end: date
-    current_base_rent: PositiveFloat  # annual or monthly rent
-    rent_type: LeaseTypeEnum  # options: Gross, Net, Modified Gross
-    expense_base_year: Optional[int] = None
+    # # Current Lease Terms
+    # lease_start: date
+    # lease_end: date
+    # current_base_rent: PositiveFloat  # annual or monthly rent
+    # rent_type: LeaseTypeEnum  # options: Gross, Net, Modified Gross
+    # expense_base_year: Optional[int] = None
 
-    # Renewal Terms
-    renewal_probability: FloatBetween0And1
-    market_profile: MarketProfile  # reference to applicable market assumptions
+    # # Renewal Terms
+    # # renewal_probability: FloatBetween0And1  # NOTE: this should only be in the lease model?
+    # market_profile: MarketProfile  # reference to applicable market assumptions
 
 
 class RentEscalation(Model):
@@ -82,6 +81,7 @@ class RentEscalation(Model):
         frequency_months: How often increase occurs if recurring
     """
 
+    # TODO: confirm fields are thorough and DRY
     type: Literal["fixed", "percentage", "cpi"]
     amount: PositiveFloat
     unit_of_measure: UnitOfMeasureEnum
@@ -91,9 +91,9 @@ class RentEscalation(Model):
     frequency_months: Optional[int] = None
 
 
-class FreeRentSchedule(Model):
+class RentAbatement(Model):
     """
-    Structured free rent periods.
+    Structured rent abatement (free rent) periods.
 
     Attributes:
         months: Duration of free rent
@@ -105,7 +105,7 @@ class FreeRentSchedule(Model):
     months: int
     includes_recoveries: bool = False
     start_month: int = 1
-    percent_abated: FloatBetween0And1 = 1.0
+    abated_ratio: FloatBetween0And1 = 1.0
 
 
 class Lease(CashFlowModel):
@@ -153,7 +153,7 @@ class Lease(CashFlowModel):
 
     # Rent modifications
     rent_escalations: Optional[List[RentEscalation]] = Field(default_factory=list)
-    # free_rent: Optional[List[FreeRentSchedule]] = Field(default_factory=list)
+    # free_rent: Optional[List[RentAbatement]] = Field(default_factory=list)
 
     # # Recovery
     # recovery_method: RecoveryMethod
@@ -165,6 +165,16 @@ class Lease(CashFlowModel):
     # # Rollover
     # upon_expiration: Literal["market", "renew", "vacate", "option", "reconfigured"]
     # rollover_assumption: Optional[str]  # Reference to RLA
+
+    @property
+    def lease_start(self) -> date:
+        """Start date of the lease."""
+        return self.timeline.start_date
+    
+    @property
+    def lease_end(self) -> date:
+        """End date of the lease."""
+        return self.timeline.end_date
     
     @property
     def is_active(self) -> bool:
