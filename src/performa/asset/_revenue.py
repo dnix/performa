@@ -3,7 +3,7 @@ from typing import Callable, Dict, List, Literal, Optional, Union
 
 import numpy as np
 import pandas as pd
-from pydantic import model_validator
+from pydantic import Field, model_validator
 
 from ..core._cash_flow import CashFlowModel
 from ..core._enums import (
@@ -118,14 +118,15 @@ class Lease(CashFlowModel):
     Attributes:
         category: Fixed as "Revenue"
         subcategory: Revenue subcategory (Office, Retail, etc.)
-        tenant_name: Name of the tenant
+        tenant: The tenant entity
         suite: Suite/unit identifier
         status: Current status of the lease
         lease_type: Type of lease arrangement (gross, net, etc.)
         area: Square footage leased by tenant
+        rent_escalations: List of rent escalations applied to this lease
     """
     # Basic fields from CashFlowModel
-    name: str  # e.g., "Construction Cost"
+    name: str
     category: str = "Revenue"
     subcategory: RevenueSubcategoryEnum = RevenueSubcategoryEnum.LEASE
     timeline: Timeline
@@ -151,8 +152,8 @@ class Lease(CashFlowModel):
     # TODO: Add rollover assumptions
 
     # Rent modifications
-    rent_escalations: List[RentEscalation]
-    # free_rent: List[FreeRentSchedule]
+    rent_escalations: Optional[List[RentEscalation]] = Field(default_factory=list)
+    # free_rent: Optional[List[FreeRentSchedule]] = Field(default_factory=list)
 
     # # Recovery
     # recovery_method: RecoveryMethod
@@ -272,23 +273,13 @@ class Lease(CashFlowModel):
         periods = self.timeline.period_index
         
         for escalation in self.rent_escalations:
-            # Determine the effective start and end periods
-            if escalation.start_date:
-                start_period = pd.Period(escalation.start_date, freq='M')
-            else:
-                start_period = periods[0]
-                
-            if escalation.end_date:
-                end_period = pd.Period(escalation.end_date, freq='M')
-            else:
-                end_period = periods[-1]
+            # Convert start date to period
+            start_period = pd.Period(escalation.start_date, freq="M")
             
-            # Create a mask for periods where this escalation applies
-            mask = (periods >= start_period) & (periods <= end_period)
+            # Create mask for periods where the escalation applies
+            mask = periods >= start_period
             
-            # Apply the escalation based on its type
             if escalation.type == "percentage":
-                # For percentage escalations
                 if escalation.recurring:
                     # For recurring percentage increases, calculate compound growth
                     freq = escalation.frequency_months or 12  # Default to annual
@@ -378,7 +369,7 @@ class Lease(CashFlowModel):
         
         # Apply rent escalations if any exist
         return self._apply_escalations(base_flow)
-    
+
 
 class VacantSuite(Model):
     """
