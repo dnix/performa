@@ -21,6 +21,7 @@ from ..core._types import (
     PositiveFloat,
     PositiveInt,
 )
+from ._recovery import RecoveryMethod
 
 
 class Tenant(Model):
@@ -124,6 +125,7 @@ class Lease(CashFlowModel):
         lease_type: Type of lease arrangement (gross, net, etc.)
         area: Square footage leased by tenant
         rent_escalations: List of rent escalations applied to this lease
+        recovery_method: Method for calculating expense recoveries
     """
     # Basic fields from CashFlowModel
     name: str
@@ -145,18 +147,17 @@ class Lease(CashFlowModel):
     lease_type: LeaseTypeEnum
     area: PositiveFloat  # in square feet
 
-    # TODO: Add recovery terms
-    # TODO: Add TI and leasing costs
-    # TODO: Add renewal options
-    # TODO: Add special provisions (percentage rent, etc.)
-    # TODO: Add rollover assumptions
-
     # Rent modifications
     rent_escalations: Optional[List[RentEscalation]] = Field(default_factory=list)
     # free_rent: Optional[List[RentAbatement]] = Field(default_factory=list)
 
-    # # Recovery
-    # recovery_method: RecoveryMethod
+    # Recovery
+    recovery_method: Optional[RecoveryMethod] = None
+
+    # TODO: Add TI and leasing costs
+    # TODO: Add renewal options
+    # TODO: Add special provisions (percentage rent, etc.)
+    # TODO: Add rollover assumptions
 
     # # Leasing costs
     # ti_allowance: PositiveFloat
@@ -169,12 +170,12 @@ class Lease(CashFlowModel):
     @property
     def lease_start(self) -> date:
         """Start date of the lease."""
-        return self.timeline.start_date
+        return self.timeline.start_date.to_timestamp().date()
     
     @property
     def lease_end(self) -> date:
         """End date of the lease."""
-        return self.timeline.end_date
+        return self.timeline.end_date.to_timestamp().date()
     
     @property
     def is_active(self) -> bool:
@@ -360,25 +361,47 @@ class Lease(CashFlowModel):
     
     def compute_cf(
         self,
+        property_area: Optional[PositiveFloat] = None,
+        occupancy_rate: Optional[float] = None,
         lookup_fn: Optional[Callable[[str], Union[float, pd.Series]]] = None
-    ) -> pd.Series:
+    ) -> Dict[str, pd.Series]:
         """
-        Compute the cash flow for the lease.
-        
-        First computes the base cash flow using the parent's logic,
-        then applies any rent escalations.
+        Compute cash flows for the lease including base rent and recoveries.
         
         Args:
+            property_area: Total property area for recovery calculations
+            occupancy_rate: Current or projected occupancy rate
             lookup_fn: Optional function to resolve references
             
         Returns:
-            Monthly cash flow series
+            Dictionary of cash flow series by type (base_rent, recoveries, total)
         """
-        # Compute the base cash flow using CashFlowModel logic
-        base_flow = super().compute_cf(lookup_fn)
+        # Compute the base rent using CashFlowModel logic
+        base_rent = super().compute_cf(lookup_fn)
         
         # Apply rent escalations if any exist
-        return self._apply_escalations(base_flow)
+        base_rent_with_escalations = self._apply_escalations(base_rent)
+        
+        # Calculate recoveries if applicable
+        recoveries = pd.Series(0, index=self.timeline.period_index)
+        if self.recovery_method and property_area:
+            recoveries = self.recovery_method.calculate_recoveries(
+                tenant_area=self.area,
+                property_area=property_area,
+                timeline=self.timeline.period_index,
+                occupancy_rate=occupancy_rate
+            )
+        
+        # Calculate total cash flow
+        total_cf = base_rent_with_escalations + recoveries
+        
+        # Return dictionary of cash flows
+        return {
+            "base_rent": base_rent_with_escalations,
+            "recoveries": recoveries,
+            "total": total_cf
+        }
+    # FIXME: dataframe all the things? how do we want to handle cash flow components for later disaggregation?
 
 
 class VacantSuite(Model):
