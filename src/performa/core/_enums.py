@@ -46,15 +46,21 @@ class RevenueSubcategoryEnum(str, Enum):
     Enum for revenue subcategories in real estate development projects.
 
     This enum represents the primary types of revenue generation in real estate,
-    distinguishing between one-time sales and ongoing lease arrangements.
+    including one-time sales, ongoing lease arrangements, and other income sources.
 
     Attributes:
-        SALE (str): Revenue from property or unit SALES.
-        LEASE (str): Revenue from property or unit LEASES.
+        SALE (str): Revenue from property or unit sales.
+        LEASE (str): Revenue from property or unit leases.
+        MISC (str): Miscellaneous income sources like parking, vending, antenna income, etc.
+        RECOVERY (str): Expense recoveries from tenants (CAM, taxes, insurance, etc.).
+        SECURITY_DEPOSIT (str): Security deposits collected from tenants.
     """
 
     SALE = "Sale"
     LEASE = "Lease"
+    MISC = "Miscellaneous"
+    RECOVERY = "Recovery"
+    SECURITY_DEPOSIT = "Security Deposit"
 
 
 class ExpenseSubcategoryEnum(str, Enum):
