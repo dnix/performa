@@ -148,8 +148,8 @@ class Lease(CashFlowModel):
     area: PositiveFloat  # in square feet
 
     # Rent modifications
-    rent_escalations: Optional[List[RentEscalation]] = Field(default_factory=list)
-    # free_rent: Optional[List[RentAbatement]] = Field(default_factory=list)
+    rent_escalation: Optional[RentEscalation] = None
+    rent_abatement: Optional[RentAbatement] = None
 
     # Recovery
     recovery_method: Optional[RecoveryMethod] = None
@@ -291,23 +291,23 @@ class Lease(CashFlowModel):
         Returns:
             Modified cash flow with all escalations applied
         """
-        if not self.rent_escalations:
+        if not self.rent_escalation:
             return base_flow
         
         rent_with_escalations = base_flow.copy()
         periods = self.timeline.period_index
         
-        for escalation in self.rent_escalations:
+        if self.rent_escalation:
             # Convert start date to period
-            start_period = pd.Period(escalation.start_date, freq="M")
+            start_period = pd.Period(self.rent_escalation.start_date, freq="M")
             
             # Create mask for periods where the escalation applies
             mask = periods >= start_period
             
-            if escalation.type == "percentage":
-                if escalation.recurring:
+            if self.rent_escalation.type == "percentage":
+                if self.rent_escalation.recurring:
                     # For recurring percentage increases, calculate compound growth
-                    freq = escalation.frequency_months or 12  # Default to annual
+                    freq = self.rent_escalation.frequency_months or 12  # Default to annual
                     # Calculate how many escalation cycles for each period
                     months_elapsed = np.array([(p - start_period).n for p in periods])
                     cycles = np.floor(months_elapsed / freq) 
@@ -315,41 +315,41 @@ class Lease(CashFlowModel):
                     
                     # Apply compound growth: (1 + rate)^cycles
                     # For relative escalations, use compound growth
-                    if escalation.is_relative:
-                        growth_factor = np.power(1 + (escalation.amount / 100), cycles)
+                    if self.rent_escalation.is_relative:
+                        growth_factor = np.power(1 + (self.rent_escalation.amount / 100), cycles)
                         rent_with_escalations = rent_with_escalations * growth_factor
                     else:
                         # For absolute escalations, apply to base rent
-                        growth_factor = np.power(1 + (escalation.amount / 100), cycles)
+                        growth_factor = np.power(1 + (self.rent_escalation.amount / 100), cycles)
                         escalation_series = base_flow * (growth_factor - 1)
                         rent_with_escalations += escalation_series
                 else:
                     # For one-time percentage increases
-                    if escalation.is_relative:
+                    if self.rent_escalation.is_relative:
                         # Apply to the current rent
-                        growth_factor = 1 + (escalation.amount / 100)
+                        growth_factor = 1 + (self.rent_escalation.amount / 100)
                         rent_with_escalations[mask] *= growth_factor
                     else:
                         # Apply to the base rent
-                        growth_factor = escalation.amount / 100
+                        growth_factor = self.rent_escalation.amount / 100
                         escalation_series = pd.Series(0, index=periods)
                         escalation_series[mask] = base_flow[mask] * growth_factor
                         rent_with_escalations += escalation_series
                 
-            elif escalation.type == "fixed":
+            elif self.rent_escalation.type == "fixed":
                 # For fixed amount escalations
-                if escalation.recurring:
+                if self.rent_escalation.recurring:
                     # For recurring fixed increases, calculate step increases
-                    freq = escalation.frequency_months or 12  # Default to annual
+                    freq = self.rent_escalation.frequency_months or 12  # Default to annual
                     months_elapsed = np.array([(p - start_period).n for p in periods])
                     cycles = np.floor(months_elapsed / freq)
                     cycles[~mask] = 0  # Zero out cycles outside the mask
                     
                     # Monthly equivalent of the fixed amount
-                    monthly_amount = escalation.amount / 12 if escalation.unit_of_measure == UnitOfMeasureEnum.AMOUNT else escalation.amount
+                    monthly_amount = self.rent_escalation.amount / 12 if self.rent_escalation.unit_of_measure == UnitOfMeasureEnum.AMOUNT else self.rent_escalation.amount
                     
                     # For relative increases, each cycle adds another increment
-                    if escalation.is_relative:
+                    if self.rent_escalation.is_relative:
                         cumulative_increases = cycles * monthly_amount
                         escalation_series = pd.Series(cumulative_increases, index=periods)
                         rent_with_escalations += escalation_series
@@ -361,12 +361,12 @@ class Lease(CashFlowModel):
                 else:
                     # For one-time fixed increases
                     # Monthly equivalent of the fixed amount
-                    monthly_amount = escalation.amount / 12 if escalation.unit_of_measure == UnitOfMeasureEnum.AMOUNT else escalation.amount
+                    monthly_amount = self.rent_escalation.amount / 12 if self.rent_escalation.unit_of_measure == UnitOfMeasureEnum.AMOUNT else self.rent_escalation.amount
                     escalation_series = pd.Series(0, index=periods)
                     escalation_series[mask] = monthly_amount
                     rent_with_escalations += escalation_series
                     
-            elif escalation.type == "cpi":
+            elif self.rent_escalation.type == "cpi":
                 # TODO: Implement CPI-based escalations
                 # This would require a CPI index reference
                 raise NotImplementedError("CPI-based escalations are not yet implemented")
