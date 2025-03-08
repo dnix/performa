@@ -1,10 +1,8 @@
 from datetime import date
 from typing import Dict, Literal, Optional
 
-from ..core._enums import ProgramUseEnum
 from ..core._model import Model
-from ..core._types import FloatBetween0And1, PositiveFloat
-from ._types import SquareFootRange
+from ..core._types import FloatBetween0And1
 
 
 class GrowthRate(Model):
@@ -80,43 +78,3 @@ class GrowthRates(Model):
                 yearly_rates={},
             ),
         )
-
-
-class MarketProfile(Model):
-    """
-    Market leasing assumptions.
-
-    This model maps directly to the Argus Enterprise Market Leasing inputs.
-    
-    Attributes:
-        base_rent: The market base rent per square foot (e.g., $/sq ft/year).
-        rent_growth_rate: The annual growth rate applied to market rent.
-        lease_term_months: The typical lease term duration in months.
-        free_rent_months: The number of months of free rent offered.
-        ti_allowance: The tenant improvement (TI) allowance per square foot.
-        leasing_commission: The leasing commission expressed as a percentage.
-        renewal_probability: The likelihood of lease renewal.
-        downtime_months: The expected downtime (in months) between leases.
-        space_type: The asset use type for which these assumptions apply.
-        size_range: An optional field to restrict the market profile to a given square footage range.
-    """
-
-    # Market Rents
-    base_rent: PositiveFloat  # per sq ft
-    rent_growth_rate: FloatBetween0And1
-
-    # Typical Terms
-    lease_term_months: int
-    free_rent_months: int = 0
-
-    # Leasing Costs
-    ti_allowance: PositiveFloat  # per sq ft
-    leasing_commission: FloatBetween0And1  # percent of rent
-
-    # Turnover
-    renewal_probability: FloatBetween0And1
-    downtime_months: int
-
-    # Applies To
-    space_type: ProgramUseEnum
-    size_range: Optional[SquareFootRange] = None  # sq ft range

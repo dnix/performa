@@ -6,7 +6,7 @@ from pydantic import model_validator
 from ..core._model import Model
 from ..core._types import FloatBetween0And1, PositiveFloat
 from ._expense import ExpenseItem
-from ._market import GrowthRate
+from ._growth_rates import GrowthRate
 
 
 class ExpensePool(Model):
