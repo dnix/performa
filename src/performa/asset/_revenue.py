@@ -24,6 +24,7 @@ from ..core._types import (
 from ._lc import LeasingCommission
 from ._recovery import RecoveryMethod
 from ._ti import TenantImprovementAllowance
+from ._rollover import RolloverProfile
 
 
 class Tenant(Model):
@@ -126,6 +127,7 @@ class Lease(CashFlowModel):
         recovery_method: Method for calculating expense recoveries
         ti_allowance: Tenant improvement allowance (optional)
         leasing_commission: Leasing commission structure (optional)
+        rollover_profile: Profile for future projections
     """
     # Basic fields from CashFlowModel
     name: str
@@ -158,13 +160,10 @@ class Lease(CashFlowModel):
     ti_allowance: Optional[TenantImprovementAllowance] = None
     leasing_commission: Optional[LeasingCommission] = None
 
-    # TODO: Add renewal options
-    # TODO: Add special provisions (percentage rent, etc.)
-    # TODO: Add rollover assumptions
-
-    # # Rollover
-    # upon_expiration: Literal["market", "renew", "vacate", "option", "reconfigured"]
-    # rollover_assumption: Optional[str]  # Reference to RLA
+    # Rollover attributes
+    upon_expiration: Literal["market", "renew", "vacate", "option", "reconfigured"]
+    rollover_profile: Optional[RolloverProfile] = None  # Profile for future projections
+    # TODO: support lookup for profile id?
 
     @property
     def lease_start(self) -> date:
@@ -196,6 +195,16 @@ class Lease(CashFlowModel):
         """
         today = date.today()
         return self.lease_start <= today <= self.lease_end
+    
+    @property
+    def is_actual(self) -> bool:
+        """Check if this is an actual (contracted) lease."""
+        return self.status == LeaseStatusEnum.CONTRACT
+    
+    @property
+    def is_speculative(self) -> bool:
+        """Check if this is a speculative/projected lease."""
+        return self.status == LeaseStatusEnum.SPECULATIVE
     
     @classmethod
     def from_dates(
