@@ -382,6 +382,98 @@ class Lease(CashFlowModel):
         
         return rent_with_escalations
     
+    def _apply_abatements(self, rent_flow: pd.Series) -> pd.Series:
+        """
+        Apply rent abatements to the rent cash flow.
+        
+        Args:
+            rent_flow: Rent cash flow series with escalations applied
+            
+        Returns:
+            Modified cash flow with abatements applied
+        """
+        if not self.rent_abatement:
+            return rent_flow
+        
+        result = rent_flow.copy()
+        periods = self.timeline.period_index
+        
+        # Calculate the abatement start period (relative to lease start)
+        lease_start_period = pd.Period(self.lease_start, freq="M")
+        
+        # Create mask for periods where the abatement applies
+        mask = periods >= lease_start_period
+        
+        if self.rent_abatement:
+            if self.rent_abatement.type == "percentage":
+                if self.rent_abatement.recurring:
+                    # For recurring percentage decreases, calculate compound reduction
+                    freq = self.rent_abatement.frequency_months or 12  # Default to annual
+                    # Calculate how many abatement cycles for each period
+                    months_elapsed = np.array([(p - lease_start_period).n for p in periods])
+                    cycles = np.floor(months_elapsed / freq) 
+                    cycles[~mask] = 0  # Zero out cycles outside the mask
+                    
+                    # Apply compound reduction: (1 - rate)^cycles
+                    # For relative abatements, use compound reduction
+                    if self.rent_abatement.is_relative:
+                        reduction_factor = np.power(1 - (self.rent_abatement.amount / 100), cycles)
+                        result = result * reduction_factor
+                    else:
+                        # For absolute abatements, apply to base rent
+                        reduction_factor = np.power(1 - (self.rent_abatement.amount / 100), cycles)
+                        abatement_series = result * (reduction_factor - 1)
+                        result += abatement_series
+                else:
+                    # For one-time percentage decreases
+                    if self.rent_abatement.is_relative:
+                        # Apply to the current rent
+                        reduction_factor = 1 - (self.rent_abatement.amount / 100)
+                        result[mask] *= reduction_factor
+                    else:
+                        # Apply to the base rent
+                        reduction_factor = self.rent_abatement.amount / 100
+                        abatement_series = pd.Series(0, index=periods)
+                        abatement_series[mask] = result[mask] * reduction_factor
+                        result += abatement_series
+                
+            elif self.rent_abatement.type == "fixed":
+                # For fixed amount abatements
+                if self.rent_abatement.recurring:
+                    # For recurring fixed decreases, calculate step decreases
+                    freq = self.rent_abatement.frequency_months or 12  # Default to annual
+                    months_elapsed = np.array([(p - lease_start_period).n for p in periods])
+                    cycles = np.floor(months_elapsed / freq)
+                    cycles[~mask] = 0  # Zero out cycles outside the mask
+                    
+                    # Monthly equivalent of the fixed amount
+                    monthly_amount = self.rent_abatement.amount / 12 if self.rent_abatement.unit_of_measure == UnitOfMeasureEnum.AMOUNT else self.rent_abatement.amount
+                    
+                    # For relative decreases, each cycle adds another decrement
+                    if self.rent_abatement.is_relative:
+                        cumulative_decreases = cycles * monthly_amount
+                        abatement_series = pd.Series(cumulative_decreases, index=periods)
+                        result += abatement_series
+                    else:
+                        # For absolute decreases, apply to the base
+                        cumulative_decreases = cycles * monthly_amount
+                        abatement_series = pd.Series(cumulative_decreases, index=periods)
+                        result += abatement_series
+                else:
+                    # For one-time fixed decreases
+                    # Monthly equivalent of the fixed amount
+                    monthly_amount = self.rent_abatement.amount / 12 if self.rent_abatement.unit_of_measure == UnitOfMeasureEnum.AMOUNT else self.rent_abatement.amount
+                    abatement_series = pd.Series(0, index=periods)
+                    abatement_series[mask] = monthly_amount
+                    result += abatement_series
+                    
+            elif self.rent_abatement.type == "cpi":
+                # TODO: Implement CPI-based abatements
+                # This would require a CPI index reference
+                raise NotImplementedError("CPI-based abatements are not yet implemented")
+        
+        return result
+    
     def compute_cf(
         self,
         property_area: Optional[PositiveFloat] = None,
@@ -403,9 +495,9 @@ class Lease(CashFlowModel):
         # Get base cash flows using existing implementation
         base_rent = super().compute_cf(lookup_fn)
         base_rent_with_escalations = self._apply_escalations(base_rent)
+        base_rent_with_abatements = self._apply_abatements(base_rent_with_escalations)
         
         # Calculate recoveries if applicable
-        # TODO: create a method to apply recoveries to the base rent
         recoveries = pd.Series(0, index=self.timeline.period_index)
         if self.recovery_method and property_area:
             recoveries = self.recovery_method.calculate_recoveries(
@@ -434,13 +526,13 @@ class Lease(CashFlowModel):
             lc_cf = lc_cf.reindex(self.timeline.period_index, fill_value=0)
         
         # Calculate total cash flows
-        revenue_cf = base_rent_with_escalations + recoveries
+        revenue_cf = base_rent_with_abatements + recoveries
         expense_cf = ti_cf + lc_cf
         net_cf = revenue_cf - expense_cf
         
         # Return all components
         return {
-            "base_rent": base_rent_with_escalations,
+            "base_rent": base_rent_with_abatements,
             "recoveries": recoveries,
             "revenue": revenue_cf,
             "ti_allowance": ti_cf,
@@ -524,11 +616,11 @@ class Lease(CashFlowModel):
                 result_df = pd.concat([result_df, new_lease_df], sort=True)
                 
             elif self.upon_expiration == "option":
-                # TODO: Implement option-based renewal logic
+                # FIXME: Implement option-based renewal logic
                 ...
                 
             elif self.upon_expiration == "reconfigured":
-                # TODO: Implement reconfiguration logic (splitting/combining spaces)
+                # FIXME: Implement reconfiguration logic (splitting/combining spaces)
                 ...
         
         return result_df
