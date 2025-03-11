@@ -1,29 +1,38 @@
-from datetime import date
-from typing import List, Optional
+import uuid
+from typing import Dict, List, Optional
 
 from pydantic import model_validator
 
-from ..core._enums import AssetTypeEnum
 from ..core._model import Model
 from ..core._types import FloatBetween0And1, PositiveFloat
-from ._expense import CapitalExpenses, OperatingExpenses
-from ._recovery import ExpensePool, RecoveryMethod
-from ._revenue import MarketProfile, MiscIncome, RentRoll, Tenant
-from ._settings import (
-    ModelSettings,
-    PercentageRentSettings,
-    RecoverySettings,
-    RolloverSettings,
-    VacancySettings,
-)
+from ._revenue import MiscIncomeCollection, RentRoll, Tenant
 
 
-class Floor(Model):
+class PropertyFloor(Model):
     """Building floor details"""
 
     number: int
     area: PositiveFloat
     tenants: List[Tenant]
+
+
+class PropertySuite(Model):
+    """Building suite details
+    
+    Attributes:
+        suite_id: Unique identifier for the suite
+        area: Rentable area in square feet
+        tenant: Current tenant, or None if vacant
+    """
+
+    suite_id: str
+    area: PositiveFloat
+    tenant: Optional[Tenant] = None  # Make tenant optional to handle vacant suites
+
+    @property
+    def is_vacant(self) -> bool:
+        """Check if the suite is currently vacant"""
+        return self.tenant is None
 
 
 class Address(Model):
@@ -40,91 +49,90 @@ class Property(Model):
     """
     Core asset/property class representing an income-producing real estate asset.
 
-    Attributes:
-        id: Unique identifier.
-        name: Property name.
-        description: Optional description.
-        external_id: External property identifier (from Argus).
-        entity_id: External entity identifier (from Argus).
-        address: Street address.
-        city: City where the property is located.
-        state: State where the property is located.
-        zip_code: Postal code of the property.
-        country: Country where the property is located.
-        property_type: Type of asset (e.g., Office, Retail, Industrial, Multifamily, Hotel, Mixed Use).
-        year_built: Construction year.
-        gross_area: Total building area in square feet.
-        net_rentable_area: Leasable area in square feet.
-        rent_roll: Current tenancy and lease details.
-        operating_expenses: Property operating expenses.
-        capital_expenses: Major capital improvements/investments.
-        market_profile: Market leasing assumptions.
-        valuation_date: Date of analysis.
-        analysis_start_date: Start of the projection period.
-        analysis_period_months: Length of the projection in months.
-        floors: List of floors in the property.
-        model_settings: Settings for the financial model.
-        vacancy_settings: Vacancy settings for the asset.
-        percentage_rent_settings: PercentageRentSettings
-        recovery_settings: RecoverySettings
-        rollover_settings: RolloverSettings
-        misc_income: List[MiscIncome]
-        recovery_methods: List[RecoveryMethod]
-        expense_pools: List[ExpensePool]
     """
 
     # Identity
-    id: str
     name: str
     description: Optional[str] = None
-
-    # New fields for enhanced mapping to Argus
     external_id: Optional[str] = None
-    entity_id: Optional[str] = None
-    address: Address
+    address: Optional[Address] = None
+    year_built: Optional[int] = None
 
     # Physical Characteristics
-    property_type: AssetTypeEnum
-    year_built: int
+    # property_type: AssetTypeEnum
     gross_area: PositiveFloat  # sq ft
     net_rentable_area: PositiveFloat  # sq ft
 
     # Components
     rent_roll: RentRoll
-    market_profile: MarketProfile
-
-    # Analysis Settings
-    valuation_date: date
-    analysis_start_date: date
-    analysis_period_months: int = 120  # typical 10-year analysis
-    # FIXME: compare to cash flow timelines
+    miscellaneous_income: Optional[MiscIncomeCollection] = None
 
     # Additional Attributes
-    floors: List[Floor]
+    # floors: List[Floor]
 
-    # New settings
-    model_settings: ModelSettings
-    vacancy_settings: VacancySettings
-    percentage_rent_settings: PercentageRentSettings
-    recovery_settings: RecoverySettings
-    rollover_settings: RolloverSettings
+    # TODO: properties for floors, suites, etc. based on rent roll, vacant suites, etc.
 
-    # Enhanced components
-    misc_income: List[MiscIncome]
-    operating_expenses: OperatingExpenses
-    capital_expenses: CapitalExpenses
-    recovery_methods: List[RecoveryMethod]
-    expense_pools: List[ExpensePool]
+    @property
+    def suites(self) -> List[PropertySuite]:
+        """List of all suites in the property from both leased and vacant spaces.
+        
+        Returns:
+            List of PropertySuite objects
+        """
+        # Convert leased spaces to PropertySuite objects
+        leased_suites = [
+            PropertySuite(
+                suite_id=lease.suite,
+                area=lease.area,
+                tenant=lease.tenant
+            ) for lease in self.rent_roll.leases
+        ]
+        
+        # Convert vacant spaces to PropertySuite objects
+        vacant_suites = [
+            PropertySuite(
+                suite_id=suite.suite_id,
+                area=suite.area,
+                tenant=None
+            ) for suite in self.rent_roll.vacant_suites
+        ]
+        
+        return leased_suites + vacant_suites
 
-    @model_validator(mode="after")
-    def validate_areas(self) -> "Property":
-        """Validate that NRA doesn't exceed GBA"""
-        if self.net_rentable_area > self.gross_area:
-            raise ValueError(
-                f"Net rentable area ({self.net_rentable_area:,.0f} SF) "
-                f"cannot exceed gross area ({self.gross_area:,.0f} SF)"
+    @property
+    def floors(self) -> List[PropertyFloor]:
+        """List all floors in the property from leased spaces.
+        
+        Returns:
+            List of PropertyFloor objects grouped by floor number
+        """
+        # Create a dictionary to group tenants by floor
+        floor_tenants: Dict[str, List[Tenant]] = {}
+        floor_areas: Dict[str, float] = {}
+        
+        # Group leases by floor
+        for lease in self.rent_roll.leases:
+            if lease.floor:  # Only process leases with floor information
+                if lease.floor not in floor_tenants:
+                    floor_tenants[lease.floor] = []
+                    floor_areas[lease.floor] = 0
+                floor_tenants[lease.floor].append(lease.tenant)
+                floor_areas[lease.floor] += lease.area
+        
+        # Convert to PropertyFloor objects
+        return [
+            PropertyFloor(
+                number=int(floor_num) if floor_num.isdigit() else 0,  # Default to 0 if not numeric
+                area=floor_areas[floor_num],
+                tenants=tenants
             )
-        return self
+            for floor_num, tenants in floor_tenants.items()
+        ]
+
+    @property
+    def id(self) -> str:
+        """Generate a unique uuid for the property"""
+        return str(uuid.uuid4())
 
     @property
     def vacant_area(self) -> PositiveFloat:
@@ -135,3 +143,13 @@ class Property(Model):
     def occupancy_rate(self) -> FloatBetween0And1:
         """Calculate current occupancy rate"""
         return self.rent_roll.total_occupied_area / self.net_rentable_area
+
+    @model_validator(mode="after")
+    def validate_areas(self) -> "Property":
+        """Validate that NRA doesn't exceed GBA"""
+        if self.net_rentable_area > self.gross_area:
+            raise ValueError(
+                f"Net rentable area ({self.net_rentable_area:,.0f} SF) "
+                f"cannot exceed gross area ({self.gross_area:,.0f} SF)"
+            )
+        return self
