@@ -174,6 +174,7 @@ class CashFlowModel(Model):
         each value is numeric and positive.
         For lists: Validate that the list length matches the timeline period index length.
         """
+        # NOTE: consider spinning this out as a reusable validator function/class
         if isinstance(v, dict):
             for key, amount in v.items():
                 try:
