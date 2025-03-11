@@ -210,7 +210,7 @@ class Lease(CashFlowModel):
     @classmethod
     def from_dates(
         cls,
-        tenant_name: str,
+        tenant: Tenant,
         suite: str,
         lease_start: date,
         lease_end: date,
@@ -220,7 +220,7 @@ class Lease(CashFlowModel):
         Create a lease with specific start and end dates.
         
         Args:
-            tenant_name: Name of the tenant
+            tenant: Tenant entity
             suite: Suite/unit identifier
             lease_start: Start date of the lease
             lease_end: End date of the lease
@@ -237,7 +237,7 @@ class Lease(CashFlowModel):
         
         # Set default name if not provided
         if "name" not in kwargs:
-            kwargs["name"] = f"{tenant_name} - {suite}"
+            kwargs["name"] = f"{tenant.name} - {suite}"
         
         # Create the timeline
         timeline = Timeline.from_dates(
@@ -246,7 +246,7 @@ class Lease(CashFlowModel):
         )
         
         return cls(
-            tenant_name=tenant_name,
+            tenant=tenant,
             suite=suite,
             timeline=timeline,
             **kwargs
@@ -255,7 +255,7 @@ class Lease(CashFlowModel):
     @classmethod
     def from_duration(
         cls,
-        tenant_name: str,
+        tenant: Tenant,
         suite: str,
         lease_start: date,
         lease_term_months: PositiveInt,
@@ -265,7 +265,7 @@ class Lease(CashFlowModel):
         Create a lease with start date and duration in months.
         
         Args:
-            tenant_name: Name of the tenant
+            tenant: Tenant entity
             suite: Suite/unit identifier
             lease_start: Start date of the lease
             lease_term_months: Duration of lease in months
@@ -276,7 +276,7 @@ class Lease(CashFlowModel):
         """
         # Set default name if not provided
         if "name" not in kwargs:
-            kwargs["name"] = f"{tenant_name} - {suite}"
+            kwargs["name"] = f"{tenant.name} - {suite}"
         
         # Create the timeline
         timeline = Timeline(
@@ -285,7 +285,7 @@ class Lease(CashFlowModel):
         )
         
         return cls(
-            tenant_name=tenant_name,
+            tenant=tenant,
             suite=suite,
             timeline=timeline,
             **kwargs
@@ -401,77 +401,17 @@ class Lease(CashFlowModel):
         
         # Calculate the abatement start period (relative to lease start)
         lease_start_period = pd.Period(self.lease_start, freq="M")
+        abatement_start_month = self.rent_abatement.start_month - 1  # Convert to 0-indexed
+        abatement_start_period = lease_start_period + abatement_start_month
         
-        # Create mask for periods where the abatement applies
-        mask = periods >= lease_start_period
+        # Calculate the end period for the abatement
+        abatement_end_period = abatement_start_period + self.rent_abatement.months
         
-        if self.rent_abatement:
-            if self.rent_abatement.type == "percentage":
-                if self.rent_abatement.recurring:
-                    # For recurring percentage decreases, calculate compound reduction
-                    freq = self.rent_abatement.frequency_months or 12  # Default to annual
-                    # Calculate how many abatement cycles for each period
-                    months_elapsed = np.array([(p - lease_start_period).n for p in periods])
-                    cycles = np.floor(months_elapsed / freq) 
-                    cycles[~mask] = 0  # Zero out cycles outside the mask
-                    
-                    # Apply compound reduction: (1 - rate)^cycles
-                    # For relative abatements, use compound reduction
-                    if self.rent_abatement.is_relative:
-                        reduction_factor = np.power(1 - (self.rent_abatement.amount / 100), cycles)
-                        result = result * reduction_factor
-                    else:
-                        # For absolute abatements, apply to base rent
-                        reduction_factor = np.power(1 - (self.rent_abatement.amount / 100), cycles)
-                        abatement_series = result * (reduction_factor - 1)
-                        result += abatement_series
-                else:
-                    # For one-time percentage decreases
-                    if self.rent_abatement.is_relative:
-                        # Apply to the current rent
-                        reduction_factor = 1 - (self.rent_abatement.amount / 100)
-                        result[mask] *= reduction_factor
-                    else:
-                        # Apply to the base rent
-                        reduction_factor = self.rent_abatement.amount / 100
-                        abatement_series = pd.Series(0, index=periods)
-                        abatement_series[mask] = result[mask] * reduction_factor
-                        result += abatement_series
-                
-            elif self.rent_abatement.type == "fixed":
-                # For fixed amount abatements
-                if self.rent_abatement.recurring:
-                    # For recurring fixed decreases, calculate step decreases
-                    freq = self.rent_abatement.frequency_months or 12  # Default to annual
-                    months_elapsed = np.array([(p - lease_start_period).n for p in periods])
-                    cycles = np.floor(months_elapsed / freq)
-                    cycles[~mask] = 0  # Zero out cycles outside the mask
-                    
-                    # Monthly equivalent of the fixed amount
-                    monthly_amount = self.rent_abatement.amount / 12 if self.rent_abatement.unit_of_measure == UnitOfMeasureEnum.AMOUNT else self.rent_abatement.amount
-                    
-                    # For relative decreases, each cycle adds another decrement
-                    if self.rent_abatement.is_relative:
-                        cumulative_decreases = cycles * monthly_amount
-                        abatement_series = pd.Series(cumulative_decreases, index=periods)
-                        result += abatement_series
-                    else:
-                        # For absolute decreases, apply to the base
-                        cumulative_decreases = cycles * monthly_amount
-                        abatement_series = pd.Series(cumulative_decreases, index=periods)
-                        result += abatement_series
-                else:
-                    # For one-time fixed decreases
-                    # Monthly equivalent of the fixed amount
-                    monthly_amount = self.rent_abatement.amount / 12 if self.rent_abatement.unit_of_measure == UnitOfMeasureEnum.AMOUNT else self.rent_abatement.amount
-                    abatement_series = pd.Series(0, index=periods)
-                    abatement_series[mask] = monthly_amount
-                    result += abatement_series
-                    
-            elif self.rent_abatement.type == "cpi":
-                # TODO: Implement CPI-based abatements
-                # This would require a CPI index reference
-                raise NotImplementedError("CPI-based abatements are not yet implemented")
+        # Create mask for periods where abatement applies
+        abatement_mask = (periods >= abatement_start_period) & (periods < abatement_end_period)
+        
+        # Apply the abatement ratio to the applicable periods
+        result[abatement_mask] *= (1 - self.rent_abatement.abated_ratio)
         
         return result
     
@@ -501,12 +441,17 @@ class Lease(CashFlowModel):
         # Calculate recoveries if applicable
         recoveries = pd.Series(0, index=self.timeline.period_index)
         if self.recovery_method and property_area:
+            # Calculate base recoveries
             recoveries = self.recovery_method.calculate_recoveries(
                 tenant_area=self.area,
                 property_area=property_area,
                 timeline=self.timeline.period_index,
                 occupancy_rate=occupancy_rate
             )
+            
+            # Apply abatement to recoveries if specified
+            if self.rent_abatement and self.rent_abatement.includes_recoveries:
+                recoveries = self._apply_abatements(recoveries)
         
         # Calculate TI cash flows if applicable
         # TODO: create a method to apply TI to the base rent
@@ -542,6 +487,7 @@ class Lease(CashFlowModel):
             "net": net_cf
         }
     # FIXME: dataframe all the things? how do we want to handle cash flow components for later disaggregation?
+    # TODO: we may want to retain more detailed cash flow components for later analysis/reporting
 
     # Methods for rollover/projections
     def project_future_cash_flows(
