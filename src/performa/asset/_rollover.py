@@ -1,9 +1,9 @@
 from datetime import date
-from typing import Dict, List, Literal, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import pandas as pd
 
-from ..core._enums import FrequencyEnum, UnitOfMeasureEnum
+from ..core._enums import FrequencyEnum, UnitOfMeasureEnum, UponExpirationEnum
 from ..core._model import Model
 from ..core._types import FloatBetween0And1, PositiveFloat, PositiveInt
 from ._lc import (
@@ -129,7 +129,7 @@ class RolloverProfile(Model):
     renewal_terms: RolloverLeaseTerms
     
     # Rollover behavior
-    upon_expiration: Literal["market", "renew", "vacate", "option", "reconfigured"] = "market"
+    upon_expiration: UponExpirationEnum = UponExpirationEnum.MARKET
     next_profile: Optional[str] = None  # Name of next profile to use if chaining
     
     # Projection limits
