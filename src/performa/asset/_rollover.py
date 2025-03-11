@@ -1,30 +1,29 @@
-from typing import Literal, Optional
-from datetime import date, timedelta, relativedelta
+from datetime import date
+from typing import Dict, List, Literal, Optional, Union
 
-from ..core._enums import UnitOfMeasureEnum, LeaseStatusEnum, LeaseTypeEnum, ProgramUseEnum
+import pandas as pd
+
+from ..core._enums import FrequencyEnum, UnitOfMeasureEnum
 from ..core._model import Model
-from ..core._timeline import Timeline
 from ..core._types import FloatBetween0And1, PositiveFloat, PositiveInt
-
-from ._recovery import RecoveryMethod
-from ._ti import TenantImprovementAllowance
 from ._lc import (
     LeasingCommission,
 )
+from ._recovery import RecoveryMethod
 from ._revenue import (
-    RentEscalation,
     RentAbatement,
-    Lease,
-    Tenant,
+    RentEscalation,
 )
+from ._ti import TenantImprovementAllowance
 
 
-class LeaseTerms(Model):
+class RolloverLeaseTerms(Model):
     """
     Base class for lease terms applied in different scenarios.
     
     Contains common fields needed for any lease creation scenario, whether
-    market lease or renewal.
+    market lease or renewal. Models market rent with the same flexibility as
+    CashFlowModel to enable easy translation into Lease instances.
     
     Attributes:
         rent_escalation: Rent increase structure for the lease term
@@ -32,10 +31,25 @@ class LeaseTerms(Model):
         recovery_method: Method for calculating expense recoveries
         ti_allowance: Tenant improvement allowance configuration
         leasing_commission: Leasing commission structure
+        market_rent: Market rent value (can be a single value, series, or reference)
+        unit_of_measure: Units for market rent (PSF, amount, etc.)
+        frequency: Frequency of the market rent (monthly, annual)
+        growth_rate: Annual growth rate for market rent
     """
+    # Market rent (paralleling CashFlowModel for flexibility)
+    market_rent: Optional[Union[PositiveFloat, pd.Series, Dict, List]] = None
+    unit_of_measure: UnitOfMeasureEnum = UnitOfMeasureEnum.PSF
+    frequency: FrequencyEnum = FrequencyEnum.ANNUAL
+
+    # Growth parameter
+    growth_rate: Optional[FloatBetween0And1] = None  # TODO: support GrowthRates
+
+    # Lease modification terms
     rent_escalation: Optional[RentEscalation] = None
     rent_abatement: Optional[RentAbatement] = None
     recovery_method: Optional[RecoveryMethod] = None
+    
+    # Lease costs
     ti_allowance: Optional[TenantImprovementAllowance] = None
     leasing_commission: Optional[LeasingCommission] = None
     
@@ -47,7 +61,7 @@ class LeaseTerms(Model):
         Returns:
             Boolean indicating whether rent abatement is specified
         """
-        return bool(self.rent_abatements)
+        return self.rent_abatement is not None
     
     @property
     def has_ti(self) -> bool:
@@ -69,6 +83,21 @@ class LeaseTerms(Model):
         """
         return self.leasing_commission is not None
     
+    @property
+    def market_rent_psf(self) -> Optional[PositiveFloat]:
+        """
+        Get the market rent as a PSF value, for backwards compatibility.
+        If market_rent is a Series, dict, or list, returns None.
+        
+        Returns:
+            Market rent per square foot, if available as a single value
+        """
+        if isinstance(self.market_rent, (int, float)):
+            if self.unit_of_measure == UnitOfMeasureEnum.PSF:
+                return self.market_rent
+            # TODO: Consider conversion logic if needed
+        return None
+
 
 class RolloverProfile(Model):
     """
@@ -96,8 +125,8 @@ class RolloverProfile(Model):
     downtime_months: int  # months between vacancy and lease start
     
     # Lease terms for different scenarios
-    market_terms: LeaseTerms
-    renewal_terms: LeaseTerms
+    market_terms: RolloverLeaseTerms
+    renewal_terms: RolloverLeaseTerms
     
     # Rollover behavior
     upon_expiration: Literal["market", "renew", "vacate", "option", "reconfigured"] = "market"
@@ -105,170 +134,102 @@ class RolloverProfile(Model):
     
     # Projection limits
     max_projection_years: int = 99
-
-    def create_renewal_lease(self, original_lease: "Lease", as_of_date: date) -> "Lease":
-        """
-        Create a renewal lease based on the original lease and renewal terms.
-        
-        This method generates a new lease that represents a tenant renewing their
-        existing lease, applying the renewal terms from this profile.
-        
-        Args:
-            original_lease: The existing lease that is being renewed
-            as_of_date: The date to use for market rent calculations
-            
-        Returns:
-            A new Lease object representing the renewal
-        """
-        # Calculate renewal start - day after original lease ends
-        renewal_start = original_lease.lease_end + timedelta(days=1)
-        
-        # Create timeline for the renewal
-        timeline = Timeline.from_dates(
-            start_date=renewal_start, 
-            end_date=renewal_start + relativedelta(months=self.term_months)
-        )
-        
-        # Apply discount to market rate for renewal scenario
-        market_rate = self._calculate_market_rent(as_of_date)
-        renewal_rate = market_rate * 0.95  # 5% discount for renewals
-        
-        # Create tenant copy since models are immutable
-        tenant = original_lease.tenant.model_copy()
-        
-        # Create new TI allowance if specified in renewal terms
-        ti_allowance = None
-        if self.renewal_terms.ti_allowance:
-            ti_allowance = TenantImprovementAllowance(
-                # Copy configuration from profile's renewal terms
-                **self.renewal_terms.ti_allowance.model_dump(exclude={'timeline', 'reference'}),
-                # Set appropriate timeline and area reference
-                timeline=timeline,
-                reference=original_lease.area
-            )
-        
-        # Create new leasing commission if specified in renewal terms
-        leasing_commission = None
-        if self.renewal_terms.leasing_commission:
-            # Calculate annual rent as basis for commission
-            annual_rent = renewal_rate * original_lease.area
-            
-            leasing_commission = LeasingCommission(
-                **self.renewal_terms.leasing_commission.model_dump(exclude={'timeline', 'value'}),
-                timeline=timeline,
-                value=annual_rent
-            )
-        
-        # Create and return the renewal lease with all appropriate attributes
-        return Lease(
-            name=f"{original_lease.tenant.name} - {original_lease.suite} (Renewal)",
-            tenant=tenant,
-            suite=original_lease.suite,
-            floor=original_lease.floor,
-            use_type=original_lease.use_type,
-            status=LeaseStatusEnum.SPECULATIVE,
-            lease_type=original_lease.lease_type,
-            area=original_lease.area,
-            timeline=timeline,
-            value=renewal_rate,
-            unit_of_measure=UnitOfMeasureEnum.PSF,
-            
-            # Apply renewal terms (immutable objects can be referenced directly)
-            rent_escalation=self.renewal_terms.rent_escalation,
-            rent_abatement=self.renewal_terms.rent_abatement,
-            recovery_method=self.renewal_terms.recovery_method,
-            
-            # Apply newly created instances with proper timeline/reference
-            ti_allowance=ti_allowance,
-            leasing_commission=leasing_commission,
-            
-            # Set rollover behavior for future projections
-            upon_expiration=self.upon_expiration,
-            rollover_profile=self
-        )
     
-    def create_market_lease(
-        self, 
-        suite: str, 
-        suite_area: PositiveFloat,
-        vacancy_start_date: date, 
-        property_area: Optional[PositiveFloat] = None
-    ) -> "Lease":
+    def _calculate_market_rent(self, terms: RolloverLeaseTerms, as_of_date: date) -> PositiveFloat:
         """
-        Create a new market lease for a vacant space.
-        
-        This method generates a speculative lease based on market assumptions
-        for a space that is or will become vacant.
+        Calculate the market rent as of a specific date, applying growth factors.
         
         Args:
-            suite: Suite identifier for the vacant space
-            suite_area: Area of the suite in square feet
-            vacancy_start_date: Date when the space becomes vacant
-            property_area: Total property area (optional, for percentage calculations)
+            terms: The lease terms containing market rent configuration
+            as_of_date: The date to calculate market rent for
             
         Returns:
-            A new Lease object representing the market lease
+            The market rent per square foot as of the given date
+            
+        Raises:
+            ValueError: If market rent is not defined in the terms
         """
-        # Calculate lease start date after expected downtime period
-        lease_start = vacancy_start_date + relativedelta(months=self.downtime_months)
-        
-        # Create timeline for the market lease
-        timeline = Timeline(
-            start_date=lease_start,
-            duration_months=self.term_months
-        )
-        
-        # Determine market rent as of lease start date
-        market_rate = self._calculate_market_rent(lease_start)
-        
-        # Create placeholder tenant for the speculative lease
-        tenant = Tenant(
-            id=f"speculative-{suite}-{lease_start}",
-            name=f"Market Tenant ({suite})"
-        )
-        
-        # Create TI allowance if specified in market terms
-        ti_allowance = None
-        if self.market_terms.ti_allowance:
-            ti_allowance = TenantImprovementAllowance(
-                **self.market_terms.ti_allowance.model_dump(exclude={'timeline', 'reference'}),
-                timeline=timeline,
-                reference=suite_area
-            )
-        
-        # Create leasing commission if specified in market terms
-        leasing_commission = None
-        if self.market_terms.leasing_commission:
-            annual_rent = market_rate * suite_area
-            leasing_commission = LeasingCommission(
-                **self.market_terms.leasing_commission.model_dump(exclude={'timeline', 'value'}),
-                timeline=timeline,
-                value=annual_rent
-            )
-        
-        # Create and return the market lease with all appropriate attributes
-        return Lease(
-            name=f"Market Lease - {suite}",
-            tenant=tenant,
-            suite=suite,
-            use_type=ProgramUseEnum.OFFICE,  # Default use type
-            status=LeaseStatusEnum.SPECULATIVE,
-            lease_type=LeaseTypeEnum.NET,  # Default lease type for market leases
-            area=suite_area,
-            timeline=timeline,
-            value=market_rate,
-            unit_of_measure=UnitOfMeasureEnum.PSF,
+        if terms.market_rent is None:
+            raise ValueError("Market rent not defined in lease terms")
             
-            # Apply market terms (immutable objects can be referenced directly)
-            rent_escalation=self.market_terms.rent_escalation,
-            rent_abatement=self.market_terms.rent_abatement,
-            recovery_method=self.market_terms.recovery_method,
+        # Handle different market rent types
+        if isinstance(terms.market_rent, (int, float)):
+            base_market_rent = terms.market_rent
             
-            # Apply newly created instances with proper timeline/reference
-            ti_allowance=ti_allowance,
-            leasing_commission=leasing_commission,
+            # Convert from annual to monthly if needed
+            if terms.frequency == FrequencyEnum.ANNUAL:
+                base_market_rent = base_market_rent / 12
             
-            # Set rollover behavior for future projections
-            upon_expiration=self.upon_expiration,
-            rollover_profile=self
-        )
+            # Apply growth rate if specified
+            if terms.growth_rate:
+                # Calculate years from today to as_of_date
+                today = date.today()
+                years_difference = (as_of_date.year - today.year) + (as_of_date.month - today.month) / 12
+                
+                # Apply growth compounding
+                market_rent = base_market_rent * (1 + terms.growth_rate) ** years_difference
+                return market_rent
+            else:
+                return base_market_rent
+                
+        elif isinstance(terms.market_rent, pd.Series):
+            # If market rent is a series, look up the value at the given date
+            as_of_period = pd.Period(as_of_date, freq="M")
+            
+            # Try to find the exact period or the most recent previous period
+            if as_of_period in terms.market_rent.index:
+                rent = terms.market_rent[as_of_period]
+            else:
+                # Find the most recent period before as_of_period
+                earlier_periods = terms.market_rent.index[terms.market_rent.index < as_of_period]
+                if len(earlier_periods) > 0:
+                    latest_period = earlier_periods[-1]
+                    rent = terms.market_rent[latest_period]
+                else:
+                    # No earlier periods, use the earliest available
+                    earliest_period = terms.market_rent.index[0]
+                    rent = terms.market_rent[earliest_period]
+            
+            # Convert from annual to monthly if needed
+            if terms.frequency == FrequencyEnum.ANNUAL:
+                rent = rent / 12
+                
+            return rent
+            
+        elif isinstance(terms.market_rent, dict):
+            # Convert the dictionary to a Series and recursively call this method
+            temp_series = pd.Series(terms.market_rent)
+            # Create a copy of the terms with the Series
+            temp_terms = terms.model_copy(update={"market_rent": temp_series})
+            return self._calculate_market_rent(temp_terms, as_of_date)
+            
+        elif isinstance(terms.market_rent, list):
+            # We need context (timeline) to interpret a list, so this is not supported directly
+            raise ValueError("List format for market_rent requires a timeline context. Use a Series or dictionary instead.")
+            
+        else:
+            raise ValueError(f"Unsupported market_rent type: {type(terms.market_rent)}")
+    
+    def calculate_market_lease_rent(self, as_of_date: date) -> PositiveFloat:
+        """
+        Calculate the market rent for a new market lease.
+        
+        Args:
+            as_of_date: The date to calculate market rent for
+            
+        Returns:
+            The market rent value
+        """
+        return self._calculate_market_rent(self.market_terms, as_of_date)
+    
+    def calculate_renewal_rent(self, as_of_date: date) -> PositiveFloat:
+        """
+        Calculate the rent for a renewal lease.
+        
+        Args:
+            as_of_date: The date to calculate renewal rent for
+            
+        Returns:
+            The renewal rent value
+        """
+        return self._calculate_market_rent(self.renewal_terms, as_of_date)
