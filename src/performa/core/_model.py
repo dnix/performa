@@ -8,4 +8,5 @@ class Model(BaseModel):
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         use_enum_values=True,
+        frozen=True,  # TODO: evaluate shared state implications without freezing
     ) 
