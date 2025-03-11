@@ -116,6 +116,7 @@ class ProgramUseEnum(str, Enum):
     STORAGE = "storage"
     PARKING = "parking"
     AMENITY = "amenity"
+    # TODO: add other types of program uses (hotel, etc.)
 
 
 class LeaseTypeEnum(str, Enum):
@@ -207,13 +208,12 @@ class UnitOfMeasureEnum(str, Enum):
 
     # FIXME: let's standardize this (and in development) to use unitized with another enum for unit type
     # amount (direct amt, as in $/yr or $/mo)
-    AMOUNT = "$"
+    AMOUNT = "$"  # TODO: rename CURRENCY
     # unitized (usually, $/sf or $/unit)
     PER_UNIT = "$/Unit"
     # by factor (compared to a reference) or percentage
     BY_FACTOR = "Factor"  # e.g. 1.25, 0.85, etc. of a reference amount
     BY_PERCENT = "%"  # e.g. % of a reference amount (e.g. % of EGR, % of Line, etc.)
-    # NOTE: make reference to another line item/object a la development's revenue from_reference_items classmethods?
 
 
 class UnitOfMeasureTypeEnum(str, Enum):
