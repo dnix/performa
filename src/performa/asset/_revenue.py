@@ -13,6 +13,7 @@ from ..core._enums import (
     ProgramUseEnum,
     RevenueSubcategoryEnum,
     UnitOfMeasureEnum,
+    UponExpirationEnum,
 )
 from ..core._model import Model
 from ..core._timeline import Timeline
@@ -161,7 +162,7 @@ class Lease(CashFlowModel):
     leasing_commission: Optional[LeasingCommission] = None
 
     # Rollover attributes
-    upon_expiration: Literal["market", "renew", "vacate", "option", "reconfigured"]
+    upon_expiration: UponExpirationEnum
     rollover_profile: Optional[RolloverProfile] = None  # Profile for future projections
     # TODO: support lookup for profile id?
 
@@ -574,7 +575,7 @@ class Lease(CashFlowModel):
         # Determine if we need to project beyond the current lease
         if self.lease_end < projection_end_date:
             # Check the upon_expiration setting to determine what happens next
-            if self.upon_expiration == "vacate":
+            if self.upon_expiration == UponExpirationEnum.VACATE:
                 # No further leasing activity, return current lease only
                 return result_df
             
@@ -583,7 +584,7 @@ class Lease(CashFlowModel):
             
             # In deterministic modeling, we decide based on probability threshold
             # For Monte Carlo, we would use random sampling instead
-            if self.upon_expiration == "renew" or renewal_probability > 0.5:  # Simple decision rule
+            if self.upon_expiration == UponExpirationEnum.RENEW or renewal_probability > 0.5:  # Simple decision rule
                 # Create renewal lease
                 renewal_lease = self.create_renewal_lease(as_of_date=self.lease_end)
                 
@@ -597,7 +598,7 @@ class Lease(CashFlowModel):
                 # Combine the results, making sure to handle index properly
                 result_df = pd.concat([result_df, renewal_df], sort=True)
                 
-            elif self.upon_expiration == "market":
+            elif self.upon_expiration == UponExpirationEnum.MARKET:
                 # Create new market lease after vacancy
                 vacancy_start = self.lease_end
                 new_lease = self.create_market_lease(
@@ -615,12 +616,12 @@ class Lease(CashFlowModel):
                 # Combine the results, making sure to handle index properly
                 result_df = pd.concat([result_df, new_lease_df], sort=True)
                 
-            elif self.upon_expiration == "option":
+            elif self.upon_expiration == UponExpirationEnum.OPTION:
                 # FIXME: Implement option-based renewal logic
                 ...
                 
-            elif self.upon_expiration == "reconfigured":
-                # FIXME: Implement reconfiguration logic (splitting/combining spaces)
+            elif self.upon_expiration == UponExpirationEnum.REABSORB:
+                # FIXME: Implement reabsorption logic (splitting/combining spaces)
                 ...
         
         return result_df

@@ -256,3 +256,21 @@ class FrequencyEnum(str, Enum):
     MONTHLY = "monthly"
     QUARTERLY = "quarterly"
     YEARLY = "yearly"
+
+class UponExpirationEnum(str, Enum):
+    """
+    What happens to a lease when it expires.
+
+    Options:
+        MARKET: Lease expires and is not renewed, market assumptions apply (use Lease logic)
+        RENEW: Lease is renewed under the same terms (use Lease logic)
+        VACATE: Lease expires and is not renewed, market assumptions apply (use Lease logic)
+        OPTION: Lease expires and is not renewed, tenant has the right to renew under the same terms (use Lease logic)
+        REABSORB: Lease expires and is not renewed, market assumptions apply (use Reabsorption logic)
+    """
+
+    MARKET = "market"
+    RENEW = "renew"
+    VACATE = "vacate"
+    OPTION = "option"
+    REABSORB = "reabsorb"
