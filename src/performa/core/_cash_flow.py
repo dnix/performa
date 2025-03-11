@@ -3,10 +3,11 @@ from typing import Callable, Dict, List, Optional, Union
 from uuid import uuid4
 
 import pandas as pd
-from pydantic import FieldValidationInfo, field_validator
+from pydantic import Field, FieldValidationInfo, field_validator
 
 from ..core._enums import FrequencyEnum, UnitOfMeasureEnum
 from ._model import Model
+from ._settings import GlobalSettings
 from ._timeline import Timeline
 from ._types import PositiveFloat
 
@@ -80,6 +81,9 @@ class CashFlowModel(Model):
     # An optional reference which might be a direct value, a Series,
     # or a string identifier for deferred resolution.
     reference: Optional[Union[float, pd.Series, str]] = None
+
+    # TODO: add support for passing settings/modeling policies
+    settings: GlobalSettings = Field(default_factory=GlobalSettings)
 
     @property
     def id(self) -> str:
