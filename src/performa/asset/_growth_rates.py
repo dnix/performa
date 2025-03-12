@@ -58,7 +58,6 @@ class GrowthRates(Model):
     operating_expense_growth: GrowthRate
     leasing_costs_growth: GrowthRate
     capital_expense_growth: GrowthRate
-    # TODO: consider arbitrary kinds of growth rates
 
     def get_rate(self, name: str, date: date) -> FloatBetween0And1:
         """
