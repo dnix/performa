@@ -259,18 +259,23 @@ class FrequencyEnum(str, Enum):
 
 class UponExpirationEnum(str, Enum):
     """
-    What happens to a lease when it expires.
-
+    Defines behavior when a lease expires, controlling how the space is treated in rollover scenarios.
+    
     Options:
-        MARKET: Lease expires and is not renewed, market assumptions apply (use Lease logic)
-        RENEW: Lease is renewed under the same terms (use Lease logic)
-        VACATE: Lease expires and is not renewed, market assumptions apply (use Lease logic)
-        OPTION: Lease expires and is not renewed, tenant has the right to renew under the same terms (use Lease logic)
-        REABSORB: Lease expires and is not renewed, market assumptions apply (use Reabsorption logic)
+        MARKET: Weighted average approach based on market conditions, reflecting both new tenant and 
+               renewal probabilities. Creates a speculative lease with blended terms.
+        RENEW: Assumes 100% renewal probability, extending the lease under predetermined terms.
+               Creates a renewal lease using either contractual terms or renewal market assumptions.
+        VACATE: Assumes 0% renewal probability, with space immediately available for new tenant.
+                Creates a new speculative lease at current market rates after downtime.
+        OPTION: Models a contractual renewal option as a distinct lease. Treats the option terms
+                as a separate lease record that activates upon expiration if exercised.
+        REABSORB: Space remains vacant without automatic re-tenanting, pending either manual
+                  re-leasing input or processing through a space absorption model. No speculative
+                  lease is created automatically.
     """
-
-    MARKET = "market"
-    RENEW = "renew"
-    VACATE = "vacate"
-    OPTION = "option"
-    REABSORB = "reabsorb"
+    MARKET = "market"     # Weighted average approach using market conditions
+    RENEW = "renew"       # 100% renewal with predetermined terms
+    VACATE = "vacate"     # 0% renewal, immediate repositioning with new tenant
+    OPTION = "option"     # Explicit modeling of contractual renewal options
+    REABSORB = "reabsorb" # Space remains vacant pending separate re-leasing process

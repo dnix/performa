@@ -115,7 +115,6 @@ class RolloverProfile(Model):
         renewal_terms: Terms to apply if lease is renewed
         upon_expiration: Action to take when projected lease expires
         next_profile: Profile to use after this one (if chaining)
-        max_projection_years: Maximum number of years to project leases
     """
     name: str
 
@@ -127,13 +126,14 @@ class RolloverProfile(Model):
     # Lease terms for different scenarios
     market_terms: RolloverLeaseTerms
     renewal_terms: RolloverLeaseTerms
+    option_terms: RolloverLeaseTerms  # TODO: implement option terms just like renewal terms (with 100% probability)
     
     # Rollover behavior
     upon_expiration: UponExpirationEnum = UponExpirationEnum.MARKET
     next_profile: Optional[str] = None  # Name of next profile to use if chaining
-    
+
     # Projection limits
-    max_projection_years: int = 99
+    max_projection_years: int = 99  # NOTE: do we need this?
     
     def _calculate_market_rent(self, terms: RolloverLeaseTerms, as_of_date: date) -> PositiveFloat:
         """
@@ -210,7 +210,7 @@ class RolloverProfile(Model):
         else:
             raise ValueError(f"Unsupported market_rent type: {type(terms.market_rent)}")
     
-    def calculate_market_lease_rent(self, as_of_date: date) -> PositiveFloat:
+    def calculate_market_rent(self, as_of_date: date) -> PositiveFloat:
         """
         Calculate the market rent for a new market lease.
         
@@ -233,3 +233,15 @@ class RolloverProfile(Model):
             The renewal rent value
         """
         return self._calculate_market_rent(self.renewal_terms, as_of_date)
+
+    def calculate_option_rent(self, as_of_date: date) -> PositiveFloat:
+        """
+        Calculate the rent for an option lease.
+        
+        Args:
+            as_of_date: The date to calculate option rent for
+            
+        Returns:
+            The option rent value
+        """
+        return self._calculate_market_rent(self.option_terms, as_of_date)

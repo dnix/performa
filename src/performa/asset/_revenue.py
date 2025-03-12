@@ -515,23 +515,17 @@ class Lease(CashFlowModel):
             current_cf = self.compute_cf(property_area=property_area)
             return pd.DataFrame(current_cf)
         
-        # Start with the actual lease
+        # Start with the actual lease cash flows
         result_df = pd.DataFrame(self.compute_cf(property_area=property_area))
         
         # Determine if we need to project beyond the current lease
         if self.lease_end < projection_end_date:
-            # Check the upon_expiration setting to determine what happens next
-            if self.upon_expiration == UponExpirationEnum.VACATE:
-                # No further leasing activity, return current lease only
-                return result_df
-            
             # Get renewal probability from the rollover profile
             renewal_probability = self.rollover_profile.renewal_probability
             
-            # In deterministic modeling, we decide based on probability threshold
-            # For Monte Carlo, we would use random sampling instead
-            if self.upon_expiration == UponExpirationEnum.RENEW or renewal_probability > 0.5:  # Simple decision rule
-                # Create renewal lease
+            # Handle each expiration option differently according to specification
+            if self.upon_expiration == UponExpirationEnum.RENEW:
+                # RENEW: 100% renewal probability, create renewal lease
                 renewal_lease = self.create_renewal_lease(as_of_date=self.lease_end)
                 
                 # Recursively project the renewal lease's cash flows
@@ -541,11 +535,11 @@ class Lease(CashFlowModel):
                     occupancy_projection=occupancy_projection
                 )
                 
-                # Combine the results, making sure to handle index properly
+                # Combine the results, handling index properly
                 result_df = pd.concat([result_df, renewal_df], sort=True)
                 
-            elif self.upon_expiration == UponExpirationEnum.MARKET:
-                # Create new market lease after vacancy
+            elif self.upon_expiration == UponExpirationEnum.VACATE:
+                # VACATE: 0% renewal probability, create market lease after vacancy
                 vacancy_start = self.lease_end
                 new_lease = self.create_market_lease(
                     vacancy_start_date=vacancy_start,
@@ -559,16 +553,78 @@ class Lease(CashFlowModel):
                     occupancy_projection=occupancy_projection
                 )
                 
-                # Combine the results, making sure to handle index properly
+                # Combine the results, handling index properly
                 result_df = pd.concat([result_df, new_lease_df], sort=True)
                 
+            elif self.upon_expiration == UponExpirationEnum.MARKET:
+                # MARKET: Weighted approach using renewal probability
+                # FIXME: the logic is broken here for weighted average of market and renewal
+
+                # For deterministic modeling, we can use monte carlo or weighted average
+                # Here we implement a simple weighted approach - in practice you might want
+                # to allow for configuration of this behavior
+                
+                # Option 1: Create a renewal lease with renewal probability factored into rents
+                if renewal_probability > 0:
+                    renewal_lease = self.create_renewal_lease(
+                        as_of_date=self.lease_end
+                    )
+                    
+                    # If we want to adjust rent based on probability, we could do:
+                    # renewal_lease.value = renewal_lease.value * renewal_probability
+                    
+                    # Get renewal cash flows
+                    renewal_df = renewal_lease.project_future_cash_flows(
+                        projection_end_date=projection_end_date,
+                        property_area=property_area,
+                        occupancy_projection=occupancy_projection
+                    )
+                    
+                    # Add renewal cash flows to result
+                    result_df = pd.concat([result_df, renewal_df], sort=True)
+                    
+                # Option 2: Also create a market lease with (1-renewal_probability) factored in
+                if renewal_probability < 1:
+                    # Create new market lease after vacancy
+                    vacancy_start = self.lease_end
+                    new_lease = self.create_market_lease(
+                        vacancy_start_date=vacancy_start,
+                        property_area=property_area
+                    )
+                    
+                    # If we want to adjust rent based on probability, we could do:
+                    # new_lease.value = new_lease.value * (1 - renewal_probability)
+                    
+                    # Get market lease cash flows
+                    new_lease_df = new_lease.project_future_cash_flows(
+                        projection_end_date=projection_end_date,
+                        property_area=property_area,
+                        occupancy_projection=occupancy_projection
+                    )
+                    
+                    # Add market lease cash flows to result
+                    result_df = pd.concat([result_df, new_lease_df], sort=True)
+                
             elif self.upon_expiration == UponExpirationEnum.OPTION:
-                # FIXME: Implement option-based renewal logic
-                ...
+                # OPTION: Model tenant renewal option with 100% probability
+                # Create a lease using option terms from the rollover profile
+                option_lease = self.create_option_lease(as_of_date=self.lease_end)
+                
+                # Recursively project the option lease's cash flows
+                option_df = option_lease.project_future_cash_flows(
+                    projection_end_date=projection_end_date,
+                    property_area=property_area,
+                    occupancy_projection=occupancy_projection
+                )
+                
+                # Combine the results, handling index properly
+                result_df = pd.concat([result_df, option_df], sort=True)
                 
             elif self.upon_expiration == UponExpirationEnum.REABSORB:
-                # FIXME: Implement reabsorption logic (splitting/combining spaces)
-                ...
+                # REABSORB: Space remains vacant, no automatic re-tenanting
+                # Just return current lease cash flows - space will be reabsorbed separately
+                # TODO: implement space reabsorption logic through library
+                raise NotImplementedError("Space reabsorption logic not implemented")
         
         return result_df
     
@@ -691,7 +747,7 @@ class Lease(CashFlowModel):
         )
         
         # Determine market rent as of lease start date
-        market_rate = profile.calculate_market_lease_rent(lease_start)
+        market_rate = profile.calculate_market_rent(lease_start)
         
         # Create placeholder tenant for the speculative lease
         tenant = Tenant(
@@ -784,7 +840,7 @@ class Lease(CashFlowModel):
         )
         
         # Determine market rent
-        market_rate = rollover_profile.calculate_market_lease_rent(lease_start)
+        market_rate = rollover_profile.calculate_market_rent(lease_start)
         
         # Create placeholder tenant
         tenant = Tenant(
@@ -847,24 +903,113 @@ class Lease(CashFlowModel):
             **kwargs
         )
 
+    def create_option_lease(self, as_of_date: date) -> "Lease":
+        """
+        Create a lease based on option terms defined in the rollover profile.
+        
+        Args:
+            as_of_date: The date to use for option rent calculations
+            
+        Returns:
+            A new Lease object representing the option lease
+            
+        Raises:
+            ValueError: If no rollover profile is defined for this lease
+                       or if option_terms is not defined in the profile
+        """
+        if not self.rollover_profile:
+            raise ValueError("Cannot create option lease without a rollover profile")
+        
+        profile = self.rollover_profile
+        
+        # Ensure option_terms exists
+        if not hasattr(profile, 'option_terms'):
+            raise ValueError("Option terms not defined in rollover profile")
+        
+        # Calculate option start date (day after current lease ends)
+        option_start = self.lease_end + timedelta(days=1)
+        
+        # Create timeline for the option lease
+        timeline = Timeline.from_dates(
+            start_date=option_start, 
+            end_date=option_start + relativedelta(months=profile.term_months)
+        )
+        
+        # Calculate option rent directly from the option terms
+        option_rate = profile.calculate_option_rent(as_of_date)
+        
+        # Create tenant copy (since models are immutable)
+        tenant = self.tenant.model_copy()
+        
+        # Create new TI allowance if specified in option terms
+        ti_allowance = None
+        if profile.option_terms.ti_allowance:
+            ti_allowance = TenantImprovementAllowance(
+                # Copy configuration from profile's option terms but update timeline
+                **profile.option_terms.ti_allowance.model_dump(exclude={'timeline', 'reference'}),
+                timeline=timeline,
+                reference=self.area
+            )
+        
+        # Create new leasing commission if specified in option terms
+        leasing_commission = None
+        if profile.option_terms.leasing_commission:
+            # Calculate annual rent as basis for commission
+            annual_rent = option_rate * self.area
+            if profile.option_terms.frequency == FrequencyEnum.MONTHLY:
+                annual_rent = annual_rent * 12
+            
+            leasing_commission = LeasingCommission(
+                **profile.option_terms.leasing_commission.model_dump(exclude={'timeline', 'value'}),
+                timeline=timeline,
+                value=annual_rent
+            )
+        
+        # Create and return the option lease with all appropriate attributes
+        return Lease(
+            name=f"{self.tenant.name} - {self.suite} (Option)",
+            tenant=tenant,
+            suite=self.suite,
+            floor=self.floor,
+            use_type=self.use_type,
+            status=LeaseStatusEnum.SPECULATIVE,
+            lease_type=self.lease_type,
+            area=self.area,
+            timeline=timeline,
+            value=option_rate,
+            unit_of_measure=UnitOfMeasureEnum.PSF,  # Use PSF for consistency
+            frequency=FrequencyEnum.MONTHLY,  # Internal calculations use monthly
+            
+            # Apply option terms from profile
+            rent_escalation=profile.option_terms.rent_escalation,
+            rent_abatement=profile.option_terms.rent_abatement,
+            recovery_method=profile.option_terms.recovery_method,
+            
+            # Apply newly created instances with proper timeline/reference
+            ti_allowance=ti_allowance,
+            leasing_commission=leasing_commission,
+            
+            # Set rollover behavior for future projections
+            upon_expiration=profile.upon_expiration,
+            rollover_profile=profile
+        )
+
 
 class VacantSuite(Model):
     """
     Represents a vacant leasable space.
 
     Attributes:
-        suite_id: Unique identifier for the space
+        suite: Unique identifier for the space
+        floor: Floor number or identifier (optional)
         area: Square footage
         use_type: Intended use
-        asking_rent: Listed rental rate
-        last_lease_end: When space became vacant (optional)
     """
     # NOTE: this could be important with Space Absorption approach
-    suite_id: str
+    suite: str
+    floor: str
     area: PositiveFloat
     use_type: ProgramUseEnum
-    asking_rent: PositiveFloat
-    last_lease_end: Optional[date] = None
 
 
 class RentRoll(Model):
