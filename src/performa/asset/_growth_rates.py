@@ -137,7 +137,7 @@ class GrowthRates(Model):
         )
 
     @classmethod
-    def create_dynamic(cls, extra_rates: Optional[Dict[str, GrowthRate]] = None, **static_fields) -> "GrowthRates":
+    def with_custom_rates(cls, extra_rates: Optional[Dict[str, GrowthRate]] = None, **default_fields) -> "GrowthRates":
         """
         Create a dynamic GrowthRates instance supporting arbitrary growth rate fields.
         
@@ -152,6 +152,24 @@ class GrowthRates(Model):
         
         Returns:
             An instance of a dynamically generated GrowthRates model with the extra fields included.
+            
+        Example:
+            ```python
+            # Create growth rates with custom fields
+            custom_rates = GrowthRates.with_custom_rates(
+                # Add a custom growth rate for inflation
+                extra_rates={
+                    "inflation_rate": GrowthRate(name="Inflation", value=0.03)
+                },
+                # Override a standard field
+                default_rate=0.025,
+                general_growth=GrowthRate(name="General", value=0.02)
+            )
+            
+            # Access both standard and custom fields with dot notation
+            print(custom_rates.general_growth.value)  # 0.02
+            print(custom_rates.inflation_rate.value)  # 0.03
+            ```
         """
         from pydantic import create_model
         extra_rates = extra_rates or {}
@@ -160,5 +178,5 @@ class GrowthRates(Model):
             __base__=cls,
             **{name: (GrowthRate, rate) for name, rate in extra_rates.items()}
         )
-        data = {**static_fields, **extra_rates}
+        data = {**default_fields, **extra_rates}
         return DynamicGrowthRates.parse_obj(data)
