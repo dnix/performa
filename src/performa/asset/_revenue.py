@@ -557,54 +557,129 @@ class Lease(CashFlowModel):
                 result_df = pd.concat([result_df, new_lease_df], sort=True)
                 
             elif self.upon_expiration == UponExpirationEnum.MARKET:
-                # MARKET: Weighted approach using renewal probability
-                # FIXME: the logic is broken here for weighted average of market and renewal
-
-                # For deterministic modeling, we can use monte carlo or weighted average
-                # Here we implement a simple weighted approach - in practice you might want
-                # to allow for configuration of this behavior
+                # MARKET: Weighted average approach based on market conditions
+                renewal_probability = self.rollover_profile.renewal_probability
                 
-                # Option 1: Create a renewal lease with renewal probability factored into rents
-                if renewal_probability > 0:
-                    renewal_lease = self.create_renewal_lease(
-                        as_of_date=self.lease_end
-                    )
-                    
-                    # If we want to adjust rent based on probability, we could do:
-                    # renewal_lease.value = renewal_lease.value * renewal_probability
-                    
-                    # Get renewal cash flows
-                    renewal_df = renewal_lease.project_future_cash_flows(
-                        projection_end_date=projection_end_date,
-                        property_area=property_area,
-                        occupancy_projection=occupancy_projection
-                    )
-                    
-                    # Add renewal cash flows to result
-                    result_df = pd.concat([result_df, renewal_df], sort=True)
-                    
-                # Option 2: Also create a market lease with (1-renewal_probability) factored in
-                if renewal_probability < 1:
-                    # Create new market lease after vacancy
-                    vacancy_start = self.lease_end
-                    new_lease = self.create_market_lease(
-                        vacancy_start_date=vacancy_start,
-                        property_area=property_area
-                    )
-                    
-                    # If we want to adjust rent based on probability, we could do:
-                    # new_lease.value = new_lease.value * (1 - renewal_probability)
-                    
-                    # Get market lease cash flows
-                    new_lease_df = new_lease.project_future_cash_flows(
-                        projection_end_date=projection_end_date,
-                        property_area=property_area,
-                        occupancy_projection=occupancy_projection
-                    )
-                    
-                    # Add market lease cash flows to result
-                    result_df = pd.concat([result_df, new_lease_df], sort=True)
+                # 1. Create renewal lease scenario
+                renewal_lease = self.create_renewal_lease(as_of_date=self.lease_end)
+                renewal_cf = renewal_lease.compute_cf(property_area=property_area)
                 
+                # 2. Create market lease scenario
+                market_lease = self.create_market_lease(
+                    vacancy_start_date=self.lease_end,
+                    property_area=property_area
+                )
+                market_cf = market_lease.compute_cf(property_area=property_area)
+                
+                # 3. Create period range spanning from lease end to projection end
+                last_date = max(
+                    renewal_lease.lease_end,
+                    market_lease.lease_end
+                )
+                if last_date > projection_end_date:
+                    last_date = projection_end_date
+                    
+                projection_periods = pd.period_range(
+                    start=pd.Period(self.lease_end + timedelta(days=1), freq="M"),
+                    end=pd.Period(last_date, freq="M")
+                )
+                
+                # 4. Convert cash flows to DataFrames with proper alignment
+                renewal_df = pd.DataFrame(renewal_cf)
+                # Align renewal periods to start right after current lease ends
+                renewal_periods = pd.period_range(
+                    start=pd.Period(self.lease_end + timedelta(days=1), freq="M"),
+                    periods=len(renewal_df)
+                )
+                renewal_df.index = renewal_periods
+                
+                # For market scenario, account for downtime
+                market_df = pd.DataFrame(market_cf)
+                # Align market periods to start after downtime
+                market_periods = pd.period_range(
+                    start=pd.Period(market_lease.lease_start, freq="M"),
+                    periods=len(market_df)
+                )
+                market_df.index = market_periods
+                
+                # 5. Reindex both to the full projection period range, filling gaps with zeros
+                renewal_df = renewal_df.reindex(projection_periods, fill_value=0)
+                market_df = market_df.reindex(projection_periods, fill_value=0)
+                
+                # 6. Calculate weighted average: p*renewal + (1-p)*market
+                weighted_df = renewal_df * renewal_probability + market_df * (1 - renewal_probability)
+                
+                # 7. Recursively project for periods beyond these leases if needed
+                if last_date < projection_end_date:
+                    # Choose the dominant lease type for further projection
+                    base_lease = renewal_lease if renewal_probability >= 0.5 else market_lease
+                    
+                    # Calculate how many months remain in the projection after last_date
+                    months_remaining = ((projection_end_date.year - last_date.year) * 12 + 
+                                      projection_end_date.month - last_date.month)
+                    
+                    # Create a new timeline starting from next_lease_start
+                    next_lease_start = last_date + timedelta(days=1)
+                    new_timeline = Timeline(
+                        start_date=next_lease_start,
+                        duration_months=min(base_lease.rollover_profile.term_months, months_remaining)
+                    )
+                    
+                    # Create a new lease with the adjusted timeline
+                    next_lease = Lease(
+                        name=f"{base_lease.name} (Continued)",
+                        tenant=base_lease.tenant.model_copy(),
+                        suite=base_lease.suite,
+                        floor=base_lease.floor,
+                        use_type=base_lease.use_type,
+                        status=LeaseStatusEnum.SPECULATIVE,
+                        lease_type=base_lease.lease_type,
+                        area=base_lease.area,
+                        timeline=new_timeline,
+                        value=base_lease.value,  # Keep the same rent
+                        unit_of_measure=base_lease.unit_of_measure,
+                        frequency=base_lease.frequency,
+                        
+                        # Maintain the same lease terms
+                        rent_escalation=base_lease.rent_escalation,
+                        rent_abatement=base_lease.rent_abatement,
+                        recovery_method=base_lease.recovery_method,
+                        ti_allowance=None,  # Typically no additional TI for continuation
+                        leasing_commission=None,  # Typically no additional LC for continuation
+                        
+                        # Keep the same rollover behavior
+                        upon_expiration=base_lease.upon_expiration,
+                        rollover_profile=base_lease.rollover_profile
+                    )
+                    
+                    # Calculate cash flows for the continued lease
+                    further_cf = next_lease.compute_cf(
+                        property_area=property_area,
+                        occupancy_rate=None  # Use default occupancy
+                    )
+                    
+                    # Convert to DataFrame for the remaining periods
+                    future_periods = pd.period_range(
+                        start=pd.Period(next_lease_start, freq="M"),
+                        end=pd.Period(projection_end_date, freq="M")
+                    )
+                    
+                    further_df = pd.DataFrame(further_cf)
+                    # Ensure index alignment
+                    if len(further_df) > 0:
+                        future_lease_periods = pd.period_range(
+                            start=pd.Period(next_lease_start, freq="M"),
+                            periods=len(further_df)
+                        )
+                        further_df.index = future_lease_periods
+                        further_df = further_df.reindex(future_periods, fill_value=0)
+                        
+                        # Combine with our weighted results
+                        weighted_df = pd.concat([weighted_df, further_df])
+                
+                # 8. Add the weighted cash flows to the result
+                result_df = pd.concat([result_df, weighted_df], sort=True)
+            
             elif self.upon_expiration == UponExpirationEnum.OPTION:
                 # OPTION: Model tenant renewal option with 100% probability
                 # Create a lease using option terms from the rollover profile
@@ -622,9 +697,11 @@ class Lease(CashFlowModel):
                 
             elif self.upon_expiration == UponExpirationEnum.REABSORB:
                 # REABSORB: Space remains vacant, no automatic re-tenanting
-                # Just return current lease cash flows - space will be reabsorbed separately
-                # TODO: implement space reabsorption logic through library
+                # The space is available for reabsorption through separate logic
+                # For now, just return the original lease cash flows
+                # Space will be vacant after lease_end
                 raise NotImplementedError("Space reabsorption logic not implemented")
+                # FIXME: implement space reabsorption logic throughout library
         
         return result_df
     
