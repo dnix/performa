@@ -134,8 +134,10 @@ class RolloverProfile(Model):
 
     # Projection limits
     max_projection_years: int = 99  # NOTE: do we need this?
+
+    # FIXME: add method to do weighted average of market terms and renewal terms
     
-    def _calculate_market_rent(self, terms: RolloverLeaseTerms, as_of_date: date) -> PositiveFloat:
+    def _calculate_rent(self, terms: RolloverLeaseTerms, as_of_date: date) -> PositiveFloat:
         """
         Calculate the market rent as of a specific date, applying growth factors.
         
@@ -200,8 +202,8 @@ class RolloverProfile(Model):
             # Convert the dictionary to a Series and recursively call this method
             temp_series = pd.Series(terms.market_rent)
             # Create a copy of the terms with the Series
-            temp_terms = terms.model_copy(update={"market_rent": temp_series})
-            return self._calculate_market_rent(temp_terms, as_of_date)
+            temp_terms = terms.copy(update={"market_rent": temp_series})
+            return self._calculate_rent(temp_terms, as_of_date)
             
         elif isinstance(terms.market_rent, list):
             # We need context (timeline) to interpret a list, so this is not supported directly
@@ -220,7 +222,7 @@ class RolloverProfile(Model):
         Returns:
             The market rent value
         """
-        return self._calculate_market_rent(self.market_terms, as_of_date)
+        return self._calculate_rent(self.market_terms, as_of_date)
     
     def calculate_renewal_rent(self, as_of_date: date) -> PositiveFloat:
         """
@@ -232,7 +234,7 @@ class RolloverProfile(Model):
         Returns:
             The renewal rent value
         """
-        return self._calculate_market_rent(self.renewal_terms, as_of_date)
+        return self._calculate_rent(self.renewal_terms, as_of_date)
 
     def calculate_option_rent(self, as_of_date: date) -> PositiveFloat:
         """
@@ -244,4 +246,4 @@ class RolloverProfile(Model):
         Returns:
             The option rent value
         """
-        return self._calculate_market_rent(self.option_terms, as_of_date)
+        return self._calculate_rent(self.option_terms, as_of_date)
