@@ -129,3 +129,4 @@ class Expenses(Model):
     """
     operating_expenses: OperatingExpenses
     capital_expenses: CapitalExpenses
+    # TODO: other_expenses?

@@ -4,7 +4,9 @@ from typing import Dict, List, Optional
 from pydantic import model_validator
 
 from ..core._model import Model
-from ..core._types import FloatBetween0And1, PositiveFloat
+from ..core._types import FloatBetween0And1, PositiveFloat, PositiveInt
+from ._expense import Expenses
+from ._losses import Losses
 from ._revenue import MiscIncomeCollection, RentRoll, Tenant
 
 
@@ -56,22 +58,23 @@ class Property(Model):
     description: Optional[str] = None
     external_id: Optional[str] = None
     address: Optional[Address] = None
-    year_built: Optional[int] = None
+    year_built: Optional[PositiveInt] = None
 
     # Physical Characteristics
     # property_type: AssetTypeEnum
     gross_area: PositiveFloat  # sq ft
     net_rentable_area: PositiveFloat  # sq ft
 
-    # Components
+    # Revenue Sources
     rent_roll: RentRoll
     miscellaneous_income: Optional[MiscIncomeCollection] = None
 
-    # Additional Attributes
-    # floors: List[Floor]
+    # Expenses
+    expenses: Expenses
 
-    # TODO: properties for floors, suites, etc. based on rent roll, vacant suites, etc.
-
+    # Structural Losses (i.e., vacancy, credit)
+    losses: Losses
+    
     @property
     def suites(self) -> List[PropertySuite]:
         """List of all suites in the property from both leased and vacant spaces.
