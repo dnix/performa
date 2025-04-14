@@ -40,25 +40,7 @@ class Tenant(Model):
     # Identity
     id: str
     name: str
-    # suite: str
-
-    # # Space
-    # leased_area: PositiveFloat  # in square feet
-    # percent_of_building: FloatBetween0And1
-
-    # # Use
-    # use_type: ProgramUseEnum
-
-    # # Current Lease Terms
-    # lease_start: date
-    # lease_end: date
-    # current_base_rent: PositiveFloat  # annual or monthly rent
-    # rent_type: LeaseTypeEnum  # options: Gross, Net, Modified Gross
-    # expense_base_year: Optional[int] = None
-
-    # # Renewal Terms
-    # # renewal_probability: FloatBetween0And1  # NOTE: this should only be in the lease model?
-    # market_profile: MarketProfile  # reference to applicable market assumptions
+    # TODO: more fields?
 
 
 class RentEscalation(Model):
@@ -557,6 +539,7 @@ class Lease(CashFlowModel):
                 result_df = pd.concat([result_df, new_lease_df], sort=True)
                 
             elif self.upon_expiration == UponExpirationEnum.MARKET:
+                # FIXME: the blending here should happen on the parameters, not on the resultant cash flows
                 # MARKET: Weighted average approach based on market conditions
                 renewal_probability = self.rollover_profile.renewal_probability
                 
@@ -628,7 +611,7 @@ class Lease(CashFlowModel):
                     # Create a new lease with the adjusted timeline
                     next_lease = Lease(
                         name=f"{base_lease.name} (Continued)",
-                        tenant=base_lease.tenant.model_copy(),
+                        tenant=base_lease.tenant.copy(),
                         suite=base_lease.suite,
                         floor=base_lease.floor,
                         use_type=base_lease.use_type,
@@ -736,7 +719,7 @@ class Lease(CashFlowModel):
         renewal_rate = profile.calculate_renewal_rent(as_of_date)
         
         # Create tenant copy (since models are immutable)
-        tenant = self.tenant.model_copy()
+        tenant = self.tenant.copy()
         
         # Create new TI allowance if specified in renewal terms
         ti_allowance = None
@@ -1016,7 +999,7 @@ class Lease(CashFlowModel):
         option_rate = profile.calculate_option_rent(as_of_date)
         
         # Create tenant copy (since models are immutable)
-        tenant = self.tenant.model_copy()
+        tenant = self.tenant.copy()
         
         # Create new TI allowance if specified in option terms
         ti_allowance = None
