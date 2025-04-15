@@ -24,7 +24,7 @@ from ..core._types import (
 )
 from ._lc import LeasingCommission
 from ._recovery import RecoveryMethod
-from ._rollover import RolloverProfile
+from ._rollover import RolloverLeaseTerms, RolloverProfile
 from ._ti import TenantImprovementAllowance
 
 
@@ -90,6 +90,17 @@ class Lease(CashFlowModel):
     
     This model handles the key lease attributes and cash flow modeling,
     building on the CashFlowModel base class for timeline and computation.
+    
+    The lease model supports projection of future cash flows beyond the
+    contracted lease term through rollover modeling. This follows industry
+    standard methodologies used in tools like Argus Enterprise and Rockport VAL:
+    
+    - RENEW: Tenant renews with 100% probability using renewal terms
+    - VACATE: Tenant vacates with 100% probability, followed by market lease
+    - MARKET: Probability-weighted blend of renewal and market scenarios
+      (Blends terms rather than cash flows for better accuracy)
+    - OPTION: Tenant exercises option with 100% probability
+    - REABSORB: Space remains vacant for custom reabsorption
     
     Attributes:
         name: Name of the lease (typically tenant name + suite)
@@ -484,6 +495,11 @@ class Lease(CashFlowModel):
         Creates a chain of actual and speculative leases extending to the 
         projection end date, following the rules in the rollover profile.
         
+        For MARKET rollover scenarios, the method uses a blended terms approach that
+        combines renewal and market terms based on renewal probability, rather than
+        blending the resultant cash flows. This follows industry standards and produces
+        more accurate results since the blending happens at the input/parameter level.
+        
         Args:
             projection_end_date: How far into the future to project
             property_area: Total property area for recovery calculations
@@ -539,129 +555,21 @@ class Lease(CashFlowModel):
                 result_df = pd.concat([result_df, new_lease_df], sort=True)
                 
             elif self.upon_expiration == UponExpirationEnum.MARKET:
-                # FIXME: the blending here should happen on the parameters, not on the resultant cash flows
-                # MARKET: Weighted average approach based on market conditions
-                renewal_probability = self.rollover_profile.renewal_probability
-                
-                # 1. Create renewal lease scenario
-                renewal_lease = self.create_renewal_lease(as_of_date=self.lease_end)
-                renewal_cf = renewal_lease.compute_cf(property_area=property_area)
-                
-                # 2. Create market lease scenario
+                # MARKET: Use single lease with blended terms instead of weighted cash flows
                 market_lease = self.create_market_lease(
                     vacancy_start_date=self.lease_end,
                     property_area=property_area
                 )
-                market_cf = market_lease.compute_cf(property_area=property_area)
                 
-                # 3. Create period range spanning from lease end to projection end
-                last_date = max(
-                    renewal_lease.lease_end,
-                    market_lease.lease_end
-                )
-                if last_date > projection_end_date:
-                    last_date = projection_end_date
-                    
-                projection_periods = pd.period_range(
-                    start=pd.Period(self.lease_end + timedelta(days=1), freq="M"),
-                    end=pd.Period(last_date, freq="M")
+                # Recursively project the market lease's cash flows
+                market_df = market_lease.project_future_cash_flows(
+                    projection_end_date=projection_end_date,
+                    property_area=property_area,
+                    occupancy_projection=occupancy_projection
                 )
                 
-                # 4. Convert cash flows to DataFrames with proper alignment
-                renewal_df = pd.DataFrame(renewal_cf)
-                # Align renewal periods to start right after current lease ends
-                renewal_periods = pd.period_range(
-                    start=pd.Period(self.lease_end + timedelta(days=1), freq="M"),
-                    periods=len(renewal_df)
-                )
-                renewal_df.index = renewal_periods
-                
-                # For market scenario, account for downtime
-                market_df = pd.DataFrame(market_cf)
-                # Align market periods to start after downtime
-                market_periods = pd.period_range(
-                    start=pd.Period(market_lease.lease_start, freq="M"),
-                    periods=len(market_df)
-                )
-                market_df.index = market_periods
-                
-                # 5. Reindex both to the full projection period range, filling gaps with zeros
-                renewal_df = renewal_df.reindex(projection_periods, fill_value=0)
-                market_df = market_df.reindex(projection_periods, fill_value=0)
-                
-                # 6. Calculate weighted average: p*renewal + (1-p)*market
-                weighted_df = renewal_df * renewal_probability + market_df * (1 - renewal_probability)
-                
-                # 7. Recursively project for periods beyond these leases if needed
-                if last_date < projection_end_date:
-                    # Choose the dominant lease type for further projection
-                    base_lease = renewal_lease if renewal_probability >= 0.5 else market_lease
-                    
-                    # Calculate how many months remain in the projection after last_date
-                    months_remaining = ((projection_end_date.year - last_date.year) * 12 + 
-                                      projection_end_date.month - last_date.month)
-                    
-                    # Create a new timeline starting from next_lease_start
-                    next_lease_start = last_date + timedelta(days=1)
-                    new_timeline = Timeline(
-                        start_date=next_lease_start,
-                        duration_months=min(base_lease.rollover_profile.term_months, months_remaining)
-                    )
-                    
-                    # Create a new lease with the adjusted timeline
-                    next_lease = Lease(
-                        name=f"{base_lease.name} (Continued)",
-                        tenant=base_lease.tenant.copy(),
-                        suite=base_lease.suite,
-                        floor=base_lease.floor,
-                        use_type=base_lease.use_type,
-                        status=LeaseStatusEnum.SPECULATIVE,
-                        lease_type=base_lease.lease_type,
-                        area=base_lease.area,
-                        timeline=new_timeline,
-                        value=base_lease.value,  # Keep the same rent
-                        unit_of_measure=base_lease.unit_of_measure,
-                        frequency=base_lease.frequency,
-                        
-                        # Maintain the same lease terms
-                        rent_escalation=base_lease.rent_escalation,
-                        rent_abatement=base_lease.rent_abatement,
-                        recovery_method=base_lease.recovery_method,
-                        ti_allowance=None,  # Typically no additional TI for continuation
-                        leasing_commission=None,  # Typically no additional LC for continuation
-                        
-                        # Keep the same rollover behavior
-                        upon_expiration=base_lease.upon_expiration,
-                        rollover_profile=base_lease.rollover_profile
-                    )
-                    
-                    # Calculate cash flows for the continued lease
-                    further_cf = next_lease.compute_cf(
-                        property_area=property_area,
-                        occupancy_rate=None  # Use default occupancy
-                    )
-                    
-                    # Convert to DataFrame for the remaining periods
-                    future_periods = pd.period_range(
-                        start=pd.Period(next_lease_start, freq="M"),
-                        end=pd.Period(projection_end_date, freq="M")
-                    )
-                    
-                    further_df = pd.DataFrame(further_cf)
-                    # Ensure index alignment
-                    if len(further_df) > 0:
-                        future_lease_periods = pd.period_range(
-                            start=pd.Period(next_lease_start, freq="M"),
-                            periods=len(further_df)
-                        )
-                        further_df.index = future_lease_periods
-                        further_df = further_df.reindex(future_periods, fill_value=0)
-                        
-                        # Combine with our weighted results
-                        weighted_df = pd.concat([weighted_df, further_df])
-                
-                # 8. Add the weighted cash flows to the result
-                result_df = pd.concat([result_df, weighted_df], sort=True)
+                # Combine the results, handling index properly
+                result_df = pd.concat([result_df, market_df], sort=True)
             
             elif self.upon_expiration == UponExpirationEnum.OPTION:
                 # OPTION: Model tenant renewal option with 100% probability
@@ -722,28 +630,12 @@ class Lease(CashFlowModel):
         tenant = self.tenant.copy()
         
         # Create new TI allowance if specified in renewal terms
-        ti_allowance = None
-        if profile.renewal_terms.ti_allowance:
-            ti_allowance = TenantImprovementAllowance(
-                # Copy configuration from profile's renewal terms but update timeline
-                **profile.renewal_terms.ti_allowance.model_dump(exclude={'timeline', 'reference'}),
-                timeline=timeline,
-                reference=self.area
-            )
-        
-        # Create new leasing commission if specified in renewal terms
-        leasing_commission = None
-        if profile.renewal_terms.leasing_commission:
-            # Calculate annual rent as basis for commission
-            annual_rent = renewal_rate * self.area
-            if profile.renewal_terms.frequency == FrequencyEnum.MONTHLY:
-                annual_rent = annual_rent * 12
-                
-            leasing_commission = LeasingCommission(
-                **profile.renewal_terms.leasing_commission.model_dump(exclude={'timeline', 'value'}),
-                timeline=timeline,
-                value=annual_rent
-            )
+        ti_allowance, leasing_commission = self._create_lease_costs(
+            profile.renewal_terms,
+            timeline,
+            renewal_rate,
+            self.area
+        )
         
         # Create and return the renewal lease with all appropriate attributes
         return Lease(
@@ -782,6 +674,11 @@ class Lease(CashFlowModel):
         """
         Create a new market lease for this space after vacancy.
         
+        For MARKET rollover scenario, this creates a single lease with blended terms
+        based on renewal probability, rather than creating separate leases and
+        blending cash flows. This is more efficient and better matches industry
+        standard practices.
+        
         Args:
             vacancy_start_date: Date when the space becomes vacant
             property_area: Total property area (optional, for percentage calculations)
@@ -797,6 +694,15 @@ class Lease(CashFlowModel):
         
         profile = self.rollover_profile
         
+        # Determine if we should use blended terms based on upon_expiration setting
+        lease_terms = None
+        if self.upon_expiration == UponExpirationEnum.MARKET:
+            # For MARKET case, use blended terms
+            lease_terms = profile.blend_lease_terms()
+        else:
+            # For other cases, use market terms
+            lease_terms = profile.market_terms
+        
         # Calculate lease start date after expected downtime period
         lease_start = vacancy_start_date + relativedelta(months=profile.downtime_months)
         
@@ -806,8 +712,14 @@ class Lease(CashFlowModel):
             duration_months=profile.term_months
         )
         
-        # Determine market rent as of lease start date
-        market_rate = profile.calculate_market_rent(lease_start)
+        # Determine market rent using the selected terms
+        market_rate = None
+        if self.upon_expiration == UponExpirationEnum.MARKET:
+            # For blended terms, calculate rent directly
+            market_rate = profile._calculate_market_rent(lease_terms, lease_start)
+        else:
+            # For regular market terms, use the standard method
+            market_rate = profile.calculate_market_rent(lease_start)
         
         # Create placeholder tenant for the speculative lease
         tenant = Tenant(
@@ -815,48 +727,33 @@ class Lease(CashFlowModel):
             name=f"Market Tenant ({self.suite})"
         )
         
-        # Create TI allowance if specified in market terms
-        ti_allowance = None
-        if profile.market_terms.ti_allowance:
-            ti_allowance = TenantImprovementAllowance(
-                **profile.market_terms.ti_allowance.model_dump(exclude={'timeline', 'reference'}),
-                timeline=timeline,
-                reference=self.area
-            )
-        
-        # Create leasing commission if specified in market terms
-        leasing_commission = None
-        if profile.market_terms.leasing_commission:
-            # Calculate annual rent as basis for commission
-            annual_rent = market_rate * self.area
-            if profile.market_terms.frequency == FrequencyEnum.MONTHLY:
-                annual_rent = annual_rent * 12
-                
-            leasing_commission = LeasingCommission(
-                **profile.market_terms.leasing_commission.model_dump(exclude={'timeline', 'value'}),
-                timeline=timeline,
-                value=annual_rent
-            )
+        # Create TI allowance if specified in the lease terms
+        ti_allowance, leasing_commission = self._create_lease_costs(
+            lease_terms,
+            timeline,
+            market_rate,
+            self.area
+        )
         
         # Create and return the market lease with all appropriate attributes
         return Lease(
             name=f"Market Lease - {self.suite}",
             tenant=tenant,
             suite=self.suite,
-            floor=self.floor,  # Maintain same floor
-            use_type=self.use_type,  # Maintain same use type
+            floor=self.floor,
+            use_type=self.use_type,
             status=LeaseStatusEnum.SPECULATIVE,
             lease_type=LeaseTypeEnum.NET,  # Default lease type for market leases
             area=self.area,
             timeline=timeline,
             value=market_rate,
-            unit_of_measure=UnitOfMeasureEnum.PSF,  # Use PSF for consistency
-            frequency=FrequencyEnum.MONTHLY,  # Internal calculations use monthly
+            unit_of_measure=UnitOfMeasureEnum.PSF,
+            frequency=FrequencyEnum.MONTHLY,
             
-            # Apply market terms from profile
-            rent_escalation=profile.market_terms.rent_escalation,
-            rent_abatement=profile.market_terms.rent_abatement,
-            recovery_method=profile.market_terms.recovery_method,
+            # Apply terms from the selected lease terms
+            rent_escalation=lease_terms.rent_escalation,
+            rent_abatement=lease_terms.rent_abatement,
+            recovery_method=lease_terms.recovery_method,
             
             # Apply newly created instances with proper timeline/reference
             ti_allowance=ti_allowance,
@@ -876,6 +773,7 @@ class Lease(CashFlowModel):
         lease_start: date,
         rollover_profile: 'RolloverProfile',
         floor: Optional[str] = None,
+        upon_expiration: UponExpirationEnum = UponExpirationEnum.MARKET,
         **kwargs
     ) -> "Lease":
         """
@@ -888,6 +786,7 @@ class Lease(CashFlowModel):
             lease_start: When the market lease begins
             rollover_profile: Profile containing market assumptions
             floor: Optional floor identifier
+            upon_expiration: Behavior for rollover at expiration
             **kwargs: Additional arguments to pass to the Lease constructor
             
         Returns:
@@ -899,8 +798,17 @@ class Lease(CashFlowModel):
             duration_months=rollover_profile.term_months
         )
         
+        # Determine if we should use blended terms
+        lease_terms = None
+        if upon_expiration == UponExpirationEnum.MARKET:
+            # For MARKET case, use blended terms
+            lease_terms = rollover_profile.blend_lease_terms()
+        else:
+            # For other cases, use market terms
+            lease_terms = rollover_profile.market_terms
+        
         # Determine market rent
-        market_rate = rollover_profile.calculate_market_rent(lease_start)
+        market_rate = rollover_profile._calculate_market_rent(lease_terms, lease_start)
         
         # Create placeholder tenant
         tenant = Tenant(
@@ -909,27 +817,12 @@ class Lease(CashFlowModel):
         )
         
         # Create TI allowance if specified
-        ti_allowance = None
-        if rollover_profile.market_terms.ti_allowance:
-            ti_allowance = TenantImprovementAllowance(
-                **rollover_profile.market_terms.ti_allowance.model_dump(exclude={'timeline', 'reference'}),
-                timeline=timeline,
-                reference=area
-            )
-        
-        # Create leasing commission if specified
-        leasing_commission = None
-        if rollover_profile.market_terms.leasing_commission:
-            # Calculate annual rent as basis for commission
-            annual_rent = market_rate * area
-            if rollover_profile.market_terms.frequency == FrequencyEnum.MONTHLY:
-                annual_rent = annual_rent * 12
-                
-            leasing_commission = LeasingCommission(
-                **rollover_profile.market_terms.leasing_commission.model_dump(exclude={'timeline', 'value'}),
-                timeline=timeline,
-                value=annual_rent
-            )
+        ti_allowance, leasing_commission = cls._create_lease_costs(
+            lease_terms,
+            timeline,
+            market_rate,
+            area
+        )
         
         # Create and return the market lease
         return cls(
@@ -943,20 +836,20 @@ class Lease(CashFlowModel):
             area=area,
             timeline=timeline,
             value=market_rate,
-            unit_of_measure=UnitOfMeasureEnum.PSF,  # Use PSF for consistency
-            frequency=FrequencyEnum.MONTHLY,  # Internal calculations use monthly
+            unit_of_measure=UnitOfMeasureEnum.PSF,
+            frequency=FrequencyEnum.MONTHLY,
             
-            # Apply market terms
-            rent_escalation=rollover_profile.market_terms.rent_escalation,
-            rent_abatement=rollover_profile.market_terms.rent_abatement,
-            recovery_method=rollover_profile.market_terms.recovery_method,
+            # Apply terms from the selected lease terms
+            rent_escalation=lease_terms.rent_escalation,
+            rent_abatement=lease_terms.rent_abatement,
+            recovery_method=lease_terms.recovery_method,
             
             # Apply lease costs
             ti_allowance=ti_allowance,
             leasing_commission=leasing_commission,
             
             # Set rollover behavior
-            upon_expiration=rollover_profile.upon_expiration,
+            upon_expiration=upon_expiration,
             rollover_profile=rollover_profile,
             
             # Include any additional kwargs
@@ -1002,28 +895,12 @@ class Lease(CashFlowModel):
         tenant = self.tenant.copy()
         
         # Create new TI allowance if specified in option terms
-        ti_allowance = None
-        if profile.option_terms.ti_allowance:
-            ti_allowance = TenantImprovementAllowance(
-                # Copy configuration from profile's option terms but update timeline
-                **profile.option_terms.ti_allowance.model_dump(exclude={'timeline', 'reference'}),
-                timeline=timeline,
-                reference=self.area
-            )
-        
-        # Create new leasing commission if specified in option terms
-        leasing_commission = None
-        if profile.option_terms.leasing_commission:
-            # Calculate annual rent as basis for commission
-            annual_rent = option_rate * self.area
-            if profile.option_terms.frequency == FrequencyEnum.MONTHLY:
-                annual_rent = annual_rent * 12
-            
-            leasing_commission = LeasingCommission(
-                **profile.option_terms.leasing_commission.model_dump(exclude={'timeline', 'value'}),
-                timeline=timeline,
-                value=annual_rent
-            )
+        ti_allowance, leasing_commission = self._create_lease_costs(
+            profile.option_terms,
+            timeline,
+            option_rate,
+            self.area
+        )
         
         # Create and return the option lease with all appropriate attributes
         return Lease(
@@ -1053,6 +930,50 @@ class Lease(CashFlowModel):
             upon_expiration=profile.upon_expiration,
             rollover_profile=profile
         )
+
+    def _create_lease_costs(
+        self,
+        lease_terms: 'RolloverLeaseTerms',
+        timeline: Timeline,
+        rent_rate: PositiveFloat,
+        area: PositiveFloat
+    ) -> tuple:
+        """
+        Helper method to create TI and LC objects for lease creation.
+        
+        Args:
+            lease_terms: Terms to use for TI and LC creation
+            timeline: Timeline for the lease
+            rent_rate: Rent rate used for LC calculations
+            area: Leasable area in square feet
+            
+        Returns:
+            Tuple of (ti_allowance, leasing_commission)
+        """
+        # Create TI allowance if specified
+        ti_allowance = None
+        if lease_terms.ti_allowance:
+            ti_allowance = TenantImprovementAllowance(
+                **lease_terms.ti_allowance.model_dump(exclude={'timeline', 'reference'}),
+                timeline=timeline,
+                reference=area
+            )
+        
+        # Create leasing commission if specified
+        leasing_commission = None
+        if lease_terms.leasing_commission:
+            # Calculate annual rent as basis for commission
+            annual_rent = rent_rate * area
+            if lease_terms.frequency == FrequencyEnum.MONTHLY:
+                annual_rent = annual_rent * 12
+            
+            leasing_commission = LeasingCommission(
+                **lease_terms.leasing_commission.model_dump(exclude={'timeline', 'value'}),
+                timeline=timeline,
+                value=annual_rent
+            )
+        
+        return ti_allowance, leasing_commission
 
 
 class VacantSuite(Model):
