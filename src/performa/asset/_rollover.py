@@ -148,8 +148,6 @@ class RolloverProfile(Model):
 
     # Projection limits
     max_projection_years: int = 99  # NOTE: do we need this?
-
-    # FIXME: add method to do weighted average of market terms and renewal terms
     
     def _calculate_rent(self, terms: RolloverLeaseTerms, as_of_date: date) -> PositiveFloat:
         """
