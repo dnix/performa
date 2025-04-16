@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Callable, Dict, List, Optional, Union
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pandas as pd
 from pydantic import Field, FieldValidationInfo, field_validator
@@ -51,20 +51,32 @@ class CashFlowModel(Model):
     All cash flows use monthly frequency internally.
 
     Attributes:
-        name (str): Name of the cash flow item (e.g., "Construction Cost")
-        category (str): Category of the item (investment, budget, revenue, expense, etc.)
-        subcategory (str): Subcategory of the item (land, hard costs, soft costs, etc.)
-        description (Optional[str]): Optional description of the cash flow item
-        account (Optional[str]): Optional account number for reference
-        timeline (Timeline): Timeline object defining the dates/periods for the cash flow
-        value (Union[PositiveFloat, pd.Series, dict, list]): The cash flow value(s)
-        unit_of_measure (UnitOfMeasureEnum): Unit of measure for the value (e.g., currency, area)
-        frequency (FrequencyEnum): Frequency of the cash flow, defaults to monthly
-        reference (Optional[Union[float, pd.Series, str]]): Optional reference value or identifier
-            used for relative calculations
+        model_id (UUID): Stable unique identifier for this model instance. Used for referencing
+            the output of this model instance from other models.
+        name (str): Name of the cash flow item (e.g., "Construction Cost").
+        category (str): Category of the item (investment, budget, revenue, expense, etc.).
+        subcategory (str): Subcategory of the item (land, hard costs, soft costs, etc.).
+        description (Optional[str]): Optional description of the cash flow item.
+        account (Optional[str]): Optional account number for reference.
+        timeline (Timeline): Timeline object defining the dates/periods for the cash flow.
+        value (Union[PositiveFloat, pd.Series, dict, list]): The cash flow value(s).
+            The interpretation depends on `unit_of_measure` and potential `reference`.
+        unit_of_measure (UnitOfMeasureEnum): Unit of measure for the value (e.g., currency, area).
+            Determines the calculation strategy (DirectAmount, Unitized, PercentFactor).
+        frequency (FrequencyEnum): Frequency of the cash flow, defaults to monthly. Used
+            for potential conversion to internal monthly representation.
+        reference (Optional[Union[float, pd.Series, str, UUID]]): Optional reference value or identifier
+            used for relative calculations (e.g., PER_UNIT, BY_PERCENT).
+            - float, pd.Series: Direct value used in calculation.
+            - str: Identifier expected to be resolved by `lookup_fn` against a known namespace
+              (e.g., property attributes like "net_rentable_area").
+            - UUID: The `model_id` of another `CashFlowModel` instance. `lookup_fn` is expected
+              to resolve this to the computed cash flow result of that other model instance.
+            The resolution logic is handled by the `lookup_fn` provided during computation.
     """
 
     # GENERAL
+    model_id: UUID = Field(default_factory=uuid4, description="Stable unique identifier for this model instance")
     name: str  # e.g., "Construction Cost"
     category: str  # category of the item (investment, budget, revenue, expense, etc.)
     subcategory: str  # subcategory of the item (land, hard costs, soft costs, etc.)
@@ -78,16 +90,14 @@ class CashFlowModel(Model):
     value: Union[PositiveFloat, pd.Series, Dict, List]
     unit_of_measure: UnitOfMeasureEnum
     frequency: FrequencyEnum = FrequencyEnum.MONTHLY
-    # An optional reference which might be a direct value, a Series,
-    # or a string identifier for deferred resolution.
-    reference: Optional[Union[float, pd.Series, str]] = None
+    reference: Optional[Union[float, pd.Series, str, UUID]] = None
 
-    # TODO: add support for passing settings/modeling policies
+    # SETTINGS
     settings: GlobalSettings = Field(default_factory=GlobalSettings)
 
     @property
-    def id(self) -> str:
-        """Unique identifier for the cash flow item."""
+    def runtime_id(self) -> str:
+        """Unique runtime identifier for the cash flow item instance."""
         return str(uuid4())
 
     @property
@@ -97,19 +107,33 @@ class CashFlowModel(Model):
 
     def resolve_reference(
         self,
-        lookup_fn: Optional[Callable[[str], Union[float, pd.Series, Dict]]] = None
+        lookup_fn: Optional[Callable[[Union[str, UUID]], Union[float, pd.Series, Dict]]] = None
     ) -> Optional[Union[float, pd.Series, Dict]]:
         """
-        Resolves the reference attribute.
+        Resolves the reference attribute using the provided lookup function.
         
-        - If the reference is a numeric value or a pandas Series, returns it.
-        - If it is a string identifier, uses the provided lookup function.
+        - If the reference is a direct value (numeric, Series, Dict), returns it directly.
+        - If it is a string identifier (e.g., "net_rentable_area") or a UUID
+          (referencing another model's `model_id`), it calls the provided `lookup_fn`.
+          
+        Args:
+            lookup_fn: A callable that accepts a string or UUID and returns the
+                corresponding resolved value (float, Series, Dict). The implementation
+                of this function typically resides in the orchestration layer (e.g., CashFlowAnalysis)
+                and needs access to the relevant context (property attributes, computed results registry).
+                
+        Returns:
+            The resolved value (float, Series, Dict) or None if reference is None.
+            
+        Raises:
+            ValueError: If a string or UUID reference is provided but `lookup_fn` is None.
+            Exception: Potentially raises exceptions from the `lookup_fn` itself if resolution fails.
         """
         if isinstance(self.reference, (int, float, pd.Series, Dict)):
             return self.reference
-        elif isinstance(self.reference, str):
+        elif isinstance(self.reference, (str, UUID)):
             if lookup_fn is None:
-                raise ValueError("A lookup function is required to resolve string references.")
+                raise ValueError("A lookup function is required to resolve string or UUID references.")
             return lookup_fn(self.reference)
         return None
 
@@ -243,14 +267,14 @@ class CashFlowModel(Model):
 
     def compute_cf(
         self,
-        lookup_fn: Optional[Callable[[str], Union[float, pd.Series]]] = None
+        lookup_fn: Optional[Callable[[Union[str, UUID]], Union[float, pd.Series]]] = None # Updated lookup_fn type hint
         # NOTE: consider functools.partial to pass callable to lookup_fn
     ) -> pd.Series:
         """
         Compute the final cash flow as a time series using the model's built-in timeline.
         
         This method performs these steps:
-          - Resolves any reference required to compute the value.
+          - Resolves any reference required to compute the value using the lookup_fn.
           - Selects an appropriate strategy based on unit_of_measure.
           - Converts frequency as needed (e.g. from annual to monthly).
           - Casts the resulting value into a full flow series spanning the timeline.
@@ -258,7 +282,8 @@ class CashFlowModel(Model):
           
         The returned series represents the cash flow over the model's timeline.
         """
-        resolved_reference = self.resolve_reference(lookup_fn)
+        # Pass the potentially complex lookup_fn down
+        resolved_reference = self.resolve_reference(lookup_fn) 
 
         if self.unit_of_measure == UnitOfMeasureEnum.AMOUNT:
             strategy = DirectAmountStrategy()
