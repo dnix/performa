@@ -59,8 +59,7 @@ class CashFlowAnalysis(Model):
     def _compute_cash_flows_iterative(
         self, 
         all_models: List[CashFlowModel], 
-        analysis_periods: pd.PeriodIndex,
-        occupancy_series: pd.Series # Added occupancy series parameter
+        occupancy_series: pd.Series
         ) -> Dict[UUID, Union[pd.Series, Dict[str, pd.Series]]]:
         """
         Internal helper: Compute cash flows using multi-pass iteration.
@@ -72,7 +71,6 @@ class CashFlowAnalysis(Model):
 
         Args:
             all_models: The list of all CashFlowModel instances to compute.
-            analysis_periods: The PeriodIndex for the analysis timeline.
             occupancy_series: The pre-calculated occupancy series.
 
         Returns:
@@ -377,7 +375,7 @@ class CashFlowAnalysis(Model):
             print("Info: Using iterative multi-pass computation.")
             # Call iterative helper, passing occupancy series
             computed_results = self._compute_cash_flows_iterative(
-                all_models, analysis_periods, occupancy_series 
+                all_models, occupancy_series 
             )
 
         # --- Process and Aggregate Results ---
