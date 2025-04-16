@@ -2,7 +2,7 @@
 import inspect
 from datetime import date
 from graphlib import CycleError, TopologicalSorter
-from typing import Any, Callable, Dict, List, Optional, Set, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 from uuid import UUID
 
 import pandas as pd
@@ -15,6 +15,7 @@ from ..core._settings import GlobalSettings
 from ..core._timeline import Timeline
 from ._property import Property
 
+# TODO: Add comprehensive unit and integration tests for CashFlowAnalysis logic.
 
 class CashFlowAnalysis(Model):
     """
@@ -45,14 +46,19 @@ class CashFlowAnalysis(Model):
         analysis_end_date: The end date (inclusive) for the cash flow analysis period.
     """
     property: Property
+    # TODO: Integrate self.settings to allow configuration of analysis behavior.
     settings: GlobalSettings = Field(default_factory=GlobalSettings)
     analysis_start_date: date
     analysis_end_date: date
     
-    # Cached results
+    # --- Cached Results ---
+    # NOTE: Basic caching implemented. Assumes inputs are immutable after instantiation.
+    # TODO: Implement more robust cache invalidation if inputs can change.
+    _cached_detailed_flows: Optional[List[Tuple[Dict, pd.Series]]] = None
     _cached_aggregated_flows: Optional[Dict[str, pd.Series]] = None
     _cached_cash_flow_dataframe: Optional[pd.DataFrame] = None
-    _cached_occupancy_series: Optional[pd.Series] = None # Re-added cache
+    _cached_detailed_cash_flow_dataframe: Optional[pd.DataFrame] = None
+    _cached_occupancy_series: Optional[pd.Series] = None
 
     # --- Private Helper: Iterative Computation ---
 
@@ -220,6 +226,7 @@ class CashFlowAnalysis(Model):
 
     def _collect_other_cash_flow_models(self) -> List[CashFlowModel]:
         """Extracts any other cash flow models."""
+        # TODO: Implement collection logic if/when debt or other non-property models are added.
         return []
 
     # Re-added helper to inject occupancy via arguments
@@ -250,173 +257,191 @@ class CashFlowAnalysis(Model):
         kwargs = {"lookup_fn": lookup_fn}
         if "occupancy_rate" in params or "occupancy_series" in params:
             kwargs["occupancy_rate"] = occupancy_series
+        # TODO: Consider passing other contextual series if needed (e.g., calculated EGI?)
         return model.compute_cf(**kwargs)
 
-    def _get_aggregated_flows(self) -> Dict[str, pd.Series]:
+    def _compute_detailed_flows(self) -> List[Tuple[Dict, pd.Series]]:
         """
-        Internal method to compute or retrieve cached aggregated flows.
-
-        Ensures that the main computation logic (`_compute_and_aggregate_flows`)
-        is run only once per instance unless caches are explicitly cleared.
-        Resets related caches (`_cached_cash_flow_dataframe`, `_cached_occupancy_series`)
-        if recomputation is triggered.
-
-        Returns:
-            The dictionary of aggregated cash flow series (e.g., "Total Revenue").
+        Computes all individual cash flows, handling dependencies and context injection.
+        Returns a detailed list of results, each tagged with metadata.
         """
-        if self._cached_aggregated_flows is None:
-            # Reset related caches if recomputing flows
-            self._cached_cash_flow_dataframe = None 
-            self._cached_occupancy_series = None # Reset occupancy too if flows recomputed
-            self._cached_aggregated_flows = self._compute_and_aggregate_flows()
-        return self._cached_aggregated_flows
-    
-    def _compute_and_aggregate_flows(self) -> Dict[str, pd.Series]:
-        """
-        Core computation and aggregation engine.
-
-        Orchestrates the calculation of all individual cash flows, handling dependencies
-        and injecting context like occupancy. Aggregates results into standard lines.
-
-        Steps:
-        1. Create analysis timeline and calculate occupancy series.
-        2. Collect all `CashFlowModel` instances.
-        3. Define a `lookup_fn` capable of resolving `model.reference` attributes
-           (UUIDs to other models' computed results, strings to property attributes).
-        4. Attempt computation using `graphlib.TopologicalSorter` for single-pass efficiency.
-           - Build dependency graph based on UUID references.
-           - If successful (DAG), compute models in sorted order, injecting occupancy
-             where needed via `_run_compute_cf`.
-        5. If `TopologicalSorter` fails (cycle detected), fall back to the multi-pass
-           iterative method (`_compute_cash_flows_iterative`), passing the occupancy series.
-        6. Process the `computed_results` dictionary (from either TS or MPI path):
-           - Handle single Series vs. Dict of Series outputs from models.
-           - Map results/components to standard aggregate keys (e.g., "Total OpEx").
-           - Align all series to the analysis timeline's PeriodIndex.
-        7. Sum aligned series into the final `aggregated_flows` dictionary.
-
-        Returns:
-            A dictionary where keys are standard financial line items (str) and
-            values are the corresponding aggregated pandas Series.
-        """
-        analysis_timeline = self._create_timeline()
-        analysis_periods = analysis_timeline.period_index
-        
-        # Calculate occupancy series first
-        occupancy_series = self._calculate_occupancy_series() 
-
-        all_models = (
-            self._collect_revenue_models() +
-            self._collect_expense_models() +
-            self._collect_other_cash_flow_models()
-        )
-        
-        model_map = {model.model_id: model for model in all_models}
-        computed_results: Dict[UUID, Union[pd.Series, Dict[str, pd.Series]]] = {}
-        use_iterative_fallback = False
-        
-        # --- Define Lookup Function (Handles UUID and property strings ONLY) ---
-        def lookup_fn(key: Union[str, UUID]) -> Union[float, pd.Series, Dict, Any]:
-            if isinstance(key, UUID):
-                if key in computed_results:
-                    return computed_results[key]
-                else:
-                    raise LookupError(f"Dependency result for model ID {key} not available in this context.") 
-            elif isinstance(key, str):
-                if hasattr(self.property, key):
-                    value = getattr(self.property, key)
-                    if isinstance(value, (int, float, pd.Series, Dict, str, date)): 
-                        return value
-                    else:
-                        raise TypeError(f"Property attribute '{key}' has unsupported type {type(value)}.")
-                else:
-                    raise LookupError(f"Cannot resolve reference key '{key}' from property attributes.")
-            else:
-                raise TypeError(f"Unsupported lookup key type: {type(key)}")
-
-        # --- Attempt Topological Sort ---
-        try:
-            # 1. Build Dependency Graph
-            graph: Dict[UUID, Set[UUID]] = {model.model_id: set() for model in all_models}
-            for model_id, model in model_map.items():
-                if isinstance(model.reference, UUID):
-                    dependency_id = model.reference
-                    if dependency_id in graph:
-                        graph[model_id].add(dependency_id)
-                    else:
-                         print(f"Warning: Model '{model.name}' ({model_id}) references unknown model ID {dependency_id}. Ignoring dependency.")
-
-            # 2. Perform Topological Sort
-            ts = TopologicalSorter(graph)
-            sorted_model_ids = list(ts.static_order())
+        if self._cached_detailed_flows is None:
+            analysis_timeline = self._create_timeline()
+            analysis_periods = analysis_timeline.period_index
+            occupancy_series = self._calculate_occupancy_series() 
+            all_models = ( self._collect_revenue_models() + self._collect_expense_models() + self._collect_other_cash_flow_models() )
+            model_map = {model.model_id: model for model in all_models}
+            computed_results: Dict[UUID, Union[pd.Series, Dict[str, pd.Series]]] = {}
+            use_iterative_fallback = False
             
-            print("Info: Dependency graph is a DAG. Using single-pass computation.")
+            # --- Define Lookup Function ---
+            def lookup_fn(key: Union[str, UUID]) -> Union[float, pd.Series, Dict, Any]:
+                # TODO: Enhance lookup_fn? Allow referencing aggregates (e.g., "Total Revenue")? Careful with cycles/state.
+                if isinstance(key, UUID):
+                    if key in computed_results: return computed_results[key]
+                    else: raise LookupError(f"Dependency result for model ID {key} not available.") 
+                elif isinstance(key, str):
+                    if hasattr(self.property, key):
+                        value = getattr(self.property, key)
+                        if isinstance(value, (int, float, pd.Series, Dict, str, date)): return value
+                        else: raise TypeError(f"Property attribute '{key}' has unsupported type {type(value)}.")
+                    else: raise LookupError(f"Cannot resolve reference key '{key}'.")
+                else: raise TypeError(f"Unsupported lookup key type: {type(key)}")
 
-            # 3. Compute in Sorted Order - using helper for occupancy
-            for model_id in sorted_model_ids:
-                model = model_map[model_id]
-                try:
-                    # Use helper to call compute_cf with conditional occupancy
-                    result = self._run_compute_cf(model, lookup_fn, occupancy_series) 
-                    computed_results[model_id] = result
-                except Exception as e:
-                    print(f"Error computing model '{model.name}' ({model_id}) during sorted pass: {e}. Skipping model.")
-                    if model_id in computed_results: del computed_results[model_id]
+            # --- Attempt Topological Sort ---
+            try:
+                graph: Dict[UUID, Set[UUID]] = {m_id: set() for m_id in model_map.keys()}
+                for model_id, model in model_map.items():
+                    if isinstance(model.reference, UUID):
+                        dependency_id = model.reference
+                        if dependency_id in graph: graph[model_id].add(dependency_id)
+                        else: print(f"Warning: Model '{model.name}' ({model_id}) refs unknown ID {dependency_id}. Ignored.")
+                ts = TopologicalSorter(graph); sorted_model_ids = list(ts.static_order())
+                print("Info: Dependency graph is a DAG. Using single-pass computation.")
+                for model_id in sorted_model_ids:
+                    model = model_map[model_id]
+                    try: result = self._run_compute_cf(model, lookup_fn, occupancy_series); computed_results[model_id] = result
+                    except Exception as e: print(f"Error computing '{model.name}' ({model_id}) in TS pass: {e}. Skipped."); computed_results.pop(model_id, None)
+            # --- Fallback to Iterative on Cycle or Graph Error ---
+            except CycleError as e: print(f"Warning: Cycle detected: {e.args[1]}. Falling back to iteration."); use_iterative_fallback = True
+            except Exception as graph_err: print(f"Error during graph processing: {graph_err}. Falling back to iteration."); use_iterative_fallback = True
+            if use_iterative_fallback:
+                print("Info: Using iterative multi-pass computation.")
+                computed_results = self._compute_cash_flows_iterative( all_models, occupancy_series )
 
-        except CycleError as e: 
-            print(f"Warning: Circular dependency detected involving models: {e.args[1]}. Falling back to iterative computation.")
-            use_iterative_fallback = True
-        except Exception as graph_err:
-             print(f"Error during graph processing: {graph_err}. Falling back to iterative computation.")
-             use_iterative_fallback = True
+            # --- Process computed results into the detailed list ---
+            processed_flows: List[Tuple[Dict, pd.Series]] = []
+            for model_id, result in computed_results.items():
+                original_model = model_map.get(model_id) 
+                if not original_model: continue 
+                results_to_process: Dict[str, pd.Series] = {}
+                if isinstance(result, pd.Series): results_to_process = {"value": result}
+                elif isinstance(result, dict): results_to_process = result
+                else: print(f"Warning: Unexpected type {type(result)} for {original_model.name}. Skipped."); continue
 
-        # --- Fallback to Iterative Method if Needed ---
-        if use_iterative_fallback:
-            print("Info: Using iterative multi-pass computation.")
-            # Call iterative helper, passing occupancy series
-            computed_results = self._compute_cash_flows_iterative(
-                all_models, occupancy_series 
-            )
+                for component_name, series in results_to_process.items():
+                    if not isinstance(series, pd.Series): continue
+                    try:
+                        # Align index
+                        if not isinstance(series.index, pd.PeriodIndex):
+                             if isinstance(series.index, pd.DatetimeIndex): series.index = series.index.to_period(freq='M')
+                             else: series.index = pd.PeriodIndex(series.index, freq='M')
+                        aligned_series = series.reindex(analysis_periods, fill_value=0.0)
+                    except Exception as align_err: print(f"Warning: Align failed for {component_name} from {original_model.name}. Error: {align_err}. Skipped."); continue
+                    
+                    # Create metadata dictionary for this specific series
+                    metadata = {
+                        "model_id": str(model_id), # Store UUID as string for potential non-python use
+                        "name": original_model.name,
+                        "category": original_model.category,
+                        "subcategory": str(original_model.subcategory), # Ensure string
+                        "component": component_name,
+                    }
+                    processed_flows.append((metadata, aligned_series))
+            
+            self._cached_detailed_flows = processed_flows # Cache the result
+        
+        return self._cached_detailed_flows
 
-        # --- Process and Aggregate Results ---
-        aggregate_keys = [
-            "Total Revenue", "Total OpEx", "Total CapEx", 
-            "Total TI Allowance", "Total Leasing Commission"
-        ]
-        aggregated_flows: Dict[str, pd.Series] = {
-            key: pd.Series(0.0, index=analysis_periods) for key in aggregate_keys
-        }
-        for model_id, result in computed_results.items():
-            original_model = model_map.get(model_id) 
-            if not original_model: continue 
-            results_to_process: Dict[str, pd.Series] = {}
-            component_map: Dict[str, str] = {} 
-            if isinstance(result, pd.Series):
-                results_to_process = {"value": result}
-                if original_model.category == "Revenue": component_map["value"] = "Total Revenue"
-                elif isinstance(original_model.subcategory, ExpenseSubcategoryEnum):
-                    if original_model.subcategory == ExpenseSubcategoryEnum.OPEX: component_map["value"] = "Total OpEx"
-                    elif original_model.subcategory == ExpenseSubcategoryEnum.CAPEX: component_map["value"] = "Total CapEx"
-            elif isinstance(result, dict):
-                results_to_process = result
-                component_map = { "base_rent": "Total Revenue", "recoveries": "Total Revenue", "ti_allowance": "Total TI Allowance", "leasing_commission": "Total Leasing Commission", }
-            else: print(f"Warning: Unexpected type {type(result)} in final results for {original_model.name}. Skipping."); continue
-            for component_name, series in results_to_process.items():
-                target_aggregate_key = component_map.get(component_name)
-                if target_aggregate_key is None: continue 
-                if not isinstance(series, pd.Series): continue
-                try:
-                    if not isinstance(series.index, pd.PeriodIndex):
-                         if isinstance(series.index, pd.DatetimeIndex): series.index = series.index.to_period(freq='M')
-                         else: series.index = pd.PeriodIndex(series.index, freq='M')
-                    aligned_series = series.reindex(analysis_periods, fill_value=0.0)
-                except Exception as align_err: print(f"Warning: Could not align index for component '{component_name}' from {original_model.name}. Error: {align_err}. Skipping."); continue
-                if target_aggregate_key in aggregated_flows: aggregated_flows[target_aggregate_key] = aggregated_flows[target_aggregate_key].add(aligned_series, fill_value=0.0)
-                else: print(f"Warning: Target aggregation key '{target_aggregate_key}' not found. Skipping.")
+    def _aggregate_detailed_flows(self, detailed_flows: List[Tuple[Dict, pd.Series]]) -> Dict[str, pd.Series]:
+        """Aggregates detailed flows into standard financial line items."""
+        # TODO: Allow for more flexible aggregation rules or custom groupings?
+        analysis_periods = self._create_timeline().period_index # Get timeline for initialization
+        aggregate_keys = [ "Total Revenue", "Total OpEx", "Total CapEx", "Total TI Allowance", "Total Leasing Commission" ]
+        aggregated_flows: Dict[str, pd.Series] = { key: pd.Series(0.0, index=analysis_periods) for key in aggregate_keys }
+
+        for metadata, series in detailed_flows:
+            category = metadata["category"]
+            subcategory = metadata["subcategory"] # Already stringified
+            component = metadata["component"]
+            target_aggregate_key: Optional[str] = None
+
+            # Map based on metadata
+            if category == "Revenue":
+                if component in ("base_rent", "recoveries", "value"): # 'value' for MiscIncome
+                    target_aggregate_key = "Total Revenue"
+            elif category == "Expense":
+                 # Check subcategory using string representation from metadata
+                 if subcategory == str(ExpenseSubcategoryEnum.OPEX) and component == "value":
+                     target_aggregate_key = "Total OpEx"
+                 elif subcategory == str(ExpenseSubcategoryEnum.CAPEX) and component == "value":
+                     target_aggregate_key = "Total CapEx"
+                 # Check specific components from Lease dictionary output
+                 elif component == "ti_allowance":
+                     target_aggregate_key = "Total TI Allowance"
+                 elif component == "leasing_commission":
+                     target_aggregate_key = "Total Leasing Commission"
+            
+            # Add to the target aggregate series if found
+            if target_aggregate_key and target_aggregate_key in aggregated_flows:
+                 # Series should already be aligned from _compute_detailed_flows
+                 aggregated_flows[target_aggregate_key] = aggregated_flows[target_aggregate_key].add(series, fill_value=0.0)
+            # else: # Optional: Warn if a computed flow wasn't mapped to an aggregate
+            #     print(f"Debug: Flow {metadata['name']}/{component} not mapped to aggregate.")
 
         return aggregated_flows
 
+    def _get_aggregated_flows(self) -> Dict[str, pd.Series]:
+        """Computes/retrieves detailed flows, then computes/retrieves aggregated flows."""
+        # Ensure detailed flows are computed and cached
+        detailed_flows = self._compute_detailed_flows() 
+        
+        # Compute/cache aggregated flows from detailed flows
+        if self._cached_aggregated_flows is None:
+            self._cached_aggregated_flows = self._aggregate_detailed_flows(detailed_flows)
+            
+        return self._cached_aggregated_flows
+
     # --- Public Methods ---
+    def create_detailed_cash_flow_dataframe(self) -> pd.DataFrame:
+        """
+        Generates or retrieves a cached DataFrame of granular cash flows.
+
+        The DataFrame's columns form a MultiIndex based on the metadata
+        (Category, Subcategory, Name, Component) associated with each
+        individual computed cash flow series. The index represents
+        monthly periods over the analysis timeline.
+
+        Returns:
+            A detailed pandas DataFrame suitable for in-depth analysis and auditing.
+        """
+        # TODO: Consider performance for very large numbers of detailed flows.
+        if self._cached_detailed_cash_flow_dataframe is None:
+            detailed_flows = self._compute_detailed_flows()
+            
+            if not detailed_flows: # Handle case with no results
+                return pd.DataFrame(index=self._create_timeline().period_index)
+
+            # Prepare data for DataFrame construction
+            data_dict = {}
+            index = detailed_flows[0][1].index # Use index from first series
+            tuples = []
+            
+            for metadata, series in detailed_flows:
+                 # Create tuple for MultiIndex
+                 col_tuple = (
+                     metadata['category'], 
+                     metadata['subcategory'], 
+                     metadata['name'], 
+                     metadata['component']
+                 )
+                 tuples.append(col_tuple)
+                 # Ensure series aligns with the common index (should be guaranteed by _compute_detailed_flows)
+                 data_dict[col_tuple] = series.reindex(index, fill_value=0.0)
+
+            multi_index = pd.MultiIndex.from_tuples(tuples, names=['Category', 'Subcategory', 'Name', 'Component'])
+            
+            df = pd.DataFrame(data_dict, index=index)
+            df.columns = multi_index
+            df.index.name = "Period"
+            
+            # Sort columns for consistent presentation (optional but nice)
+            df = df.sort_index(axis=1) 
+            
+            self._cached_detailed_cash_flow_dataframe = df
+
+        return self._cached_detailed_cash_flow_dataframe
+
     def create_cash_flow_dataframe(self) -> pd.DataFrame:
         """
         Generates or retrieves a cached DataFrame of the property's cash flows.
@@ -491,6 +516,7 @@ class CashFlowAnalysis(Model):
         Returns:
             A pandas Series of zeros indexed by the analysis period.
         """
+        # FIXME: Implement actual debt service calculation.
         analysis_timeline = self._create_timeline()
         return pd.Series(0.0, index=analysis_timeline.period_index, name="Debt Service")
     
