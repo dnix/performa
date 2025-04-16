@@ -48,6 +48,42 @@ In the future, Performa will be available on PyPI, enabling installation via pip
 pip install performa
 ```
 
+## Logging
+
+`performa` uses Python's standard `logging` module to emit informative messages about its operations, warnings, and errors. 
+
+- **Library Responsibility:** The library gets logger instances (e.g., `logging.getLogger("performa.asset._analysis")`) and emits log records. It does **not** configure logging handlers by default (except for a `NullHandler` at the top level to prevent "No handler found" warnings).
+- **Application Responsibility:** The application using `performa` is responsible for configuring how these logs are handled (e.g., setting levels, adding handlers to write to console or files, defining formats).
+
+This approach ensures that `performa` does not interfere with the application's overall logging strategy.
+
+### Example Configuration
+
+Here's a basic example of how an application might configure logging to see `DEBUG` level messages from `performa` sent to the console:
+
+```python
+import logging
+import performa # Your application imports performa
+
+# Configure logging for your application
+logging.basicConfig(
+    level=logging.DEBUG, # Set the root logger level (captures DEBUG and above)
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+# Optional: Set a different level specifically for performa logs if desired
+# logging.getLogger("performa").setLevel(logging.INFO)
+
+# Now, when you use performa functions, logs will be emitted
+# and handled by the basicConfig setup.
+# property_data = ...
+# analysis = performa.asset.CashFlowAnalysis(property=property_data, ...)
+# df = analysis.create_cash_flow_dataframe()
+
+```
+
+For more complex scenarios (e.g., different handlers, filtering, logging to files), please refer to Python's official `logging` documentation, particularly the sections on [`logging.dictConfig`](https://docs.python.org/3/library/logging.config.html#logging.config.dictConfig).
+
 ## Contributing
 
 We welcome contributions! Please see:

@@ -1,5 +1,6 @@
 # Import inspect module
 import inspect
+import logging  # <-- Import logging
 from datetime import date
 from graphlib import CycleError, TopologicalSorter
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
@@ -16,6 +17,8 @@ from ..core._timeline import Timeline
 from ._property import Property
 
 # TODO: Add comprehensive unit and integration tests for CashFlowAnalysis logic.
+
+logger = logging.getLogger(__name__) # <-- Setup logger
 
 class CashFlowAnalysis(Model):
     """
@@ -84,6 +87,7 @@ class CashFlowAnalysis(Model):
             A dictionary mapping model_id to its computed result (Series or Dict of Series).
             May contain fewer items than `all_models` if some models failed computation.
         """
+        logger.debug(f"Starting iterative computation for {len(all_models)} models.") # DEBUG: Entry
         computed_results: Dict[UUID, Union[pd.Series, Dict[str, pd.Series]]] = {}
         remaining_models = {model.model_id: model for model in all_models}
         model_map = {model.model_id: model for model in all_models} # Keep original map
@@ -96,6 +100,7 @@ class CashFlowAnalysis(Model):
 
         while remaining_models and passes < MAX_PASSES and progress_made_in_pass:
             passes += 1
+            logger.debug(f"Iterative Pass {passes}/{MAX_PASSES}. Models remaining: {len(remaining_models)}") # DEBUG: Pass start
             progress_made_in_pass = False
             models_computed_this_pass: List[UUID] = []
             lookup_errors_this_pass: Dict[UUID, str] = {}
@@ -140,19 +145,30 @@ class CashFlowAnalysis(Model):
                     raise TypeError(f"Iterative: Unsupported lookup key type: {type(key)}")
 
             for model_id, model in list(remaining_models.items()):
+                logger.debug(f"  Attempting iterative compute: '{model.name}' ({model_id})") # DEBUG: Model attempt
                 try:
                     # Use helper to call compute_cf with conditional occupancy
                     result = self._run_compute_cf(model, lookup_fn_iterative, occupancy_series) 
                     computed_results[model_id] = result
                     models_computed_this_pass.append(model_id)
                     progress_made_in_pass = True
+                    logger.debug(f"    Success: '{model.name}' ({model_id}) computed.") # DEBUG: Model success
                 except LookupError as le:
                     lookup_errors_this_pass[model_id] = str(le)
+                    logger.debug(f"    Lookup Error: '{model.name}' ({model_id}) - waiting for dependency.") # DEBUG: Model lookup fail
                 except NotImplementedError:
-                    print(f"Warning (Iterative): compute_cf not implemented for model '{model.name}' ({model.model_id}). Removing.")
+                    # Log warning instead of print
+                    logger.warning(f"(Iterative) compute_cf not implemented for model '{model.name}' ({model.model_id}). Treating as zero flow.")
+                    # Still mark as computed to prevent infinite loops if it was the cause of stalling
+                    computed_results[model_id] = pd.Series(0.0, index=analysis_periods) 
                     models_computed_this_pass.append(model_id) 
                 except Exception as e:
-                    print(f"Error (Iterative): computing '{model.name}' ({model.model_id}): {e}. Removing.")
+                    # Log error with exception info instead of print
+                    logger.error(f"(Iterative) Error computing '{model.name}' ({model.model_id}). Skipping.", exc_info=True)
+                    # Optionally raise the error based on settings
+                    if self.settings.fail_on_error:
+                        raise e
+                    # Mark as computed (with error state represented by absence in computed_results) to avoid looping
                     models_computed_this_pass.append(model_id) 
 
             for computed_id in models_computed_this_pass:
@@ -167,7 +183,7 @@ class CashFlowAnalysis(Model):
                  results_to_process: Dict[str, pd.Series] = {}
                  if isinstance(result, pd.Series): results_to_process = {"value": result}
                  elif isinstance(result, dict): results_to_process = result
-                 else: continue # Skip unexpected types
+                 else: logger.warning(f"Unexpected result type {type(result)} for model '{original_model.name}'. Skipped processing."); continue
 
                  for component_name, series in results_to_process.items():
                      if not isinstance(series, pd.Series): continue
@@ -179,7 +195,8 @@ class CashFlowAnalysis(Model):
                          # Use the main analysis_periods derived earlier
                          aligned_series = series.reindex(analysis_periods, fill_value=0.0) 
                      except Exception: 
-                         # If alignment fails, we can't reliably aggregate this component in this pass
+                         # Log warning with exception info instead of print
+                         logger.warning(f"Alignment failed for component '{component_name}' from model '{original_model.name}'. Skipping component.", exc_info=True)
                          continue 
                     
                      metadata = {
@@ -194,19 +211,24 @@ class CashFlowAnalysis(Model):
             # Calculate aggregates based on *all* results computed *so far*
             current_aggregates = self._aggregate_detailed_flows(detailed_flows_this_pass)
             # End of Pass Aggregation
+            logger.debug(f"  Pass {passes} finished. Computed {len(models_computed_this_pass)} models this pass.") # DEBUG: Pass end metrics
 
         if remaining_models:
-            print(f"Warning (Iterative): Could not compute all models after {passes} passes.")
+            # Log warning instead of print
+            logger.warning(f"(Iterative) Could not compute all models after {passes} passes.")
             for model_id, reason in lookup_errors_this_pass.items():
                  if model_id in remaining_models:
                      model_name = remaining_models[model_id].name
-                     print(f"  - Iterative: Model '{model_name}' ({model_id}) failed. Last error: {reason}")
+                     # Log warning instead of print
+                     logger.warning(f"  - Iterative: Model '{model_name}' ({model_id}) failed. Last error: {reason}")
         
+        logger.debug("Finished iterative computation.") # DEBUG: Exit
         return computed_results
 
     # --- Private Methods ---
     def _create_timeline(self) -> Timeline:
         """Creates a unified monthly timeline for the analysis period."""
+        logger.debug(f"Creating timeline from {self.analysis_start_date} to {self.analysis_end_date}.")
         if self.analysis_start_date >= self.analysis_end_date:
             raise ValueError("Analysis start date must be before end date")
         return Timeline.from_dates(
@@ -215,10 +237,8 @@ class CashFlowAnalysis(Model):
             # Default monthly frequency assumed
         )
         
-    # Re-added occupancy calculation method
     def _calculate_occupancy_series(self) -> pd.Series:
-        """
-        Calculates the physical occupancy rate series over the analysis timeline.
+        """Calculates the physical occupancy rate series over the analysis timeline.
 
         This implementation derives occupancy solely based on the active periods of
         leases defined in the `property.rent_roll`. It sums the area of leases
@@ -232,6 +252,7 @@ class CashFlowAnalysis(Model):
             A pandas Series indexed by the analysis period, containing the
             calculated occupancy rate (0.0 to 1.0) for each period.
         """
+        logger.debug("Calculating occupancy series.") # DEBUG: Entry
         if self._cached_occupancy_series is None:
             analysis_periods = self._create_timeline().period_index
             occupied_area_series = pd.Series(0.0, index=analysis_periods)
@@ -245,7 +266,8 @@ class CashFlowAnalysis(Model):
                          try:
                              lease_periods = lease_periods.asfreq('M', how='start') # Or appropriate conversion
                          except ValueError:
-                             print(f"Warning: Lease '{lease.name}' timeline frequency ({lease_periods.freqstr}) not monthly. Skipping for occupancy calc.")
+                             # Log warning instead of print
+                             logger.warning(f"Lease '{lease.name}' timeline frequency ({lease_periods.freqstr}) not monthly. Skipping for occupancy calc.")
                              continue
 
                     active_periods = analysis_periods.intersection(lease_periods)
@@ -260,6 +282,7 @@ class CashFlowAnalysis(Model):
                  
             occupancy_series.name = "Occupancy Rate"
             self._cached_occupancy_series = occupancy_series
+            logger.debug(f"Calculated occupancy series. Average: {occupancy_series.mean():.2%}") # DEBUG: Exit
 
         return self._cached_occupancy_series
 
@@ -290,7 +313,6 @@ class CashFlowAnalysis(Model):
         # TODO: Implement collection logic if/when debt or other non-property models are added.
         return []
 
-    # Re-added helper to inject occupancy via arguments
     def _run_compute_cf(
         self, 
         model: CashFlowModel, 
@@ -307,30 +329,34 @@ class CashFlowAnalysis(Model):
 
         Args:
             model: The CashFlowModel instance to compute.
-            lookup_fn: The function to resolve references (UUIDs, property strings).
+            lookup_fn: The function to resolve references (UUIDs, property strings, AggregateLineKeys).
             occupancy_series: The pre-calculated occupancy series for the analysis period.
 
         Returns:
             The result from `model.compute_cf` (either a Series or Dict of Series).
         """
+        logger.debug(f"Running compute_cf for model '{model.name}' ({model.model_id})") # DEBUG: Entry
         sig = inspect.signature(model.compute_cf)
         params = sig.parameters
         kwargs = {"lookup_fn": lookup_fn}
         if "occupancy_rate" in params or "occupancy_series" in params:
             kwargs["occupancy_rate"] = occupancy_series
-        # TODO: Consider passing other contextual series if needed (e.g., calculated EGI?)
-        return model.compute_cf(**kwargs)
+            logger.debug(f"  Injecting occupancy_rate into '{model.name}'.compute_cf") # DEBUG: Occupancy injection
+        result = model.compute_cf(**kwargs)
+        logger.debug(f"  Finished compute_cf for '{model.name}'. Result type: {type(result).__name__}") # DEBUG: Exit
+        return result
 
     def _compute_detailed_flows(self) -> List[Tuple[Dict, pd.Series]]:
-        """
-        Computes all individual cash flows, handling dependencies and context injection.
+        """Computes all individual cash flows, handling dependencies and context injection.
         Returns a detailed list of results, each tagged with metadata.
         """
+        logger.debug("Starting computation of detailed flows.") # DEBUG: Entry
         if self._cached_detailed_flows is None:
             analysis_timeline = self._create_timeline()
             analysis_periods = analysis_timeline.period_index
             occupancy_series = self._calculate_occupancy_series() 
             all_models = ( self._collect_revenue_models() + self._collect_expense_models() + self._collect_other_cash_flow_models() )
+            logger.debug(f"Collected {len(all_models)} models for computation.") # DEBUG: Model count
             model_map = {model.model_id: model for model in all_models}
             computed_results: Dict[UUID, Union[pd.Series, Dict[str, pd.Series]]] = {}
             use_iterative_fallback = False
@@ -379,18 +405,35 @@ class CashFlowAnalysis(Model):
                     if isinstance(model.reference, UUID):
                         dependency_id = model.reference
                         if dependency_id in graph: graph[model_id].add(dependency_id)
-                        else: print(f"Warning: Model '{model.name}' ({model_id}) refs unknown ID {dependency_id}. Ignored.")
+                        # Log warning instead of print
+                        else: logger.warning(f"Model '{model.name}' ({model_id}) refs unknown ID {dependency_id}. Ignored in dependency graph.")
                 ts = TopologicalSorter(graph); sorted_model_ids = list(ts.static_order())
-                print("Info: Dependency graph is a DAG. Using single-pass computation.")
+                logger.info("Dependency graph is a DAG. Using single-pass computation.")
                 for model_id in sorted_model_ids:
                     model = model_map[model_id]
-                    try: result = self._run_compute_cf(model, lookup_fn, occupancy_series); computed_results[model_id] = result
-                    except Exception as e: print(f"Error computing '{model.name}' ({model_id}) in TS pass: {e}. Skipped."); computed_results.pop(model_id, None)
+                    logger.debug(f"  Attempting DAG compute: '{model.name}' ({model_id})") # DEBUG: Model attempt (DAG)
+                    try: 
+                        result = self._run_compute_cf(model, lookup_fn, occupancy_series)
+                        computed_results[model_id] = result
+                        logger.debug(f"    Success: '{model.name}' ({model_id}) computed.") # DEBUG: Model success (DAG)
+                    except Exception as e: 
+                        logger.error(f"(DAG Path) Error computing '{model.name}' ({model_id}). Skipped.", exc_info=True)
+                        # Optionally raise the error based on settings
+                        if self.settings.fail_on_error:
+                            raise e
+                        # Remove from computed results if an error occurred during its calculation
+                        computed_results.pop(model_id, None)
             # --- Fallback to Iterative on Cycle or Graph Error ---
-            except CycleError as e: print(f"Warning: Cycle detected: {e.args[1]}. Falling back to iteration."); use_iterative_fallback = True
-            except Exception as graph_err: print(f"Error during graph processing: {graph_err}. Falling back to iteration."); use_iterative_fallback = True
+            except CycleError as e: 
+                # Log warning instead of print
+                logger.warning(f"Cycle detected in model dependencies: {e.args[1]}. Falling back to iteration.")
+                use_iterative_fallback = True
+            # Log error with exception info instead of print
+            except Exception: 
+                logger.error("Error during dependency graph processing. Falling back to iteration.", exc_info=True)
+                use_iterative_fallback = True
             if use_iterative_fallback:
-                print("Info: Using iterative multi-pass computation.")
+                logger.info("Using iterative multi-pass computation due to cycle or graph error.")
                 computed_results = self._compute_cash_flows_iterative( all_models, occupancy_series )
 
             # --- Process computed results into the detailed list ---
@@ -401,7 +444,8 @@ class CashFlowAnalysis(Model):
                 results_to_process: Dict[str, pd.Series] = {}
                 if isinstance(result, pd.Series): results_to_process = {"value": result}
                 elif isinstance(result, dict): results_to_process = result
-                else: print(f"Warning: Unexpected type {type(result)} for {original_model.name}. Skipped."); continue
+                # Log warning instead of print
+                else: logger.warning(f"Unexpected result type {type(result)} for model '{original_model.name}'. Skipped processing."); continue
 
                 for component_name, series in results_to_process.items():
                     if not isinstance(series, pd.Series): continue
@@ -411,7 +455,10 @@ class CashFlowAnalysis(Model):
                              if isinstance(series.index, pd.DatetimeIndex): series.index = series.index.to_period(freq='M')
                              else: series.index = pd.PeriodIndex(series.index, freq='M')
                         aligned_series = series.reindex(analysis_periods, fill_value=0.0)
-                    except Exception as align_err: print(f"Warning: Align failed for {component_name} from {original_model.name}. Error: {align_err}. Skipped."); continue
+                    # Log warning with exception info instead of print
+                    except Exception: 
+                        logger.warning(f"Alignment failed for component '{component_name}' from model '{original_model.name}'. Skipping component.", exc_info=True)
+                        continue
                     
                     # Create metadata dictionary for this specific series
                     metadata = {
@@ -423,12 +470,15 @@ class CashFlowAnalysis(Model):
                     }
                     processed_flows.append((metadata, aligned_series))
             
+            logger.debug(f"Finished base computation. Got {len(computed_results)} results.") # DEBUG: Computation end
             self._cached_detailed_flows = processed_flows # Cache the result
         
+        logger.debug("Finished computation of detailed flows.") # DEBUG: Exit
         return self._cached_detailed_flows
 
     def _aggregate_detailed_flows(self, detailed_flows: List[Tuple[Dict, pd.Series]]) -> Dict[AggregateLineKey, pd.Series]:
         """Aggregates detailed flows into standard financial line items using AggregateLineKey."""
+        logger.debug(f"Starting aggregation of {len(detailed_flows)} detailed flows.") # DEBUG: Entry
         # TODO: Incorporate GENERAL_VACANCY_LOSS and RENTAL_ABATEMENT when implemented
         # TODO: Allow for more flexible aggregation rules or custom groupings?
         analysis_periods = self._create_timeline().period_index # Get timeline for initialization
@@ -472,8 +522,9 @@ class CashFlowAnalysis(Model):
                  # Ensure series index matches (should already be aligned)
                  safe_series = series.reindex(analysis_periods, fill_value=0.0)
                  aggregated_flows[target_aggregate_key] = aggregated_flows[target_aggregate_key].add(safe_series, fill_value=0.0)
-            # else: # Optional: Warn if a computed flow wasn't mapped to an aggregate
-            #     print(f"Debug: Flow {metadata['name']}/{component} not mapped to RAW aggregate.")
+            # Log debug instead of print (or remove)
+            else: 
+                 logger.debug(f"Flow {metadata['name']}/{component} not mapped to RAW aggregate.")
 
         # --- Pass 2: Calculate standard lines from RAW aggregates and assumptions --- 
         # Note: Assumes Vacancy/Abatement are zero for now.
@@ -535,10 +586,16 @@ class CashFlowAnalysis(Model):
         # final_aggregates = {k: v for k, v in aggregated_flows.items() if not AggregateLineKey.is_internal_key(k)}
         # return final_aggregates
 
+        # DEBUG: Log aggregate values calculated this pass
+        if logger.isEnabledFor(logging.DEBUG):
+             agg_summary = {k.value: f"{v.sum():.2f}" for k, v in aggregated_flows.items() if not AggregateLineKey.is_internal_key(k) and v.sum() != 0}
+             logger.debug(f"Final aggregated values: {agg_summary}")
+        
         return aggregated_flows # Return the full dict including RAW keys for now
 
     def _get_aggregated_flows(self) -> Dict[AggregateLineKey, pd.Series]:
         """Computes/retrieves detailed flows, then computes/retrieves aggregated flows using Enum keys."""
+        logger.debug("Getting aggregated flows (checking cache).") # DEBUG: Entry
         # Ensure detailed flows are computed and cached
         # This will run _compute_detailed_flows which uses TS or MPI. 
         # The MPI internally calculates aggregates for lookups, but the final 
@@ -547,15 +604,15 @@ class CashFlowAnalysis(Model):
         
         # Compute/cache aggregated flows from the *final* detailed flows
         if self._cached_aggregated_flows is None:
-            # This now returns Dict[AggregateLineKey, pd.Series]
+            logger.debug("Aggregated flows cache miss. Computing now.") # DEBUG: Cache miss
             self._cached_aggregated_flows = self._aggregate_detailed_flows(detailed_flows)
             
+        logger.debug("Finished getting aggregated flows.") # DEBUG: Exit
         return self._cached_aggregated_flows
 
     # --- Public Methods ---
     def create_detailed_cash_flow_dataframe(self) -> pd.DataFrame:
-        """
-        Generates or retrieves a cached DataFrame of granular cash flows.
+        """Generates or retrieves a cached DataFrame of granular cash flows.
 
         The DataFrame's columns form a MultiIndex based on the metadata
         (Category, Subcategory, Name, Component) associated with each
@@ -565,7 +622,7 @@ class CashFlowAnalysis(Model):
         Returns:
             A detailed pandas DataFrame suitable for in-depth analysis and auditing.
         """
-        # TODO: Consider performance for very large numbers of detailed flows.
+        logger.debug("Creating detailed cash flow DataFrame.") # DEBUG: Entry
         if self._cached_detailed_cash_flow_dataframe is None:
             detailed_flows = self._compute_detailed_flows()
             
@@ -600,11 +657,11 @@ class CashFlowAnalysis(Model):
             
             self._cached_detailed_cash_flow_dataframe = df
 
+        logger.debug("Finished creating detailed cash flow DataFrame.") # DEBUG: Exit
         return self._cached_detailed_cash_flow_dataframe
 
     def create_cash_flow_dataframe(self) -> pd.DataFrame:
-        """
-        Generates or retrieves a cached DataFrame of the property's cash flows.
+        """Generates or retrieves a cached DataFrame of the property's cash flows.
 
         Columns include standard aggregated lines (Total Revenue, Total OpEx, etc.)
         and calculated metrics (NOI, Unlevered Cash Flow), keyed by AggregateLineKey values.
@@ -613,6 +670,7 @@ class CashFlowAnalysis(Model):
         Returns:
             A pandas DataFrame summarizing the property's cash flows.
         """
+        logger.debug("Creating summary cash flow DataFrame.") # DEBUG: Entry
         if self._cached_cash_flow_dataframe is None:
             # _get_aggregated_flows now returns Dict[AggregateLineKey, pd.Series]
             flows: Dict[AggregateLineKey, pd.Series] = self._get_aggregated_flows()
@@ -652,6 +710,7 @@ class CashFlowAnalysis(Model):
             
             self._cached_cash_flow_dataframe = cf_df
             
+        logger.debug("Finished creating summary cash flow DataFrame.") # DEBUG: Exit
         return self._cached_cash_flow_dataframe
 
     def net_operating_income(self) -> pd.Series:

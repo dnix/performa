@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 from typing import Callable, Literal, Optional, Union
 
@@ -5,6 +6,8 @@ import pandas as pd
 from pydantic import FloatBetween0And1, PositiveInt, model_validator
 
 from ..core._cash_flow import CashFlowModel
+
+logger = logging.getLogger(__name__)
 
 
 class TenantImprovementAllowance(CashFlowModel):
@@ -68,7 +71,12 @@ class TenantImprovementAllowance(CashFlowModel):
             Monthly cash flow series
         """
         # Get the base cash flow using CashFlowModel logic
+        logger.debug(f"Computing cash flow for TI Allowance: '{self.name}' ({self.model_id})")
+        logger.debug(f"  Payment Method: {self.payment_method}")
+        logger.debug("  Calculating base total TI amount using super().compute_cf.")
         base_cf = super().compute_cf(lookup_fn)
+        total_amount = base_cf.sum()
+        logger.debug(f"  Calculated base total TI amount: {total_amount:.2f}")
         
         # If upfront payment, we return a single payment at the specified date
         if self.payment_method == "upfront":
@@ -82,6 +90,7 @@ class TenantImprovementAllowance(CashFlowModel):
                 total_amount = base_cf.sum()
                 ti_cf[payment_period] = total_amount
             
+            logger.debug(f"  Upfront payment of {total_amount:.2f} scheduled for {payment_period}.")
             return ti_cf
         
         # If amortized, we calculate a loan-like payment schedule
@@ -109,6 +118,7 @@ class TenantImprovementAllowance(CashFlowModel):
             ti_cf = pd.Series(0, index=self.timeline.period_index)
             ti_cf.loc[amort_periods] = monthly_payment
             
+            logger.debug(f"  Amortized payment calculated: {monthly_payment:.2f} per month for {self.amortization_term_months} months.")
             return ti_cf
         
         # This should never happen due to the validator, but included for completeness

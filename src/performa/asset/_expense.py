@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 from typing import Any, Callable, Dict, List, Optional, Union
 from uuid import UUID
@@ -9,6 +10,8 @@ from ..core._cash_flow import CashFlowModel
 from ..core._enums import ExpenseSubcategoryEnum, UnitOfMeasureEnum
 from ..core._model import Model
 from ..core._types import FloatBetween0And1, PositiveFloat
+
+logger = logging.getLogger(__name__)
 
 
 class ExpenseItem(CashFlowModel):
@@ -84,9 +87,12 @@ class OpExItem(ExpenseItem):
             TypeError: If the type returned by `lookup_fn` is incompatible with the
                        `unit_of_measure` or calculation logic.
         """
+        logger.debug(f"Computing cash flow for OpExItem: '{self.name}' ({self.model_id})") # DEBUG: Entry
         calculated_flow: pd.Series
         base_value_source: Optional[Union[float, int, pd.Series]] = None
-
+        
+        # --- Determine Base Flow (Handles Reference) ---
+        logger.debug(f"  Reference: {self.reference}, UnitOfMeasure: {self.unit_of_measure}") # DEBUG: Input info
         if self.reference is not None:
             if lookup_fn is None:
                 raise ValueError(f"Reference '{self.reference}' is set for OpExItem '{self.name}', but no lookup_fn was provided.")
@@ -113,7 +119,7 @@ class OpExItem(ExpenseItem):
                      # otherwise, if reference is a series but UoM isn't %/Factor, it's ambiguous.
                      # We will fall back to the standard compute_cf which expects self.value as the primary driver.
                       calculated_flow = super().compute_cf(lookup_fn=lookup_fn) # Re-call super, letting it handle self.value
-                      print(f"Warning: OpExItem '{self.name}' referenced an aggregate series '{self.reference}' but UnitOfMeasure was '{self.unit_of_measure}'. Using standard value calculation.")
+                      logger.warning(f"OpExItem '{self.name}' referenced an aggregate series '{self.reference}' but UnitOfMeasure was '{self.unit_of_measure}'. Using standard value calculation.")
                 else: 
                     # Default case if reference is Series but UoM isn't handled above
                     # This might indicate an unsupported configuration
@@ -130,7 +136,6 @@ class OpExItem(ExpenseItem):
                     pass 
                 
                 base_value_source = looked_up_value # Store for potential later use/debugging
-
             elif isinstance(looked_up_value, (float, int, str, date, dict)): 
                 # --- Handle Reference to Scalar or compatible type --- 
                 # Let the parent CashFlowModel compute_cf handle scalar references 
@@ -139,13 +144,15 @@ class OpExItem(ExpenseItem):
                 base_value_source = looked_up_value
             else:
                  raise TypeError(f"OpExItem '{self.name}' received an unexpected type ({type(looked_up_value)}) from lookup_fn for reference '{self.reference}'.")
+            logger.debug(f"  Base flow determined via reference. Type: {type(base_value_source).__name__}") # DEBUG: Reference outcome
         else:
-            # --- No Reference --- 
+            # --- No Reference ---
             # Compute the base cash flow using the parent method based on self.value/timeline
+            logger.debug("  No reference set. Calculating base from self.value.") # DEBUG: No reference
             calculated_flow = super().compute_cf(lookup_fn=lookup_fn)
 
         # --- Apply Adjustments (Growth, Occupancy) --- 
-        
+        logger.debug("  Applying growth and occupancy adjustments.") # DEBUG: Adjustments start
         # Apply growth rate adjustment to the calculated flow.
         if self.growth_rate is not None:
             # Ensure we are working with a numeric series
@@ -157,7 +164,7 @@ class OpExItem(ExpenseItem):
                 # Apply growth factor
                 calculated_flow = calculated_flow * growth_factors
             else:
-                print(f"Warning: Cannot apply growth rate to non-numeric series for OpExItem '{self.name}'.")
+                logger.warning(f"Cannot apply growth rate to non-numeric series for OpExItem '{self.name}'.")
 
         # Apply occupancy adjustment if applicable.
         if occupancy_rate is not None and self.is_variable:
@@ -170,8 +177,9 @@ class OpExItem(ExpenseItem):
                  adjustment_ratio = fixed_ratio + (variable_ratio * current_occupancy)
                  calculated_flow = calculated_flow * adjustment_ratio
              else:
-                 print(f"Warning: Cannot apply occupancy adjustment to non-numeric series or missing variable_ratio for OpExItem '{self.name}'.")
+                 logger.warning(f"Cannot apply occupancy adjustment to non-numeric series or missing variable_ratio for OpExItem '{self.name}'.")
         
+        logger.debug(f"Finished computing cash flow for OpExItem: '{self.name}'. Final Sum: {calculated_flow.sum():.2f}") # DEBUG: Exit
         return calculated_flow
 
 

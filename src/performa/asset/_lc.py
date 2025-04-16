@@ -1,3 +1,4 @@
+import logging
 import math
 from typing import Callable, List, Literal, Optional, Union
 
@@ -7,6 +8,7 @@ from pydantic import FloatBetween0And1, PositiveInt, model_validator
 from ..core._cash_flow import CashFlowModel
 from ..core._model import Model
 
+logger = logging.getLogger(__name__)
 
 class CommissionTier(Model):
     """
@@ -110,7 +112,10 @@ class LeasingCommission(CashFlowModel):
             Monthly cash flow series
         """
         # Get the base rent series using CashFlowModel logic to resolve the reference
+        logger.debug(f"Computing cash flow for Leasing Commission: '{self.name}' ({self.model_id})")
+        logger.debug("  Calculating base rent series using super().compute_cf.")
         rent_series = super().compute_cf(lookup_fn)
+        logger.debug(f"  Calculated base rent series. Total Rent: {rent_series.sum():.2f}")
         
         # Initialize commission cash flow series
         lc_cf = pd.Series(0, index=self.timeline.period_index)
@@ -119,8 +124,11 @@ class LeasingCommission(CashFlowModel):
         lease_months = len(self.timeline.period_index)
         lease_years = math.ceil(lease_months / 12)
         
+        logger.debug(f"  Applying commission tiers. Payment Timing: {self.payment_timing}")
         # Calculate commission for each tier
+        total_commission_calculated = 0.0
         for tier in self.tiers:
+            logger.debug(f"    Processing Tier: Years {tier.years_description}, Rate: {tier.rate:.1%}")
             # Determine which months this tier applies to
             start_month = (tier.year_start - 1) * 12
             if tier.year_end is None:
@@ -138,6 +146,8 @@ class LeasingCommission(CashFlowModel):
             # Calculate commission for this tier
             tier_rent = rent_series.loc[tier_periods]
             tier_commission = tier_rent.sum() * tier.rate
+            total_commission_calculated += tier_commission
+            logger.debug(f"      Tier Commission: {tier_commission:.2f} (Based on rent sum: {tier_rent.sum():.2f})")
             
             # Determine payment period based on payment timing
             if self.payment_timing == "signing":
@@ -147,8 +157,11 @@ class LeasingCommission(CashFlowModel):
                 # Find the first period of the tier
                 payment_period = tier_periods[0]
             
+            logger.debug(f"      Payment Period: {payment_period}")
+            
             # Add commission to the cash flow series
             if payment_period in lc_cf.index:
                 lc_cf[payment_period] += tier_commission
         
+        logger.debug(f"Finished computing cash flow for Leasing Commission: '{self.name}'. Total Calculated: {total_commission_calculated:.2f}, Final CF Sum: {lc_cf.sum():.2f}")
         return lc_cf

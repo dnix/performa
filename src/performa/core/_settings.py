@@ -62,3 +62,6 @@ class GlobalSettings(Model):
     # default_tax_rate: Optional[float] = None
 
     loss_settings: LossSettings = Field(default_factory=LossSettings)
+    
+    # Error handling during calculation
+    fail_on_error: bool = False # If True, raise calculation errors; otherwise, log and skip.

@@ -1,3 +1,4 @@
+import logging
 from datetime import date, relativedelta, timedelta
 from typing import Any, Callable, Dict, List, Literal, Optional, Union
 from uuid import UUID
@@ -27,6 +28,8 @@ from ._lc import LeasingCommission
 from ._recovery import RecoveryMethod
 from ._rollover import RolloverLeaseTerms, RolloverProfile
 from ._ti import TenantImprovementAllowance
+
+logger = logging.getLogger(__name__)
 
 
 class Tenant(Model):
@@ -1120,9 +1123,12 @@ class MiscIncome(CashFlowModel):
             TypeError: If the type returned by `lookup_fn` is incompatible with the
                        `unit_of_measure` or calculation logic.
         """
+        logger.debug(f"Computing cash flow for MiscIncome: '{self.name}' ({self.model_id})") # DEBUG: Entry
         calculated_flow: pd.Series
         base_value_source: Optional[Union[float, int, pd.Series]] = None
 
+        # --- Determine Base Flow (Handles Reference) ---
+        logger.debug(f"  Reference: {self.reference}, UnitOfMeasure: {self.unit_of_measure}") # DEBUG: Input info
         if self.reference is not None:
             if lookup_fn is None:
                 raise ValueError(f"Reference '{self.reference}' is set for MiscIncome '{self.name}', but no lookup_fn was provided.")
@@ -1141,7 +1147,8 @@ class MiscIncome(CashFlowModel):
                 elif self.unit_of_measure == UnitOfMeasureEnum.AMOUNT:
                       # Fall back to standard compute_cf if UoM is AMOUNT but ref is Series
                       calculated_flow = super().compute_cf(lookup_fn=lookup_fn)
-                      print(f"Warning: MiscIncome '{self.name}' referenced an aggregate series '{self.reference}' but UnitOfMeasure was '{self.unit_of_measure}'. Using standard value calculation.")
+                      # Log warning instead of print
+                      logger.warning(f"MiscIncome '{self.name}' referenced an aggregate series '{self.reference}' but UnitOfMeasure was '{self.unit_of_measure}'. Using standard value calculation.")
                 else: 
                     raise TypeError(f"MiscIncome '{self.name}' referenced an aggregate series '{self.reference}' with an unsupported UnitOfMeasure '{self.unit_of_measure}'.")
                 
@@ -1160,10 +1167,11 @@ class MiscIncome(CashFlowModel):
                  raise TypeError(f"MiscIncome '{self.name}' received an unexpected type ({type(looked_up_value)}) from lookup_fn for reference '{self.reference}'.")
         else:
             # --- No Reference --- 
+            logger.debug("  No reference set. Calculating base from self.value.") # DEBUG: No reference
             calculated_flow = super().compute_cf(lookup_fn=lookup_fn)
 
         # --- Apply Adjustments (Growth, Occupancy) --- 
-        
+        logger.debug("  Applying growth and occupancy adjustments.") # DEBUG: Adjustments start
         # Apply growth rate adjustment.
         if self.growth_rate is not None:
             if pd.api.types.is_numeric_dtype(calculated_flow):
@@ -1172,7 +1180,8 @@ class MiscIncome(CashFlowModel):
                 growth_factors = np.power(1 + (annual_growth_rate / 12), months)
                 calculated_flow = calculated_flow * growth_factors
             else:
-                 print(f"Warning: Cannot apply growth rate to non-numeric series for MiscIncome '{self.name}'.")
+                 # Log warning instead of print
+                 logger.warning(f"Cannot apply growth rate to non-numeric series for MiscIncome '{self.name}'.")
 
         # Apply occupancy adjustment if applicable.
         if occupancy_rate is not None and self.is_variable:
@@ -1184,8 +1193,10 @@ class MiscIncome(CashFlowModel):
                  adjustment_ratio = fixed_ratio + (variable_ratio * current_occupancy) 
                  calculated_flow = calculated_flow * adjustment_ratio
              else:
-                 print(f"Warning: Cannot apply occupancy adjustment to non-numeric series or missing variable_ratio for MiscIncome '{self.name}'.")
+                 # Log warning instead of print
+                 logger.warning(f"Cannot apply occupancy adjustment to non-numeric series or missing variable_ratio for MiscIncome '{self.name}'.")
         
+        logger.debug(f"Finished computing cash flow for MiscIncome: '{self.name}'. Final Sum: {calculated_flow.sum():.2f}") # DEBUG: Exit
         return calculated_flow
 
 
