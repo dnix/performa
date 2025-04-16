@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Optional
 
 
 class CashFlowCategoryEnum(str, Enum):
@@ -279,3 +280,60 @@ class UponExpirationEnum(str, Enum):
     VACATE = "vacate"     # 0% renewal, immediate repositioning with new tenant
     OPTION = "option"     # Explicit modeling of contractual renewal options
     REABSORB = "reabsorb" # Space remains vacant pending separate re-leasing process
+
+
+class AggregateLineKey(str, Enum):
+    """Defines standard keys for aggregated financial line items."""
+
+    # --- Revenue Side ---
+    POTENTIAL_GROSS_REVENUE = "Potential Gross Revenue"       # Sum of potential base rent (often contractual)
+    RENTAL_ABATEMENT = "Rental Abatement / Concessions"      # Free rent periods
+    MISCELLANEOUS_INCOME = "Miscellaneous Income"          # Parking, laundry, fees, etc.
+    EFFECTIVE_GROSS_REVENUE = "Effective Gross Revenue"     # Potential + Misc - Abatement (BEFORE Vacancy/Recoveries)
+    GENERAL_VACANCY_LOSS = "General Vacancy & Credit Loss"  # Allowance based on market/assumptions
+    EXPENSE_REIMBURSEMENTS = "Expense Reimbursements"       # Recoveries from tenants
+    TOTAL_EFFECTIVE_GROSS_INCOME = "Total Effective Gross Income" # EGR - Vacancy + Recoveries (often called EGI)
+
+    # --- Expense Side ---
+    TOTAL_OPERATING_EXPENSES = "Total Operating Expenses"     # Sum of all OpEx items
+
+    # --- Profitability Metrics ---
+    NET_OPERATING_INCOME = "Net Operating Income"           # Total EGI - Total OpEx
+
+    # --- Capital & Leasing Costs ---
+    TOTAL_TENANT_IMPROVEMENTS = "Total Tenant Improvements"     # TIs
+    TOTAL_LEASING_COMMISSIONS = "Total Leasing Commissions"   # LCs
+    TOTAL_CAPITAL_EXPENDITURES = "Total Capital Expenditures"    # CapEx (incl. reserves maybe)
+
+    # --- Cash Flow Metrics ---
+    UNLEVERED_CASH_FLOW = "Unlevered Cash Flow"           # NOI - TIs - LCs - CapEx
+    TOTAL_DEBT_SERVICE = "Total Debt Service"             # Principal + Interest
+    LEVERED_CASH_FLOW = "Levered Cash Flow"             # UCF - Debt Service
+
+    # --- Raw Aggregates (Less commonly referenced directly, but needed for calculation) ---
+    _RAW_TOTAL_REVENUE = "_RAW Total Revenue" # Intermediate sum of all revenue components (rent, misc)
+    _RAW_TOTAL_RECOVERIES = "_RAW Total Recoveries" # Intermediate sum of all recovery components
+    _RAW_TOTAL_OPEX = "_RAW Total OpEx"       # Intermediate sum used above
+    _RAW_TOTAL_CAPEX = "_RAW Total CapEx"     # Intermediate sum used above
+    _RAW_TOTAL_TI = "_RAW Total TI"         # Intermediate sum used above
+    _RAW_TOTAL_LC = "_RAW Total LC"         # Intermediate sum used above
+
+    @classmethod
+    def from_value(cls, value: str) -> Optional['AggregateLineKey']:
+        """Look up enum member by its string value."""
+        for member in cls:
+            if member.value == value:
+                return member
+        return None
+
+    # Helper to check if a key is intended for internal calculation steps
+    @classmethod
+    def is_internal_key(cls, key: 'AggregateLineKey') -> bool:
+        """Check if the key is prefixed for internal calculation use."""
+        return key.value.startswith("_RAW")
+
+    # Helper to get display keys (excluding internal ones)
+    @classmethod
+    def get_display_keys(cls) -> list['AggregateLineKey']:
+        """Return a list of keys suitable for display/reporting."""
+        return [k for k in cls if not cls.is_internal_key(k)]

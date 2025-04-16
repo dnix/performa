@@ -1,5 +1,6 @@
 from datetime import date, relativedelta, timedelta
-from typing import Callable, Dict, List, Literal, Optional, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Union
+from uuid import UUID
 
 import numpy as np
 import pandas as pd
@@ -1030,22 +1031,12 @@ class RentRoll(Model):
 
     @model_validator(mode="after")
     def validate_lease_tenant_mapping(self) -> "RentRoll":
-        """
-        Ensure all leases map to tenants in the rent roll.
-        
-        Returns:
-            The validated RentRoll instance
-            
-        Raises:
-            ValueError: If a lease references a tenant not found in the rent roll
-        """
-        tenant_names = {lease.tenant_name for lease in self.leases}
-        for lease in self.leases:
-            if lease.tenant_name not in tenant_names:
-                raise ValueError(
-                    f"Lease references tenant {lease.tenant_name} "
-                    f"not found in rent roll"
-                )
+        """Validate that all leases have a corresponding tenant."""
+        # TODO: implement this
+        # tenant_ids = {t.id for t in self.tenants}
+        # for lease in self.leases:
+        #     if lease.tenant_id not in tenant_ids:
+        #         raise ValueError(f"Lease '{lease.name}' references unknown tenant ID '{lease.tenant_id}'")
         return self
 
     # TODO: add validation for total area
@@ -1057,6 +1048,14 @@ class RentRoll(Model):
 class MiscIncome(CashFlowModel):
     """
     Represents miscellaneous income items like parking revenue, vending, antenna income, etc.
+    
+    Inherits from CashFlowModel and includes standard attributes like `value`, 
+    `timeline`, `unit_of_measure`, `reference`, etc.
+    
+    The `reference` attribute, if a string, can refer to either:
+      - An attribute of the `Property` object (e.g., "gross_building_area").
+      - The string value of an `AggregateLineKey` enum member (e.g., "Potential Gross Revenue").
+      Handling of the looked-up value depends on the `compute_cf` implementation.
 
     Attributes:
         category: Fixed as "Revenue"
@@ -1090,35 +1089,104 @@ class MiscIncome(CashFlowModel):
     def compute_cf(
         self,
         occupancy_rate: Optional[float] = None,
-        lookup_fn: Optional[Callable[[str], Union[float, pd.Series]]] = None
+        lookup_fn: Optional[Callable[[Union[str, UUID]], Union[float, int, str, date, pd.Series, Dict, Any]]] = None
     ) -> pd.Series:
         """
-        Compute the cash flow for the miscellaneous income item with optional 
-        occupancy and growth adjustments.
+        Compute the cash flow for the miscellaneous income item.
+        
+        Handles base value calculation (potentially using `reference` lookup),
+        growth rate application, and occupancy adjustments.
+
+        If `self.reference` is set and `lookup_fn` is provided:
+          - If the lookup returns a pd.Series (e.g., an AggregateLineKey value):
+            Uses the series as the base, potentially applying unit_of_measure 
+            factors (like percentage).
+          - If the lookup returns a scalar: 
+            Passes the lookup to `super().compute_cf` to handle scalar-based 
+            calculations (e.g., $/Unit based on property area).
+        If `self.reference` is not set, calculates based on `self.value` and `self.timeline`.
         
         Args:
-            occupancy_rate: Current or projected occupancy rate (0-1)
-            lookup_fn: Optional function to resolve references
-            
+            occupancy_rate: Optional occupancy rate (as a float, typically 0-1) 
+                            to adjust variable portions of the income.
+            lookup_fn: Function provided by the analysis engine to resolve 
+                       references (UUIDs, property attributes, or AggregateLineKeys).
+                       
         Returns:
-            Monthly cash flow series
+            A pandas Series representing the monthly cash flow for this income item.
+            
+        Raises:
+            ValueError: If `reference` is set but `lookup_fn` is not provided.
+            TypeError: If the type returned by `lookup_fn` is incompatible with the
+                       `unit_of_measure` or calculation logic.
         """
-        # Compute the base cash flow
-        base_flow = super().compute_cf(lookup_fn)
-        
-        # Apply growth rate adjustment if provided
-        if self.growth_rate is not None:
-            months = np.arange(len(base_flow))
-            growth_factors = np.power(1 + (self.growth_rate / 12), months)
-            base_flow = base_flow * growth_factors
+        calculated_flow: pd.Series
+        base_value_source: Optional[Union[float, int, pd.Series]] = None
 
-        # Apply occupancy adjustment if applicable
-        if occupancy_rate is not None and self.is_variable:
-            variable_ratio = self.variable_ratio
-            adjustment_ratio = (1 - variable_ratio) + variable_ratio * occupancy_rate
-            base_flow = base_flow * adjustment_ratio
+        if self.reference is not None:
+            if lookup_fn is None:
+                raise ValueError(f"Reference '{self.reference}' is set for MiscIncome '{self.name}', but no lookup_fn was provided.")
+            
+            looked_up_value = lookup_fn(self.reference)
+            
+            if isinstance(looked_up_value, pd.Series):
+                # --- Handle Reference to Aggregate (Series) --- 
+                base_series = looked_up_value
+                
+                # Apply unit_of_measure logic (% or Factor of the aggregate series)
+                if self.unit_of_measure == UnitOfMeasureEnum.BY_PERCENT and isinstance(self.value, (float, int)):
+                    calculated_flow = base_series * (self.value / 100.0)
+                elif self.unit_of_measure == UnitOfMeasureEnum.BY_FACTOR and isinstance(self.value, (float, int)):
+                     calculated_flow = base_series * self.value
+                elif self.unit_of_measure == UnitOfMeasureEnum.AMOUNT:
+                      # Fall back to standard compute_cf if UoM is AMOUNT but ref is Series
+                      calculated_flow = super().compute_cf(lookup_fn=lookup_fn)
+                      print(f"Warning: MiscIncome '{self.name}' referenced an aggregate series '{self.reference}' but UnitOfMeasure was '{self.unit_of_measure}'. Using standard value calculation.")
+                else: 
+                    raise TypeError(f"MiscIncome '{self.name}' referenced an aggregate series '{self.reference}' with an unsupported UnitOfMeasure '{self.unit_of_measure}'.")
+                
+                # Ensure index alignment if MiscIncome has its own timeline
+                if hasattr(self, 'timeline') and self.timeline is not None:
+                    target_periods = self.timeline.period_index
+                    calculated_flow = calculated_flow.reindex(target_periods, fill_value=0.0)
+                
+                base_value_source = looked_up_value
+
+            elif isinstance(looked_up_value, (float, int, str, date, dict)): 
+                # --- Handle Reference to Scalar or compatible type --- 
+                calculated_flow = super().compute_cf(lookup_fn=lookup_fn)
+                base_value_source = looked_up_value
+            else:
+                 raise TypeError(f"MiscIncome '{self.name}' received an unexpected type ({type(looked_up_value)}) from lookup_fn for reference '{self.reference}'.")
+        else:
+            # --- No Reference --- 
+            calculated_flow = super().compute_cf(lookup_fn=lookup_fn)
+
+        # --- Apply Adjustments (Growth, Occupancy) --- 
         
-        return base_flow
+        # Apply growth rate adjustment.
+        if self.growth_rate is not None:
+            if pd.api.types.is_numeric_dtype(calculated_flow):
+                months = np.arange(len(calculated_flow))
+                annual_growth_rate = float(self.growth_rate)
+                growth_factors = np.power(1 + (annual_growth_rate / 12), months)
+                calculated_flow = calculated_flow * growth_factors
+            else:
+                 print(f"Warning: Cannot apply growth rate to non-numeric series for MiscIncome '{self.name}'.")
+
+        # Apply occupancy adjustment if applicable.
+        if occupancy_rate is not None and self.is_variable:
+             if pd.api.types.is_numeric_dtype(calculated_flow) and self.variable_ratio is not None:
+                 variable_ratio = self.variable_ratio
+                 fixed_ratio = 1.0 - variable_ratio
+                 current_occupancy = float(occupancy_rate)
+                 # For income, adjustment increases with occupancy
+                 adjustment_ratio = fixed_ratio + (variable_ratio * current_occupancy) 
+                 calculated_flow = calculated_flow * adjustment_ratio
+             else:
+                 print(f"Warning: Cannot apply occupancy adjustment to non-numeric series or missing variable_ratio for MiscIncome '{self.name}'.")
+        
+        return calculated_flow
 
 
 class MiscIncomeCollection(Model):

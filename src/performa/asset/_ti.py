@@ -11,7 +11,16 @@ class TenantImprovementAllowance(CashFlowModel):
     """
     Represents tenant improvement allowance provided by landlord.
     
-    Extends CashFlowModel to leverage existing cash flow calculation capabilities.
+    Extends CashFlowModel. The base `compute_cf` method is used to determine the 
+    *total* TI amount, potentially based on a `reference` (e.g., to Property area 
+    if TI is $/SF, or an aggregate if TI is % of something, though less common).
+    The overridden `compute_cf` then distributes this total amount based on payment terms.
+    
+    The `reference` attribute, if a string, can refer to either:
+      - An attribute of the `Property` object (e.g., "net_rentable_area").
+      - The string value of an `AggregateLineKey` enum member.
+      The base `compute_cf` call within this class expects the lookup to return a scalar 
+      value or a type compatible with the `unit_of_measure` calculation for total amount.
     
     Attributes:
         category: Fixed as "Expense"

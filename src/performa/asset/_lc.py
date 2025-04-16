@@ -42,7 +42,16 @@ class LeasingCommission(CashFlowModel):
     """
     Represents leasing commissions paid to brokers.
     
-    Extends CashFlowModel to leverage existing cash flow calculation capabilities.
+    Extends CashFlowModel. The `compute_cf` method expects the `reference` 
+    attribute to point to the relevant rent series (e.g., via the Lease's model_id
+    or potentially an aggregate key if rent itself is aggregate-based, though less common).
+    The base `CashFlowModel.compute_cf` is used to resolve this reference and 
+    retrieve the rent series, which is then used for tier calculations.
+    
+    The `reference` attribute, if a string, can refer to either:
+      - An attribute of the `Property` object (unlikely for LC calculation base).
+      - The string value of an `AggregateLineKey` enum member.
+      The base `compute_cf` expects the lookup to return a pandas Series representing rent.
     
     Attributes:
         category: Fixed as "Expense"

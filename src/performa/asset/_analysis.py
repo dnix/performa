@@ -9,7 +9,7 @@ import pandas as pd
 from pydantic import Field
 
 from ..core._cash_flow import CashFlowModel
-from ..core._enums import ExpenseSubcategoryEnum
+from ..core._enums import AggregateLineKey, ExpenseSubcategoryEnum
 from ..core._model import Model
 from ..core._settings import GlobalSettings
 from ..core._timeline import Timeline
@@ -55,7 +55,7 @@ class CashFlowAnalysis(Model):
     # NOTE: Basic caching implemented. Assumes inputs are immutable after instantiation.
     # TODO: Implement more robust cache invalidation if inputs can change.
     _cached_detailed_flows: Optional[List[Tuple[Dict, pd.Series]]] = None
-    _cached_aggregated_flows: Optional[Dict[str, pd.Series]] = None
+    _cached_aggregated_flows: Optional[Dict[AggregateLineKey, pd.Series]] = None
     _cached_cash_flow_dataframe: Optional[pd.DataFrame] = None
     _cached_detailed_cash_flow_dataframe: Optional[pd.DataFrame] = None
     _cached_occupancy_series: Optional[pd.Series] = None
@@ -69,11 +69,12 @@ class CashFlowAnalysis(Model):
         ) -> Dict[UUID, Union[pd.Series, Dict[str, pd.Series]]]:
         """
         Internal helper: Compute cash flows using multi-pass iteration.
-
+        
         This method serves as a fallback when `graphlib.TopologicalSorter` detects
         a cycle in the model dependencies based on `model_id` references. It iteratively
         attempts to compute models until no further progress can be made or a maximum
-        number of passes is reached.
+        number of passes is reached. Aggregated cash flows are recalculated in each
+        pass to allow models to depend on them.
 
         Args:
             all_models: The list of all CashFlowModel instances to compute.
@@ -85,6 +86,9 @@ class CashFlowAnalysis(Model):
         """
         computed_results: Dict[UUID, Union[pd.Series, Dict[str, pd.Series]]] = {}
         remaining_models = {model.model_id: model for model in all_models}
+        model_map = {model.model_id: model for model in all_models} # Keep original map
+        analysis_periods = occupancy_series.index # Use occupancy index as timeline ref
+        current_aggregates: Dict[str, pd.Series] = {} # Store aggregates calculated each pass
         
         MAX_PASSES = len(all_models) + 1
         passes = 0
@@ -96,22 +100,42 @@ class CashFlowAnalysis(Model):
             models_computed_this_pass: List[UUID] = []
             lookup_errors_this_pass: Dict[UUID, str] = {}
 
-            # Define lookup function (Handles UUID and property strings ONLY)
+            # Define lookup function (Handles UUID, aggregate strings, and property strings)
             def lookup_fn_iterative(key: Union[str, UUID]) -> Union[float, pd.Series, Dict, Any]:
+                # This lookup is used in the multi-pass iterative computation.
                 if isinstance(key, UUID):
                     if key in computed_results:
                         return computed_results[key]
                     else:
-                        raise LookupError(f"Iterative: Dependency result for model ID {key} not yet computed.")
+                        # Should not happen if all_models is consistent, but handles edge cases
+                         raise LookupError(f"Iterative: Dependency result for model ID {key} is unknown (not computed or remaining).")
                 elif isinstance(key, str):
+                    # 1. Check if key matches an AggregateLineKey value
+                    matched_agg_key = AggregateLineKey.from_value(key)
+                        
+                    if matched_agg_key is not None:
+                        # Check aggregates from the *previous* pass (keyed by Enum member)
+                        if matched_agg_key in current_aggregates:
+                            return current_aggregates[matched_agg_key]
+                        else:
+                            # Aggregate key valid, but not calculated yet in previous pass
+                            raise LookupError(f"Iterative: Aggregate line '{key}' not yet available in pass {passes}.")
+                        
+                    # 2. Check Property attributes (if not an aggregate key)
                     if hasattr(self.property, key):
                         value = getattr(self.property, key)
-                        if isinstance(value, (int, float, pd.Series, Dict, str, date)): 
-                           return value
-                        else:
-                           raise TypeError(f"Iterative: Property attribute '{key}' has unsupported type {type(value)}.")
-                    else:
-                        raise LookupError(f"Iterative: Cannot resolve reference key '{key}' from property attributes.")
+                        # Validate that the retrieved property attribute has a simple, expected type
+                        if isinstance(value, (int, float, str, date)): 
+                            return value
+                        else: 
+                            # Raise error if property attribute is a complex object or unexpected type
+                            raise TypeError(f"Iterative: Property attribute '{key}' has unexpected type {type(value)}. Expected simple scalar/string/date.")
+                    # If not found in property attributes, raise error
+                    else: 
+                        raise LookupError(
+                            f"Iterative: Cannot resolve string reference '{key}' in pass {passes}. "
+                            f"It is not a resolved AggregateLineKey or a known Property attribute."
+                        )
                 else:
                     raise TypeError(f"Iterative: Unsupported lookup key type: {type(key)}")
 
@@ -133,6 +157,43 @@ class CashFlowAnalysis(Model):
 
             for computed_id in models_computed_this_pass:
                 remaining_models.pop(computed_id, None)
+
+            # --- Recalculate Aggregates for the NEXT pass ---
+            # Process current computed results into detailed flow format for aggregation
+            detailed_flows_this_pass: List[Tuple[Dict, pd.Series]] = []
+            for res_model_id, result in computed_results.items():
+                 original_model = model_map.get(res_model_id) 
+                 if not original_model: continue 
+                 results_to_process: Dict[str, pd.Series] = {}
+                 if isinstance(result, pd.Series): results_to_process = {"value": result}
+                 elif isinstance(result, dict): results_to_process = result
+                 else: continue # Skip unexpected types
+
+                 for component_name, series in results_to_process.items():
+                     if not isinstance(series, pd.Series): continue
+                     try:
+                         # Align index - crucial for aggregation
+                         if not isinstance(series.index, pd.PeriodIndex):
+                              if isinstance(series.index, pd.DatetimeIndex): series.index = series.index.to_period(freq='M')
+                              else: series.index = pd.PeriodIndex(series.index, freq='M')
+                         # Use the main analysis_periods derived earlier
+                         aligned_series = series.reindex(analysis_periods, fill_value=0.0) 
+                     except Exception: 
+                         # If alignment fails, we can't reliably aggregate this component in this pass
+                         continue 
+                    
+                     metadata = {
+                         "model_id": str(res_model_id),
+                         "name": original_model.name,
+                         "category": original_model.category,
+                         "subcategory": str(original_model.subcategory),
+                         "component": component_name,
+                     }
+                     detailed_flows_this_pass.append((metadata, aligned_series))
+            
+            # Calculate aggregates based on *all* results computed *so far*
+            current_aggregates = self._aggregate_detailed_flows(detailed_flows_this_pass)
+            # End of Pass Aggregation
 
         if remaining_models:
             print(f"Warning (Iterative): Could not compute all models after {passes} passes.")
@@ -276,17 +337,40 @@ class CashFlowAnalysis(Model):
             
             # --- Define Lookup Function ---
             def lookup_fn(key: Union[str, UUID]) -> Union[float, pd.Series, Dict, Any]:
-                # TODO: Enhance lookup_fn? Allow referencing aggregates (e.g., "Total Revenue")? Careful with cycles/state.
+                # This lookup is used in the single-pass (DAG) computation.
+                # It should NOT resolve aggregate keys, as those imply cycles.
                 if isinstance(key, UUID):
+                    # Look up previously computed results within this DAG pass
                     if key in computed_results: return computed_results[key]
-                    else: raise LookupError(f"Dependency result for model ID {key} not available.") 
+                    # If not found, it's an error in the DAG structure or definition
+                    else: raise LookupError(f"(DAG Path) Dependency result for model ID {key} not available.") 
                 elif isinstance(key, str):
+                    # Check if the string key matches a known Aggregate Line Key
+                    matched_agg_key = AggregateLineKey.from_value(key)
+                    if matched_agg_key is not None:
+                        # If successful, raise error: aggregates shouldn't be needed in DAG path
+                        raise LookupError(
+                            f"(DAG Path) Attempted to look up aggregate line '{key}'. "
+                            f"This indicates a dependency cycle requiring iterative calculation. "
+                            # f"Model requesting: {model.name} ({model_id})" # model is not in scope here
+                        )
+                        
+                    # Check Property attributes
                     if hasattr(self.property, key):
                         value = getattr(self.property, key)
-                        if isinstance(value, (int, float, pd.Series, Dict, str, date)): return value
-                        else: raise TypeError(f"Property attribute '{key}' has unsupported type {type(value)}.")
-                    else: raise LookupError(f"Cannot resolve reference key '{key}'.")
-                else: raise TypeError(f"Unsupported lookup key type: {type(key)}")
+                        # Validate that the retrieved property attribute has a simple, expected type
+                        if isinstance(value, (int, float, str, date)): 
+                            return value
+                        else: 
+                            # Raise error if property attribute is a complex object or unexpected type
+                            raise TypeError(f"(DAG Path) Property attribute '{key}' has unexpected type {type(value)}. Expected simple scalar/string/date.")
+                    # If not found as Aggregate or Property attribute, raise specific error
+                    else: 
+                        raise LookupError(
+                            f"(DAG Path) Cannot resolve string reference '{key}'. "
+                            f"It is not a valid AggregateLineKey value or a known Property attribute."
+                        )
+                else: raise TypeError(f"(DAG Path) Unsupported lookup key type: {type(key)}")
 
             # --- Attempt Topological Sort ---
             try:
@@ -343,51 +427,127 @@ class CashFlowAnalysis(Model):
         
         return self._cached_detailed_flows
 
-    def _aggregate_detailed_flows(self, detailed_flows: List[Tuple[Dict, pd.Series]]) -> Dict[str, pd.Series]:
-        """Aggregates detailed flows into standard financial line items."""
+    def _aggregate_detailed_flows(self, detailed_flows: List[Tuple[Dict, pd.Series]]) -> Dict[AggregateLineKey, pd.Series]:
+        """Aggregates detailed flows into standard financial line items using AggregateLineKey."""
+        # TODO: Incorporate GENERAL_VACANCY_LOSS and RENTAL_ABATEMENT when implemented
         # TODO: Allow for more flexible aggregation rules or custom groupings?
         analysis_periods = self._create_timeline().period_index # Get timeline for initialization
-        aggregate_keys = [ "Total Revenue", "Total OpEx", "Total CapEx", "Total TI Allowance", "Total Leasing Commission" ]
-        aggregated_flows: Dict[str, pd.Series] = { key: pd.Series(0.0, index=analysis_periods) for key in aggregate_keys }
+        
+        # Initialize all keys from the enum with zero series
+        aggregated_flows: Dict[AggregateLineKey, pd.Series] = {
+            key: pd.Series(0.0, index=analysis_periods, name=key.value) 
+            for key in AggregateLineKey
+        }
 
+        # --- Pass 1: Sum detailed flows into RAW intermediate keys --- 
         for metadata, series in detailed_flows:
             category = metadata["category"]
             subcategory = metadata["subcategory"] # Already stringified
             component = metadata["component"]
-            target_aggregate_key: Optional[str] = None
+            target_aggregate_key: Optional[AggregateLineKey] = None
 
-            # Map based on metadata
+            # Map detailed flows to the appropriate RAW aggregate key
             if category == "Revenue":
-                if component in ("base_rent", "recoveries", "value"): # 'value' for MiscIncome
-                    target_aggregate_key = "Total Revenue"
+                if component in ("base_rent", "value"): # 'value' for MiscIncome? Needs review.
+                    # TODO: Distinguish Base Rent (for PGR) and Misc Income?
+                    # For now, lump into Raw Revenue. PGR/Misc separation needed later.
+                    target_aggregate_key = AggregateLineKey._RAW_TOTAL_REVENUE
+                elif component == "recoveries":
+                    target_aggregate_key = AggregateLineKey._RAW_TOTAL_RECOVERIES
+                # TODO: Handle RENTAL_ABATEMENT component if added to Lease output
+
             elif category == "Expense":
-                 # Check subcategory using string representation from metadata
                  if subcategory == str(ExpenseSubcategoryEnum.OPEX) and component == "value":
-                     target_aggregate_key = "Total OpEx"
+                     target_aggregate_key = AggregateLineKey._RAW_TOTAL_OPEX
                  elif subcategory == str(ExpenseSubcategoryEnum.CAPEX) and component == "value":
-                     target_aggregate_key = "Total CapEx"
-                 # Check specific components from Lease dictionary output
+                     target_aggregate_key = AggregateLineKey._RAW_TOTAL_CAPEX
+                 # Check specific components from Lease dictionary output (if applicable)
                  elif component == "ti_allowance":
-                     target_aggregate_key = "Total TI Allowance"
+                     target_aggregate_key = AggregateLineKey._RAW_TOTAL_TI
                  elif component == "leasing_commission":
-                     target_aggregate_key = "Total Leasing Commission"
+                     target_aggregate_key = AggregateLineKey._RAW_TOTAL_LC
             
             # Add to the target aggregate series if found
-            if target_aggregate_key and target_aggregate_key in aggregated_flows:
-                 # Series should already be aligned from _compute_detailed_flows
-                 aggregated_flows[target_aggregate_key] = aggregated_flows[target_aggregate_key].add(series, fill_value=0.0)
+            if target_aggregate_key is not None:
+                 # Ensure series index matches (should already be aligned)
+                 safe_series = series.reindex(analysis_periods, fill_value=0.0)
+                 aggregated_flows[target_aggregate_key] = aggregated_flows[target_aggregate_key].add(safe_series, fill_value=0.0)
             # else: # Optional: Warn if a computed flow wasn't mapped to an aggregate
-            #     print(f"Debug: Flow {metadata['name']}/{component} not mapped to aggregate.")
+            #     print(f"Debug: Flow {metadata['name']}/{component} not mapped to RAW aggregate.")
 
-        return aggregated_flows
+        # --- Pass 2: Calculate standard lines from RAW aggregates and assumptions --- 
+        # Note: Assumes Vacancy/Abatement are zero for now.
+        # These calculations follow the standard real estate waterfall.
+        
+        # Copy raw sums to their final destinations if they represent the total
+        aggregated_flows[AggregateLineKey.TOTAL_OPERATING_EXPENSES] = aggregated_flows[AggregateLineKey._RAW_TOTAL_OPEX]
+        aggregated_flows[AggregateLineKey.TOTAL_CAPITAL_EXPENDITURES] = aggregated_flows[AggregateLineKey._RAW_TOTAL_CAPEX]
+        aggregated_flows[AggregateLineKey.TOTAL_TENANT_IMPROVEMENTS] = aggregated_flows[AggregateLineKey._RAW_TOTAL_TI]
+        aggregated_flows[AggregateLineKey.TOTAL_LEASING_COMMISSIONS] = aggregated_flows[AggregateLineKey._RAW_TOTAL_LC]
+        aggregated_flows[AggregateLineKey.EXPENSE_REIMBURSEMENTS] = aggregated_flows[AggregateLineKey._RAW_TOTAL_RECOVERIES]
+        # TODO: Separate Misc Income from Raw Revenue when detailed flows allow
+        aggregated_flows[AggregateLineKey.MISCELLANEOUS_INCOME] = pd.Series(0.0, index=analysis_periods) # Placeholder
+        aggregated_flows[AggregateLineKey.POTENTIAL_GROSS_REVENUE] = aggregated_flows[AggregateLineKey._RAW_TOTAL_REVENUE] # Placeholder - Assumes Raw = PGR
 
-    def _get_aggregated_flows(self) -> Dict[str, pd.Series]:
-        """Computes/retrieves detailed flows, then computes/retrieves aggregated flows."""
+        # Placeholder for Vacancy and Abatement (needs proper calculation model)
+        aggregated_flows[AggregateLineKey.GENERAL_VACANCY_LOSS] = pd.Series(0.0, index=analysis_periods) # Placeholder
+        aggregated_flows[AggregateLineKey.RENTAL_ABATEMENT] = pd.Series(0.0, index=analysis_periods) # Placeholder
+
+        # Calculate Effective Gross Revenue (EGR)
+        aggregated_flows[AggregateLineKey.EFFECTIVE_GROSS_REVENUE] = (
+            aggregated_flows[AggregateLineKey.POTENTIAL_GROSS_REVENUE]
+            + aggregated_flows[AggregateLineKey.MISCELLANEOUS_INCOME]
+            - aggregated_flows[AggregateLineKey.RENTAL_ABATEMENT] 
+            # Note: Vacancy is subtracted *after* EGR to get Total EGI
+        )
+
+        # Calculate Total Effective Gross Income (Total EGI)
+        aggregated_flows[AggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME] = (
+            aggregated_flows[AggregateLineKey.EFFECTIVE_GROSS_REVENUE]
+            - aggregated_flows[AggregateLineKey.GENERAL_VACANCY_LOSS]
+            + aggregated_flows[AggregateLineKey.EXPENSE_REIMBURSEMENTS]
+        )
+
+        # Calculate Net Operating Income (NOI)
+        aggregated_flows[AggregateLineKey.NET_OPERATING_INCOME] = (
+            aggregated_flows[AggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME]
+            - aggregated_flows[AggregateLineKey.TOTAL_OPERATING_EXPENSES]
+        )
+
+        # Calculate Unlevered Cash Flow (UCF)
+        aggregated_flows[AggregateLineKey.UNLEVERED_CASH_FLOW] = (
+            aggregated_flows[AggregateLineKey.NET_OPERATING_INCOME]
+            - aggregated_flows[AggregateLineKey.TOTAL_TENANT_IMPROVEMENTS]
+            - aggregated_flows[AggregateLineKey.TOTAL_LEASING_COMMISSIONS]
+            - aggregated_flows[AggregateLineKey.TOTAL_CAPITAL_EXPENDITURES]
+        )
+
+        # Placeholder for Debt Service (Needs Debt Model Integration)
+        aggregated_flows[AggregateLineKey.TOTAL_DEBT_SERVICE] = pd.Series(0.0, index=analysis_periods) # Placeholder
+
+        # Calculate Levered Cash Flow (LCF)
+        aggregated_flows[AggregateLineKey.LEVERED_CASH_FLOW] = (
+            aggregated_flows[AggregateLineKey.UNLEVERED_CASH_FLOW]
+            - aggregated_flows[AggregateLineKey.TOTAL_DEBT_SERVICE]
+        )
+        
+        # Optional: Could remove internal _RAW keys before returning if desired
+        # final_aggregates = {k: v for k, v in aggregated_flows.items() if not AggregateLineKey.is_internal_key(k)}
+        # return final_aggregates
+
+        return aggregated_flows # Return the full dict including RAW keys for now
+
+    def _get_aggregated_flows(self) -> Dict[AggregateLineKey, pd.Series]:
+        """Computes/retrieves detailed flows, then computes/retrieves aggregated flows using Enum keys."""
         # Ensure detailed flows are computed and cached
+        # This will run _compute_detailed_flows which uses TS or MPI. 
+        # The MPI internally calculates aggregates for lookups, but the final 
+        # result here depends on the *final* detailed flows.
         detailed_flows = self._compute_detailed_flows() 
         
-        # Compute/cache aggregated flows from detailed flows
+        # Compute/cache aggregated flows from the *final* detailed flows
         if self._cached_aggregated_flows is None:
+            # This now returns Dict[AggregateLineKey, pd.Series]
             self._cached_aggregated_flows = self._aggregate_detailed_flows(detailed_flows)
             
         return self._cached_aggregated_flows
@@ -447,40 +607,49 @@ class CashFlowAnalysis(Model):
         Generates or retrieves a cached DataFrame of the property's cash flows.
 
         Columns include standard aggregated lines (Total Revenue, Total OpEx, etc.)
-        and calculated metrics (NOI, Unlevered Cash Flow). The index represents
-        monthly periods over the analysis timeline.
+        and calculated metrics (NOI, Unlevered Cash Flow), keyed by AggregateLineKey values.
+        The index represents monthly periods over the analysis timeline.
 
         Returns:
             A pandas DataFrame summarizing the property's cash flows.
         """
         if self._cached_cash_flow_dataframe is None:
-            flows = self._get_aggregated_flows()
-            # Calculate derived metrics using .get for safety
-            revenue = flows.get("Total Revenue", pd.Series(0.0, index=flows.get("Total Revenue", pd.Series()).index)) # Default to 0 series if key missing
-            opex = flows.get("Total OpEx", pd.Series(0.0, index=revenue.index))
-            capex = flows.get("Total CapEx", pd.Series(0.0, index=revenue.index))
-            ti = flows.get("Total TI Allowance", pd.Series(0.0, index=revenue.index))
-            lc = flows.get("Total Leasing Commission", pd.Series(0.0, index=revenue.index))
+            # _get_aggregated_flows now returns Dict[AggregateLineKey, pd.Series]
+            flows: Dict[AggregateLineKey, pd.Series] = self._get_aggregated_flows()
             
-            noi = revenue - opex
-            unlevered_cf = noi - capex - ti - lc
-            
-            # Define standard column order
+            # Define standard column order using Enum values for DataFrame columns
+            # Use AggregateLineKey.get_display_keys() potentially?
+            # For now, be explicit with the keys we want in the summary.
             column_order = [
-                "Total Revenue", "Total OpEx", "NOI", 
-                "Total CapEx", "Total TI Allowance", "Total Leasing Commission", 
-                "Unlevered Cash Flow"
+                AggregateLineKey.POTENTIAL_GROSS_REVENUE, 
+                AggregateLineKey.RENTAL_ABATEMENT,
+                AggregateLineKey.MISCELLANEOUS_INCOME,
+                AggregateLineKey.EFFECTIVE_GROSS_REVENUE,
+                AggregateLineKey.GENERAL_VACANCY_LOSS, 
+                AggregateLineKey.EXPENSE_REIMBURSEMENTS, 
+                AggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME, 
+                AggregateLineKey.TOTAL_OPERATING_EXPENSES, 
+                AggregateLineKey.NET_OPERATING_INCOME, 
+                AggregateLineKey.TOTAL_TENANT_IMPROVEMENTS, 
+                AggregateLineKey.TOTAL_LEASING_COMMISSIONS, 
+                AggregateLineKey.TOTAL_CAPITAL_EXPENDITURES, 
+                AggregateLineKey.UNLEVERED_CASH_FLOW,
+                AggregateLineKey.TOTAL_DEBT_SERVICE,
+                AggregateLineKey.LEVERED_CASH_FLOW,
             ]
             
-            all_lines = {
-                "Total Revenue": revenue, "Total OpEx": opex, "NOI": noi, 
-                "Total CapEx": capex, "Total TI Allowance": ti, 
-                "Total Leasing Commission": lc, "Unlevered Cash Flow": unlevered_cf 
-            }
+            # Create DataFrame using Enum values as column headers
+            # Ensure all keys exist in the flows dict, default to zero series if not
+            df_data = {}
+            ref_index = self._create_timeline().period_index # Use a reference index
+            for key in column_order:
+                df_data[key.value] = flows.get(key, pd.Series(0.0, index=ref_index, name=key.value))
             
-            # Create DataFrame with defined columns if they exist in all_lines
-            cf_df = pd.DataFrame({k: all_lines[k] for k in column_order if k in all_lines}, index=revenue.index)
+            cf_df = pd.DataFrame(df_data, index=ref_index)
+            # Order columns as defined above
+            cf_df = cf_df[[key.value for key in column_order]]
             cf_df.index.name = "Period"
+            
             self._cached_cash_flow_dataframe = cf_df
             
         return self._cached_cash_flow_dataframe
@@ -488,41 +657,60 @@ class CashFlowAnalysis(Model):
     def net_operating_income(self) -> pd.Series:
         """Calculates or retrieves the Net Operating Income (NOI) series."""
         cf_df = self.create_cash_flow_dataframe()
-        if "NOI" in cf_df.columns: return cf_df["NOI"]
-        else: flows = self._get_aggregated_flows(); return flows.get("Total Revenue", 0) - flows.get("Total OpEx", 0)
+        key = AggregateLineKey.NET_OPERATING_INCOME.value
+        if key in cf_df.columns:
+            return cf_df[key]
+        else: 
+            # Fallback if DataFrame doesn't have it (shouldn't happen now)
+            flows = self._get_aggregated_flows()
+            return flows.get(AggregateLineKey.NET_OPERATING_INCOME, pd.Series(0.0, index=self._create_timeline().period_index))
 
     def cash_flow_from_operations(self) -> pd.Series:
         """
         Calculates or retrieves the Cash Flow From Operations series.
         (Currently defined as Unlevered Cash Flow).
         """
-        cf_df = self.create_cash_flow_dataframe()
-        if "Unlevered Cash Flow" in cf_df.columns: return cf_df["Unlevered Cash Flow"]
-        else: raise NotImplementedError("Cannot calculate Cash Flow from Operations - UCF not available.")
+        # TODO: Revisit if this definition should change
+        return self.unlevered_cash_flow()
 
     def unlevered_cash_flow(self) -> pd.Series:
         """Calculates or retrieves the Unlevered Cash Flow (UCF) series."""
         cf_df = self.create_cash_flow_dataframe()
-        if "Unlevered Cash Flow" in cf_df.columns: return cf_df["Unlevered Cash Flow"]
-        else: raise NotImplementedError("Cannot calculate Unlevered Cash Flow - required components missing.")
+        key = AggregateLineKey.UNLEVERED_CASH_FLOW.value
+        if key in cf_df.columns:
+            return cf_df[key]
+        else: 
+            # Fallback
+            flows = self._get_aggregated_flows()
+            return flows.get(AggregateLineKey.UNLEVERED_CASH_FLOW, pd.Series(0.0, index=self._create_timeline().period_index))
 
     def debt_service(self) -> pd.Series:
         """
-        Calculates debt service (Placeholder: returns zeros).
+        Calculates debt service (Placeholder: returns the value from aggregated flows).
 
-        NOTE: This method currently returns a zero series. Full implementation requires
-              integration with debt financing models.
+        NOTE: Full implementation requires integration with debt financing models.
+              Currently returns the placeholder value calculated during aggregation.
               
         Returns:
-            A pandas Series of zeros indexed by the analysis period.
+            A pandas Series representing debt service.
         """
-        # FIXME: Implement actual debt service calculation.
-        analysis_timeline = self._create_timeline()
-        return pd.Series(0.0, index=analysis_timeline.period_index, name="Debt Service")
+        # FIXME: Implement actual debt service calculation based on Debt Models.
+        # For now, return the placeholder value calculated in _aggregate_detailed_flows
+        flows = self._get_aggregated_flows()
+        return flows.get(AggregateLineKey.TOTAL_DEBT_SERVICE, pd.Series(0.0, index=self._create_timeline().period_index))
     
     def levered_cash_flow(self) -> pd.Series:
-        """Calculates Levered Cash Flow (Unlevered CF - Debt Service)."""
-        ucf = self.unlevered_cash_flow()
-        ds = self.debt_service() 
-        aligned_ucf, aligned_ds = ucf.align(ds, join='left', fill_value=0.0)
-        return aligned_ucf - aligned_ds
+        """Calculates Levered Cash Flow (UCF - Debt Service)."""
+        cf_df = self.create_cash_flow_dataframe()
+        ucf_key = AggregateLineKey.UNLEVERED_CASH_FLOW.value
+        ds_key = AggregateLineKey.TOTAL_DEBT_SERVICE.value
+        
+        if ucf_key in cf_df.columns and ds_key in cf_df.columns:
+             # Align handled by DataFrame construction now
+             return cf_df[ucf_key] - cf_df[ds_key]
+        else:
+            # Fallback
+            ucf = self.unlevered_cash_flow()
+            ds = self.debt_service() 
+            aligned_ucf, aligned_ds = ucf.align(ds, join='left', fill_value=0.0)
+            return aligned_ucf - aligned_ds

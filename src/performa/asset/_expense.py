@@ -1,16 +1,28 @@
-from typing import Callable, Dict, List, Optional, Union
+from datetime import date
+from typing import Any, Callable, Dict, List, Optional, Union
+from uuid import UUID
 
 import numpy as np
 import pandas as pd
 
 from ..core._cash_flow import CashFlowModel
-from ..core._enums import ExpenseSubcategoryEnum
+from ..core._enums import ExpenseSubcategoryEnum, UnitOfMeasureEnum
 from ..core._model import Model
 from ..core._types import FloatBetween0And1, PositiveFloat
 
 
 class ExpenseItem(CashFlowModel):
-    """Base class for all expense items."""
+    """
+    Base class for all expense items.
+    
+    Inherits from CashFlowModel and includes standard attributes like `value`, 
+    `timeline`, `unit_of_measure`, `reference`, etc.
+    
+    The `reference` attribute, if a string, can refer to either:
+      - An attribute of the `Property` object (e.g., "net_rentable_area").
+      - The string value of an `AggregateLineKey` enum member (e.g., "Total Effective Gross Income").
+      Handling of the looked-up value depends on the `compute_cf` implementation.
+    """
     category: str = "Expense"  # TODO: enum?
     subcategory: ExpenseSubcategoryEnum  # NOTE: instead of expense_kind
     parent_item: Optional[str] = None  # For optional grouping
@@ -41,38 +53,126 @@ class OpExItem(ExpenseItem):
     def compute_cf(
         self,
         occupancy_rate: Optional[float] = None,
-        lookup_fn: Optional[Callable[[str], Union[float, pd.Series]]] = None
+        lookup_fn: Optional[Callable[[Union[str, UUID]], Union[float, int, str, date, pd.Series, Dict, Any]]] = None
     ) -> pd.Series:
         """
-        Compute the cash flow for the operating expense with optional occupancy and growth adjustments.
+        Compute the cash flow for the operating expense.
         
-        The base cash flow is computed using the parent's logic where `value`
-        represents the annual cost.
-        
-        - If a growth rate is provided, growth is applied to the cash flow series starting from the first value.
-          For each subsequent month, the value is multiplied by:
-              (1 + growth_rate/12)^(months_since_start)
+        Handles base value calculation (potentially using `reference` lookup),
+        growth rate application, and occupancy adjustments.
 
-        - If an occupancy rate is provided and the expense is variable, the cash flow is adjusted as:
-              adjusted_cost = value * [(1 - p) + p * occupancy_rate]
-          where p is the fraction of the expense that is variable.
-        """
-        # Compute the base cash flow using the parent method.
-        base_flow = super().compute_cf(lookup_fn)
+        If `self.reference` is set and `lookup_fn` is provided:
+          - If the lookup returns a pd.Series (e.g., an AggregateLineKey value):
+            Uses the series as the base, potentially applying unit_of_measure 
+            factors (like percentage).
+          - If the lookup returns a scalar: 
+            Passes the lookup to `super().compute_cf` to handle scalar-based 
+            calculations (e.g., $/Unit based on property area).
+        If `self.reference` is not set, calculates based on `self.value` and `self.timeline`.
         
-        # Apply growth rate adjustment if provided.
+        Args:
+            occupancy_rate: Optional occupancy rate (as a float, typically 0-1) 
+                            to adjust variable portions of the expense.
+            lookup_fn: Function provided by the analysis engine to resolve 
+                       references (UUIDs, property attributes, or AggregateLineKeys).
+                       
+        Returns:
+            A pandas Series representing the monthly cash flow for this expense item.
+            
+        Raises:
+            ValueError: If `reference` is set but `lookup_fn` is not provided.
+            TypeError: If the type returned by `lookup_fn` is incompatible with the
+                       `unit_of_measure` or calculation logic.
+        """
+        calculated_flow: pd.Series
+        base_value_source: Optional[Union[float, int, pd.Series]] = None
+
+        if self.reference is not None:
+            if lookup_fn is None:
+                raise ValueError(f"Reference '{self.reference}' is set for OpExItem '{self.name}', but no lookup_fn was provided.")
+            
+            looked_up_value = lookup_fn(self.reference)
+            
+            if isinstance(looked_up_value, pd.Series):
+                # --- Handle Reference to Aggregate (Series) --- 
+                # Assume the looked_up_value is the base series (e.g., Total Revenue)
+                base_series = looked_up_value
+                
+                # Apply unit_of_measure logic if it involves the reference
+                # Example: If OpEx is 5% of Total Revenue
+                if self.unit_of_measure == UnitOfMeasureEnum.BY_PERCENT and isinstance(self.value, (float, int)):
+                    calculated_flow = base_series * (self.value / 100.0)
+                elif self.unit_of_measure == UnitOfMeasureEnum.BY_FACTOR and isinstance(self.value, (float, int)):
+                     calculated_flow = base_series * self.value
+                # TODO: Add handling for other UnitOfMeasureEnum cases if they can logically apply to a Series reference
+                # If unit_of_measure is AMOUNT or PER_UNIT, referencing a Series doesn't make sense?
+                # For now, assume direct use or %/Factor
+                elif self.unit_of_measure == UnitOfMeasureEnum.AMOUNT:
+                     # If value is an amount, does referencing a series make sense? Maybe use self.value directly?
+                     # Let's assume for now OpEx defined as % or Factor of an aggregate uses that logic,
+                     # otherwise, if reference is a series but UoM isn't %/Factor, it's ambiguous.
+                     # We will fall back to the standard compute_cf which expects self.value as the primary driver.
+                      calculated_flow = super().compute_cf(lookup_fn=lookup_fn) # Re-call super, letting it handle self.value
+                      print(f"Warning: OpExItem '{self.name}' referenced an aggregate series '{self.reference}' but UnitOfMeasure was '{self.unit_of_measure}'. Using standard value calculation.")
+                else: 
+                    # Default case if reference is Series but UoM isn't handled above
+                    # This might indicate an unsupported configuration
+                    raise TypeError(f"OpExItem '{self.name}' referenced an aggregate series '{self.reference}' with an unsupported UnitOfMeasure '{self.unit_of_measure}'.")
+                
+                # Ensure index alignment with the analysis timeline (important!) 
+                # We need the timeline from the model itself if available, otherwise it's hard to align.
+                if hasattr(self, 'timeline') and self.timeline is not None:
+                    target_periods = self.timeline.period_index
+                    calculated_flow = calculated_flow.reindex(target_periods, fill_value=0.0)
+                else:
+                    # If the OpExItem itself doesn't have a timeline, aligning the referenced series is ambiguous.
+                    # The analysis layer should handle final alignment. We pass the raw calculation.
+                    pass 
+                
+                base_value_source = looked_up_value # Store for potential later use/debugging
+
+            elif isinstance(looked_up_value, (float, int, str, date, dict)): 
+                # --- Handle Reference to Scalar or compatible type --- 
+                # Let the parent CashFlowModel compute_cf handle scalar references 
+                # (e.g., property area for $/Unit calculations)
+                calculated_flow = super().compute_cf(lookup_fn=lookup_fn)
+                base_value_source = looked_up_value
+            else:
+                 raise TypeError(f"OpExItem '{self.name}' received an unexpected type ({type(looked_up_value)}) from lookup_fn for reference '{self.reference}'.")
+        else:
+            # --- No Reference --- 
+            # Compute the base cash flow using the parent method based on self.value/timeline
+            calculated_flow = super().compute_cf(lookup_fn=lookup_fn)
+
+        # --- Apply Adjustments (Growth, Occupancy) --- 
+        
+        # Apply growth rate adjustment to the calculated flow.
         if self.growth_rate is not None:
-            months = np.arange(len(base_flow))
-            growth_factors = np.power(1 + (self.growth_rate / 12), months)
-            base_flow = base_flow * growth_factors
+            # Ensure we are working with a numeric series
+            if pd.api.types.is_numeric_dtype(calculated_flow):
+                months = np.arange(len(calculated_flow))
+                # Ensure growth rate is treated as float for division
+                annual_growth_rate = float(self.growth_rate)
+                growth_factors = np.power(1 + (annual_growth_rate / 12), months)
+                # Apply growth factor
+                calculated_flow = calculated_flow * growth_factors
+            else:
+                print(f"Warning: Cannot apply growth rate to non-numeric series for OpExItem '{self.name}'.")
 
         # Apply occupancy adjustment if applicable.
         if occupancy_rate is not None and self.is_variable:
-            variable_ratio = self.variable_ratio  # e.g., 0.3 for 30% variability
-            adjustment_ratio = (1 - variable_ratio) + variable_ratio * occupancy_rate
-            base_flow = base_flow * adjustment_ratio
+             # Ensure we are working with a numeric series
+             if pd.api.types.is_numeric_dtype(calculated_flow) and self.variable_ratio is not None:
+                 variable_ratio = self.variable_ratio  # e.g., 0.3 for 30% variability
+                 fixed_ratio = 1.0 - variable_ratio
+                 # Ensure occupancy_rate is float
+                 current_occupancy = float(occupancy_rate)
+                 adjustment_ratio = fixed_ratio + (variable_ratio * current_occupancy)
+                 calculated_flow = calculated_flow * adjustment_ratio
+             else:
+                 print(f"Warning: Cannot apply occupancy adjustment to non-numeric series or missing variable_ratio for OpExItem '{self.name}'.")
         
-        return base_flow
+        return calculated_flow
 
 
 class CapExItem(ExpenseItem):

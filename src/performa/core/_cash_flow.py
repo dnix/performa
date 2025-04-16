@@ -68,11 +68,14 @@ class CashFlowModel(Model):
         reference (Optional[Union[float, pd.Series, str, UUID]]): Optional reference value or identifier
             used for relative calculations (e.g., PER_UNIT, BY_PERCENT).
             - float, pd.Series: Direct value used in calculation.
-            - str: Identifier expected to be resolved by `lookup_fn` against a known namespace
-              (e.g., property attributes like "net_rentable_area").
+            - str: Identifier expected to be resolved by `lookup_fn`. Can be:
+                - A property attribute name (e.g., "net_rentable_area").
+                - The string value of an `AggregateLineKey` enum member (e.g., "Net Operating Income").
             - UUID: The `model_id` of another `CashFlowModel` instance. `lookup_fn` is expected
-              to resolve this to the computed cash flow result of that other model instance.
-            The resolution logic is handled by the `lookup_fn` provided during computation.
+              to resolve this to the computed cash flow result (often a pd.Series) of that other model instance.
+            The resolution logic and handling of the returned type (scalar vs. Series) are handled
+            by the `lookup_fn` provided during computation and potentially overridden in the 
+            `compute_cf` method of subclasses.
     """
 
     # GENERAL
