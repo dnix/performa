@@ -24,6 +24,7 @@ from ..core._types import (
     PositiveFloat,
     PositiveInt,
 )
+from ._growth_rates import GrowthRate
 from ._lc import LeasingCommission
 from ._recovery import RecoveryMethod
 from ._rollover import RolloverLeaseTerms, RolloverProfile
@@ -1064,7 +1065,8 @@ class MiscIncome(CashFlowModel):
         category: Fixed as "Revenue"
         subcategory: Revenue subcategory (e.g., "Miscellaneous")
         variable_ratio: Portion of income that varies with occupancy (0-1)
-        growth_rate: Annual growth rate for income (e.g., 0.03 for 3% growth)
+        growth_rate: Growth profile for the income (Optional)
+        growth_start_date: Date from which growth starts applying (Optional)
     """
     category: str = "Revenue"
     subcategory: RevenueSubcategoryEnum = "Miscellaneous"
@@ -1073,7 +1075,8 @@ class MiscIncome(CashFlowModel):
     variable_ratio: Optional[FloatBetween0And1] = None
     
     # For growth calculation
-    growth_rate: Optional[FloatBetween0And1] = None
+    growth_rate: Optional[GrowthRate] = None
+    growth_start_date: Optional[date] = None
     
     # TODO: Add support for expense offsetting in recovery calculations
     # TODO: Add support for revenue sharing with tenants
@@ -1172,17 +1175,20 @@ class MiscIncome(CashFlowModel):
 
         # --- Apply Adjustments (Growth, Occupancy) --- 
         logger.debug("  Applying growth and occupancy adjustments.") # DEBUG: Adjustments start
-        # Apply growth rate adjustment.
+        # --- Apply Growth (Using Helper - Placeholder for Step 4) ---
         if self.growth_rate is not None:
-            if pd.api.types.is_numeric_dtype(calculated_flow):
-                months = np.arange(len(calculated_flow))
-                annual_growth_rate = float(self.growth_rate)
-                growth_factors = np.power(1 + (annual_growth_rate / 12), months)
-                calculated_flow = calculated_flow * growth_factors
-            else:
-                 # Log warning instead of print
-                 logger.warning(f"Cannot apply growth rate to non-numeric series for MiscIncome '{self.name}'.")
-
+            # Determine the start date for growth application
+            # Use the specific growth_start_date if provided, otherwise default to the item's timeline start
+            effective_growth_start = self.growth_start_date or self.timeline.start_date.to_timestamp().date()
+            logger.debug(f"  Applying growth profile '{self.growth_rate.name}' starting from {effective_growth_start}.")
+            calculated_flow = self._apply_compounding_growth(
+                base_series=calculated_flow,
+                growth_profile=self.growth_rate,
+                growth_start_date=effective_growth_start
+            )
+        else:
+             logger.debug("  No growth profile specified.")
+             
         # Apply occupancy adjustment if applicable.
         if occupancy_rate is not None and self.is_variable:
              if pd.api.types.is_numeric_dtype(calculated_flow) and self.variable_ratio is not None:

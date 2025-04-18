@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Union
 
 import pandas as pd
 from pydantic import field_validator
@@ -15,36 +15,40 @@ class GrowthRate(Model):
     Attributes:
         name: Name of the growth rate (e.g., "Market Rent Growth")
         value: The growth rate value(s), which can be:
-            - A single float value (constant rate)
-            - A pandas Series (time-based rates)
-            - A dictionary with date keys and rate values
-            - A list of rate values (corresponding to timeline periods)
+            - A single float value (constant **annual** rate, e.g., 0.02 for 2%)
+            - A pandas Series (time-based rates). The rates are assumed to be at the
+              frequency implied by the Series index (e.g., provide monthly rates if the index
+              is monthly). Index should be convertible to `pd.PeriodIndex`.
+            - A dictionary with date keys and rate values. Rates are assumed to be 
+              effective for the period containing the date key (typically monthly).
+              Keys should be convertible to `pd.PeriodIndex`.
     """
     name: str
-    value: Union[FloatBetween0And1, pd.Series, Dict[date, FloatBetween0And1], List[FloatBetween0And1]]
+    value: Union[FloatBetween0And1, pd.Series, Dict[date, FloatBetween0And1]]
     
     @field_validator("value")
     @classmethod
     def validate_value(
         cls, 
-        v: Union[FloatBetween0And1, pd.Series, Dict, List],
-    ) -> Union[FloatBetween0And1, pd.Series, Dict, List]:
+        v: Union[FloatBetween0And1, pd.Series, Dict],
+    ) -> Union[FloatBetween0And1, pd.Series, Dict]:
         """Validate that value has the correct format and constraints"""
         if isinstance(v, dict):
             # Ensure all dict values are between 0 and 1
             for key, rate in v.items():
+                if not isinstance(key, date):
+                     raise ValueError(f"Growth rate dictionary keys must be dates, got {type(key)}")
                 if not isinstance(rate, (int, float)) or not (0 <= rate <= 1):
                     raise ValueError(f"Growth rate for {key} must be between 0 and 1, got {rate}")
-        elif isinstance(v, list):
-            # Ensure all list values are between 0 and 1
-            for i, rate in enumerate(v):
-                if not isinstance(rate, (int, float)) or not (0 <= rate <= 1):
-                    raise ValueError(f"Growth rate at index {i} must be between 0 and 1, got {rate}")
         elif isinstance(v, pd.Series):
             # Ensure all series values are between 0 and 1
+            if not pd.api.types.is_numeric_dtype(v.dtype):
+                raise ValueError("Growth rate Series must have numeric values")
             if (v < 0).any() or (v > 1).any():
                 raise ValueError("Growth rates in Series must be between 0 and 1")
-                
+        elif not isinstance(v, (int, float)):
+             raise TypeError(f"Unsupported type for GrowthRate value: {type(v)}")
+
         return v
 
 
@@ -59,59 +63,22 @@ class GrowthRates(Model):
     leasing_costs_growth: GrowthRate
     capital_expense_growth: GrowthRate
 
-    def get_rate(self, name: str, date: date) -> FloatBetween0And1:
-        """
-        Get growth rate for a specific profile and date
-        
-        Args:
-            name: Name of the growth rate profile (e.g., "market_rent_growth")
-            date: The date to get the rate for
-            
-        Returns:
-            The growth rate value for the specified profile and date
-        """
-        profile = getattr(self, name)
-        
-        if isinstance(profile.value, (int, float)):
-            return profile.value
-        elif isinstance(profile.value, pd.Series):
-            # Try to find the closest date in the series
-            try:
-                period = pd.Period(date, freq="M")
-                if period in profile.value.index:
-                    return profile.value[period]
-                # Fall back to the default rate if date not found
-                return self.default_rate or 0.0
-            except Exception:
-                return self.default_rate or 0.0
-        elif isinstance(profile.value, dict):
-            # Try to get the exact date, or fall back to default
-            return profile.value.get(date, self.default_rate or 0.0)
-        elif isinstance(profile.value, list):
-            # Without context of which position in the list corresponds to which date,
-            # we can't reliably get a rate for a specific date from a list.
-            # This would require additional context like a timeline.
-            # Fall back to default rate
-            return self.default_rate or 0.0
-        
-        # Fallback
-        return self.default_rate or 0.0
-
     @classmethod
-    def with_default_rate(cls, default_rate: FloatBetween0And1 = 0.02) -> "GrowthRates":
+    def with_default_rate(cls, default_rate: FloatBetween0And1) -> "GrowthRates":
         """
         Create growth rates initialized with default values.
 
         Args:
-            default_rate: Default growth rate to use (defaults to 2%)
+            default_rate: Default growth rate to use
 
         Returns:
             GrowthRates instance with default values
         """
+
         return cls(
             default_rate=default_rate,
             general_growth=GrowthRate(
-                name="General", 
+                name="General",
                 value=default_rate
             ),
             market_rent_growth=GrowthRate(
@@ -137,7 +104,7 @@ class GrowthRates(Model):
         )
 
     @classmethod
-    def with_custom_rates(cls, extra_rates: Optional[Dict[str, GrowthRate]] = None, **default_fields) -> "GrowthRates":
+    def with_custom_rates(cls, extra_rates: Optional[Dict[str, GrowthRate]] = None, **default_rates) -> "GrowthRates":
         """
         Create a dynamic GrowthRates instance supporting arbitrary growth rate fields.
         
@@ -148,7 +115,8 @@ class GrowthRates(Model):
         Args:
             extra_rates: A dictionary where each key is the name of an extra growth rate and 
                          the value is a GrowthRate instance.
-            static_fields: Keyword arguments for setting/overriding the static GrowthRates fields.
+            default_rates: Keyword arguments for setting/overriding the static GrowthRates fields
+                           (including default_rate or standard growth types).
         
         Returns:
             An instance of a dynamically generated GrowthRates model with the extra fields included.
@@ -163,20 +131,40 @@ class GrowthRates(Model):
                 },
                 # Override a standard field
                 default_rate=0.025,
-                general_growth=GrowthRate(name="General", value=0.02)
+                market_rent_growth=GrowthRate(name="Market Rent Custom", value=0.035)
             )
             
             # Access both standard and custom fields with dot notation
-            print(custom_rates.general_growth.value)  # 0.02
+            print(custom_rates.market_rent_growth.value)  # 0.035
             print(custom_rates.inflation_rate.value)  # 0.03
+            print(custom_rates.default_rate) # 0.025
+            # Access an untouched default field
+            print(custom_rates.general_growth.value) # This would raise AttributeError unless provided in default_rates
             ```
         """
         from pydantic import create_model
+
         extra_rates = extra_rates or {}
+
+        # Validate extra_rates values are GrowthRate instances
+        for name, rate in extra_rates.items():
+            if not isinstance(rate, GrowthRate):
+                raise TypeError(f"Value for extra rate '{name}' must be a GrowthRate instance, got {type(rate)}")
+
+        # Prepare fields for the dynamic model creation
+        dynamic_fields = {name: (GrowthRate, ...) for name in extra_rates.keys()}
+
+        # Create the dynamic model class
         DynamicGrowthRates = create_model(
             "DynamicGrowthRates",
             __base__=cls,
-            **{name: (GrowthRate, rate) for name, rate in extra_rates.items()}
+            **dynamic_fields
         )
-        data = {**default_fields, **extra_rates}
-        return DynamicGrowthRates.parse_obj(data)
+
+        # Combine the provided default/static fields with the extra rates for instantiation
+        # Ensure that keys in extra_rates properly override any conflicting keys in default_rates
+        instance_data = {**default_rates, **extra_rates}
+
+        # Instantiate the dynamic model using the combined data
+        # Pydantic V2 uses model_validate
+        return DynamicGrowthRates.model_validate(instance_data)

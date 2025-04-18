@@ -3,13 +3,13 @@ from datetime import date
 from typing import Any, Callable, Dict, List, Optional, Union
 from uuid import UUID
 
-import numpy as np
 import pandas as pd
 
 from ..core._cash_flow import CashFlowModel
 from ..core._enums import ExpenseSubcategoryEnum, UnitOfMeasureEnum
 from ..core._model import Model
 from ..core._types import FloatBetween0And1, PositiveFloat
+from ._growth_rates import GrowthRate
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +35,8 @@ class ExpenseItem(CashFlowModel):
 class OpExItem(ExpenseItem):
     """Operating expenses like utilities"""
     subcategory: ExpenseSubcategoryEnum = "OpEx"
-    growth_rate: Optional[float] = None  # annual growth rate (e.g., 0.02 for 2% growth)
-    # TODO: future support lookup of GrowthRates instance
+    growth_rate: Optional[GrowthRate] = None  # Growth profile for the expense
+    growth_start_date: Optional[date] = None # Date from which growth starts applying
     # TODO: maybe growth rate is passed by orchestration layer too?
     # Occupancy rate will be provided by the orchestration layer via compute_cf parameters.
     variable_ratio: Optional[FloatBetween0And1] = None  # Default is not variable.
@@ -153,18 +153,19 @@ class OpExItem(ExpenseItem):
 
         # --- Apply Adjustments (Growth, Occupancy) --- 
         logger.debug("  Applying growth and occupancy adjustments.") # DEBUG: Adjustments start
-        # Apply growth rate adjustment to the calculated flow.
+        # --- Apply Growth (Using Helper - Placeholder for Step 4) ---
         if self.growth_rate is not None:
-            # Ensure we are working with a numeric series
-            if pd.api.types.is_numeric_dtype(calculated_flow):
-                months = np.arange(len(calculated_flow))
-                # Ensure growth rate is treated as float for division
-                annual_growth_rate = float(self.growth_rate)
-                growth_factors = np.power(1 + (annual_growth_rate / 12), months)
-                # Apply growth factor
-                calculated_flow = calculated_flow * growth_factors
-            else:
-                logger.warning(f"Cannot apply growth rate to non-numeric series for OpExItem '{self.name}'.")
+            # Determine the start date for growth application
+            # Use the specific growth_start_date if provided, otherwise default to the item's timeline start
+            effective_growth_start = self.growth_start_date or self.timeline.start_date.to_timestamp().date()
+            logger.debug(f"  Applying growth profile '{self.growth_rate.name}' starting from {effective_growth_start}.")
+            calculated_flow = self._apply_compounding_growth(
+                base_series=calculated_flow,
+                growth_profile=self.growth_rate,
+                growth_start_date=effective_growth_start
+            )
+        else:
+             logger.debug("  No growth profile specified.")
 
         # Apply occupancy adjustment if applicable.
         if occupancy_rate is not None and self.is_variable:

@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
+from datetime import date
 from typing import Callable, Dict, List, Optional, Union
 from uuid import UUID, uuid4
 
 import pandas as pd
 from pydantic import Field, FieldValidationInfo, field_validator
 
+from ..asset._growth_rates import GrowthRate
 from ..core._enums import FrequencyEnum, UnitOfMeasureEnum
 from ._model import Model
 from ._settings import GlobalSettings
@@ -305,3 +307,130 @@ class CashFlowModel(Model):
         monthly_value = self._convert_frequency(raw_value)
         cash_flow_series = self._cast_to_flow(monthly_value)
         return self.align_flow_series(cash_flow_series)
+
+    def _apply_compounding_growth(
+        self,
+        base_series: pd.Series,
+        growth_profile: GrowthRate,
+        growth_start_date: date
+    ) -> pd.Series:
+        """
+        Apply compounding growth to a base cash flow series.
+
+        Handles constant (annual float), pandas Series, and dictionary-based growth profiles.
+        The growth is applied month-over-month starting from the `growth_start_date`.
+
+        **Assumptions & Behavior:**
+        - Base series index must be a monthly `pd.PeriodIndex` or convertible to one.
+        - Constant float rates (`growth_profile.value`) are assumed to be **annual** and 
+          are automatically converted to monthly for compounding.
+        - Rates in `pd.Series` or `dict` values (`growth_profile.value`) are assumed 
+          to be **already at the intended frequency** for their respective periods (typically monthly).
+          The method aligns these to the base series' monthly timeline using forward-fill 
+          (filling NaNs before the first rate with 0%). No automatic annual-to-monthly 
+          conversion is performed for Series/Dict rates.
+        - Growth is applied starting from the **period containing** `growth_start_date`.
+        
+        Args:
+            base_series: The un-grown, period-indexed series (monthly).
+            growth_profile: The GrowthRate object containing the rate definition.
+            growth_start_date: The date from which compounding should begin.
+            
+        Returns:
+            A new pandas Series with compounding growth applied.
+            
+        Raises:
+            TypeError: If the growth_profile.value is an unsupported type.
+            ValueError: If base_series index is not a PeriodIndex.
+        """
+        if not isinstance(base_series.index, pd.PeriodIndex):
+            # Ensure the index is a PeriodIndex for reliable period arithmetic
+            try:
+                base_series.index = pd.PeriodIndex(base_series.index, freq='M')
+            except ValueError:
+                raise ValueError("Base series index must be convertible to a monthly PeriodIndex.")
+                
+        if not pd.api.types.is_numeric_dtype(base_series):
+             raise ValueError("Base series must have numeric dtype to apply growth.")
+
+        grown_series = base_series.copy()
+        periods = base_series.index
+        growth_start_period = pd.Period(growth_start_date, freq=periods.freq)
+        
+        # Create mask for periods on or after the growth start date
+        growth_mask = periods >= growth_start_period
+        
+        if not growth_mask.any():
+            return grown_series # No growth applicable within the series timeline
+
+        growth_value = growth_profile.value
+        
+        # --- Prepare Period-Based Growth Rates --- 
+        period_rates = pd.Series(0.0, index=periods) # Initialize with 0% growth
+        
+        if isinstance(growth_value, (float, int)):
+            # Constant annual rate - convert to monthly
+            monthly_rate = float(growth_value) / 12.0
+            period_rates[growth_mask] = monthly_rate
+        elif isinstance(growth_value, pd.Series):
+            # Align growth series to base series timeline (monthly)
+            aligned_rates = growth_value
+            # Ensure growth series index is PeriodIndex
+            if not isinstance(aligned_rates.index, pd.PeriodIndex):
+                 # Attempt conversion assuming date-like keys
+                 try:
+                      aligned_rates.index = pd.PeriodIndex(aligned_rates.index, freq='M')
+                 except Exception as e:
+                      raise ValueError("Growth Series index must be convertible to PeriodIndex.") from e
+            # Reindex and forward-fill rates
+            aligned_rates = aligned_rates.reindex(periods, method='ffill')
+            aligned_rates = aligned_rates.fillna(0.0) # Fill any remaining NaNs (e.g., before first rate) with 0%
+            # Convert annual rates in series to monthly if necessary (Assume annual if not specified otherwise? Needs clarification or explicit flag in GrowthRate)
+            # **Decision:** Assume rates in Series/Dict are *already at the intended frequency* (e.g., monthly if index is monthly). 
+            # If annual rates are provided in a Series, they should be pre-converted to monthly.
+            # annual_to_monthly_factor = 1/12 # Example if conversion was needed
+            period_rates[growth_mask] = aligned_rates[growth_mask] # * annual_to_monthly_factor 
+        elif isinstance(growth_value, dict):
+            # Convert dict to series and align
+            try:
+                 dict_series = pd.Series(growth_value)
+                 dict_series.index = pd.PeriodIndex(dict_series.index, freq='M')
+            except Exception as e:
+                 raise ValueError("Growth Dict keys must be convertible to PeriodIndex.") from e
+            # Reindex and forward-fill rates
+            aligned_rates = dict_series.reindex(periods, method='ffill')
+            aligned_rates = aligned_rates.fillna(0.0)
+            # Assume rates are already monthly if dict keys are dates/periods
+            period_rates[growth_mask] = aligned_rates[growth_mask]
+        else:
+            raise TypeError(f"Unsupported type for GrowthRate value: {type(growth_value)}")
+            
+        # --- Apply Compounding Growth --- 
+        # Calculate period-over-period growth factors (1 + monthly_rate)
+        growth_factors = 1.0 + period_rates
+        
+        # Calculate cumulative growth factors starting from the growth_start_period
+        # Initialize cumulative factor series
+        cumulative_factors = pd.Series(1.0, index=periods)
+
+        # Find the integer index location of the start period
+        try:
+            start_idx_loc = periods.get_loc(growth_start_period)
+        except KeyError:
+             # Start period is outside the series index, no growth applies
+             return grown_series 
+
+        # Iterate from the start index location
+        for i in range(start_idx_loc, len(periods)):
+            if i == start_idx_loc:
+                # First period's factor is just (1 + rate[start_idx_loc])
+                cumulative_factors.iloc[i] = growth_factors.iloc[i]
+            else:
+                # Subsequent periods: previous cumulative factor * current period factor
+                cumulative_factors.iloc[i] = cumulative_factors.iloc[i-1] * growth_factors.iloc[i]
+
+        # Apply cumulative factors only to periods on or after the start date
+        # The factor for periods *before* start_idx_loc remains 1.0
+        grown_series[growth_mask] = base_series[growth_mask] * cumulative_factors[growth_mask]
+        
+        return grown_series
