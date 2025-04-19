@@ -201,20 +201,19 @@ class UnitOfMeasureEnum(str, Enum):
     Units for amounts.
 
     Options:
-        AMOUNT: Absolute dollar amount
-        PER_UNIT: Dollars per unit
-        BY_FACTOR: Factor of a reference amount
-        BY_PERCENT: Percentage of a reference amount
+        CURRENCY: Absolute currency amount (e.g., total dollars)
+        PER_UNIT: Amount per defined unit (e.g., $/sqft, $/unit)
+        BY_FACTOR: Factor relative to a reference amount (e.g., 1.1x)
+        BY_PERCENT: Percentage relative to a reference amount (e.g., 5% of EGI)
     """
 
-    # FIXME: let's standardize this (and in development) to use unitized with another enum for unit type
     # amount (direct amt, as in $/yr or $/mo)
-    AMOUNT = "$"  # TODO: rename CURRENCY
+    CURRENCY = "currency"  # Formerly AMOUNT / $
     # unitized (usually, $/sf or $/unit)
-    PER_UNIT = "$/Unit"
+    PER_UNIT = "per_unit" # Formerly "$/Unit"
     # by factor (compared to a reference) or percentage
-    BY_FACTOR = "Factor"  # e.g. 1.25, 0.85, etc. of a reference amount
-    BY_PERCENT = "%"  # e.g. % of a reference amount (e.g. % of EGR, % of Line, etc.)
+    BY_FACTOR = "factor"  # Formerly "Factor"
+    BY_PERCENT = "percent"  # Formerly "%"
 
 
 class UnitOfMeasureTypeEnum(str, Enum):
@@ -251,12 +250,12 @@ class FrequencyEnum(str, Enum):
     Options:
         MONTHLY: Monthly
         QUARTERLY: Quarterly
-        YEARLY: Yearly
+        ANNUAL: Yearly / Annually
     """
 
     MONTHLY = "monthly"
     QUARTERLY = "quarterly"
-    YEARLY = "yearly"
+    ANNUAL = "annual" # Formerly YEARLY / yearly
 
 class UponExpirationEnum(str, Enum):
     """

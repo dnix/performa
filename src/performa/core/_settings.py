@@ -1,67 +1,144 @@
 from enum import Enum
 from typing import Literal, Optional
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from ._enums import FrequencyEnum
 from ._model import Model
+from ._types import FloatBetween0And1, PositiveFloat, PositiveInt
 
 
 class DayCountConvention(str, Enum):
-    """Day count conventions for financial calculations"""
-    # FIXME: actually add support for these
+    """Day count conventions for financial calculations (Affects proration, interest)"""
+    # FIXME: Add implementation support where needed
     THIRTY_360 = "30/360"
-    ACTUAL_365 = "Actual/365"
     ACTUAL_360 = "Actual/360"
+    ACTUAL_365 = "Actual/365"
     ACTUAL_ACTUAL = "Actual/Actual"
 
 
+class InflationTimingEnum(str, Enum):
+    """How inflation/growth rates are applied annually."""
+    START_OF_YEAR = "Start of Year" # Applied Jan 1st (or first month of fiscal year)
+    MID_YEAR = "Mid-Year" # Applied July 1st (or mid-point of fiscal year)
+    SPECIFIC_MONTH = "Specific Month" # Applied in the specified month
+    # ANNIVERSARY = "Anniversary" # Likely applied at item level (e.g., lease anniversary)
+
+
+class VacancyLossMethodEnum(str, Enum):
+    """How General Vacancy is calculated and applied in the waterfall."""
+    POTENTIAL_GROSS_REVENUE = "Potential Gross Revenue" # % of PGR line
+    EFFECTIVE_GROSS_REVENUE = "Effective Gross Revenue" # % of (PGR + Misc Inc - Abatement)
+
+
+class RecoveryMethodEnum(str, Enum): # Placeholder, often expense-specific
+    """Default method for calculating expense recoveries."""
+    NET = "Net" # Tenant pays pro-rata share of all OpEx
+    BASE_YEAR_STOP = "Base Year Stop" # Tenant pays pro-rata share above a base year amount
+    FIXED_AMOUNT = "Fixed Amount" # Tenant pays fixed $ psf/unit
+
+
+class PercentageRentSettings(Model):
+    """Percentage rent and occupancy cost settings (Placeholder)"""
+    # FIXME: Define actual settings based on requirements for retail etc.
+    enabled: bool = False
+    breakpoint_method: Literal["natural", "fixed"] = "natural"
+    include_recoveries_in_breakpoint: bool = True
+    # ... other potential settings ...
+
+
+class ReportingSettings(Model):
+    """Settings related to report generation and display."""
+    reporting_frequency: FrequencyEnum = FrequencyEnum.ANNUAL
+    # Use PositiveInt for fiscal month, keep validation logic
+    fiscal_year_start_month: PositiveInt = Field(default=1, ge=1, le=12, description="Month the fiscal year begins (1=Jan).") 
+    # Use PositiveInt for precision
+    decimal_precision: PositiveInt = Field(default=2, description="Number of decimal places for currency values.") 
+    property_area_unit: Literal["sqft", "sqm"] = Field(default="sqft", description="Unit for area measurements (e.g., for PSF/PSM).")
+    # currency_code: str = "USD" # Future
+    # currency_symbol: str = "$" # Future
+
+
+class CalculationSettings(Model):
+    """Settings influencing core calculation engine behavior."""
+    calculation_frequency: FrequencyEnum = Field(default=FrequencyEnum.MONTHLY, description="Frequency for cash flow calculations (Monthly, Quarterly, Annual).")
+    day_count_convention: DayCountConvention = Field(default=DayCountConvention.ACTUAL_ACTUAL, description="Day count convention for calculations (currently informational).")
+    fail_on_error: bool = Field(default=False, description="If True, raise calculation errors; otherwise, log and attempt to continue.")
+
+
+class InflationSettings(Model):
+    """Global assumptions for general inflation rates."""
+    general_inflation_rate: PositiveFloat = Field(default=0.025, description="Default annual general inflation rate.") 
+    inflation_timing: InflationTimingEnum = Field(default=InflationTimingEnum.START_OF_YEAR, description="When annual inflation adjustments are applied.")
+    inflation_timing_month: Optional[PositiveInt] = Field(default=None, ge=1, le=12, description="Specific month (1-12) if inflation_timing is SPECIFIC_MONTH.") 
+
+    @model_validator(mode='after')
+    def check_inflation_month_logic(self) -> 'InflationSettings':
+        """Ensure inflation_timing_month is consistent with inflation_timing."""
+        timing = self.inflation_timing
+        month = self.inflation_timing_month
+        
+        if timing == InflationTimingEnum.SPECIFIC_MONTH and month is None:
+            # Require month if timing is specific
+            raise ValueError("inflation_timing_month must be set when inflation_timing is SPECIFIC_MONTH")
+            
+        if timing != InflationTimingEnum.SPECIFIC_MONTH and month is not None:
+            # Month should only be set if timing is specific
+            raise ValueError("inflation_timing_month should only be set when inflation_timing is SPECIFIC_MONTH")
+            
+        # The PositiveInt type and Field(ge=1, le=12) handle the 1-12 range check automatically now
+        # No need for manual check here if Field constraints are sufficient.
+        
+        return self # Return the validated model instance
+
+
 class LossSettings(Model):
-    """Vacancy and collection loss settings"""
+    """Settings related to vacancy, collection loss, and downtime interaction."""
+    # Use FloatBetween0And1 for rates
+    general_vacancy_rate: FloatBetween0And1 = Field(default=0.05, description="General vacancy applied across the property, distinct from lease rollover vacancy.") 
+    vacancy_loss_method: VacancyLossMethodEnum = Field(default=VacancyLossMethodEnum.POTENTIAL_GROSS_REVENUE, description="Line item used as the basis for calculating General Vacancy loss amount.")
+    # Use FloatBetween0And1 for rates
+    collection_loss_rate: FloatBetween0And1 = Field(default=0.01, description="Percentage of income assumed uncollectible.") 
+    collection_loss_basis: Literal["pgr", "scheduled_income", "egi"] = Field(default="scheduled_income", description="Line item used as the basis for calculating Collection Loss.")
+    # Added flag for interaction between general and rollover vacancy
+    reduce_general_vacancy_by_rollover_vacancy: bool = Field(default=True, description="If True, reduce calculated general vacancy loss by any vacancy already accounted for during lease rollover periods.")
 
-    vacancy_loss_method: Literal["potential_gross", "effective_gross", "noi"] = "potential_gross"
-    gross_up_by_downtime: bool = False
-    reduce_vacancy_by_downtime: bool = False
+
+class RecoverySettings(Model):
+    """Settings for expense recovery calculations, including gross-up."""
+    # Note: 'gross_up_by_downtime' functionality is handled by these settings based on occupancy.
+    gross_up_enabled: bool = Field(default=True, description="Enable grossing up of variable expenses for recovery calculations based on occupancy.")
+    # Use FloatBetween0And1 for threshold
+    gross_up_occupancy_threshold: FloatBetween0And1 = Field(default=0.95, description="Occupancy level (e.g., 0.95 for 95%) triggering expense gross-up.") 
+    gross_up_uses_fixed_rate: bool = Field(default=False, description="If True, gross up to 100% occupancy always; if False, gross up to the threshold occupancy level (e.g., 95%).")
+    # default_recovery_method: Optional[RecoveryMethodEnum] = None # Often expense-specific
 
 
-# class PercentageRentSettings(Model):
-#     """Percentage rent and occupancy cost settings"""
+# Market Leasing Assumptions are complex. Deferring a dedicated 'MarketLeasingSettings' sub-model.
+# Rollover logic in `_rollover.py` will need inputs, possibly passed directly or via a simpler global default placeholder for now.
 
-#     in_use: bool = False
-#     adjustment_direction: Literal["downward"] = "downward"
-#     include_recoveries: bool = True
-#     adjust_during: Literal["rollover"] = "rollover"
+class ValuationSettings(Model):
+    """Settings for property valuation metrics."""
+    discount_rate: Optional[PositiveFloat] = Field(default=None, description="Annual discount rate used for DCF analysis.") 
+    exit_valuation_method: Literal["cap_rate", "dcf_only", "none"] = Field(default="cap_rate", description="Method for determining exit/terminal value.")
+    exit_cap_rate: Optional[PositiveFloat] = Field(default=None, description="Cap rate applied to forward NOI for exit valuation.") 
+    exit_cap_rate_basis_noi_year_offset: PositiveInt = Field(default=1, gt=0, description="Offset from the final analysis year to determine NOI for cap rate application (e.g., 1 means Year N+1 NOI).") # Added gt=0
+    costs_of_sale_percentage: FloatBetween0And1 = Field(default=0.03, description="Transaction costs as a percentage of exit value.") 
 
+
+# --- Main Global Settings Class ---
 
 class GlobalSettings(Model):
     """Global model settings
 
-    Configures global parameters that affect the entire financial model.
+    Configures global parameters affecting the entire financial model,
+    grouped by functional area. Specific items (leases, expenses) can
+    potentially override these defaults where applicable.
     """
-    # FIXME: actually add support for these modeling policies
-    
-    # FIXME: we should have reasonable default settings for each modeling policy,
-    # FIXME: so we require minimal config here
-
-    # Fiscal and calendar settings
-    inflation_month: Optional[int] = None
-    fiscal_year_start_month: int = 1  # January
-    day_count_convention: DayCountConvention = DayCountConvention.ACTUAL_ACTUAL
-    
-    # Calculation settings
-    calculation_frequency: FrequencyEnum = FrequencyEnum.MONTHLY
-    reporting_frequency: FrequencyEnum = FrequencyEnum.ANNUAL
-    decimal_precision: int = 2
-    
-    # # Currency and internationalization
-    # currency_code: str = "USD"  # TODO: add enum (and support for non-USD)
-    # enable_multi_currency: bool = False
-    
-    # # Taxation settings
-    # include_tax_calculations: bool = False
-    # default_tax_rate: Optional[float] = None
-
-    loss_settings: LossSettings = Field(default_factory=LossSettings)
-    
-    # Error handling during calculation
-    fail_on_error: bool = False # If True, raise calculation errors; otherwise, log and skip.
+    reporting: ReportingSettings = Field(default_factory=ReportingSettings)
+    calculation: CalculationSettings = Field(default_factory=CalculationSettings)
+    inflation: InflationSettings = Field(default_factory=InflationSettings)
+    losses: LossSettings = Field(default_factory=LossSettings)
+    recoveries: RecoverySettings = Field(default_factory=RecoverySettings)
+    valuation: ValuationSettings = Field(default_factory=ValuationSettings)
+    percentage_rent: PercentageRentSettings = Field(default_factory=PercentageRentSettings)

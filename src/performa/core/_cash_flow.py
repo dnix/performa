@@ -112,7 +112,7 @@ class CashFlowModel(Model):
 
     def resolve_reference(
         self,
-        lookup_fn: Optional[Callable[[Union[str, UUID]], Union[float, pd.Series, Dict]]] = None
+        lookup_fn: Optional[Callable[[Union[str, UUID]], Union[float, pd.Series, Dict, None]]] = None
     ) -> Optional[Union[float, pd.Series, Dict]]:
         """
         Resolves the reference attribute using the provided lookup function.
@@ -123,7 +123,7 @@ class CashFlowModel(Model):
           
         Args:
             lookup_fn: A callable that accepts a string or UUID and returns the
-                corresponding resolved value (float, Series, Dict). The implementation
+                corresponding resolved value (float, Series, Dict, None). The implementation
                 of this function typically resides in the orchestration layer (e.g., CashFlowAnalysis)
                 and needs access to the relevant context (property attributes, computed results registry).
                 
@@ -146,11 +146,18 @@ class CashFlowModel(Model):
         self, value: Union[float, pd.Series, Dict]
     ) -> Union[float, pd.Series, Dict]:
         """
-        Convert the value from its current frequency (e.g. annual) to monthly.
-        
-        If the frequency is ANNUAL, a conversion factor of 1/12 is used.
-        For pandas Series, if the index is identified as having an annual frequency,
-        the series is upsampled to monthly frequency using resample and ffill.
+        Convert the value from its original frequency (e.g., annual) to monthly.
+
+        - If the frequency is ANNUAL, a conversion factor of 1/12 is used.
+        - For pandas Series:
+            - If the index is detected as annual (PeriodIndex freq 'A' or DatetimeIndex inferred 'A'),
+              it's assumed the values represent annual totals. The Series is upsampled to monthly,
+              and the annual values are divided by 12 and distributed evenly across the months
+              of their respective year.
+            - Otherwise (e.g., monthly or other frequencies), the values are simply multiplied
+              by the conversion factor (1 for monthly, 1/12 for annual).
+        - For dicts, keys are assumed convertible to monthly periods, and values are multiplied
+          by the conversion factor.
         """
         if self.frequency.name == "ANNUAL":
             conversion_factor = 1 / 12
@@ -163,31 +170,50 @@ class CashFlowModel(Model):
         elif isinstance(value, pd.Series):
             # Try to detect if the series has an annual frequency
             index_freq = None
-            if isinstance(value.index, pd.PeriodIndex):
+            is_period_index = isinstance(value.index, pd.PeriodIndex)
+            is_datetime_index = isinstance(value.index, pd.DatetimeIndex)
+
+            if is_period_index:
                 index_freq = value.index.freqstr
-            elif isinstance(value.index, pd.DatetimeIndex):
+            elif is_datetime_index:
+                # Ensure index is sorted for reliable frequency inference and resampling
+                value = value.sort_index()
                 index_freq = pd.infer_freq(value.index)
-            
+
             if index_freq and index_freq.startswith("A"):
-                # Convert to DatetimeIndex for resampling if necessary
-                if isinstance(value.index, pd.PeriodIndex):
-                    ts_index = value.index.to_timestamp()
-                else:
-                    ts_index = value.index
+                # Convert annual Series to monthly by distributing value/12
+                
+                # Ensure we have a DatetimeIndex for resampling
+                if is_period_index:
+                    # Ensure start_time aligns with the beginning of the year for proper month distribution
+                    ts_index = value.index.to_timestamp(freq='M', how='start').normalize() 
+                else: # Already DatetimeIndex
+                    ts_index = value.index.normalize()
+                    
                 temp_series = pd.Series(value.values, index=ts_index)
-                # Upsample from annual to monthly using resample and ffill
-                monthly_series = temp_series.resample("M").ffill()
-                monthly_series = monthly_series * conversion_factor
+                
+                # Upsample to daily first to easily find year boundaries, then resample to monthly
+                # Fill NaNs with 0 temporarily before dividing
+                daily_upsampled = temp_series.resample('D').ffill().fillna(0) 
+                
+                # Assign the divided value to each day within the year
+                daily_distributed = daily_upsampled / daily_upsampled.groupby(daily_upsampled.index.year).transform('size') * 12
+
+                # Resample daily to monthly, summing the daily distributed values
+                monthly_series = daily_distributed.resample('M').sum()
+                
                 # Convert the index back to a monthly PeriodIndex
                 monthly_series.index = monthly_series.index.to_period("M")
                 return monthly_series
             else:
+                # Apply simple conversion factor for non-annual or undetected frequencies
                 return value * conversion_factor
 
         elif isinstance(value, dict):
+            # Assumes keys are monthly periods or convertible
             return {k: v * conversion_factor for k, v in value.items()}
 
-        return value
+        return value # Should not be reached for supported types
 
     @field_validator("value")
     @classmethod
@@ -230,6 +256,17 @@ class CashFlowModel(Model):
                     f"List length {len(v)} does not match timeline length {expected_length}."
                 )
         # TODO: more validation, e.g., for Series, check that the index is a PeriodIndex
+        elif isinstance(v, pd.Series):
+             # Validate Series index type
+             if not isinstance(v.index, (pd.PeriodIndex, pd.DatetimeIndex)):
+                  raise ValueError(
+                       "Series value must have a PeriodIndex or DatetimeIndex."
+                  )
+             # Ensure index is monotonic increasing if it's a DatetimeIndex
+             # PeriodIndex is implicitly sorted
+             if isinstance(v.index, pd.DatetimeIndex) and not v.index.is_monotonic_increasing:
+                  raise ValueError("DatetimeIndex must be monotonic increasing.")
+                  
         return v
 
     def _cast_to_flow(
@@ -323,9 +360,10 @@ class CashFlowModel(Model):
         **Assumptions & Behavior:**
         - Base series index must be a monthly `pd.PeriodIndex` or convertible to one.
         - Constant float rates (`growth_profile.value`) are assumed to be **annual** and 
-          are automatically converted to monthly for compounding.
+          are automatically converted to monthly (divided by 12) for compounding.
         - Rates in `pd.Series` or `dict` values (`growth_profile.value`) are assumed 
           to be **already at the intended frequency** for their respective periods (typically monthly).
+          For example, if a Series has a monthly PeriodIndex, the rates are assumed to be monthly rates.
           The method aligns these to the base series' monthly timeline using forward-fill 
           (filling NaNs before the first rate with 0%). No automatic annual-to-monthly 
           conversion is performed for Series/Dict rates.
@@ -387,7 +425,7 @@ class CashFlowModel(Model):
             aligned_rates = aligned_rates.fillna(0.0) # Fill any remaining NaNs (e.g., before first rate) with 0%
             # Convert annual rates in series to monthly if necessary (Assume annual if not specified otherwise? Needs clarification or explicit flag in GrowthRate)
             # **Decision:** Assume rates in Series/Dict are *already at the intended frequency* (e.g., monthly if index is monthly). 
-            # If annual rates are provided in a Series, they should be pre-converted to monthly.
+            # If annual rates are provided in a Series, they should be pre-converted to monthly by the user.
             # annual_to_monthly_factor = 1/12 # Example if conversion was needed
             period_rates[growth_mask] = aligned_rates[growth_mask] # * annual_to_monthly_factor 
         elif isinstance(growth_value, dict):
@@ -401,6 +439,7 @@ class CashFlowModel(Model):
             aligned_rates = dict_series.reindex(periods, method='ffill')
             aligned_rates = aligned_rates.fillna(0.0)
             # Assume rates are already monthly if dict keys are dates/periods
+            # If annual rates are provided via dict, they should be pre-converted.
             period_rates[growth_mask] = aligned_rates[growth_mask]
         else:
             raise TypeError(f"Unsupported type for GrowthRate value: {type(growth_value)}")

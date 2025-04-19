@@ -8,7 +8,7 @@ import pandas as pd
 from ..core._cash_flow import CashFlowModel
 from ..core._enums import ExpenseSubcategoryEnum, UnitOfMeasureEnum
 from ..core._model import Model
-from ..core._types import FloatBetween0And1, PositiveFloat
+from ..core._types import FloatBetween0And1
 from ._growth_rates import GrowthRate
 
 logger = logging.getLogger(__name__)
@@ -28,8 +28,7 @@ class ExpenseItem(CashFlowModel):
     """
     category: str = "Expense"  # TODO: enum?
     subcategory: ExpenseSubcategoryEnum  # NOTE: instead of expense_kind
-    parent_item: Optional[str] = None  # For optional grouping
-    # TODO: rename parent_item to group?
+    group: Optional[str] = None  # For optional grouping (formerly parent_item)
 
 
 class OpExItem(ExpenseItem):
@@ -40,8 +39,7 @@ class OpExItem(ExpenseItem):
     # TODO: maybe growth rate is passed by orchestration layer too?
     # Occupancy rate will be provided by the orchestration layer via compute_cf parameters.
     variable_ratio: Optional[FloatBetween0And1] = None  # Default is not variable.
-    recoverable_ratio: Optional[FloatBetween0And1] = 1.0  # Default is 100% recoverable.
-    # FIXME: confirm we want 100% recoverable by default
+    recoverable_ratio: Optional[FloatBetween0And1] = 0.0  # Default is 0% recoverable (safer default).
 
     @property
     def is_variable(self) -> bool:
@@ -51,7 +49,7 @@ class OpExItem(ExpenseItem):
     @property
     def is_recoverable(self) -> bool:
         """Check if the expense is recoverable."""
-        return self.recoverable_ratio is not None
+        return self.recoverable_ratio is not None and self.recoverable_ratio > 0 # Check > 0
 
     def compute_cf(
         self,
@@ -201,13 +199,6 @@ class OperatingExpenses(Model):
     expense_items: List[OpExItem]
 
     @property
-    def total_annual_expenses(self) -> PositiveFloat:
-        """
-        Calculate total annual base expenses by summing the value field of each expense item.
-        """
-        return sum(item.value for item in self.expense_items)
-
-    @property
     def recoverable_expenses(self) -> List[ExpenseItem]:
         """
         Get list of recoverable expenses.
@@ -223,13 +214,6 @@ class CapitalExpenses(Model):
         expense_items: List of capital expenditure items.
     """
     expense_items: List[CapExItem]
-
-    @property
-    def total_capex(self) -> PositiveFloat:
-        """
-        Calculate the total capital expenditure amount by summing the value field of each capex item.
-        """
-        return sum(item.value for item in self.expense_items)
 
 
 class Expenses(Model):

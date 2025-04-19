@@ -22,12 +22,9 @@ class ExpensePool(Model):
     Attributes:
         name: Name of the expense pool (e.g., "Operating Expenses", "Tax", "Insurance")
         expenses: One or more expense items in this pool
-        categories: Categories of expenses to include in this pool
     """
     name: str
     expenses: Union[ExpenseItem, List[ExpenseItem]]
-    categories: Optional[List[str]] = None
-    # FIXME: how should we use categories?
     
     def compute_cf(self, timeline: pd.PeriodIndex, occupancy_rate: Optional[float] = None) -> pd.Series:
         """

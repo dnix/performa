@@ -102,8 +102,9 @@ class LeasingCommission(CashFlowModel):
         """
         Compute leasing commission cash flow.
         
-        Uses the reference (typically the lease's base rent) to calculate
-        commissions based on the defined tiers.
+        Uses the reference (typically the lease's base rent) to calculate the
+        total commission based on defined tiers, then places the total amount
+        into the cash flow series according to the payment_timing rule.
         
         Args:
             lookup_fn: Optional function to resolve references
@@ -114,19 +115,23 @@ class LeasingCommission(CashFlowModel):
         # Get the base rent series using CashFlowModel logic to resolve the reference
         logger.debug(f"Computing cash flow for Leasing Commission: '{self.name}' ({self.model_id})")
         logger.debug("  Calculating base rent series using super().compute_cf.")
-        rent_series = super().compute_cf(lookup_fn)
+        # Ensure lookup_fn returns a Series for rent calculation
+        rent_series_obj = super().compute_cf(lookup_fn)
+        if not isinstance(rent_series_obj, pd.Series):
+            raise TypeError(f"LeasingCommission '{self.name}' expected a pandas Series from lookup_fn (for rent), but received {type(rent_series_obj)}")
+        rent_series: pd.Series = rent_series_obj
         logger.debug(f"  Calculated base rent series. Total Rent: {rent_series.sum():.2f}")
         
         # Initialize commission cash flow series
-        lc_cf = pd.Series(0, index=self.timeline.period_index)
+        lc_cf = pd.Series(0.0, index=self.timeline.period_index)
         
-        # Get total months in lease and convert to years
+        # Get total months in lease
         lease_months = len(self.timeline.period_index)
-        lease_years = math.ceil(lease_months / 12)
         
         logger.debug(f"  Applying commission tiers. Payment Timing: {self.payment_timing}")
-        # Calculate commission for each tier
-        total_commission_calculated = 0.0
+        
+        # --- Calculate Total Commission Across All Tiers ---
+        total_commission = 0.0
         for tier in self.tiers:
             logger.debug(f"    Processing Tier: Years {tier.years_description}, Rate: {tier.rate:.1%}")
             # Determine which months this tier applies to
@@ -134,34 +139,60 @@ class LeasingCommission(CashFlowModel):
             if tier.year_end is None:
                 end_month = lease_months
             else:
+                # Ensure end_month does not exceed lease duration
                 end_month = min(tier.year_end * 12, lease_months)
             
-            # Skip if outside lease term
-            if start_month >= lease_months or end_month <= 0:
+            # Skip tier if its start month is already beyond the lease term
+            if start_month >= lease_months:
+                logger.debug(f"      Skipping tier - Start month {start_month+1} is beyond lease end ({lease_months} months).")
                 continue
+                
+            # Ensure start_month is not negative (shouldn't happen with PositiveInt)
+            start_month = max(0, start_month)
             
-            # Get the periods for this tier
-            tier_periods = self.timeline.period_index[start_month:end_month]
+            # Ensure end_month is not before start_month
+            if end_month <= start_month:
+                 logger.debug(f"      Skipping tier - End month {end_month} is not after start month {start_month}.")
+                 continue
             
+            # Get the periods for this tier based on calculated month indices
+            # Use iloc for safe index slicing even if periods aren't perfectly sequential integers
+            try:
+                tier_periods = self.timeline.period_index[start_month:end_month]
+            except IndexError:
+                 logger.warning(f"      Could not slice timeline index for months {start_month}-{end_month}. Skipping tier.")
+                 continue
+                 
+            if tier_periods.empty:
+                logger.debug(f"      Skipping tier - No periods found between months {start_month}-{end_month}.")
+                continue
+
             # Calculate commission for this tier
-            tier_rent = rent_series.loc[tier_periods]
+            # Ensure rent_series covers the tier_periods
+            tier_rent = rent_series.reindex(tier_periods, fill_value=0.0)
             tier_commission = tier_rent.sum() * tier.rate
-            total_commission_calculated += tier_commission
-            logger.debug(f"      Tier Commission: {tier_commission:.2f} (Based on rent sum: {tier_rent.sum():.2f})")
-            
-            # Determine payment period based on payment timing
-            if self.payment_timing == "signing":
-                # FIXME: should this be the first period of the lease?
+            total_commission += tier_commission
+            logger.debug(f"      Tier Rent Sum: {tier_rent.sum():.2f}, Tier Commission: {tier_commission:.2f}")
+
+        logger.debug(f"  Total Commission Calculated Across Tiers: {total_commission:.2f}")
+
+        # --- Distribute Total Commission Based on Payment Timing ---
+        if total_commission > 0 and not self.timeline.period_index.empty:
+            if self.payment_timing == "signing" or self.payment_timing == "commencement":
+                # Pay total commission in the first period of the timeline
                 payment_period = self.timeline.period_index[0]
-            else:  # "commencement"
-                # Find the first period of the tier
-                payment_period = tier_periods[0]
-            
-            logger.debug(f"      Payment Period: {payment_period}")
-            
-            # Add commission to the cash flow series
-            if payment_period in lc_cf.index:
-                lc_cf[payment_period] += tier_commission
-        
-        logger.debug(f"Finished computing cash flow for Leasing Commission: '{self.name}'. Total Calculated: {total_commission_calculated:.2f}, Final CF Sum: {lc_cf.sum():.2f}")
+                if payment_period in lc_cf.index:
+                    lc_cf[payment_period] = total_commission
+                    logger.debug(f"    Placing total commission {total_commission:.2f} in period {payment_period} (timing: '{self.payment_timing}')")
+                else:
+                    logger.warning(f"    Could not place commission in first period {payment_period} as it's outside the calculated index.")
+            # TODO: Add other payment timing logic if needed (e.g., 50/50 split)
+            else:
+                logger.warning(f"    Unhandled payment timing '{self.payment_timing}'. Commission not placed.")
+        elif total_commission == 0:
+            logger.debug("  Total commission is zero. No cash flow generated.")
+        else: # timeline empty
+            logger.warning("  Timeline is empty. Cannot place commission.")
+
+        logger.debug(f"Finished computing cash flow for Leasing Commission: '{self.name}'. Final CF Sum: {lc_cf.sum():.2f}")
         return lc_cf

@@ -160,8 +160,3 @@ class Timeline(BaseModel):
             self.start_date = pd.Period(ordinal=self.start_date.ordinal + offset, freq="M")
         else:
             raise ValueError("Can only shift relative timelines. This timeline is absolute.")
-
-    @property
-    def duration(self) -> pd.Timedelta:
-        """Get timeline duration as Timedelta"""
-        return pd.Timedelta(months=self.duration_months) 

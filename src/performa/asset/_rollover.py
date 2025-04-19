@@ -7,6 +7,7 @@ from dateutil.relativedelta import relativedelta
 from ..core._enums import FrequencyEnum, UnitOfMeasureEnum, UponExpirationEnum
 from ..core._model import Model
 from ..core._types import FloatBetween0And1, PositiveFloat, PositiveInt
+from ._growth_rates import GrowthRate
 from ._lc import (
     LeasingCommission,
 )
@@ -43,7 +44,8 @@ class RolloverLeaseTerms(Model):
     frequency: FrequencyEnum = FrequencyEnum.ANNUAL
 
     # Growth parameter
-    growth_rate: Optional[FloatBetween0And1] = None  # TODO: support GrowthRates
+    growth_rate: Optional[GrowthRate] = None
+    # FIXME: need to integrate GrowthRate properly below
 
     # Lease modification terms
     rent_escalation: Optional[RentEscalation] = None
@@ -146,9 +148,6 @@ class RolloverProfile(Model):
     upon_expiration: UponExpirationEnum = UponExpirationEnum.MARKET
     next_profile: Optional[str] = None  # Name of next profile to use if chaining
 
-    # Projection limits
-    max_projection_years: int = 99  # NOTE: do we need this?
-    
     def _calculate_rent(self, terms: RolloverLeaseTerms, as_of_date: date) -> PositiveFloat:
         """
         Calculate the market rent as of a specific date, applying growth factors.
@@ -176,6 +175,7 @@ class RolloverProfile(Model):
             
             # Apply growth rate if specified
             if terms.growth_rate:
+                # FIXME: need to integrate GrowthRate syntax properly
                 # Calculate years from today to as_of_date
                 today = date.today()
                 years_difference = (as_of_date.year - today.year) + (as_of_date.month - today.month) / 12

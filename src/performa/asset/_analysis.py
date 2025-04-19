@@ -292,7 +292,7 @@ class CashFlowAnalysis(Model):
         if self.property.rent_roll and self.property.rent_roll.leases:
             revenue_models.extend(self.property.rent_roll.leases)
         if self.property.miscellaneous_income and self.property.miscellaneous_income.income_items:
-            revenue_models.extend(self.property.miscellaneous_income.income_items)
+            revenue_models.extend(self.property.miscellaneous_income)
         return revenue_models
 
     def _collect_expense_models(self) -> List[CashFlowModel]:

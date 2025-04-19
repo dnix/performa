@@ -1,13 +1,14 @@
 import uuid
 from typing import Dict, List, Optional
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 
+from ..core._enums import AssetTypeEnum
 from ..core._model import Model
 from ..core._types import FloatBetween0And1, PositiveFloat, PositiveInt
 from ._expense import Expenses
 from ._losses import Losses
-from ._revenue import MiscIncomeCollection, RentRoll, Tenant
+from ._revenue import MiscIncome, RentRoll, Tenant
 
 
 class PropertyFloor(Model):
@@ -54,6 +55,7 @@ class Property(Model):
     """
 
     # Identity
+    id: uuid.UUID = Field(default_factory=uuid.uuid4)
     name: str
     description: Optional[str] = None
     external_id: Optional[str] = None
@@ -61,13 +63,13 @@ class Property(Model):
     year_built: Optional[PositiveInt] = None
 
     # Physical Characteristics
-    # property_type: AssetTypeEnum
+    property_type: AssetTypeEnum
     gross_area: PositiveFloat  # sq ft
     net_rentable_area: PositiveFloat  # sq ft
 
     # Revenue Sources
     rent_roll: RentRoll
-    miscellaneous_income: Optional[MiscIncomeCollection] = None
+    miscellaneous_income: Optional[List[MiscIncome]] = None
 
     # Expenses
     expenses: Expenses
@@ -131,11 +133,6 @@ class Property(Model):
             )
             for floor_num, tenants in floor_tenants.items()
         ]
-
-    @property
-    def id(self) -> str:
-        """Generate a unique uuid for the property"""
-        return str(uuid.uuid4())
 
     @property
     def vacant_area(self) -> PositiveFloat:
