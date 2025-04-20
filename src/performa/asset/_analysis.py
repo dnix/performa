@@ -10,11 +10,17 @@ import pandas as pd
 from pydantic import Field
 
 from ..core._cash_flow import CashFlowModel
-from ..core._enums import AggregateLineKey, ExpenseSubcategoryEnum
+from ..core._enums import (
+    AggregateLineKey,
+    ExpenseSubcategoryEnum,
+    RevenueSubcategoryEnum,
+    UponExpirationEnum,
+)
 from ..core._model import Model
 from ..core._settings import GlobalSettings
 from ..core._timeline import Timeline
 from ._property import Property
+from ._revenue import Lease
 
 # TODO: Add comprehensive unit and integration tests for CashFlowAnalysis logic.
 
@@ -25,21 +31,23 @@ class CashFlowAnalysis(Model):
     Orchestrates the calculation and aggregation of property-level cash flows.
 
     This class computes cash flows over a specified analysis period by:
-    1. Collecting all relevant `CashFlowModel` instances (Leases, Expenses, etc.)
-       from the provided `Property` object.
-    2. Calculating a dynamic occupancy series for the analysis period.
-    3. Computing cash flows for each model, resolving dependencies:
+    1. Generating the full sequence of actual and projected speculative leases 
+       that overlap with the analysis period using rollover profiles.
+    2. Collecting all relevant `CashFlowModel` instances (projected Leases, 
+       Expenses, MiscIncome, etc.).
+    3. Calculating a dynamic occupancy series based on the projected lease sequence.
+    4. Computing cash flows for each model, resolving dependencies:
         - Uses `lookup_fn` to resolve `reference` attributes (UUIDs for inter-model
-          dependencies, strings for `Property` attributes).
+          dependencies, strings for `Property` attributes or AggregateLineKeys).
         - Injects the calculated occupancy series as an argument to models that require it
           (e.g., `OpExItem`, `MiscIncome`) via signature inspection.
         - Employs `graphlib.TopologicalSorter` for efficient single-pass computation if
           model dependencies form a Directed Acyclic Graph (DAG).
         - Falls back to a multi-pass iterative calculation if cycles are detected
-          (e.g., due to `model_id` reference cycles), issuing a warning.
-    4. Aggregating the computed cash flows into standard financial line items
+          (e.g., due to `model_id` or aggregate references), issuing a warning.
+    5. Aggregating the computed cash flows into standard financial line items
        (Revenue, OpEx, CapEx, TI Allowance, Leasing Commission).
-    5. Providing access to these aggregated results via a DataFrame and specific
+    6. Providing access to these aggregated results via a DataFrame and specific
        metric calculation methods (NOI, Unlevered Cash Flow, etc.).
 
     Attributes:
@@ -57,6 +65,7 @@ class CashFlowAnalysis(Model):
     # --- Cached Results ---
     # NOTE: Basic caching implemented. Assumes inputs are immutable after instantiation.
     # TODO: Implement more robust cache invalidation if inputs can change.
+    _cached_projected_leases: Optional[List['Lease']] = None
     _cached_detailed_flows: Optional[List[Tuple[Dict, pd.Series]]] = None
     _cached_aggregated_flows: Optional[Dict[AggregateLineKey, pd.Series]] = None
     _cached_cash_flow_dataframe: Optional[pd.DataFrame] = None
@@ -92,7 +101,7 @@ class CashFlowAnalysis(Model):
         remaining_models = {model.model_id: model for model in all_models}
         model_map = {model.model_id: model for model in all_models} # Keep original map
         analysis_periods = occupancy_series.index # Use occupancy index as timeline ref
-        current_aggregates: Dict[str, pd.Series] = {} # Store aggregates calculated each pass
+        current_aggregates: Dict[AggregateLineKey, pd.Series] = {} # Store aggregates calculated each pass (keyed by Enum)
         
         MAX_PASSES = len(all_models) + 1
         passes = 0
@@ -119,7 +128,7 @@ class CashFlowAnalysis(Model):
                     matched_agg_key = AggregateLineKey.from_value(key)
                         
                     if matched_agg_key is not None:
-                        # Check aggregates from the *previous* pass (keyed by Enum member)
+                        # Check aggregates calculated in the *previous* pass
                         if matched_agg_key in current_aggregates:
                             return current_aggregates[matched_agg_key]
                         else:
@@ -155,27 +164,30 @@ class CashFlowAnalysis(Model):
                     logger.debug(f"    Success: '{model.name}' ({model_id}) computed.") # DEBUG: Model success
                 except LookupError as le:
                     lookup_errors_this_pass[model_id] = str(le)
-                    logger.debug(f"    Lookup Error: '{model.name}' ({model_id}) - waiting for dependency.") # DEBUG: Model lookup fail
+                    logger.debug(f"    Lookup Error: '{model.name}' ({model_id}) - waiting for dependency: {le}") # DEBUG: Model lookup fail
                 except NotImplementedError:
                     # Log warning instead of print
                     logger.warning(f"(Iterative) compute_cf not implemented for model '{model.name}' ({model.model_id}). Treating as zero flow.")
                     # Still mark as computed to prevent infinite loops if it was the cause of stalling
                     computed_results[model_id] = pd.Series(0.0, index=analysis_periods) 
                     models_computed_this_pass.append(model_id) 
+                    progress_made_in_pass = True # Mark progress even if not implemented
                 except Exception as e:
                     # Log error with exception info instead of print
                     logger.error(f"(Iterative) Error computing '{model.name}' ({model.model_id}). Skipping.", exc_info=True)
                     # Optionally raise the error based on settings
-                    if self.settings.fail_on_error:
+                    if self.settings.calculation.fail_on_error: # Check setting
                         raise e
                     # Mark as computed (with error state represented by absence in computed_results) to avoid looping
                     models_computed_this_pass.append(model_id) 
+                    progress_made_in_pass = True # Mark progress even if error occurred
 
+            # Remove newly computed models from the remaining set
             for computed_id in models_computed_this_pass:
                 remaining_models.pop(computed_id, None)
 
             # --- Recalculate Aggregates for the NEXT pass ---
-            # Process current computed results into detailed flow format for aggregation
+            # Process ALL computed results so far into detailed flow format for aggregation
             detailed_flows_this_pass: List[Tuple[Dict, pd.Series]] = []
             for res_model_id, result in computed_results.items():
                  original_model = model_map.get(res_model_id) 
@@ -236,63 +248,165 @@ class CashFlowAnalysis(Model):
             end_date=self.analysis_end_date,
             # Default monthly frequency assumed
         )
-        
-    def _calculate_occupancy_series(self) -> pd.Series:
-        """Calculates the physical occupancy rate series over the analysis timeline.
 
-        This implementation derives occupancy solely based on the active periods of
-        leases defined in the `property.rent_roll`. It sums the area of leases
-        active in each period and divides by the property's net rentable area.
-
-        NOTE: This is a simplified calculation. It does not yet account for
-              lease rollover projections, absorption of vacant space, or different
-              occupancy types (e.g., economic vs. physical). Caches the result.
-              
-        Returns:
-            A pandas Series indexed by the analysis period, containing the
-            calculated occupancy rate (0.0 to 1.0) for each period.
+    def _get_projected_leases(self) -> List['Lease']:
         """
-        logger.debug("Calculating occupancy series.") # DEBUG: Entry
+        Generates the full sequence of actual and projected speculative leases 
+        that overlap with the analysis period.
+
+        Iterates through the initial rent roll and projects each lease forward
+        using its rollover profile until the analysis end date is reached.
+        Caches the result.
+
+        Returns:
+            A list containing all Lease instances (original and projected) 
+            relevant to the analysis period.
+        """
+        logger.debug("Getting projected lease sequence (checking cache).")
+        if self._cached_projected_leases is None:
+            logger.debug("Projected leases cache miss. Generating now.")
+            analysis_timeline = self._create_timeline()
+            analysis_periods = analysis_timeline.period_index
+            analysis_end_date = analysis_timeline.end_date.to_timestamp().date() # Get analysis end date
+
+            all_relevant_leases: List['Lease'] = []
+            
+            initial_leases = self.property.rent_roll.leases if self.property.rent_roll else []
+
+            for initial_lease in initial_leases:
+                current_lease: Optional[Lease] = initial_lease # Type hint for clarity
+                lease_chain: List['Lease'] = []
+
+                while current_lease is not None:
+                    # Check if the current lease overlaps with the analysis period at all
+                    lease_periods = current_lease.timeline.period_index
+                    
+                    # Ensure lease periods are monthly for comparison/intersection
+                    if lease_periods.freqstr != 'M':
+                         try:
+                             lease_periods = lease_periods.asfreq('M', how='start')
+                         except ValueError:
+                             logger.warning(f"Lease '{current_lease.name}' timeline frequency ({lease_periods.freqstr}) not monthly. Skipping for projection chain.")
+                             break # Stop processing this chain
+
+                    if analysis_periods.intersection(lease_periods).empty:
+                        # If this lease doesn't even touch the analysis period, break the chain
+                        break 
+
+                    # Add the overlapping lease to our chain
+                    lease_chain.append(current_lease)
+
+                    # Check if we need to project further
+                    lease_end_date = current_lease.lease_end
+                    # Check if the lease ends *on or after* the analysis end date. If so, no more projection needed.
+                    if lease_end_date >= analysis_end_date or current_lease.rollover_profile is None:
+                        current_lease = None 
+                    else:
+                        # Project the next lease based on the upon_expiration rule
+                        try:
+                            upon_expiration = current_lease.upon_expiration
+                            logger.debug(f"Projecting next lease for '{current_lease.name}' (ends {lease_end_date}). Upon Expiration: {upon_expiration}")
+                            
+                            if upon_expiration == UponExpirationEnum.RENEW:
+                                current_lease = current_lease.create_renewal_lease(as_of_date=lease_end_date)
+                            elif upon_expiration == UponExpirationEnum.VACATE:
+                                 # Requires property_area for some calculations within, pass it.
+                                 # We assume property_area is stable for this analysis instance.
+                                 current_lease = current_lease.create_market_lease(
+                                     vacancy_start_date=lease_end_date, 
+                                     property_area=self.property.net_rentable_area # Pass NRA
+                                 )
+                            elif upon_expiration == UponExpirationEnum.MARKET:
+                                 current_lease = current_lease.create_market_lease(
+                                     vacancy_start_date=lease_end_date, 
+                                     property_area=self.property.net_rentable_area # Pass NRA
+                                 )
+                            elif upon_expiration == UponExpirationEnum.OPTION:
+                                current_lease = current_lease.create_option_lease(as_of_date=lease_end_date)
+                            elif upon_expiration == UponExpirationEnum.REABSORB:
+                                logger.warning(f"REABSORB not implemented for lease '{current_lease.name}'. Stopping projection chain.")
+                                current_lease = None # Stop chain if reabsorb hit
+                            else:
+                                logger.warning(f"Unknown UponExpirationEnum '{upon_expiration}' for lease '{current_lease.name}'. Stopping projection chain.")
+                                current_lease = None
+
+                        except NotImplementedError as nie:
+                             logger.error(f"Projection failed for lease '{current_lease.name}' due to NotImplementedError: {nie}. Stopping chain.")
+                             current_lease = None
+                        except Exception as e:
+                            logger.error(f"Error projecting next lease state for '{current_lease.name}': {e}. Stopping chain.", exc_info=True)
+                            current_lease = None
+                
+                # Add the generated chain (that overlaps the analysis period) to the main list
+                all_relevant_leases.extend(lease_chain)
+
+            # TODO: Handle initial vacant suites - need to create first market lease for them
+            # This requires calling Lease.create_market_lease_for_vacant using rollover assumptions.
+            # This is deferred for now but needs implementation for full vacant space handling.
+
+            logger.debug(f"Generated {len(all_relevant_leases)} total lease instances for the analysis period.")
+            self._cached_projected_leases = all_relevant_leases # Cache result
+            
+        return self._cached_projected_leases
+
+    def _calculate_occupancy_series(self) -> pd.Series:
+        """Calculates the physical occupancy rate series over the analysis timeline
+           using the projected lease sequence. Caches the result.
+        """
+        logger.debug("Calculating occupancy series (using projected leases - checking cache).") # Updated logging
+        
         if self._cached_occupancy_series is None:
+            logger.debug("Occupancy cache miss. Calculating now.")
             analysis_periods = self._create_timeline().period_index
             occupied_area_series = pd.Series(0.0, index=analysis_periods)
 
-            if self.property.rent_roll and self.property.rent_roll.leases:
-                for lease in self.property.rent_roll.leases:
+            # Use the projected leases now
+            projected_leases = self._get_projected_leases() 
+
+            if projected_leases: # Check if list is not empty
+                for lease in projected_leases:
+                    # Existing logic to calculate active periods and sum area
                     lease_periods = lease.timeline.period_index
-                    # Ensure lease periods are monthly for comparison
                     if lease_periods.freqstr != 'M':
-                         # Attempt conversion or handle error if needed
                          try:
-                             lease_periods = lease_periods.asfreq('M', how='start') # Or appropriate conversion
+                             lease_periods = lease_periods.asfreq('M', how='start')
                          except ValueError:
-                             # Log warning instead of print
                              logger.warning(f"Lease '{lease.name}' timeline frequency ({lease_periods.freqstr}) not monthly. Skipping for occupancy calc.")
                              continue
-
+                    
+                    # Find periods where this specific lease is active within the analysis
                     active_periods = analysis_periods.intersection(lease_periods)
                     if not active_periods.empty:
-                         occupied_area_series.loc[active_periods] += lease.area
+                         # Add this lease's area to the occupied series for its active periods
+                         occupied_area_series.loc[active_periods] += lease.area 
             
+            # Rest of the calculation remains the same
             total_nra = self.property.net_rentable_area
             if total_nra > 0:
-                 occupancy_series = (occupied_area_series / total_nra).clip(0, 1)
+                 # Clip occupancy between 0 and potentially > 1 if NRA definition issue, clip at 1 realistic max.
+                 occupancy_series = (occupied_area_series / total_nra).clip(0, 1) 
             else:
                  occupancy_series = pd.Series(0.0, index=analysis_periods)
                  
             occupancy_series.name = "Occupancy Rate"
             self._cached_occupancy_series = occupancy_series
-            logger.debug(f"Calculated occupancy series. Average: {occupancy_series.mean():.2%}") # DEBUG: Exit
-
+            logger.debug(f"Calculated occupancy series using projected leases. Average: {occupancy_series.mean():.2%}") # Updated logging
+        
         return self._cached_occupancy_series
 
     def _collect_revenue_models(self) -> List[CashFlowModel]:
-        """Extracts all revenue models from the property."""
-        revenue_models: List[CashFlowModel] = []
-        if self.property.rent_roll and self.property.rent_roll.leases:
-            revenue_models.extend(self.property.rent_roll.leases)
+        """Extracts all relevant projected revenue models for the analysis period."""
+        logger.debug("Collecting revenue models (including projections).") # Added logging
+        # Get the full list of actual and projected leases
+        projected_leases = self._get_projected_leases() 
+        revenue_models: List[CashFlowModel] = list(projected_leases) # Start with projected leases
+
+        # Add miscellaneous income items
         if self.property.miscellaneous_income and self.property.miscellaneous_income.income_items:
-            revenue_models.extend(self.property.miscellaneous_income)
+            # FIXME: The original code extended self.property.miscellaneous_income which is the collection, not items
+            revenue_models.extend(self.property.miscellaneous_income.income_items) 
+        
+        logger.debug(f"Collected {len(revenue_models)} total revenue models.") # Added logging
         return revenue_models
 
     def _collect_expense_models(self) -> List[CashFlowModel]:
@@ -306,6 +420,15 @@ class CashFlowAnalysis(Model):
             cap_ex_items = self.property.expenses.capital_expenses.expense_items
             if cap_ex_items:
                 expense_models.extend(cap_ex_items)
+        
+        # Add TIs and LCs associated with the *projected* leases
+        projected_leases = self._get_projected_leases()
+        for lease in projected_leases:
+             if lease.ti_allowance:
+                 expense_models.append(lease.ti_allowance)
+             if lease.leasing_commission:
+                 expense_models.append(lease.leasing_commission)
+                 
         return expense_models
 
     def _collect_other_cash_flow_models(self) -> List[CashFlowModel]:
@@ -327,6 +450,8 @@ class CashFlowAnalysis(Model):
         the pre-calculated `occupancy_series` is passed. Otherwise, `compute_cf`
         is called only with the `lookup_fn`.
 
+        Also injects `property_area` if the signature includes it (needed for some models like RecoveryMethod).
+
         Args:
             model: The CashFlowModel instance to compute.
             lookup_fn: The function to resolve references (UUIDs, property strings, AggregateLineKeys).
@@ -339,24 +464,46 @@ class CashFlowAnalysis(Model):
         sig = inspect.signature(model.compute_cf)
         params = sig.parameters
         kwargs = {"lookup_fn": lookup_fn}
+        
+        # Inject occupancy if needed
         if "occupancy_rate" in params or "occupancy_series" in params:
-            kwargs["occupancy_rate"] = occupancy_series
+            kwargs["occupancy_rate"] = occupancy_series # Pass the series
             logger.debug(f"  Injecting occupancy_rate into '{model.name}'.compute_cf") # DEBUG: Occupancy injection
+            
+        # Inject property_area if needed (e.g., for Lease compute_cf calling RecoveryMethod)
+        if "property_area" in params:
+             kwargs["property_area"] = self.property.net_rentable_area
+             logger.debug(f"  Injecting property_area ({self.property.net_rentable_area}) into '{model.name}'.compute_cf")
+
         result = model.compute_cf(**kwargs)
         logger.debug(f"  Finished compute_cf for '{model.name}'. Result type: {type(result).__name__}") # DEBUG: Exit
         return result
 
     def _compute_detailed_flows(self) -> List[Tuple[Dict, pd.Series]]:
         """Computes all individual cash flows, handling dependencies and context injection.
-        Returns a detailed list of results, each tagged with metadata.
+        Returns a detailed list of results, each tagged with metadata. Caches results.
         """
-        logger.debug("Starting computation of detailed flows.") # DEBUG: Entry
+        logger.debug("Starting computation of detailed flows (checking cache).") # DEBUG: Entry
         if self._cached_detailed_flows is None:
+            logger.debug("Detailed flows cache miss. Computing now.") # DEBUG: Cache miss
             analysis_timeline = self._create_timeline()
             analysis_periods = analysis_timeline.period_index
+            # Calculate occupancy using projected leases BEFORE collecting models
             occupancy_series = self._calculate_occupancy_series() 
+            # Collect ALL models, including projected leases and their associated TIs/LCs
             all_models = ( self._collect_revenue_models() + self._collect_expense_models() + self._collect_other_cash_flow_models() )
             logger.debug(f"Collected {len(all_models)} models for computation.") # DEBUG: Model count
+            
+            # Ensure all models have unique IDs (safeguard)
+            model_ids = [m.model_id for m in all_models]
+            if len(model_ids) != len(set(model_ids)):
+                 logger.error("Duplicate model IDs detected in collected models. Aborting calculation.")
+                 # Find duplicates for better error message
+                 from collections import Counter
+                 duplicates = [item for item, count in Counter(model_ids).items() if count > 1]
+                 logger.error(f"Duplicate IDs: {duplicates}")
+                 raise ValueError("Duplicate model IDs found during collection.")
+                 
             model_map = {model.model_id: model for model in all_models}
             computed_results: Dict[UUID, Union[pd.Series, Dict[str, pd.Series]]] = {}
             use_iterative_fallback = False
@@ -400,40 +547,64 @@ class CashFlowAnalysis(Model):
 
             # --- Attempt Topological Sort ---
             try:
+                # Build dependency graph based on model_id references
                 graph: Dict[UUID, Set[UUID]] = {m_id: set() for m_id in model_map.keys()}
                 for model_id, model in model_map.items():
-                    if isinstance(model.reference, UUID):
+                    # Check if the model has a reference attribute that is a UUID
+                    if hasattr(model, 'reference') and isinstance(model.reference, UUID):
                         dependency_id = model.reference
-                        if dependency_id in graph: graph[model_id].add(dependency_id)
-                        # Log warning instead of print
-                        else: logger.warning(f"Model '{model.name}' ({model_id}) refs unknown ID {dependency_id}. Ignored in dependency graph.")
-                ts = TopologicalSorter(graph); sorted_model_ids = list(ts.static_order())
-                logger.info("Dependency graph is a DAG. Using single-pass computation.")
-                for model_id in sorted_model_ids:
-                    model = model_map[model_id]
-                    logger.debug(f"  Attempting DAG compute: '{model.name}' ({model_id})") # DEBUG: Model attempt (DAG)
-                    try: 
-                        result = self._run_compute_cf(model, lookup_fn, occupancy_series)
-                        computed_results[model_id] = result
-                        logger.debug(f"    Success: '{model.name}' ({model_id}) computed.") # DEBUG: Model success (DAG)
-                    except Exception as e: 
-                        logger.error(f"(DAG Path) Error computing '{model.name}' ({model_id}). Skipped.", exc_info=True)
-                        # Optionally raise the error based on settings
-                        if self.settings.fail_on_error:
-                            raise e
-                        # Remove from computed results if an error occurred during its calculation
-                        computed_results.pop(model_id, None)
+                        if dependency_id in graph: 
+                             graph[model_id].add(dependency_id)
+                             logger.debug(f"  Graph dependency: {model.name} ({model_id}) -> {model_map[dependency_id].name} ({dependency_id})")
+                        else: 
+                             logger.warning(f"Model '{model.name}' ({model_id}) refs unknown ID {dependency_id}. Ignored in dependency graph.")
+                    # Also consider potential dependencies in TI/LC if they reference the Lease model_id
+                    if hasattr(model, 'ti_allowance') and model.ti_allowance and isinstance(model.ti_allowance.reference, UUID):
+                         dependency_id = model.ti_allowance.reference
+                         if dependency_id in graph: graph[model.ti_allowance.model_id].add(dependency_id)
+                    if hasattr(model, 'leasing_commission') and model.leasing_commission and isinstance(model.leasing_commission.reference, UUID):
+                         dependency_id = model.leasing_commission.reference
+                         if dependency_id in graph: graph[model.leasing_commission.model_id].add(dependency_id)
+                         
+                ts = TopologicalSorter(graph)
+                # Prepare the graph for sorting
+                ts.prepare()
+                logger.info("Attempting topological sort for single-pass computation.")
+                
+                # Process models level by level according to the topological sort
+                while ts.is_active():
+                     node_group = ts.get_ready()
+                     logger.debug(f"  Processing node group: {[model_map[node_id].name for node_id in node_group]}")
+                     for model_id in node_group:
+                         model = model_map[model_id]
+                         logger.debug(f"    Attempting DAG compute: '{model.name}' ({model_id})")
+                         try: 
+                             result = self._run_compute_cf(model, lookup_fn, occupancy_series)
+                             computed_results[model_id] = result
+                             logger.debug(f"      Success: '{model.name}' ({model_id}) computed.")
+                         except Exception as e: 
+                             logger.error(f"(DAG Path) Error computing '{model.name}' ({model_id}). Skipped.", exc_info=True)
+                             if self.settings.calculation.fail_on_error: raise e
+                             computed_results.pop(model_id, None)
+                     ts.done(*node_group) # Mark nodes in the group as done
+
+                # If topological sort completes, graph is a DAG
+                logger.info("Dependency graph is a DAG. Single-pass computation successful.")
+
             # --- Fallback to Iterative on Cycle or Graph Error ---
             except CycleError as e: 
                 # Log warning instead of print
-                logger.warning(f"Cycle detected in model dependencies: {e.args[1]}. Falling back to iteration.")
+                logger.warning(f"Cycle detected in model dependencies: {[model_map[node_id].name for node_id in e.args[1]]}. Falling back to iteration.")
                 use_iterative_fallback = True
             # Log error with exception info instead of print
-            except Exception: 
-                logger.error("Error during dependency graph processing. Falling back to iteration.", exc_info=True)
+            except Exception as graph_err: 
+                logger.error(f"Error during dependency graph processing ({graph_err}). Falling back to iteration.", exc_info=True)
                 use_iterative_fallback = True
+                
             if use_iterative_fallback:
                 logger.info("Using iterative multi-pass computation due to cycle or graph error.")
+                # Ensure occupancy_series uses the analysis_periods index
+                occupancy_series = occupancy_series.reindex(analysis_periods, fill_value=0.0)
                 computed_results = self._compute_cash_flows_iterative( all_models, occupancy_series )
 
             # --- Process computed results into the detailed list ---
@@ -470,7 +641,7 @@ class CashFlowAnalysis(Model):
                     }
                     processed_flows.append((metadata, aligned_series))
             
-            logger.debug(f"Finished base computation. Got {len(computed_results)} results.") # DEBUG: Computation end
+            logger.debug(f"Finished base computation. Got {len(computed_results)} results ({len(processed_flows)} detailed series).") # DEBUG: Computation end
             self._cached_detailed_flows = processed_flows # Cache the result
         
         logger.debug("Finished computation of detailed flows.") # DEBUG: Exit
@@ -490,7 +661,10 @@ class CashFlowAnalysis(Model):
         }
 
         # --- Pass 1: Sum detailed flows into RAW intermediate keys --- 
+        misc_income_models = set(m.model_id for m in self.property.miscellaneous_income) if self.property.miscellaneous_income else set()
+
         for metadata, series in detailed_flows:
+            model_id = UUID(metadata["model_id"]) # Convert back to UUID for lookup
             category = metadata["category"]
             subcategory = metadata["subcategory"] # Already stringified
             component = metadata["component"]
@@ -498,48 +672,45 @@ class CashFlowAnalysis(Model):
 
             # Map detailed flows to the appropriate RAW aggregate key
             if category == "Revenue":
-                if component in ("base_rent", "value"): # 'value' for MiscIncome? Needs review.
-                    # TODO: Distinguish Base Rent (for PGR) and Misc Income?
-                    # For now, lump into Raw Revenue. PGR/Misc separation needed later.
-                    target_aggregate_key = AggregateLineKey._RAW_TOTAL_REVENUE
-                elif component == "recoveries":
-                    target_aggregate_key = AggregateLineKey._RAW_TOTAL_RECOVERIES
-                # TODO: Handle RENTAL_ABATEMENT component if added to Lease output
+                 # Check if it's Misc Income based on model_id
+                 if model_id in misc_income_models:
+                     if component == "value": # Assume 'value' is the main component for MiscIncome
+                         target_aggregate_key = AggregateLineKey.MISCELLANEOUS_INCOME # Map directly
+                 # Otherwise assume it's Lease related
+                 elif subcategory == str(RevenueSubcategoryEnum.LEASE): # Explicitly check subcategory
+                     if component == "base_rent":
+                         target_aggregate_key = AggregateLineKey.POTENTIAL_GROSS_REVENUE # Assume base_rent = PGR
+                     elif component == "recoveries":
+                         target_aggregate_key = AggregateLineKey.EXPENSE_REIMBURSEMENTS # Map directly
+                     elif component == "revenue": # This is Lease.compute_cf 'revenue' (rent+recov-abate?)
+                         # Avoid double counting if base_rent and recoveries are already mapped
+                         pass 
+                     elif component == "value": # What does 'value' mean for a Lease output? Avoid mapping for now.
+                         logger.debug(f"Skipping mapping for Lease component 'value': {metadata['name']}")
+                         pass
+                 # TODO: Handle RENTAL_ABATEMENT component if Lease output includes it separately
 
             elif category == "Expense":
                  if subcategory == str(ExpenseSubcategoryEnum.OPEX) and component == "value":
-                     target_aggregate_key = AggregateLineKey._RAW_TOTAL_OPEX
+                     target_aggregate_key = AggregateLineKey.TOTAL_OPERATING_EXPENSES # Map directly
                  elif subcategory == str(ExpenseSubcategoryEnum.CAPEX) and component == "value":
-                     target_aggregate_key = AggregateLineKey._RAW_TOTAL_CAPEX
-                 # Check specific components from Lease dictionary output (if applicable)
-                 elif component == "ti_allowance":
-                     target_aggregate_key = AggregateLineKey._RAW_TOTAL_TI
-                 elif component == "leasing_commission":
-                     target_aggregate_key = AggregateLineKey._RAW_TOTAL_LC
+                     target_aggregate_key = AggregateLineKey.TOTAL_CAPITAL_EXPENDITURES # Map directly
+                 # Check specific components (TI/LC are Expenses generated by Lease)
+                 elif subcategory == "TI Allowance" and component == "value": # TI Subcategory name
+                     target_aggregate_key = AggregateLineKey.TOTAL_TENANT_IMPROVEMENTS # Map directly
+                 elif subcategory == "Leasing Commission" and component == "value": # LC Subcategory name
+                     target_aggregate_key = AggregateLineKey.TOTAL_LEASING_COMMISSIONS # Map directly
             
             # Add to the target aggregate series if found
             if target_aggregate_key is not None:
                  # Ensure series index matches (should already be aligned)
                  safe_series = series.reindex(analysis_periods, fill_value=0.0)
                  aggregated_flows[target_aggregate_key] = aggregated_flows[target_aggregate_key].add(safe_series, fill_value=0.0)
-            # Log debug instead of print (or remove)
             else: 
-                 logger.debug(f"Flow {metadata['name']}/{component} not mapped to RAW aggregate.")
+                 logger.debug(f"Flow {metadata['name']}/{component} (Cat: {category}, Sub: {subcategory}) not mapped to aggregate.")
 
-        # --- Pass 2: Calculate standard lines from RAW aggregates and assumptions --- 
-        # Note: Assumes Vacancy/Abatement are zero for now.
-        # These calculations follow the standard real estate waterfall.
-        
-        # Copy raw sums to their final destinations if they represent the total
-        aggregated_flows[AggregateLineKey.TOTAL_OPERATING_EXPENSES] = aggregated_flows[AggregateLineKey._RAW_TOTAL_OPEX]
-        aggregated_flows[AggregateLineKey.TOTAL_CAPITAL_EXPENDITURES] = aggregated_flows[AggregateLineKey._RAW_TOTAL_CAPEX]
-        aggregated_flows[AggregateLineKey.TOTAL_TENANT_IMPROVEMENTS] = aggregated_flows[AggregateLineKey._RAW_TOTAL_TI]
-        aggregated_flows[AggregateLineKey.TOTAL_LEASING_COMMISSIONS] = aggregated_flows[AggregateLineKey._RAW_TOTAL_LC]
-        aggregated_flows[AggregateLineKey.EXPENSE_REIMBURSEMENTS] = aggregated_flows[AggregateLineKey._RAW_TOTAL_RECOVERIES]
-        # TODO: Separate Misc Income from Raw Revenue when detailed flows allow
-        aggregated_flows[AggregateLineKey.MISCELLANEOUS_INCOME] = pd.Series(0.0, index=analysis_periods) # Placeholder
-        aggregated_flows[AggregateLineKey.POTENTIAL_GROSS_REVENUE] = aggregated_flows[AggregateLineKey._RAW_TOTAL_REVENUE] # Placeholder - Assumes Raw = PGR
 
+        # --- Pass 2: Calculate derived lines --- 
         # Placeholder for Vacancy and Abatement (needs proper calculation model)
         aggregated_flows[AggregateLineKey.GENERAL_VACANCY_LOSS] = pd.Series(0.0, index=analysis_periods) # Placeholder
         aggregated_flows[AggregateLineKey.RENTAL_ABATEMENT] = pd.Series(0.0, index=analysis_periods) # Placeholder
@@ -549,7 +720,6 @@ class CashFlowAnalysis(Model):
             aggregated_flows[AggregateLineKey.POTENTIAL_GROSS_REVENUE]
             + aggregated_flows[AggregateLineKey.MISCELLANEOUS_INCOME]
             - aggregated_flows[AggregateLineKey.RENTAL_ABATEMENT] 
-            # Note: Vacancy is subtracted *after* EGR to get Total EGI
         )
 
         # Calculate Total Effective Gross Income (Total EGI)
@@ -582,24 +752,21 @@ class CashFlowAnalysis(Model):
             - aggregated_flows[AggregateLineKey.TOTAL_DEBT_SERVICE]
         )
         
-        # Optional: Could remove internal _RAW keys before returning if desired
-        # final_aggregates = {k: v for k, v in aggregated_flows.items() if not AggregateLineKey.is_internal_key(k)}
-        # return final_aggregates
+        # Remove internal _RAW keys before returning
+        final_aggregates = {k: v for k, v in aggregated_flows.items() if not AggregateLineKey.is_internal_key(k)}
 
         # DEBUG: Log aggregate values calculated this pass
         if logger.isEnabledFor(logging.DEBUG):
-             agg_summary = {k.value: f"{v.sum():.2f}" for k, v in aggregated_flows.items() if not AggregateLineKey.is_internal_key(k) and v.sum() != 0}
+             # Use final_aggregates for logging
+             agg_summary = {k.value: f"{v.sum():.2f}" for k, v in final_aggregates.items() if v.sum() != 0}
              logger.debug(f"Final aggregated values: {agg_summary}")
         
-        return aggregated_flows # Return the full dict including RAW keys for now
+        return final_aggregates # Return only display keys
 
     def _get_aggregated_flows(self) -> Dict[AggregateLineKey, pd.Series]:
         """Computes/retrieves detailed flows, then computes/retrieves aggregated flows using Enum keys."""
         logger.debug("Getting aggregated flows (checking cache).") # DEBUG: Entry
         # Ensure detailed flows are computed and cached
-        # This will run _compute_detailed_flows which uses TS or MPI. 
-        # The MPI internally calculates aggregates for lookups, but the final 
-        # result here depends on the *final* detailed flows.
         detailed_flows = self._compute_detailed_flows() 
         
         # Compute/cache aggregated flows from the *final* detailed flows
@@ -622,16 +789,20 @@ class CashFlowAnalysis(Model):
         Returns:
             A detailed pandas DataFrame suitable for in-depth analysis and auditing.
         """
-        logger.debug("Creating detailed cash flow DataFrame.") # DEBUG: Entry
+        logger.debug("Creating detailed cash flow DataFrame (checking cache).") # DEBUG: Entry
         if self._cached_detailed_cash_flow_dataframe is None:
+            logger.debug("Detailed DF cache miss. Computing now.") # DEBUG: Cache miss
             detailed_flows = self._compute_detailed_flows()
             
             if not detailed_flows: # Handle case with no results
-                return pd.DataFrame(index=self._create_timeline().period_index)
+                logger.debug("No detailed flows found, returning empty DataFrame.")
+                # Return empty DF with correct index
+                return pd.DataFrame(index=self._create_timeline().period_index) 
 
             # Prepare data for DataFrame construction
             data_dict = {}
-            index = detailed_flows[0][1].index # Use index from first series
+            # Use analysis timeline index consistently
+            index = self._create_timeline().period_index 
             tuples = []
             
             for metadata, series in detailed_flows:
@@ -642,13 +813,24 @@ class CashFlowAnalysis(Model):
                      metadata['name'], 
                      metadata['component']
                  )
-                 tuples.append(col_tuple)
-                 # Ensure series aligns with the common index (should be guaranteed by _compute_detailed_flows)
-                 data_dict[col_tuple] = series.reindex(index, fill_value=0.0)
+                 # Prevent duplicate columns by checking if tuple already exists
+                 if col_tuple not in tuples:
+                     tuples.append(col_tuple)
+                     # Ensure series aligns with the common index
+                     data_dict[col_tuple] = series.reindex(index, fill_value=0.0)
+                 else:
+                     # If tuple exists, add series to existing column data
+                     data_dict[col_tuple] = data_dict[col_tuple].add(series.reindex(index, fill_value=0.0), fill_value=0.0)
+                     logger.debug(f"Aggregating duplicate column: {col_tuple}")
+
+            if not tuples: # Check if tuples list is empty
+                 logger.debug("No valid columns generated for detailed DataFrame.")
+                 return pd.DataFrame(index=index)
 
             multi_index = pd.MultiIndex.from_tuples(tuples, names=['Category', 'Subcategory', 'Name', 'Component'])
             
-            df = pd.DataFrame(data_dict, index=index)
+            # Create DataFrame from the potentially aggregated data_dict keys
+            df = pd.DataFrame({col: data_dict[col] for col in tuples}, index=index)
             df.columns = multi_index
             df.index.name = "Period"
             
@@ -670,37 +852,21 @@ class CashFlowAnalysis(Model):
         Returns:
             A pandas DataFrame summarizing the property's cash flows.
         """
-        logger.debug("Creating summary cash flow DataFrame.") # DEBUG: Entry
+        logger.debug("Creating summary cash flow DataFrame (checking cache).") # DEBUG: Entry
         if self._cached_cash_flow_dataframe is None:
+            logger.debug("Summary DF cache miss. Computing now.") # DEBUG: Cache miss
             # _get_aggregated_flows now returns Dict[AggregateLineKey, pd.Series]
             flows: Dict[AggregateLineKey, pd.Series] = self._get_aggregated_flows()
             
-            # Define standard column order using Enum values for DataFrame columns
-            # Use AggregateLineKey.get_display_keys() potentially?
-            # For now, be explicit with the keys we want in the summary.
-            column_order = [
-                AggregateLineKey.POTENTIAL_GROSS_REVENUE, 
-                AggregateLineKey.RENTAL_ABATEMENT,
-                AggregateLineKey.MISCELLANEOUS_INCOME,
-                AggregateLineKey.EFFECTIVE_GROSS_REVENUE,
-                AggregateLineKey.GENERAL_VACANCY_LOSS, 
-                AggregateLineKey.EXPENSE_REIMBURSEMENTS, 
-                AggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME, 
-                AggregateLineKey.TOTAL_OPERATING_EXPENSES, 
-                AggregateLineKey.NET_OPERATING_INCOME, 
-                AggregateLineKey.TOTAL_TENANT_IMPROVEMENTS, 
-                AggregateLineKey.TOTAL_LEASING_COMMISSIONS, 
-                AggregateLineKey.TOTAL_CAPITAL_EXPENDITURES, 
-                AggregateLineKey.UNLEVERED_CASH_FLOW,
-                AggregateLineKey.TOTAL_DEBT_SERVICE,
-                AggregateLineKey.LEVERED_CASH_FLOW,
-            ]
+            # Use display keys from Enum for standard column order
+            column_order = AggregateLineKey.get_display_keys()
             
             # Create DataFrame using Enum values as column headers
             # Ensure all keys exist in the flows dict, default to zero series if not
             df_data = {}
             ref_index = self._create_timeline().period_index # Use a reference index
             for key in column_order:
+                # Use the key's value (string) for the DataFrame column name
                 df_data[key.value] = flows.get(key, pd.Series(0.0, index=ref_index, name=key.value))
             
             cf_df = pd.DataFrame(df_data, index=ref_index)
