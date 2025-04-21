@@ -381,7 +381,7 @@ class Lease(CashFlowModel):
         
         return rent_with_escalations
     
-    def _apply_abatements(self, rent_flow: pd.Series) -> pd.Series:
+    def _apply_abatements(self, rent_flow: pd.Series) -> tuple[pd.Series, pd.Series]:
         """
         Apply rent abatements to the rent cash flow.
         
@@ -390,11 +390,16 @@ class Lease(CashFlowModel):
             
         Returns:
             Modified cash flow with abatements applied
+            Tuple containing:
+             - pd.Series: Rent cash flow with abatements applied.
+             - pd.Series: Abatement amounts (as positive values representing reduction).
         """
         if not self.rent_abatement:
-            return rent_flow
+            # Return original flow and zero abatement if no abatement defined
+            return rent_flow, pd.Series(0.0, index=rent_flow.index)
         
-        result = rent_flow.copy()
+        abated_rent_flow = rent_flow.copy()
+        abatement_amount_series = pd.Series(0.0, index=rent_flow.index)
         periods = self.timeline.period_index
         
         # Calculate the abatement start period (relative to lease start)
@@ -409,9 +414,11 @@ class Lease(CashFlowModel):
         abatement_mask = (periods >= abatement_start_period) & (periods < abatement_end_period)
         
         # Apply the abatement ratio to the applicable periods
-        result[abatement_mask] *= (1 - self.rent_abatement.abated_ratio)
+        abatement_reduction = abated_rent_flow[abatement_mask] * self.rent_abatement.abated_ratio
+        abated_rent_flow[abatement_mask] -= abatement_reduction # Subtract reduction from rent flow
+        abatement_amount_series[abatement_mask] = abatement_reduction # Store positive abatement amount
         
-        return result
+        return abated_rent_flow, abatement_amount_series
     
     def compute_cf(
         self,
@@ -434,7 +441,8 @@ class Lease(CashFlowModel):
         # Get base cash flows using existing implementation
         base_rent = super().compute_cf(lookup_fn)
         base_rent_with_escalations = self._apply_escalations(base_rent)
-        base_rent_with_abatements = self._apply_abatements(base_rent_with_escalations)
+        # Apply abatements and get both the abated rent and the abatement amount
+        base_rent_final, abatement_cf = self._apply_abatements(base_rent_with_escalations)
         
         # Calculate recoveries if applicable
         recoveries = pd.Series(0, index=self.timeline.period_index)
@@ -448,8 +456,16 @@ class Lease(CashFlowModel):
             )
             
             # Apply abatement to recoveries if specified
+            # NOTE: We apply the abatement ratio directly here, not the calculated abatement amount series
             if self.rent_abatement and self.rent_abatement.includes_recoveries:
-                recoveries = self._apply_abatements(recoveries)
+                # Calculate abatement period mask again (could optimize)
+                lease_start_period = pd.Period(self.lease_start, freq="M")
+                abatement_start_month = self.rent_abatement.start_month - 1
+                abatement_start_period = lease_start_period + abatement_start_month
+                abatement_end_period = abatement_start_period + self.rent_abatement.months
+                abatement_mask = (recoveries.index >= abatement_start_period) & (recoveries.index < abatement_end_period)
+                # Apply abatement ratio
+                recoveries[abatement_mask] *= (1 - self.rent_abatement.abated_ratio)
         
         # Calculate TI cash flows if applicable
         # TODO: create a method to apply TI to the base rent
@@ -470,15 +486,16 @@ class Lease(CashFlowModel):
             lc_cf = lc_cf.reindex(self.timeline.period_index, fill_value=0)
         
         # Calculate total cash flows
-        revenue_cf = base_rent_with_abatements + recoveries
+        revenue_cf = base_rent_final + recoveries
         expense_cf = ti_cf + lc_cf
         net_cf = revenue_cf - expense_cf
         
         # Return all components
         return {
-            "base_rent": base_rent_with_abatements,
+            "base_rent": base_rent_final, # Rent after abatement
+            "abatement": abatement_cf, # Abatement amount (positive value)
             "recoveries": recoveries,
-            "revenue": revenue_cf,
+            "revenue": revenue_cf, # Total revenue (abated rent + recoveries)
             "ti_allowance": ti_cf,
             "leasing_commission": lc_cf,
             "expenses": expense_cf,
