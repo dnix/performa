@@ -281,6 +281,12 @@ class UponExpirationEnum(str, Enum):
     REABSORB = "reabsorb" # Space remains vacant pending separate re-leasing process
 
 
+class VacancyLossMethodEnum(str, Enum):
+    """How General Vacancy is calculated and applied in the waterfall."""
+    POTENTIAL_GROSS_REVENUE = "Potential Gross Revenue" # % of PGR line
+    EFFECTIVE_GROSS_REVENUE = "Effective Gross Revenue" # % of (PGR + Misc Inc - Abatement)
+
+
 class AggregateLineKey(str, Enum):
     """Defines standard keys for aggregated financial line items."""
 
@@ -290,6 +296,7 @@ class AggregateLineKey(str, Enum):
     MISCELLANEOUS_INCOME = "Miscellaneous Income"          # Parking, laundry, fees, etc.
     EFFECTIVE_GROSS_REVENUE = "Effective Gross Revenue"     # Potential + Misc - Abatement (BEFORE Vacancy/Recoveries)
     GENERAL_VACANCY_LOSS = "General Vacancy & Credit Loss"  # Allowance based on market/assumptions
+    COLLECTION_LOSS = "Collection Loss"                 # Allowance for uncollectible income
     EXPENSE_REIMBURSEMENTS = "Expense Reimbursements"       # Recoveries from tenants
     TOTAL_EFFECTIVE_GROSS_INCOME = "Total Effective Gross Income" # EGR - Vacancy + Recoveries (often called EGI)
 

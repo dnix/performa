@@ -15,6 +15,7 @@ from ..core._enums import (
     ExpenseSubcategoryEnum,
     RevenueSubcategoryEnum,
     UponExpirationEnum,
+    VacancyLossMethodEnum,
 )
 from ..core._model import Model
 from ..core._settings import GlobalSettings
@@ -248,7 +249,7 @@ class CashFlowAnalysis(Model):
             end_date=self.analysis_end_date,
             # Default monthly frequency assumed
         )
-
+        
     def _get_projected_leases(self) -> List['Lease']:
         """
         Generates the full sequence of actual and projected speculative leases 
@@ -257,7 +258,7 @@ class CashFlowAnalysis(Model):
         Iterates through the initial rent roll and projects each lease forward
         using its rollover profile until the analysis end date is reached.
         Caches the result.
-
+              
         Returns:
             A list containing all Lease instances (original and projected) 
             relevant to the analysis period.
@@ -373,25 +374,25 @@ class CashFlowAnalysis(Model):
                          except ValueError:
                              logger.warning(f"Lease '{lease.name}' timeline frequency ({lease_periods.freqstr}) not monthly. Skipping for occupancy calc.")
                              continue
-                    
+
                     # Find periods where this specific lease is active within the analysis
                     active_periods = analysis_periods.intersection(lease_periods)
                     if not active_periods.empty:
                          # Add this lease's area to the occupied series for its active periods
-                         occupied_area_series.loc[active_periods] += lease.area 
+                         occupied_area_series.loc[active_periods] += lease.area
             
             # Rest of the calculation remains the same
             total_nra = self.property.net_rentable_area
             if total_nra > 0:
                  # Clip occupancy between 0 and potentially > 1 if NRA definition issue, clip at 1 realistic max.
-                 occupancy_series = (occupied_area_series / total_nra).clip(0, 1) 
+                 occupancy_series = (occupied_area_series / total_nra).clip(0, 1)
             else:
                  occupancy_series = pd.Series(0.0, index=analysis_periods)
                  
             occupancy_series.name = "Occupancy Rate"
             self._cached_occupancy_series = occupancy_series
             logger.debug(f"Calculated occupancy series using projected leases. Average: {occupancy_series.mean():.2%}") # Updated logging
-        
+
         return self._cached_occupancy_series
 
     def _collect_revenue_models(self) -> List[CashFlowModel]:
@@ -401,10 +402,9 @@ class CashFlowAnalysis(Model):
         projected_leases = self._get_projected_leases() 
         revenue_models: List[CashFlowModel] = list(projected_leases) # Start with projected leases
 
-        # Add miscellaneous income items
-        if self.property.miscellaneous_income and self.property.miscellaneous_income.income_items:
-            # FIXME: The original code extended self.property.miscellaneous_income which is the collection, not items
-            revenue_models.extend(self.property.miscellaneous_income.income_items) 
+        # Add miscellaneous income items (Property.miscellaneous_income is now List[MiscIncome])
+        if self.property.miscellaneous_income: # Check if the list exists and is not empty
+            revenue_models.extend(self.property.miscellaneous_income) # Extend directly with the list
         
         logger.debug(f"Collected {len(revenue_models)} total revenue models.") # Added logging
         return revenue_models
@@ -585,7 +585,7 @@ class CashFlowAnalysis(Model):
                          except Exception as e: 
                              logger.error(f"(DAG Path) Error computing '{model.name}' ({model_id}). Skipped.", exc_info=True)
                              if self.settings.calculation.fail_on_error: raise e
-                             computed_results.pop(model_id, None)
+                         computed_results.pop(model_id, None)
                      ts.done(*node_group) # Mark nodes in the group as done
 
                 # If topological sort completes, graph is a DAG
@@ -664,8 +664,8 @@ class CashFlowAnalysis(Model):
         # --- Map detailed flows directly to final aggregate lines --- 
         # Get set of MiscIncome model IDs for quick lookup
         misc_income_models = set(
-            m.model_id for m in self.property.miscellaneous_income.income_items
-        ) if self.property.miscellaneous_income else set()
+            m.model_id for m in self.property.miscellaneous_income
+        ) if self.property.miscellaneous_income else set() # Iterate directly over list
 
         for metadata, series in detailed_flows:
             model_id = UUID(metadata["model_id"]) # Convert back to UUID for lookup
@@ -686,14 +686,14 @@ class CashFlowAnalysis(Model):
                          target_aggregate_key = AggregateLineKey.POTENTIAL_GROSS_REVENUE
                      elif component == "recoveries":
                          target_aggregate_key = AggregateLineKey.EXPENSE_REIMBURSEMENTS
-                     elif component == "abatement": 
+                     elif component == "abatement":
                          target_aggregate_key = AggregateLineKey.RENTAL_ABATEMENT
                      elif component == "revenue": # Avoid double counting
                          pass 
                      elif component == "value": 
                          logger.debug(f"Skipping mapping for Lease component 'value': {metadata['name']}")
                          pass
-                 
+
             elif category == "Expense":
                  if subcategory == str(ExpenseSubcategoryEnum.OPEX) and component == "value":
                      target_aggregate_key = AggregateLineKey.TOTAL_OPERATING_EXPENSES
@@ -740,16 +740,17 @@ class CashFlowAnalysis(Model):
         opex = aggregated_flows.get(AggregateLineKey.TOTAL_OPERATING_EXPENSES, pd.Series(0.0, index=analysis_periods))
         aggregated_flows[AggregateLineKey.NET_OPERATING_INCOME] = egi - opex
 
-        # --- Calculate Vacancy & Collection Loss (using settings) --- 
-        logger.debug("Calculating Vacancy and Collection Loss based on settings.")
-        loss_settings = self.settings.losses
+        # --- Calculate Vacancy & Collection Loss (using property.losses) --- 
+        logger.debug("Calculating Vacancy and Collection Loss based on property loss settings.")
+        # Get loss config from property
+        loss_config = self.property.losses 
 
         # General Vacancy Loss
         vacancy_basis_series: pd.Series
-        if loss_settings.vacancy_loss_method == "Potential Gross Revenue":
+        if loss_config.general_vacancy.method == VacancyLossMethodEnum.POTENTIAL_GROSS_REVENUE:
             vacancy_basis_series = aggregated_flows.get(AggregateLineKey.POTENTIAL_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
             logger.debug(f"  Vacancy basis: PGR (Sum: {vacancy_basis_series.sum():.2f})")
-        elif loss_settings.vacancy_loss_method == "Effective Gross Revenue":
+        elif loss_config.general_vacancy.method == VacancyLossMethodEnum.EFFECTIVE_GROSS_REVENUE:
             # Need to calculate EGR *before* applying vacancy
             pgr = aggregated_flows.get(AggregateLineKey.POTENTIAL_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
             misc = aggregated_flows.get(AggregateLineKey.MISCELLANEOUS_INCOME, pd.Series(0.0, index=analysis_periods))
@@ -757,21 +758,21 @@ class CashFlowAnalysis(Model):
             vacancy_basis_series = pgr + misc - abate
             logger.debug(f"  Vacancy basis: EGR (Sum: {vacancy_basis_series.sum():.2f})")
         else:
-            logger.warning(f"Unknown vacancy_loss_method: '{loss_settings.vacancy_loss_method}'. Defaulting to PGR.")
+            logger.warning(f"Unknown vacancy_loss_method: '{loss_config.general_vacancy.method}'. Defaulting to PGR.")
             vacancy_basis_series = aggregated_flows.get(AggregateLineKey.POTENTIAL_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
         
-        calculated_vacancy_loss = vacancy_basis_series * loss_settings.general_vacancy_rate
+        calculated_vacancy_loss = vacancy_basis_series * loss_config.general_vacancy.rate
         # TODO: Implement reduce_general_vacancy_by_rollover_vacancy logic here if needed
         aggregated_flows[AggregateLineKey.GENERAL_VACANCY_LOSS] = calculated_vacancy_loss
-        logger.debug(f"  Calculated General Vacancy Loss (Rate: {loss_settings.general_vacancy_rate:.1%}): {calculated_vacancy_loss.sum():.2f}")
+        logger.debug(f"  Calculated General Vacancy Loss (Rate: {loss_config.general_vacancy.rate:.1%}): {calculated_vacancy_loss.sum():.2f}")
 
         # Collection Loss
         collection_basis_series: pd.Series
         # NOTE: "scheduled_income" basis not implemented - requires summing specific rent components before loss/recovery
-        if loss_settings.collection_loss_basis == "pgr":
+        if loss_config.collection_loss.basis == "pgr":
             collection_basis_series = aggregated_flows.get(AggregateLineKey.POTENTIAL_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
             logger.debug(f"  Collection loss basis: PGR (Sum: {collection_basis_series.sum():.2f})")
-        elif loss_settings.collection_loss_basis == "egi":
+        elif loss_config.collection_loss.basis == "egi":
             # Need to calculate EGI *before* applying collection loss
             # EGI = EGR - General Vacancy + Reimbursements
             egr = aggregated_flows.get(AggregateLineKey.EFFECTIVE_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
@@ -781,17 +782,17 @@ class CashFlowAnalysis(Model):
             collection_basis_series = egr - vac + recov # This is EGI
             logger.debug(f"  Collection loss basis: EGI (Sum: {collection_basis_series.sum():.2f})")
         else: # Default or unknown basis, maybe default to EGI?
-            logger.warning(f"Unsupported collection_loss_basis: '{loss_settings.collection_loss_basis}'. Defaulting to EGI.")
+            logger.warning(f"Unsupported collection_loss_basis: '{loss_config.collection_loss.basis}'. Defaulting to EGI.")
             egr = aggregated_flows.get(AggregateLineKey.EFFECTIVE_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
             vac = aggregated_flows.get(AggregateLineKey.GENERAL_VACANCY_LOSS, pd.Series(0.0, index=analysis_periods)) 
             recov = aggregated_flows.get(AggregateLineKey.EXPENSE_REIMBURSEMENTS, pd.Series(0.0, index=analysis_periods))
             collection_basis_series = egr - vac + recov # This is EGI
         
-        calculated_collection_loss = collection_basis_series * loss_settings.collection_loss_rate
+        calculated_collection_loss = collection_basis_series * loss_config.collection_loss.rate
         # Assign to the correct key (assuming COLLECTION_LOSS is now defined)
         if AggregateLineKey.COLLECTION_LOSS in aggregated_flows:
              aggregated_flows[AggregateLineKey.COLLECTION_LOSS] = calculated_collection_loss
-             logger.debug(f"  Calculated Collection Loss (Rate: {loss_settings.collection_loss_rate:.1%}): {calculated_collection_loss.sum():.2f}")
+             logger.debug(f"  Calculated Collection Loss (Rate: {loss_config.collection_loss.rate:.1%}): {calculated_collection_loss.sum():.2f}")
         else:
              logger.error("AggregateLineKey.COLLECTION_LOSS not found in aggregation dictionary.")
              # Add placeholder if missing to prevent key errors later, though it shouldn't be missing
@@ -874,7 +875,7 @@ class CashFlowAnalysis(Model):
             if not detailed_flows: # Handle case with no results
                 logger.debug("No detailed flows found, returning empty DataFrame.")
                 # Return empty DF with correct index
-                return pd.DataFrame(index=self._create_timeline().period_index) 
+                return pd.DataFrame(index=self._create_timeline().period_index)
 
             # Prepare data for DataFrame construction
             data_dict = {}

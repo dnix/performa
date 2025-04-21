@@ -147,7 +147,7 @@ class CashFlowModel(Model):
     ) -> Union[float, pd.Series, Dict]:
         """
         Convert the value from its original frequency (e.g., annual) to monthly.
-
+        
         - If the frequency is ANNUAL, a conversion factor of 1/12 is used.
         - For pandas Series:
             - If the index is detected as annual (PeriodIndex freq 'A' or DatetimeIndex inferred 'A'),
@@ -179,7 +179,7 @@ class CashFlowModel(Model):
                 # Ensure index is sorted for reliable frequency inference and resampling
                 value = value.sort_index()
                 index_freq = pd.infer_freq(value.index)
-
+            
             if index_freq and index_freq.startswith("A"):
                 # Convert annual Series to monthly by distributing value/12
                 

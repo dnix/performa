@@ -146,27 +146,27 @@ class LeasingCommission(CashFlowModel):
             if start_month >= lease_months:
                 logger.debug(f"      Skipping tier - Start month {start_month+1} is beyond lease end ({lease_months} months).")
                 continue
-                
+            
             # Ensure start_month is not negative (shouldn't happen with PositiveInt)
             start_month = max(0, start_month)
             
             # Ensure end_month is not before start_month
             if end_month <= start_month:
-                 logger.debug(f"      Skipping tier - End month {end_month} is not after start month {start_month}.")
-                 continue
+                logger.debug(f"      Skipping tier - End month {end_month} is not after start month {start_month}.")
+                continue
             
             # Get the periods for this tier based on calculated month indices
             # Use iloc for safe index slicing even if periods aren't perfectly sequential integers
             try:
                 tier_periods = self.timeline.period_index[start_month:end_month]
             except IndexError:
-                 logger.warning(f"      Could not slice timeline index for months {start_month}-{end_month}. Skipping tier.")
-                 continue
+                logger.warning(f"      Could not slice timeline index for months {start_month}-{end_month}. Skipping tier.")
+                continue
                  
             if tier_periods.empty:
                 logger.debug(f"      Skipping tier - No periods found between months {start_month}-{end_month}.")
                 continue
-
+            
             # Calculate commission for this tier
             # Ensure rent_series covers the tier_periods
             tier_rent = rent_series.reindex(tier_periods, fill_value=0.0)
@@ -175,7 +175,7 @@ class LeasingCommission(CashFlowModel):
             logger.debug(f"      Tier Rent Sum: {tier_rent.sum():.2f}, Tier Commission: {tier_commission:.2f}")
 
         logger.debug(f"  Total Commission Calculated Across Tiers: {total_commission:.2f}")
-
+            
         # --- Distribute Total Commission Based on Payment Timing ---
         if total_commission > 0 and not self.timeline.period_index.empty:
             if self.payment_timing == "signing" or self.payment_timing == "commencement":

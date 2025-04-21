@@ -25,12 +25,6 @@ class InflationTimingEnum(str, Enum):
     # ANNIVERSARY = "Anniversary" # Likely applied at item level (e.g., lease anniversary)
 
 
-class VacancyLossMethodEnum(str, Enum):
-    """How General Vacancy is calculated and applied in the waterfall."""
-    POTENTIAL_GROSS_REVENUE = "Potential Gross Revenue" # % of PGR line
-    EFFECTIVE_GROSS_REVENUE = "Effective Gross Revenue" # % of (PGR + Misc Inc - Abatement)
-
-
 class RecoveryMethodEnum(str, Enum): # Placeholder, often expense-specific
     """Default method for calculating expense recoveries."""
     NET = "Net" # Tenant pays pro-rata share of all OpEx
@@ -92,17 +86,6 @@ class InflationSettings(Model):
         return self # Return the validated model instance
 
 
-class LossSettings(Model):
-    """Settings related to vacancy, collection loss, and downtime interaction."""
-    # Use FloatBetween0And1 for rates
-    general_vacancy_rate: FloatBetween0And1 = Field(default=0.05, description="General vacancy applied across the property, distinct from lease rollover vacancy.") 
-    vacancy_loss_method: VacancyLossMethodEnum = Field(default=VacancyLossMethodEnum.POTENTIAL_GROSS_REVENUE, description="Line item used as the basis for calculating General Vacancy loss amount.")
-    # Use FloatBetween0And1 for rates
-    collection_loss_rate: FloatBetween0And1 = Field(default=0.01, description="Percentage of income assumed uncollectible.") 
-    collection_loss_basis: Literal["pgr", "scheduled_income", "egi"] = Field(default="scheduled_income", description="Line item used as the basis for calculating Collection Loss.")
-    # Added flag for interaction between general and rollover vacancy
-    reduce_general_vacancy_by_rollover_vacancy: bool = Field(default=True, description="If True, reduce calculated general vacancy loss by any vacancy already accounted for during lease rollover periods.")
-
 
 class RecoverySettings(Model):
     """Settings for expense recovery calculations, including gross-up."""
@@ -112,6 +95,8 @@ class RecoverySettings(Model):
     gross_up_occupancy_threshold: FloatBetween0And1 = Field(default=0.95, description="Occupancy level (e.g., 0.95 for 95%) triggering expense gross-up.") 
     gross_up_uses_fixed_rate: bool = Field(default=False, description="If True, gross up to 100% occupancy always; if False, gross up to the threshold occupancy level (e.g., 95%).")
     # default_recovery_method: Optional[RecoveryMethodEnum] = None # Often expense-specific
+    inflation: InflationSettings = Field(default_factory=InflationSettings)
+    # FIXME: should we be putting inflation settings nested here?
 
 
 # Market Leasing Assumptions are complex. Deferring a dedicated 'MarketLeasingSettings' sub-model.
@@ -138,7 +123,7 @@ class GlobalSettings(Model):
     reporting: ReportingSettings = Field(default_factory=ReportingSettings)
     calculation: CalculationSettings = Field(default_factory=CalculationSettings)
     inflation: InflationSettings = Field(default_factory=InflationSettings)
-    losses: LossSettings = Field(default_factory=LossSettings)
+    # losses: LossSettings = Field(default_factory=LossSettings) # Field Removed
     recoveries: RecoverySettings = Field(default_factory=RecoverySettings)
     valuation: ValuationSettings = Field(default_factory=ValuationSettings)
     percentage_rent: PercentageRentSettings = Field(default_factory=PercentageRentSettings)
