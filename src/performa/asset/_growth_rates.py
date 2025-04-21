@@ -62,6 +62,7 @@ class GrowthRates(Model):
     operating_expense_growth: GrowthRate
     leasing_costs_growth: GrowthRate
     capital_expense_growth: GrowthRate
+    # FIXME: add support for inflation rate, here and in settings and analysis
 
     @classmethod
     def with_default_rate(cls, default_rate: FloatBetween0And1) -> "GrowthRates":

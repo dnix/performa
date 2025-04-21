@@ -62,7 +62,9 @@ class CalculationSettings(Model):
 
 class InflationSettings(Model):
     """Global assumptions for general inflation rates."""
-    general_inflation_rate: PositiveFloat = Field(default=0.025, description="Default annual general inflation rate.") 
+    # NOTE: this only applies for GrowthRate names inflation
+    # NOTE: all rates are defined as GrowthRate, not percentages here in settings
+    # FIXME: add support for inflation rate, here and in growth_rates and analysis
     inflation_timing: InflationTimingEnum = Field(default=InflationTimingEnum.START_OF_YEAR, description="When annual inflation adjustments are applied.")
     inflation_timing_month: Optional[PositiveInt] = Field(default=None, ge=1, le=12, description="Specific month (1-12) if inflation_timing is SPECIFIC_MONTH.") 
 
@@ -94,9 +96,7 @@ class RecoverySettings(Model):
     # Use FloatBetween0And1 for threshold
     gross_up_occupancy_threshold: FloatBetween0And1 = Field(default=0.95, description="Occupancy level (e.g., 0.95 for 95%) triggering expense gross-up.") 
     gross_up_uses_fixed_rate: bool = Field(default=False, description="If True, gross up to 100% occupancy always; if False, gross up to the threshold occupancy level (e.g., 95%).")
-    # default_recovery_method: Optional[RecoveryMethodEnum] = None # Often expense-specific
-    inflation: InflationSettings = Field(default_factory=InflationSettings)
-    # FIXME: should we be putting inflation settings nested here?
+    # default_recovery_method: Optional[RecoveryMethodEnum] = None # Often expense-specific\
 
 
 # Market Leasing Assumptions are complex. Deferring a dedicated 'MarketLeasingSettings' sub-model.
@@ -123,7 +123,6 @@ class GlobalSettings(Model):
     reporting: ReportingSettings = Field(default_factory=ReportingSettings)
     calculation: CalculationSettings = Field(default_factory=CalculationSettings)
     inflation: InflationSettings = Field(default_factory=InflationSettings)
-    # losses: LossSettings = Field(default_factory=LossSettings) # Field Removed
     recoveries: RecoverySettings = Field(default_factory=RecoverySettings)
     valuation: ValuationSettings = Field(default_factory=ValuationSettings)
     percentage_rent: PercentageRentSettings = Field(default_factory=PercentageRentSettings)
