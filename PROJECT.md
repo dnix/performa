@@ -8,7 +8,8 @@ Performa aims to be the open standard for real estate financial modeling, provid
 
 - Atomic, composable primitives and tools for real estate financial analysis
 - AI-ready data models and schemas for automated underwriting
-- Browser-based modeling templates and applications
+- A Python framework to enable browser-based modeling templates and applications such as in Marimo using Pyodide (WASM)
+- Eventually provide a backend API and SDK for real-time data integration and self-building financial models and MCP servers for LLM-powered underwriting
 - Enable a future with real-time data integration and self-building financial models
 - Power a common model specification (similar to what ISDA Common Model does for financial derivatives)
 
