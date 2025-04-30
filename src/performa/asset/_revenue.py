@@ -1,6 +1,16 @@
 import logging
 from datetime import date, relativedelta, timedelta
-from typing import Any, Callable, Dict, List, Literal, Optional, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+)
 from uuid import UUID
 
 import numpy as np
@@ -18,17 +28,23 @@ from ..core._enums import (
     UponExpirationEnum,
 )
 from ..core._model import Model
+from ..core._settings import GlobalSettings
 from ..core._timeline import Timeline
 from ..core._types import (
     FloatBetween0And1,
     PositiveFloat,
     PositiveInt,
 )
+from ._expense import ExpenseItem
 from ._growth_rates import GrowthRate
 from ._lc import LeasingCommission
-from ._recovery import RecoveryMethod
+from ._recovery import Recovery, RecoveryMethod
 from ._rollover import RolloverLeaseTerms, RolloverProfile
 from ._ti import TenantImprovementAllowance
+
+# Avoid circular imports
+if TYPE_CHECKING:
+    from ._property import Property
 
 logger = logging.getLogger(__name__)
 
@@ -423,38 +439,69 @@ class Lease(CashFlowModel):
     
     def compute_cf(
         self,
-        property_area: Optional[PositiveFloat] = None,
-        occupancy_rate: Optional[float] = None,
-        lookup_fn: Optional[Callable[[str], Union[float, pd.Series]]] = None
+        # Arguments needed for downstream calculations (recoveries, base year)
+        property_data: Optional['Property'] = None, 
+        global_settings: Optional['GlobalSettings'] = None,
+        # Original args + updated lookup_fn hint
+        occupancy_rate: Optional[Union[float, pd.Series]] = None, # Allow Series for occupancy
+        lookup_fn: Optional[Callable[[Union[str, UUID]], Union[float, pd.Series, Dict, Any]]] = None 
     ) -> Dict[str, pd.Series]:
         """
         Compute cash flows for the lease including base rent, recoveries, TI, and LC.
         
+        Also triggers the calculation of base year stops if applicable and not already done.
+        
         Args:
-            property_area: Total property area for recovery calculations
-            occupancy_rate: Current or projected occupancy rate
-            lookup_fn: Optional function to resolve references
+            property_data: The Property object, needed for recovery and base year calcs.
+            global_settings: Global settings, potentially influencing base year calcs.
+            occupancy_rate: Current or projected occupancy rate (float or Series).
+            lookup_fn: Optional function to resolve references.
             
         Returns:
             Dictionary of cash flow series by type (base_rent, recoveries, revenue, 
             ti_allowance, leasing_commission, expenses, net)
         """
+        # --- Calculate Base Year Stops (if applicable and not done) --- 
+        # Requires property_data to be passed
+        if property_data:
+             self._calculate_and_cache_base_year_stops(property_data, global_settings)
+        else:
+             # Log warning if base year calculation might be needed but property_data is missing
+             if self.recoveries and any(rec.structure in ["base_year", "base_year_plus1", "base_year_minus1"] for rec in self.recoveries):
+                 logger.warning(f"Lease '{self.name}' has Base Year recoveries but property_data was not provided to compute_cf. Stops cannot be calculated.")
+
+        # --- Base Rent Calculation --- 
         # Get base cash flows using existing implementation
+        # Note: lookup_fn here resolves references for the base rent itself
         base_rent = super().compute_cf(lookup_fn)
         base_rent_with_escalations = self._apply_escalations(base_rent)
         # Apply abatements and get both the abated rent and the abatement amount
         base_rent_final, abatement_cf = self._apply_abatements(base_rent_with_escalations)
         
-        # Calculate recoveries if applicable
-        recoveries = pd.Series(0, index=self.timeline.period_index)
-        if self.recovery_method and property_area:
-            # Calculate base recoveries
-            recoveries = self.recovery_method.calculate_recoveries(
-                tenant_area=self.area,
-                property_area=property_area,
-                timeline=self.timeline.period_index,
-                occupancy_rate=occupancy_rate
-            )
+        # --- Recovery Calculation --- 
+        recoveries = pd.Series(0.0, index=self.timeline.period_index) # Use float
+        if self.recovery_method:
+            if property_data is None:
+                 logger.error(f"Recovery method present for lease '{self.name}' but property_data not provided. Cannot calculate recoveries.")
+            else:
+                # Pass necessary args to recovery calculation
+                # Note: lookup_fn passed here is for *recovery* dependencies, e.g., fetching expense CFs
+                # Also pass resolved freeze_share setting if applicable
+                freeze_share_setting = False # Default
+                if global_settings and hasattr(global_settings, 'recoveries') and hasattr(global_settings.recoveries, 'freeze_share_at_baseyear'):
+                     freeze_share_setting = global_settings.recoveries.freeze_share_at_baseyear
+                elif global_settings and hasattr(global_settings, 'freeze_share_at_baseyear'): # Check top level
+                     freeze_share_setting = global_settings.freeze_share_at_baseyear
+                     
+                recoveries = self.recovery_method.calculate_recoveries(
+                    tenant_area=self.area,
+                    property_area=property_data.net_rentable_area, # Get NRA from property
+                    timeline=self.timeline.period_index,
+                    occupancy_rate=occupancy_rate, # Pass down occupancy
+                    lookup_fn=lookup_fn, # Pass down lookup_fn
+                    # Pass the resolved boolean flag, not the whole settings object
+                    freeze_share_at_baseyear=freeze_share_setting 
+                )
             
             # Apply abatement to recoveries if specified
             # NOTE: We apply the abatement ratio directly here, not the calculated abatement amount series
@@ -468,25 +515,26 @@ class Lease(CashFlowModel):
                 # Apply abatement ratio
                 recoveries[abatement_mask] *= (1 - self.rent_abatement.abated_ratio)
         
+        # --- TI/LC Calculation --- 
         # Calculate TI cash flows if applicable
-        # TODO: create a method to apply TI to the base rent
-        ti_cf = pd.Series(0, index=self.timeline.period_index)
+        ti_cf = pd.Series(0.0, index=self.timeline.period_index) # Use float
         if self.ti_allowance:
             # Ensure TI timeline matches the lease timeline
+            # lookup_fn here resolves TI dependencies (e.g., reference to area)
             ti_cf = self.ti_allowance.compute_cf(lookup_fn)
             # Align to lease timeline in case of differences
-            ti_cf = ti_cf.reindex(self.timeline.period_index, fill_value=0)
+            ti_cf = ti_cf.reindex(self.timeline.period_index, fill_value=0.0)
         
         # Calculate LC cash flows if applicable
-        # TODO: create a method to apply LC to the base rent
-        lc_cf = pd.Series(0, index=self.timeline.period_index)
+        lc_cf = pd.Series(0.0, index=self.timeline.period_index) # Use float
         if self.leasing_commission:
             # Ensure LC timeline matches the lease timeline
+            # lookup_fn here resolves LC dependencies (e.g., reference to annual rent)
             lc_cf = self.leasing_commission.compute_cf(lookup_fn)
             # Align to lease timeline in case of differences
-            lc_cf = lc_cf.reindex(self.timeline.period_index, fill_value=0)
+            lc_cf = lc_cf.reindex(self.timeline.period_index, fill_value=0.0)
         
-        # Calculate total cash flows
+        # --- Final Aggregation --- 
         revenue_cf = base_rent_final + recoveries
         expense_cf = ti_cf + lc_cf
         net_cf = revenue_cf - expense_cf
@@ -504,6 +552,267 @@ class Lease(CashFlowModel):
         }
     # FIXME: dataframe all the things? how do we want to handle cash flow components for later disaggregation?
     # TODO: we may want to retain more detailed cash flow components for later analysis/reporting
+
+    def _calculate_and_cache_base_year_stops(self, property_data: 'Property', global_settings: Optional['GlobalSettings'] = None) -> None:
+        """
+        Calculates and caches the annualized, grossed-up base year expense stop 
+        amount for each recovery item configured with a base year structure.
+        
+        This method should be called once, typically before or during the first 
+        call to compute_cf for the lease.
+        
+        It uses utility functions to fetch base year occupancy and expenses,
+        applies gross-up, annualizes the result, and stores it in 
+        `recovery._calculated_annual_base_year_stop`.
+        
+        Args:
+            property_data: The Property object containing expense definitions and rent roll.
+            global_settings: Optional global settings influencing calculations 
+                             (e.g., calendar vs fiscal year handling - TBD).
+                             
+        Returns:
+             None. Modifies the `_calculated_annual_base_year_stop` attribute 
+             of relevant Recovery objects in self.recoveries.
+        """
+        # TODO: Implement calendar vs fiscal year logic from global_settings
+        # TODO: Implement annualization for partial base years
+        
+        if not self.recoveries:
+            logger.debug(f"Lease '{self.name}' has no recoveries. Skipping base year calculation.")
+            return
+            
+        # Avoid recalculation if already done (simple check)
+        # A more robust system might involve checking if inputs (property_data) changed.
+        if any(rec._calculated_annual_base_year_stop is not None 
+               for rec in self.recoveries 
+               if rec.structure in ["base_year", "base_year_plus1", "base_year_minus1"]):
+            logger.debug(f"Base year stops already calculated for Lease '{self.name}'. Skipping.")
+            return
+
+        logger.debug(f"Calculating base year stops for Lease '{self.name}'...")
+        # Import utils here to avoid circular dependency at module level
+        from ._calc_utils import (
+            _get_period_expenses,
+            _get_period_occupancy,
+            _gross_up_period_expenses,
+        )
+        
+        # Gather all unique expense items needed across all BY recoveries for efficiency
+        all_by_expense_items: Dict[UUID, ExpenseItem] = {}
+        recoveries_needing_calc: List[Recovery] = []
+        
+        for recovery in self.recoveries:
+            if recovery.structure in ["base_year", "base_year_plus1", "base_year_minus1"]:
+                 if recovery.base_year is None: # Should be caught by validation, but double-check
+                     logger.error(f"Recovery '{recovery.expense_pool.name}' for lease '{self.name}' is Base Year type but missing base_year value.")
+                     continue
+                     
+                 recoveries_needing_calc.append(recovery)
+                 pool_items = recovery.expense_pool.expenses
+                 if not isinstance(pool_items, list): pool_items = [pool_items]
+                 for item in pool_items:
+                     if item.model_id not in all_by_expense_items:
+                         all_by_expense_items[item.model_id] = item
+                         
+        if not recoveries_needing_calc:
+            logger.debug(f"No Base Year recovery structures found for Lease '{self.name}'.")
+            return
+            
+        # --- Determine Base Year Period and Fetch Data --- 
+        # This logic might need refinement based on calendar/fiscal settings
+        # For now, assume simple calendar year based on lease start
+        lease_start_year = self.lease_start.year
+        base_year_map: Dict[int, Tuple[date, date]] = {}
+        occupancy_cache: Dict[int, pd.Series] = {}
+        expense_cache: Dict[int, Dict[UUID, pd.Series]] = {}
+        
+        for recovery in recoveries_needing_calc:
+             year_offset = 0
+             if recovery.structure == "base_year_plus1": year_offset = 1
+             elif recovery.structure == "base_year_minus1": year_offset = -1
+             
+             target_base_year = lease_start_year + year_offset
+             
+             # Determine calendar mode and fiscal start month from settings
+             calendar_mode = 'calendar' # Default
+             fiscal_start_month = 1 # Default
+             freeze_share = False # Default
+             if global_settings:
+                 # Check for recovery-specific settings first
+                 if hasattr(global_settings, 'recoveries'):
+                     rec_settings = global_settings.recoveries
+                     if hasattr(rec_settings, 'calendar_mode') and isinstance(rec_settings.calendar_mode, str):
+                         calendar_mode = rec_settings.calendar_mode.lower()
+                     if hasattr(rec_settings, 'freeze_share_at_baseyear') and isinstance(rec_settings.freeze_share_at_baseyear, bool):
+                         freeze_share = rec_settings.freeze_share_at_baseyear
+                         
+                 # Get analysis start month if fiscal mode is chosen (needed regardless of where calendar_mode was set)
+                 if calendar_mode == 'fiscal':
+                     if hasattr(global_settings, 'analysis_start_date') and global_settings.analysis_start_date:
+                         fiscal_start_month = global_settings.analysis_start_date.month
+                     else:
+                         logger.warning("Fiscal calendar_mode requires global_settings.analysis_start_date. Defaulting to January fiscal start.")
+                         fiscal_start_month = 1
+             else:
+                 logger.debug("No global_settings provided for base year calculation. Using defaults (Calendar mode, no freeze share).")
+
+             if target_base_year not in base_year_map:
+                  # --- Define the base year period based on mode --- 
+                  if calendar_mode == 'fiscal':
+                      by_start = date(target_base_year, fiscal_start_month, 1)
+                      by_end = by_start + relativedelta(years=1) - timedelta(days=1)
+                      logger.debug(f"  Using Fiscal Year ({fiscal_start_month}/1 start) for base year {target_base_year}.")
+                  else: # Default to Calendar
+                      by_start = date(target_base_year, 1, 1)
+                      by_end = date(target_base_year, 12, 31)
+                      logger.debug(f"  Using Calendar Year for base year {target_base_year}.")
+                      
+                  base_year_map[target_base_year] = (by_start, by_end)
+                  
+                  # Fetch occupancy for this year (Annual Average? Monthly?)
+                  logger.debug(f"  Fetching monthly occupancy for base year {target_base_year} ({by_start} to {by_end})")
+                  monthly_occupancy = _get_period_occupancy(property_data, by_start, by_end, frequency='M')
+                  if monthly_occupancy is None:
+                       logger.error(f"    Failed to get occupancy for base year {target_base_year}. Cannot calculate stop for relevant recoveries.")
+                       # Store None to indicate failure for this year
+                       occupancy_cache[target_base_year] = None 
+                       expense_cache[target_base_year] = None # No point fetching expenses if occupancy failed
+                       continue # Move to next recovery/year if needed
+                  else:
+                       occupancy_cache[target_base_year] = monthly_occupancy
+                       
+                  # Fetch expenses for this year (all potentially needed items)
+                  logger.debug(f"  Fetching monthly expenses for base year {target_base_year} for items: {list(all_by_expense_items.keys())}")
+                  monthly_expenses = _get_period_expenses(
+                       property_data, by_start, by_end, 
+                       expense_item_ids=list(all_by_expense_items.keys()), 
+                       frequency='M'
+                  )
+                  if monthly_expenses is None:
+                       logger.error(f"    Failed to get expenses for base year {target_base_year}. Cannot calculate stop for relevant recoveries.")
+                       expense_cache[target_base_year] = None
+                  else:
+                       expense_cache[target_base_year] = monthly_expenses
+                       
+             # --- Calculate Stop for the Current Recovery --- 
+             if occupancy_cache.get(target_base_year) is None or expense_cache.get(target_base_year) is None:
+                  logger.warning(f"  Skipping stop calculation for recovery '{recovery.expense_pool.name}' due to missing data for base year {target_base_year}.")
+                  recovery._calculated_annual_base_year_stop = None # Mark as failed/not calculated
+                  continue
+                  
+             base_year_occupancy = occupancy_cache[target_base_year]
+             base_year_expenses = expense_cache[target_base_year]
+             
+             # Filter expenses relevant to *this* recovery's pool
+             pool_items = recovery.expense_pool.expenses
+             if not isinstance(pool_items, list): pool_items = [pool_items]
+             pool_item_ids = {item.model_id for item in pool_items}
+             pool_expenses_raw: Dict[UUID, pd.Series] = { 
+                  item_id: series 
+                  for item_id, series in base_year_expenses.items() 
+                  if item_id in pool_item_ids
+             }
+             pool_items_map = {item.model_id: item for item in pool_items}
+
+             if not pool_expenses_raw:
+                  logger.warning(f"  No expense data found for pool '{recovery.expense_pool.name}' in base year {target_base_year}. Setting stop to 0.")
+                  recovery._calculated_annual_base_year_stop = 0.0
+                  continue
+
+             # Perform Gross-up (using monthly data for now)
+             # Assume the RecoveryMethod's gross_up settings apply to the base year calc too?
+             # Let's assume yes for now. Need the RecoveryMethod settings.
+             gross_up_this_recovery = False
+             gross_up_target = 0.95 # Default
+             if self.recovery_method: # Check if lease has a recovery method assigned
+                  gross_up_this_recovery = self.recovery_method.gross_up
+                  if self.recovery_method.gross_up_percent is not None:
+                       gross_up_target = self.recovery_method.gross_up_percent
+                       
+             pool_expenses_grossed_up: Dict[UUID, pd.Series]
+             if gross_up_this_recovery:
+                  logger.debug(f"    Applying gross-up to base year {target_base_year} expenses for pool '{recovery.expense_pool.name}' (Target: {gross_up_target:.1%})")
+                  pool_expenses_grossed_up = _gross_up_period_expenses(
+                       pool_expenses_raw, 
+                       base_year_occupancy, 
+                       expense_items_map=pool_items_map, # Pass map for var ratio lookup
+                       gross_up_target_rate=gross_up_target
+                  )
+             else:
+                  logger.debug(f"    Gross-up disabled for base year {target_base_year} calculation for pool '{recovery.expense_pool.name}'.")
+                  pool_expenses_grossed_up = pool_expenses_raw
+                  
+             # Aggregate the grossed-up expenses for the pool
+             total_pool_by_grossed_up = pd.Series(0.0, index=base_year_occupancy.index) # Use occupancy index
+             for series in pool_expenses_grossed_up.values():
+                  total_pool_by_grossed_up = total_pool_by_grossed_up.add(series.reindex(total_pool_by_grossed_up.index, fill_value=0.0), fill_value=0.0)
+                  
+             # Store the result
+             # Perform Annualization
+             # Determine the exact base period (12 months)
+             base_period_start_month = 0 # Default lease year 1
+             if recovery.structure == "base_year_plus1": base_period_start_month = 12
+             elif recovery.structure == "base_year_minus1": base_period_start_month = -12
+             
+             # Calculate the start and end date of the 12-month base period
+             base_period_start_date = self.lease_start + relativedelta(months=base_period_start_month)
+             # End date is 12 months after start date (exclusive end for period range)
+             base_period_end_date = base_period_start_date + relativedelta(months=12) - timedelta(days=1) # Inclusive end date
+             
+             # Create the precise 12-month PeriodIndex for slicing
+             try:
+                  precise_base_periods = pd.period_range(start=base_period_start_date, end=base_period_end_date, freq='M')
+                  if len(precise_base_periods) > 12: # Adjust if period_range includes extra month due to end date handling
+                      precise_base_periods = precise_base_periods[:12]
+             except Exception as e:
+                  logger.error(f"    Could not create precise base period range for {recovery.expense_pool.name}. Cannot annualize. Error: {e}")
+                  # Cannot calculate stop accurately without the period
+                  recovery._calculated_annual_base_year_stop = None 
+                  continue 
+                  
+             # Slice the calculated monthly total expenses to the precise base period
+             sliced_base_year_total = total_pool_by_grossed_up.reindex(precise_base_periods, fill_value=0.0)
+             
+             # Check for partial data within the slice (e.g., for BY-1 with missing history)
+             # Count non-zero or non-NaN months if fill_value was NaN
+             months_in_slice = len(sliced_base_year_total) # Should be 12 if data was fully available
+             # A more robust check might be needed if 0 is a valid expense amount
+             # valid_months_count = sliced_base_year_total.count() # Counts non-NaN, useful if fill_value=np.nan
+             
+             # Annualize if necessary
+             calculated_sum = sliced_base_year_total.sum()
+             if months_in_slice == 0:
+                  logger.warning(f"    No data found within the precise base period ({precise_base_periods.min()} to {precise_base_periods.max()}) for pool '{recovery.expense_pool.name}'. Setting stop to 0.")
+                  annual_stop_amount = 0.0
+             elif months_in_slice < 12:
+                  logger.warning(f"    Partial data ({months_in_slice}/12 months) found for base period ({precise_base_periods.min()} to {precise_base_periods.max()}) for pool '{recovery.expense_pool.name}'. Annualizing sum {calculated_sum:.2f}.")
+                  annual_stop_amount = (calculated_sum / months_in_slice) * 12
+             else:
+                  # Full 12 months of data
+                  annual_stop_amount = calculated_sum
+
+             logger.debug(f"    Calculated Annual Stop for pool '{recovery.expense_pool.name}' (Base Period: {precise_base_periods.min()} to {precise_base_periods.max()}): {annual_stop_amount:.2f}")
+             recovery._calculated_annual_base_year_stop = annual_stop_amount
+             
+             # --- Check for Frozen Pro-rata Share --- 
+             if freeze_share:
+                  # Calculate pro-rata share as of the base year
+                  # TODO: Need a robust way to get historical NRA if it changes.
+                  # For now, use current property_data NRA.
+                  current_nra = property_data.net_rentable_area
+                  if current_nra > 0:
+                       # Use current lease area as proxy for base year tenant area
+                       # TODO: Need robust way to get historical tenant area if it changes.
+                       base_year_pro_rata = self.area / current_nra
+                       recovery._frozen_base_year_pro_rata = base_year_pro_rata
+                       logger.debug(f"    Storing frozen base year pro-rata share: {base_year_pro_rata:.4f}")
+                  else:
+                       logger.warning("    Cannot calculate base year pro-rata share for freezing as property NRA is zero.")
+                       recovery._frozen_base_year_pro_rata = None # Ensure it's None if calc fails
+             else:
+                  recovery._frozen_base_year_pro_rata = None # Ensure it's None if not freezing
+
+        logger.debug(f"Finished calculating base year stops for Lease '{self.name}'.")
 
     # Methods for rollover/projections
     def project_future_cash_flows(

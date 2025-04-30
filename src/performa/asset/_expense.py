@@ -165,18 +165,7 @@ class OpExItem(ExpenseItem):
         else:
              logger.debug("  No growth profile specified.")
 
-        # Apply occupancy adjustment if applicable.
-        if occupancy_rate is not None and self.is_variable:
-             # Ensure we are working with a numeric series
-             if pd.api.types.is_numeric_dtype(calculated_flow) and self.variable_ratio is not None:
-                 variable_ratio = self.variable_ratio  # e.g., 0.3 for 30% variability
-                 fixed_ratio = 1.0 - variable_ratio
-                 # Ensure occupancy_rate is float
-                 current_occupancy = float(occupancy_rate)
-                 adjustment_ratio = fixed_ratio + (variable_ratio * current_occupancy)
-                 calculated_flow = calculated_flow * adjustment_ratio
-             else:
-                 logger.warning(f"Cannot apply occupancy adjustment to non-numeric series or missing variable_ratio for OpExItem '{self.name}'.")
+        # Gross-up should be handled at the Recovery calculation level.
         
         logger.debug(f"Finished computing cash flow for OpExItem: '{self.name}'. Final Sum: {calculated_flow.sum():.2f}") # DEBUG: Exit
         return calculated_flow

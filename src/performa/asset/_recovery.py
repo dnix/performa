@@ -1,12 +1,18 @@
 import logging
-from typing import List, Literal, Optional, Union
+from datetime import date
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, Union
+from uuid import UUID
 
 import pandas as pd
 from pydantic import model_validator
 
+# Avoid circular imports
+if TYPE_CHECKING:
+    pass
+
 from ..core._model import Model
 from ..core._types import FloatBetween0And1, PositiveFloat
-from ._expense import ExpenseItem
+from ._expense import ExpenseItem, OpExItem
 from ._growth_rates import GrowthRate
 
 logger = logging.getLogger(__name__)
@@ -22,9 +28,11 @@ class ExpensePool(Model):
     Attributes:
         name: Name of the expense pool (e.g., "Operating Expenses", "Tax", "Insurance")
         expenses: One or more expense items in this pool
+        pool_size_override: Optional denominator override
     """
     name: str
     expenses: Union[ExpenseItem, List[ExpenseItem]]
+    pool_size_override: Optional[PositiveFloat] = None # Optional denominator override
     
     def compute_cf(self, timeline: pd.PeriodIndex, occupancy_rate: Optional[float] = None) -> pd.Series:
         """
@@ -66,6 +74,7 @@ class Recovery(Model):
             "net", "base_stop", "fixed", "base_year",
             "base_year_plus1", or "base_year_minus1", mapping directly to Argus options.
         base_amount: Base amount used in fixed or base-stop recovery calculations.
+        base_amount_unit: Unit for base_amount (Total $ or $/SF)
         growth_rate: Optional growth rate applied to recoveries.
         contribution_deduction: Deduction applied (if any) to tenant contributions.
         admin_fee_percent: Administrative fee percent applied on recoveries.
@@ -86,6 +95,7 @@ class Recovery(Model):
         "base_year_minus1",
     ]
     base_amount: Optional[PositiveFloat] = None  # For base stop or fixed
+    base_amount_unit: Optional[Literal['total', 'psf']] = 'psf' # Unit for base_amount (Total $ or $/SF)
     base_year: Optional[int] = None  # For base year calculations
     growth_rate: Optional[GrowthRate] = None
 
@@ -104,6 +114,11 @@ class Recovery(Model):
     # Recovery floors & ceilings
     recovery_floor: Optional[PositiveFloat] = None
     recovery_ceiling: Optional[PositiveFloat] = None
+    
+    # Internal state for calculated base year stop
+    # Populated by Lease/Analysis logic before recovery calculation
+    _calculated_annual_base_year_stop: Optional[float] = None 
+    _frozen_base_year_pro_rata: Optional[float] = None # Populated if freeze_share_at_baseyear is True
     
     @property
     def expense_pool(self) -> ExpensePool:
@@ -150,7 +165,9 @@ class RecoveryMethod(Model):
         tenant_area: PositiveFloat,
         property_area: PositiveFloat,
         timeline: pd.PeriodIndex,
-        occupancy_rate: Optional[float] = None
+        occupancy_rate: Optional[float] = None,
+        lookup_fn: Optional[Callable[[Union[str, UUID]], Union[float, int, str, date, pd.Series, Dict, Any]]] = None,
+        freeze_share_at_baseyear: bool = False
     ) -> pd.Series:
         """
         Calculate total recoveries for a tenant.
@@ -159,111 +176,213 @@ class RecoveryMethod(Model):
             tenant_area: Tenant's leased area in square feet
             property_area: Total property area in square feet
             timeline: Time periods to calculate recoveries for
-            occupancy_rate: Optional property occupancy rate
+            occupancy_rate: Optional property occupancy rate series/float.
+            lookup_fn: Function to fetch computed cash flows and potentially model details.
+            freeze_share_at_baseyear: Boolean flag indicating if base year pro-rata share should be frozen.
             
         Returns:
             Monthly recovery cash flow series
+            
+        Raises:
+            LookupError: If lookup_fn is required but not provided, or fails.
+            ValueError: If required data (like occupancy for gross-up) is missing.
         """
-        total_recoveries = pd.Series(0, index=timeline)
+        total_recoveries = pd.Series(0.0, index=timeline)
         logger.debug(f"Calculating recoveries for method '{self.name}' over timeline: {timeline.min()} to {timeline.max()}")
         
+        if self.gross_up and occupancy_rate is None:
+            logger.warning(f"Gross-up enabled for '{self.name}' but occupancy_rate was not provided. Gross-up will be skipped.")
+            
+        if lookup_fn is None:
+            raise LookupError("lookup_fn is required by calculate_recoveries to fetch expense details.")
+
         for recovery in self.recoveries:
             logger.debug(f"Processing recovery for expense pool: {recovery.expense_pool.name}, Structure: {recovery.structure}")
-            # Get expense pool cash flow
+            
             expense_pool = recovery.expense_pool
-            pool_expense_cf = expense_pool.compute_cf(timeline, occupancy_rate)
-            logger.debug(f"  Raw pool expense CF sum: {pool_expense_cf.sum():.2f}")
+            items_in_pool = expense_pool.expenses if isinstance(expense_pool.expenses, list) else [expense_pool.expenses]
             
-            # Apply gross-up if applicable
-            if self.gross_up:
-                if occupancy_rate is not None and occupancy_rate < 1.0:
-                    target = self.gross_up_percent or 0.95
-                    if occupancy_rate < target:
-                        # FIXME: implement this fully - Identify variable expenses
-                        logger.warning(f"Applying simplified gross-up for '{expense_pool.name}'. Assumes entire pool is variable.")
-                        gross_up_factor = min(target / occupancy_rate, 1.25)  # Limit to reasonable factor
-                        pool_expense_cf = pool_expense_cf * gross_up_factor
-                        logger.debug(f"  Applied gross-up factor: {gross_up_factor:.4f}, Grossed-up CF sum: {pool_expense_cf.sum():.2f}")
+            pool_expense_cf = pd.Series(0.0, index=timeline) 
+            
+            for item in items_in_pool:
+                is_opex_item = isinstance(item, OpExItem) 
+                variable_ratio = item.variable_ratio if is_opex_item and item.variable_ratio is not None else 0.0
+                
+                logger.debug(f"  Fetching raw CF for item: {item.name} ({item.model_id}), Variable: {variable_ratio:.1%}")
+                try:
+                    raw_item_cf = lookup_fn(item.model_id)
+                    if not isinstance(raw_item_cf, pd.Series):
+                        logger.warning(f"    Lookup for item {item.name} did not return a Series (type: {type(raw_item_cf)}). Attempting to create Series.")
+                        if isinstance(raw_item_cf, (int, float)):
+                            raw_item_cf = pd.Series(float(raw_item_cf), index=timeline)
+                        else:
+                            raise TypeError("Cannot handle non-Series, non-scalar lookup result for expense item CF.")
+                                
+                except LookupError as e:
+                    logger.error(f"    Failed to lookup cash flow for expense item {item.name} ({item.model_id}). Skipping item. Error: {e}")
+                    continue
+                except Exception as e:
+                    logger.error(f"    Unexpected error processing item {item.name} ({item.model_id}). Skipping item. Error: {e}", exc_info=True)
+                    continue
+
+                item_cf_to_add = raw_item_cf
+                
+                # Apply gross-up only to recoverable, variable OpEx items
+                is_eligible_for_grossup = (
+                    self.gross_up 
+                    and is_opex_item 
+                    and item.is_recoverable
+                    and variable_ratio > 0
+                 )
+                 
+                if is_eligible_for_grossup:
+                    if occupancy_rate is None:
+                        logger.debug(f"    Skipping gross-up for item {item.name} as occupancy_rate is None.")
+                    elif isinstance(occupancy_rate, pd.Series):
+                        aligned_occupancy = occupancy_rate.reindex(timeline, method='ffill').fillna(1.0)
+                        
+                        target_occupancy = self.gross_up_percent or 0.95
+                        
+                        fixed_part = raw_item_cf * (1.0 - variable_ratio)
+                        variable_part = raw_item_cf * variable_ratio
+                        
+                        needs_gross_up = aligned_occupancy < target_occupancy
+                        
+                        safe_occupancy = aligned_occupancy.where(aligned_occupancy > 0, 0.0001) 
+                        grossed_up_variable = variable_part / safe_occupancy
+                        
+                        item_cf_to_add = fixed_part + variable_part.where(~needs_gross_up, grossed_up_variable)
+                        
+                        periods_grossed_up = needs_gross_up.sum()
+                        if periods_grossed_up > 0:
+                            logger.debug(f"    Applied gross-up for item {item.name} ({periods_grossed_up} periods). Target: {target_occupancy:.1%}. Raw Sum: {raw_item_cf.sum():.2f}, Grossed-Up Sum: {item_cf_to_add.sum():.2f}")
+
+                    elif isinstance(occupancy_rate, (float, int)):
+                        target_occupancy = self.gross_up_percent or 0.95
+                        current_occupancy = float(occupancy_rate)
+                        if current_occupancy < target_occupancy:
+                            if current_occupancy <= 0:
+                                logger.warning(f"    Occupancy rate is {current_occupancy} for item {item.name}. Gross-up calculation might yield unexpected results or errors. Clamping to 0.0001 for division.")
+                                current_occupancy = 0.0001
+                                
+                            fixed_part = raw_item_cf * (1.0 - variable_ratio)
+                            variable_part = raw_item_cf * variable_ratio
+                            grossed_up_variable = variable_part / current_occupancy
+                            item_cf_to_add = fixed_part + grossed_up_variable
+                            logger.debug(f"    Applied gross-up for item {item.name} (constant occupancy {current_occupancy:.1%}). Target: {target_occupancy:.1%}. Raw Sum: {raw_item_cf.sum():.2f}, Grossed-Up Sum: {item_cf_to_add.sum():.2f}")
+                        else:
+                            logger.debug(f"    Skipping gross-up for item {item.name} as constant occupancy {current_occupancy:.1%} >= target {target_occupancy:.1%}.")
                     else:
-                        logger.debug(f"  Occupancy {occupancy_rate:.1%} >= target {target:.1%}. No gross-up applied.")
-                else:
-                     logger.debug("  Gross-up enabled but occupancy is 100% or None. No gross-up applied.")
-            else:
-                logger.debug("  Gross-up is disabled for this method.")
+                        logger.warning(f"    Unsupported occupancy_rate type ({type(occupancy_rate)}) for gross-up calculation on item {item.name}.")
+                
+                pool_expense_cf = pool_expense_cf.add(item_cf_to_add, fill_value=0.0)
             
-            # Calculate tenant's pro-rata share
-            pro_rata = recovery.prorata_share or (tenant_area / property_area)
-            logger.debug(f"  Calculated pro-rata share: {pro_rata:.4f} (Tenant Area: {tenant_area}, Property Area: {property_area})")
+            logger.debug(f"  Calculated final pool expense CF sum (after potential gross-up): {pool_expense_cf.sum():.2f}")
+
+            if property_area is None or property_area <= 0:
+                logger.error(f"Invalid property_area ({property_area}) for recovery {recovery.expense_pool.name}. Cannot calculate pro-rata share. Skipping recovery.")
+                continue
+                
+            # Determine the denominator for pro-rata calculation
+            denominator = property_area # Default to property NRA
+            if recovery.expense_pool.pool_size_override is not None:
+                 if recovery.expense_pool.pool_size_override > 0:
+                     denominator = recovery.expense_pool.pool_size_override
+                     logger.debug(f"  Using pool size override ({denominator}) as denominator.")
+                 else:
+                     logger.warning(f"  Expense pool '{recovery.expense_pool.name}' has invalid pool_size_override ({recovery.expense_pool.pool_size_override}). Using property area {property_area} instead.")
             
-            # Calculate recoverable amount based on recovery structure
+            # Calculate pro-rata share using the determined denominator
+            pro_rata = recovery.prorata_share or (tenant_area / denominator)
+            logger.debug(f"  Calculated pro-rata share: {pro_rata:.4f} (Tenant Area: {tenant_area}, Denominator: {denominator:.2f})")
+            
             recovery_cf = pd.Series(0.0, index=timeline)
             if recovery.structure == "net":
                 logger.debug("  Applying 'net' recovery structure.")
-                # Net lease - tenant pays full pro-rata share
                 recovery_cf = pool_expense_cf * pro_rata
                 
             elif recovery.structure == "base_stop":
                 logger.debug("  Applying 'base_stop' recovery structure.")
-                # Base stop - tenant pays amounts over the stop
                 assert recovery.base_amount is not None
-                # Calculate monthly base stop amount adjusted by pro-rata share
-                monthly_base = (recovery.base_amount / 12) * pro_rata 
-                logger.debug(f"    Base Amount (Annual): {recovery.base_amount:.2f}, Monthly Pro-rata Stop: {monthly_base:.2f}")
-                # Tenant pays the amount *over* the stop
-                recovery_cf = (pool_expense_cf * pro_rata) - monthly_base
+                
+                # Calculate tenant's specific annual stop amount
+                tenant_annual_stop: float
+                if recovery.base_amount_unit == 'total':
+                     # Stop is total $, tenant stop is their pro-rata share of that
+                     tenant_annual_stop = recovery.base_amount * pro_rata 
+                     logger.debug(f"    Base Amount (Total $/Yr): {recovery.base_amount:.2f}, Tenant Annual Stop: {tenant_annual_stop:.2f} (Pro-rata: {pro_rata:.4f})")
+                else: # Default or explicit 'psf'
+                     # Stop is $/SF/Yr, tenant stop is $/SF * Tenant Area
+                     tenant_annual_stop = recovery.base_amount * tenant_area 
+                     logger.debug(f"    Base Amount ($/SF/Yr): {recovery.base_amount:.2f}, Tenant Annual Stop: {tenant_annual_stop:.2f} (Area: {tenant_area})")
+                
+                monthly_stop = tenant_annual_stop / 12.0
+                
+                # Tenant pays the amount of their share of expenses *over* their stop amount
+                tenant_share_of_expenses = pool_expense_cf * pro_rata
+                recovery_cf = tenant_share_of_expenses - monthly_stop
                 recovery_cf = recovery_cf.clip(lower=0)  # No negative recoveries
                 
             elif recovery.structure in ["base_year", "base_year_plus1", "base_year_minus1"]:
-                # Base year - needs expense history for comparison
-                # FIXME: implement base year recoveries fully
-                logger.error(f"Base year recovery structure ('{recovery.structure}') not implemented for pool '{expense_pool.name}'. Returning zero recovery.")
-                # Raise error? Or return zeros?
-                # For now, return zero to allow calculation to proceed, but log error.
-                # raise NotImplementedError("Base year recoveries not implemented")
-                recovery_cf = pd.Series(0.0, index=timeline)
+                logger.debug(f"  Applying '{recovery.structure}' recovery structure.")
+                # Base year stop should have been pre-calculated and stored
+                annual_base_year_stop = recovery._calculated_annual_base_year_stop
                 
+                if annual_base_year_stop is None:
+                     logger.error(f"Base year stop for pool '{recovery.expense_pool.name}' (Structure: {recovery.structure}) was not pre-calculated. Returning zero recovery.")
+                     recovery_cf = pd.Series(0.0, index=timeline)
+                else:
+                     monthly_stop = annual_base_year_stop / 12.0
+                     logger.debug(f"    Using Pre-calculated Annual Stop: {annual_base_year_stop:.2f}, Monthly Stop: {monthly_stop:.2f}")
+                     
+                     # Tenant pays the amount of the current (grossed-up) pool expense *over* the monthly stop
+                     # Determine which pro-rata share to use
+                     frozen_share = recovery._frozen_base_year_pro_rata
+                     
+                     # Check global setting for freeze_share_at_baseyear (passed as parameter)
+                     if freeze_share_at_baseyear and frozen_share is not None:
+                          share_to_use = frozen_share
+                     else:
+                          share_to_use = pro_rata # Use the current period's pro-rata
+                          if freeze_share_at_baseyear and frozen_share is None:
+                              logger.warning(f"    Freeze share setting is ON, but no frozen share was calculated/stored for recovery '{recovery.expense_pool.name}'. Using current pro-rata.")
+                     
+                     monthly_recoverable_amount = (pool_expense_cf - monthly_stop).clip(lower=0)
+                     recovery_cf = monthly_recoverable_amount * share_to_use
+                 
             elif recovery.structure == "fixed":
                 logger.debug("  Applying 'fixed' recovery structure.")
-                # Fixed recovery amount
                 assert recovery.base_amount is not None
-                # Assume base_amount is annual fixed amount *for the tenant* (not per SF)
-                monthly_fixed = recovery.base_amount / 12
+                monthly_fixed = recovery.base_amount / 12.0
                 logger.debug(f"    Fixed Amount (Annual): {recovery.base_amount:.2f}, Monthly Fixed Recovery: {monthly_fixed:.2f}")
                 recovery_cf = pd.Series(monthly_fixed, index=timeline)
                 
-                # Apply growth rate if provided
                 if recovery.growth_rate is not None:
-                    # FIXME: Implement growth rate application on fixed amount
                     logger.warning(f"Growth rate application on 'fixed' recovery structure not implemented for pool '{expense_pool.name}'.")
                     pass
             
             else:
-                # Unknown recovery structure
                 logger.warning(f"Unknown recovery structure '{recovery.structure}' encountered for pool '{expense_pool.name}'. Returning zero recovery.")
                 recovery_cf = pd.Series(0.0, index=timeline)
             
-            logger.debug(f"  Calculated base recovery CF sum: {recovery_cf.sum():.2f}")
+            logger.debug(f"  Calculated base recovery CF sum (before admin/caps/floors): {recovery_cf.sum():.2f}")
             
-            # Apply admin fee if specified
             if recovery.admin_fee_percent is not None and recovery.admin_fee_percent > 0:
-                admin_factor = (1 + recovery.admin_fee_percent)
+                admin_factor = (1.0 + recovery.admin_fee_percent)
                 recovery_cf *= admin_factor
                 logger.debug(f"  Applied admin fee ({recovery.admin_fee_percent:.1%}). Factor: {admin_factor:.4f}, New CF sum: {recovery_cf.sum():.2f}")
             
-            # Apply caps and floors if defined
-            # Note: These are typically annual amounts
             if recovery.recovery_ceiling is not None:
-                monthly_ceiling = recovery.recovery_ceiling / 12
+                monthly_ceiling = recovery.recovery_ceiling / 12.0
                 recovery_cf = recovery_cf.clip(upper=monthly_ceiling)
                 logger.debug(f"  Applied ceiling ({recovery.recovery_ceiling:.2f} annual -> {monthly_ceiling:.2f} monthly). New CF sum: {recovery_cf.sum():.2f}")
                 
             if recovery.recovery_floor is not None:
-                monthly_floor = recovery.recovery_floor / 12
+                monthly_floor = recovery.recovery_floor / 12.0
                 recovery_cf = recovery_cf.clip(lower=monthly_floor)
                 logger.debug(f"  Applied floor ({recovery.recovery_floor:.2f} annual -> {monthly_floor:.2f} monthly). New CF sum: {recovery_cf.sum():.2f}")
             
-            # Add to total recoveries
             total_recoveries = total_recoveries.add(recovery_cf, fill_value=0.0)
-            logger.debug(f"  Recovery CF added. Cumulative total sum: {total_recoveries.sum():.2f}")
+            logger.debug(f"  Recovery CF added. Cumulative total sum for method '{self.name}': {total_recoveries.sum():.2f}")
         
         return total_recoveries
