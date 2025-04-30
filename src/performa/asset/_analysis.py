@@ -72,6 +72,8 @@ class CashFlowAnalysis(Model):
     _cached_cash_flow_dataframe: Optional[pd.DataFrame] = None
     _cached_detailed_cash_flow_dataframe: Optional[pd.DataFrame] = None
     _cached_occupancy_series: Optional[pd.Series] = None
+    # --- Add cache for rollover vacancy loss ---
+    _cached_rollover_vacancy_loss_series: Optional[pd.Series] = None 
 
     # --- Private Helper: Iterative Computation ---
 
@@ -257,13 +259,23 @@ class CashFlowAnalysis(Model):
 
         Iterates through the initial rent roll and projects each lease forward
         using its rollover profile until the analysis end date is reached.
-        Caches the result.
+        
+        As part of this process, it captures and aggregates any specific rollover 
+        vacancy loss calculated by `Lease.create_market_lease` when a market 
+        lease is projected after downtime.
+        
+        Caches both the resulting list of projected Lease objects and the 
+        aggregated rollover vacancy loss series for use by other methods.
+
+        TODO: Consider refactoring loss aggregation. This method could return 
+              both leases and raw loss series, with aggregation handled elsewhere.
               
         Returns:
             A list containing all Lease instances (original and projected) 
             relevant to the analysis period.
         """
         logger.debug("Getting projected lease sequence (checking cache).")
+        # Only recalculate if leases aren't cached (loss calculation depends on lease projection)
         if self._cached_projected_leases is None:
             logger.debug("Projected leases cache miss. Generating now.")
             analysis_timeline = self._create_timeline()
@@ -271,6 +283,8 @@ class CashFlowAnalysis(Model):
             analysis_end_date = analysis_timeline.end_date.to_timestamp().date() # Get analysis end date
 
             all_relevant_leases: List['Lease'] = []
+            # List to store individual rollover loss series before aggregation
+            collected_rollover_losses: List[pd.Series] = [] 
             
             initial_leases = self.property.rent_roll.leases if self.property.rent_roll else []
 
@@ -291,8 +305,10 @@ class CashFlowAnalysis(Model):
                              break # Stop processing this chain
 
                     if analysis_periods.intersection(lease_periods).empty:
-                        # If this lease doesn't even touch the analysis period, break the chain
-                        break 
+                        # If this lease doesn't even touch the analysis period, 
+                        # stop processing its chain and move to the next initial lease.
+                        current_lease = None # Stop the inner while loop for this initial_lease
+                        continue # Proceed to the next initial_lease in the outer for loop
 
                     # Add the overlapping lease to our chain
                     lease_chain.append(current_lease)
@@ -308,20 +324,27 @@ class CashFlowAnalysis(Model):
                             upon_expiration = current_lease.upon_expiration
                             logger.debug(f"Projecting next lease for '{current_lease.name}' (ends {lease_end_date}). Upon Expiration: {upon_expiration}")
                             
+                            # Initialize rollover loss for this step
+                            rollover_loss_this_step: Optional[pd.Series] = None 
+
                             if upon_expiration == UponExpirationEnum.RENEW:
                                 current_lease = current_lease.create_renewal_lease(as_of_date=lease_end_date)
                             elif upon_expiration == UponExpirationEnum.VACATE:
-                                 # Requires property_area for some calculations within, pass it.
-                                 # We assume property_area is stable for this analysis instance.
-                                 current_lease = current_lease.create_market_lease(
+                                 # Now returns a tuple: (Lease, Optional[pd.Series])
+                                 new_lease_tuple = current_lease.create_market_lease(
                                      vacancy_start_date=lease_end_date, 
                                      property_area=self.property.net_rentable_area # Pass NRA
                                  )
+                                 current_lease = new_lease_tuple[0]
+                                 rollover_loss_this_step = new_lease_tuple[1]
                             elif upon_expiration == UponExpirationEnum.MARKET:
-                                 current_lease = current_lease.create_market_lease(
+                                 # Now returns a tuple: (Lease, Optional[pd.Series])
+                                 new_lease_tuple = current_lease.create_market_lease(
                                      vacancy_start_date=lease_end_date, 
                                      property_area=self.property.net_rentable_area # Pass NRA
                                  )
+                                 current_lease = new_lease_tuple[0]
+                                 rollover_loss_this_step = new_lease_tuple[1]
                             elif upon_expiration == UponExpirationEnum.OPTION:
                                 current_lease = current_lease.create_option_lease(as_of_date=lease_end_date)
                             elif upon_expiration == UponExpirationEnum.REABSORB:
@@ -330,6 +353,10 @@ class CashFlowAnalysis(Model):
                             else:
                                 logger.warning(f"Unknown UponExpirationEnum '{upon_expiration}' for lease '{current_lease.name}'. Stopping projection chain.")
                                 current_lease = None
+                            
+                            # Collect the loss series if it was generated
+                            if rollover_loss_this_step is not None:
+                                collected_rollover_losses.append(rollover_loss_this_step)
 
                         except NotImplementedError as nie:
                              logger.error(f"Projection failed for lease '{current_lease.name}' due to NotImplementedError: {nie}. Stopping chain.")
@@ -347,8 +374,30 @@ class CashFlowAnalysis(Model):
 
             logger.debug(f"Generated {len(all_relevant_leases)} total lease instances for the analysis period.")
             self._cached_projected_leases = all_relevant_leases # Cache result
-            
+
+            # --- Aggregate and Cache Rollover Vacancy Loss --- 
+            if collected_rollover_losses:
+                # Create a zero series with the analysis timeline index
+                total_rollover_loss = pd.Series(0.0, index=analysis_periods, name="Aggregated Rollover Vacancy Loss")
+                for loss_series in collected_rollover_losses:
+                     # Reindex each series to the analysis periods and add
+                     total_rollover_loss = total_rollover_loss.add(loss_series.reindex(analysis_periods, fill_value=0.0), fill_value=0.0)
+                self._cached_rollover_vacancy_loss_series = total_rollover_loss
+                logger.debug(f"Aggregated total rollover vacancy loss: {total_rollover_loss.sum():.2f}")
+            else:
+                # If no losses were collected, cache an empty/zero series
+                self._cached_rollover_vacancy_loss_series = pd.Series(0.0, index=analysis_periods, name="Aggregated Rollover Vacancy Loss")
+                logger.debug("No specific rollover vacancy losses generated during projection.")
+
         return self._cached_projected_leases
+
+    def _calculate_rollover_vacancy_loss_series(self) -> pd.Series:
+        """Helper method to ensure projected leases (and thus rollover loss) are 
+           calculated and return the cached rollover loss series."""
+        # Ensure the projection runs, which calculates and caches the loss
+        self._get_projected_leases() 
+        # Return the cached series (guaranteed to exist after calling _get_projected_leases)
+        return self._cached_rollover_vacancy_loss_series
 
     def _calculate_occupancy_series(self) -> pd.Series:
         """Calculates the physical occupancy rate series over the analysis timeline
@@ -648,9 +697,28 @@ class CashFlowAnalysis(Model):
         return self._cached_detailed_flows
 
     def _aggregate_detailed_flows(self, detailed_flows: List[Tuple[Dict, pd.Series]]) -> Dict[AggregateLineKey, pd.Series]:
-        """Aggregates detailed flows into standard financial line items using AggregateLineKey."""
+        """Aggregates detailed flows into standard financial line items using AggregateLineKey.
+        
+        This method performs the core aggregation logic:
+        1. Maps individual cash flow series (from Leases, Expenses, etc.) to 
+           standard AggregateLineKey categories.
+        2. Calculates derived lines like EGR, EGI, NOI, and UCF.
+        3. Calculates General Vacancy and Collection Loss based on property settings.
+           - If configured, reduces General Vacancy by specific Rollover Vacancy Loss 
+             to prevent double-counting.
+        4. Recalculates derived lines affected by vacancy/collection loss.
+        
+        Args:
+            detailed_flows: A list where each item is a tuple containing:
+                            - metadata (Dict): Info about the cash flow source.
+                            - series (pd.Series): The calculated monthly cash flow.
+                            
+        Returns:
+            A dictionary where keys are AggregateLineKey enums and values are 
+            the corresponding aggregated pandas Series over the analysis timeline.
+        """
         logger.debug(f"Starting aggregation of {len(detailed_flows)} detailed flows.") # DEBUG: Entry
-        # TODO: Incorporate GENERAL_VACANCY_LOSS when implemented
+        # TODO: Incorporate GENERAL_VACANCY_LOSS when implemented - Addressed below
         # TODO: Allow for more flexible aggregation rules or custom groupings?
         analysis_periods = self._create_timeline().period_index # Get timeline for initialization
         
@@ -686,11 +754,14 @@ class CashFlowAnalysis(Model):
                          target_aggregate_key = AggregateLineKey.POTENTIAL_GROSS_REVENUE
                      elif component == "recoveries":
                          target_aggregate_key = AggregateLineKey.EXPENSE_REIMBURSEMENTS
-                     elif component == "abatement":
+                     elif component == "abatement": # Capture abatement separately
                          target_aggregate_key = AggregateLineKey.RENTAL_ABATEMENT
-                     elif component == "revenue": # Avoid double counting
+                     elif component == "revenue": # Skip component: 'revenue' is derived (rent+recov-abate) within Lease.compute_cf
                          pass 
                      elif component == "value": 
+                         # Skip component: Raw 'value' from Lease is not mapped here. 
+                         # 'base_rent' (mapped above) reflects rent after abatements, used for PGR.
+                         # FIXME: Mapping 'value' could double-count potential revenue.
                          logger.debug(f"Skipping mapping for Lease component 'value': {metadata['name']}")
                          pass
 
@@ -715,100 +786,111 @@ class CashFlowAnalysis(Model):
 
 
         # --- Calculate derived lines --- 
-        # Placeholder for Vacancy (needs proper calculation model)
+        # Placeholder for Vacancy (needs proper calculation model) - now calculated below
         # Ensure keys exist even if no items mapped to them initially
         aggregated_flows.setdefault(AggregateLineKey.GENERAL_VACANCY_LOSS, pd.Series(0.0, index=analysis_periods))
         # RENTAL_ABATEMENT should now be populated correctly if present in detailed flows
         aggregated_flows.setdefault(AggregateLineKey.RENTAL_ABATEMENT, pd.Series(0.0, index=analysis_periods)) 
         aggregated_flows.setdefault(AggregateLineKey.TOTAL_DEBT_SERVICE, pd.Series(0.0, index=analysis_periods)) # Ensure Debt Service placeholder exists
 
-        # Calculate Effective Gross Revenue (EGR)
-        # Ensure components exist before calculation
+        # Calculate Effective Gross Revenue (EGR) - *Before* Vacancy/Collection Loss
         pgr = aggregated_flows.get(AggregateLineKey.POTENTIAL_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
         misc = aggregated_flows.get(AggregateLineKey.MISCELLANEOUS_INCOME, pd.Series(0.0, index=analysis_periods))
         abate = aggregated_flows.get(AggregateLineKey.RENTAL_ABATEMENT, pd.Series(0.0, index=analysis_periods))
         aggregated_flows[AggregateLineKey.EFFECTIVE_GROSS_REVENUE] = pgr + misc - abate
 
-        # Calculate Total Effective Gross Income (Total EGI)
-        egr = aggregated_flows.get(AggregateLineKey.EFFECTIVE_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
-        vac = aggregated_flows.get(AggregateLineKey.GENERAL_VACANCY_LOSS, pd.Series(0.0, index=analysis_periods))
-        recov = aggregated_flows.get(AggregateLineKey.EXPENSE_REIMBURSEMENTS, pd.Series(0.0, index=analysis_periods))
-        aggregated_flows[AggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME] = egr - vac + recov
-
-        # Calculate Net Operating Income (NOI)
-        egi = aggregated_flows.get(AggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME, pd.Series(0.0, index=analysis_periods))
-        opex = aggregated_flows.get(AggregateLineKey.TOTAL_OPERATING_EXPENSES, pd.Series(0.0, index=analysis_periods))
-        aggregated_flows[AggregateLineKey.NET_OPERATING_INCOME] = egi - opex
+        # Calculate Total Effective Gross Income (Total EGI) - Requires Vacancy, calculated later
+        # Calculate Net Operating Income (NOI) - Requires EGI & OpEx, calculated later
 
         # --- Calculate Vacancy & Collection Loss (using property.losses) --- 
         logger.debug("Calculating Vacancy and Collection Loss based on property loss settings.")
         # Get loss config from property
         loss_config = self.property.losses 
+        # Retrieve the pre-calculated specific rollover vacancy loss
+        # This series contains potential rent lost ONLY during specific downtime periods.
+        rollover_vacancy_loss_series = self._calculate_rollover_vacancy_loss_series()
 
-        # General Vacancy Loss
+        # --- General Vacancy Loss --- 
+        # Determine the basis for the general vacancy calculation (PGR or EGR)
         vacancy_basis_series: pd.Series
         if loss_config.general_vacancy.method == VacancyLossMethodEnum.POTENTIAL_GROSS_REVENUE:
             vacancy_basis_series = aggregated_flows.get(AggregateLineKey.POTENTIAL_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
             logger.debug(f"  Vacancy basis: PGR (Sum: {vacancy_basis_series.sum():.2f})")
         elif loss_config.general_vacancy.method == VacancyLossMethodEnum.EFFECTIVE_GROSS_REVENUE:
-            # Need to calculate EGR *before* applying vacancy
-            pgr = aggregated_flows.get(AggregateLineKey.POTENTIAL_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
-            misc = aggregated_flows.get(AggregateLineKey.MISCELLANEOUS_INCOME, pd.Series(0.0, index=analysis_periods))
-            abate = aggregated_flows.get(AggregateLineKey.RENTAL_ABATEMENT, pd.Series(0.0, index=analysis_periods))
-            vacancy_basis_series = pgr + misc - abate
+            # Use the EGR calculated *before* vacancy/collection loss application.
+            vacancy_basis_series = aggregated_flows.get(AggregateLineKey.EFFECTIVE_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
             logger.debug(f"  Vacancy basis: EGR (Sum: {vacancy_basis_series.sum():.2f})")
         else:
+            # Default to PGR if method is unknown
             logger.warning(f"Unknown vacancy_loss_method: '{loss_config.general_vacancy.method}'. Defaulting to PGR.")
             vacancy_basis_series = aggregated_flows.get(AggregateLineKey.POTENTIAL_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
         
-        calculated_vacancy_loss = vacancy_basis_series * loss_config.general_vacancy.rate
-        # TODO: Implement reduce_general_vacancy_by_rollover_vacancy logic here if needed
-        aggregated_flows[AggregateLineKey.GENERAL_VACANCY_LOSS] = calculated_vacancy_loss
-        logger.debug(f"  Calculated General Vacancy Loss (Rate: {loss_config.general_vacancy.rate:.1%}): {calculated_vacancy_loss.sum():.2f}")
+        # Calculate the gross general vacancy allowance based on the rate and basis
+        gross_general_vacancy_loss = vacancy_basis_series * loss_config.general_vacancy.rate
+        logger.debug(f"  Calculated Gross General Vacancy Loss (Rate: {loss_config.general_vacancy.rate:.1%}): {gross_general_vacancy_loss.sum():.2f}")
+        
+        # Apply reduction by specific rollover vacancy loss if the flag is set
+        final_general_vacancy_loss: pd.Series
+        if loss_config.general_vacancy.reduce_general_vacancy_by_rollover_vacancy:
+            logger.debug(f"  Reducing general vacancy by specific rollover vacancy loss (Sum: {rollover_vacancy_loss_series.sum():.2f}).")
+            # Ensure alignment before subtraction (though should align via analysis_periods)
+            aligned_gross_vac, aligned_rollover_vac = gross_general_vacancy_loss.align(
+                rollover_vacancy_loss_series, join='left', fill_value=0.0
+            )
+            # Subtract specific loss from gross allowance, ensuring result >= 0
+            net_general_vacancy_loss = (aligned_gross_vac - aligned_rollover_vac).clip(lower=0)
+            final_general_vacancy_loss = net_general_vacancy_loss
+            logger.debug(f"    Net General Vacancy Loss after reduction: {net_general_vacancy_loss.sum():.2f}")
+        else:
+            # If reduction is disabled, use the full gross general vacancy
+            logger.debug("  Reduction by rollover vacancy is disabled. Using gross general vacancy.")
+            final_general_vacancy_loss = gross_general_vacancy_loss
+        
+        # Assign the final calculated general vacancy loss (net or gross) to the aggregate results
+        aggregated_flows[AggregateLineKey.GENERAL_VACANCY_LOSS] = final_general_vacancy_loss
 
-        # Collection Loss
+        # --- Collection Loss --- 
+        # Determine the basis for collection loss calculation
         collection_basis_series: pd.Series
         # FIXME: "scheduled_income" basis not implemented - requires summing specific rent components before loss/recovery
         if loss_config.collection_loss.basis == "pgr":
             collection_basis_series = aggregated_flows.get(AggregateLineKey.POTENTIAL_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
             logger.debug(f"  Collection loss basis: PGR (Sum: {collection_basis_series.sum():.2f})")
         elif loss_config.collection_loss.basis == "egi":
-            # Need to calculate EGI *before* applying collection loss
-            # EGI = EGR - General Vacancy + Reimbursements
+            # Calculate EGI *before* collection loss but *after* General Vacancy
+            # EGI = EGR - General Vacancy (final) + Reimbursements
             egr = aggregated_flows.get(AggregateLineKey.EFFECTIVE_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
-            # Use the *calculated* vacancy loss from above
+            # Use the *final* general vacancy loss calculated above
             vac = aggregated_flows.get(AggregateLineKey.GENERAL_VACANCY_LOSS, pd.Series(0.0, index=analysis_periods)) 
             recov = aggregated_flows.get(AggregateLineKey.EXPENSE_REIMBURSEMENTS, pd.Series(0.0, index=analysis_periods))
-            collection_basis_series = egr - vac + recov # This is EGI
+            collection_basis_series = egr - vac + recov # This is EGI *before* collection loss
             logger.debug(f"  Collection loss basis: EGI (Sum: {collection_basis_series.sum():.2f})")
-        else: # Default or unknown basis, maybe default to EGI?
+        else: # Default or unknown basis
             logger.warning(f"Unsupported collection_loss_basis: '{loss_config.collection_loss.basis}'. Defaulting to EGI.")
             egr = aggregated_flows.get(AggregateLineKey.EFFECTIVE_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
             vac = aggregated_flows.get(AggregateLineKey.GENERAL_VACANCY_LOSS, pd.Series(0.0, index=analysis_periods)) 
             recov = aggregated_flows.get(AggregateLineKey.EXPENSE_REIMBURSEMENTS, pd.Series(0.0, index=analysis_periods))
-            collection_basis_series = egr - vac + recov # This is EGI
+            collection_basis_series = egr - vac + recov # Default to EGI basis
         
+        # Calculate collection loss amount
         calculated_collection_loss = collection_basis_series * loss_config.collection_loss.rate
-        # Assign to the correct key (assuming COLLECTION_LOSS is now defined)
+        # Assign to the aggregate key
         if AggregateLineKey.COLLECTION_LOSS in aggregated_flows:
              aggregated_flows[AggregateLineKey.COLLECTION_LOSS] = calculated_collection_loss
              logger.debug(f"  Calculated Collection Loss (Rate: {loss_config.collection_loss.rate:.1%}): {calculated_collection_loss.sum():.2f}")
         else:
-             logger.error("AggregateLineKey.COLLECTION_LOSS not found in aggregation dictionary.")
-             # Add placeholder if missing to prevent key errors later, though it shouldn't be missing
-             aggregated_flows.setdefault(AggregateLineKey.COLLECTION_LOSS, pd.Series(0.0, index=analysis_periods))
+             # Ensure placeholder exists if COLLECTION_LOSS wasn't a display key initially
+             aggregated_flows.setdefault(AggregateLineKey.COLLECTION_LOSS, calculated_collection_loss)
+             logger.error("AggregateLineKey.COLLECTION_LOSS was not pre-initialized. Added dynamically.")
 
 
-        # --- Recalculate derived lines using calculated losses --- 
-        # Effective Gross Revenue (EGR) - Remains the same calculation
-        pgr = aggregated_flows.get(AggregateLineKey.POTENTIAL_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
-        misc = aggregated_flows.get(AggregateLineKey.MISCELLANEOUS_INCOME, pd.Series(0.0, index=analysis_periods))
-        abate = aggregated_flows.get(AggregateLineKey.RENTAL_ABATEMENT, pd.Series(0.0, index=analysis_periods))
-        aggregated_flows[AggregateLineKey.EFFECTIVE_GROSS_REVENUE] = pgr + misc - abate
+        # --- Recalculate derived lines using final calculated losses --- 
+        # Effective Gross Revenue (EGR) - Remains the same (calculated before losses)
+        # Already calculated above: aggregated_flows[AggregateLineKey.EFFECTIVE_GROSS_REVENUE] 
 
         # Total Effective Gross Income (Total EGI)
         egr = aggregated_flows.get(AggregateLineKey.EFFECTIVE_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
-        # Use the *calculated* vacancy and collection losses
+        # Use the *final* vacancy and collection losses calculated above
         vac = aggregated_flows.get(AggregateLineKey.GENERAL_VACANCY_LOSS, pd.Series(0.0, index=analysis_periods))
         coll_loss = aggregated_flows.get(AggregateLineKey.COLLECTION_LOSS, pd.Series(0.0, index=analysis_periods))
         recov = aggregated_flows.get(AggregateLineKey.EXPENSE_REIMBURSEMENTS, pd.Series(0.0, index=analysis_periods))
@@ -831,8 +913,8 @@ class CashFlowAnalysis(Model):
         debt = aggregated_flows.get(AggregateLineKey.TOTAL_DEBT_SERVICE, pd.Series(0.0, index=analysis_periods))
         aggregated_flows[AggregateLineKey.LEVERED_CASH_FLOW] = ucf - debt
         
-        # No longer need to remove _RAW keys
-        final_aggregates = aggregated_flows # Already contains only display keys
+        # Final result contains only the display keys initialized at the start
+        final_aggregates = aggregated_flows 
 
         # DEBUG: Log aggregate values calculated this pass
         if logger.isEnabledFor(logging.DEBUG):

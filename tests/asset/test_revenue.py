@@ -15,8 +15,10 @@ from performa.asset._recovery import ExpensePool, Recovery
 
 # Models to test/use
 from performa.asset._revenue import Lease, RecoveryMethod, RentRoll, Tenant
+from performa.asset._rollover import RolloverLeaseTerms, RolloverProfile
 from performa.core._enums import (
     FrequencyEnum,
+    LeaseStatusEnum,
     LeaseTypeEnum,
     ProgramUseEnum,
     UnitOfMeasureEnum,
@@ -28,6 +30,57 @@ from performa.core._timeline import Timeline
 # from performa.asset._calc_utils import _get_period_expenses, _get_period_occupancy, _gross_up_period_expenses
 
 # --- Fixtures --- 
+
+@pytest.fixture
+def rollover_lease_fixture():
+    """Fixture for testing lease creation methods with rollover."""
+    start_date = date(2023, 1, 1)
+    end_date = date(2023, 12, 31)
+    tenant = Tenant(id="rollover_tenant", name="Rollover Tenant")
+    timeline = Timeline.from_dates(start_date, end_date)
+
+    # Market Terms for Rollover Profile
+    market_terms = RolloverLeaseTerms(
+        term_months=60,
+        rent_psf=45.0,
+        months_vacant=3, # Key parameter for downtime
+        ti_allowance=None,
+        leasing_commission=None,
+        rent_escalation=None,
+        rent_abatement=None,
+        recovery_method=None,
+    )
+    
+    # Rollover Profile
+    profile = RolloverProfile(
+        name="Test Market Rollover",
+        upon_expiration=UponExpirationEnum.MARKET, # Will trigger create_market_lease
+        term_months=market_terms.term_months,
+        months_vacant=market_terms.months_vacant,
+        renewal_probability=0.5, # For blended terms if needed
+        market_terms=market_terms,
+        # Renewal/option terms not strictly needed for this test
+        renewal_terms=market_terms.copy(),
+        option_terms=market_terms.copy()
+    )
+    
+    # Initial Lease
+    lease = Lease(
+        name="Initial Lease for Rollover Test",
+        tenant=tenant,
+        suite="101",
+        floor="1",
+        use_type=ProgramUseEnum.OFFICE,
+        lease_type=LeaseTypeEnum.NNN,
+        area=2000,
+        timeline=timeline,
+        value=40.0, # Initial rent
+        unit_of_measure=UnitOfMeasureEnum.PSF,
+        frequency=FrequencyEnum.ANNUAL,
+        upon_expiration=UponExpirationEnum.MARKET, # Ensure it triggers market logic
+        rollover_profile=profile
+    )
+    return lease
 
 @pytest.fixture
 def base_year_lease_fixture():
@@ -105,6 +158,76 @@ def base_year_lease_fixture():
     
     # Return Lease and Property
     return lease, prop, opex1.model_id, opex2.model_id 
+
+# --- Tests for Lease.create_market_lease Rollover Vacancy --- 
+
+def test_create_market_lease_with_downtime(rollover_lease_fixture):
+    """Test create_market_lease calculates rollover loss when months_vacant > 0."""
+    initial_lease = rollover_lease_fixture
+    vacancy_start_date = initial_lease.lease_end
+    profile = initial_lease.rollover_profile
+    assert profile is not None
+    assert profile.months_vacant == 3
+
+    # Expected market rate (using profile's market_terms)
+    expected_market_rent_psf_annual = profile.market_terms.rent_psf
+    expected_market_rent_psf_monthly = expected_market_rent_psf_annual / 12
+    expected_monthly_loss = expected_market_rent_psf_monthly * initial_lease.area
+
+    # Execute
+    new_lease, loss_series = initial_lease.create_market_lease(vacancy_start_date=vacancy_start_date)
+
+    # Assert Lease
+    assert isinstance(new_lease, Lease)
+    assert new_lease.status == LeaseStatusEnum.SPECULATIVE
+    # New lease starts after downtime: 2023-12-31 + 3 months = 2024-03-31? No, relativedelta adds months. 
+    # 2023-12-31 + relativedelta(months=3) = 2024-03-31. Lease starts April 1st? Let's check Timeline logic.
+    # Timeline start_date is inclusive. Vacancy start Dec 31. Downtime Jan, Feb, Mar. New Lease Start April 1.
+    expected_new_start = date(2024, 4, 1)
+    assert new_lease.lease_start == expected_new_start
+    # Check rent matches calculated market rent
+    assert new_lease.value == pytest.approx(expected_market_rent_psf_monthly)
+    assert new_lease.unit_of_measure == UnitOfMeasureEnum.PSF
+    assert new_lease.frequency == FrequencyEnum.MONTHLY
+
+    # Assert Loss Series
+    assert isinstance(loss_series, pd.Series)
+    assert not loss_series.empty
+    # Downtime periods: Jan 2024, Feb 2024, Mar 2024
+    expected_downtime_periods = pd.period_range(start="2024-01", end="2024-03", freq='M')
+    pd.testing.assert_index_equal(loss_series.index, expected_downtime_periods)
+    assert loss_series.name == "Rollover Vacancy Loss"
+    # Check values
+    for period in expected_downtime_periods:
+        assert loss_series[period] == pytest.approx(expected_monthly_loss)
+
+def test_create_market_lease_no_downtime(rollover_lease_fixture):
+    """Test create_market_lease returns no loss series when months_vacant = 0."""
+    initial_lease = rollover_lease_fixture
+    vacancy_start_date = initial_lease.lease_end
+    # Modify profile to have no downtime
+    profile = initial_lease.rollover_profile.copy(update={"months_vacant": 0})
+    initial_lease.rollover_profile = profile # Update lease's profile
+    assert profile.months_vacant == 0
+
+    # Execute
+    new_lease, loss_series = initial_lease.create_market_lease(vacancy_start_date=vacancy_start_date)
+
+    # Assert Lease
+    assert isinstance(new_lease, Lease)
+    expected_new_start = date(2024, 1, 1) # Starts immediately after old lease ends
+    assert new_lease.lease_start == expected_new_start
+
+    # Assert Loss Series is None
+    assert loss_series is None
+
+def test_create_market_lease_downtime_within_month(rollover_lease_fixture):
+    """Test case where downtime is > 0 but doesn't span a full calendar month boundary."""
+    # This scenario shouldn't happen with integer months_vacant > 0, 
+    # as relativedelta will always push start date to next month.
+    # If vacancy_start was mid-month, it might, but Lease end is always end-of-month via Timeline.
+    # So, skipping this specific edge case test as it seems unlikely given current logic.
+    pass 
 
 # --- Tests for Lease._calculate_and_cache_base_year_stops --- 
 

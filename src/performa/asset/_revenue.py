@@ -871,7 +871,7 @@ class Lease(CashFlowModel):
             elif self.upon_expiration == UponExpirationEnum.VACATE:
                 # VACATE: 0% renewal probability, create market lease after vacancy
                 vacancy_start = self.lease_end
-                new_lease = self.create_market_lease(
+                new_lease, rollover_vacancy_loss_series = self.create_market_lease(
                     vacancy_start_date=vacancy_start,
                     property_area=property_area
                 )
@@ -888,7 +888,7 @@ class Lease(CashFlowModel):
                 
             elif self.upon_expiration == UponExpirationEnum.MARKET:
                 # MARKET: Use single lease with blended terms instead of weighted cash flows
-                market_lease = self.create_market_lease(
+                market_lease, rollover_vacancy_loss_series = self.create_market_lease(
                     vacancy_start_date=self.lease_end,
                     property_area=property_area
                 )
@@ -1002,73 +1002,108 @@ class Lease(CashFlowModel):
         self,
         vacancy_start_date: date,
         property_area: Optional[PositiveFloat] = None
-    ) -> "Lease":
+    ) -> Tuple["Lease", Optional[pd.Series]]:
         """
-        Create a new market lease for this space after vacancy.
+        Create a speculative market lease following vacancy.
         
-        For MARKET rollover scenario, this creates a single lease with blended terms
-        based on renewal probability, rather than creating separate leases and
-        blending cash flows. This is more efficient and better matches industry
-        standard practices.
-        
+        Calculates the market lease terms and also determines the potential
+        rent lost during the vacancy/downtime period before the new lease commences.
+        The calculated downtime loss is returned alongside the new lease object.
+
         Args:
-            vacancy_start_date: Date when the space becomes vacant
-            property_area: Total property area (optional, for percentage calculations)
-            
+            vacancy_start_date: The date the previous lease ended (or space became vacant).
+                                Assumed to be the last day of occupancy.
+            property_area: Required if recovery method uses Base Year Stop.
+
         Returns:
-            A new Lease object representing the market lease
-            
+            A tuple containing:
+                - The new speculative Lease instance.
+                - An optional pandas Series representing the calculated monthly 
+                  rent loss during the downtime period (if any), indexed by PeriodIndex.
+                  Returns None if there is no downtime (months_vacant = 0).
+        
         Raises:
-            ValueError: If no rollover profile is defined for this lease
+            ValueError: If no rollover profile is defined for this lease.
         """
         if not self.rollover_profile:
             raise ValueError("Cannot create market lease without a rollover profile")
         
         profile = self.rollover_profile
         
-        # Determine if we should use blended terms based on upon_expiration setting
-        lease_terms = None
-        if self.upon_expiration == UponExpirationEnum.MARKET:
-            # For MARKET case, use blended terms
-            lease_terms = profile.blend_lease_terms()
-        else:
-            # For other cases, use market terms
-            lease_terms = profile.market_terms
-        
-        # Calculate lease start date after expected downtime period
-        lease_start = vacancy_start_date + relativedelta(months=profile.downtime_months)
-        
+        # Determine downtime and new lease start
+        # Use relativedelta for accurate month addition
+        lease_start = vacancy_start_date + relativedelta(months=profile.months_vacant)
+        downtime_months = profile.months_vacant
+
         # Create timeline for the market lease
-        timeline = Timeline(
-            start_date=lease_start,
-            duration_months=profile.term_months
+        timeline = Timeline.from_dates(
+            start_date=lease_start, 
+            # Ensure end date calculation is correct
+            end_date=lease_start + relativedelta(months=profile.term_months - 1)
         )
         
-        # Determine market rent using the selected terms
-        market_rate = None
-        if self.upon_expiration == UponExpirationEnum.MARKET:
-            # For blended terms, calculate rent directly
-            market_rate = profile._calculate_market_rent(lease_terms, lease_start)
+        # Determine if we should use blended terms based on upon_expiration
+        lease_terms = None
+        if profile.upon_expiration == UponExpirationEnum.MARKET:
+            # For MARKET case, use blended terms (averages renewal and market)
+            lease_terms = profile.blend_lease_terms() 
         else:
-            # For regular market terms, use the standard method
-            market_rate = profile.calculate_market_rent(lease_start)
+            # For VACATE or other non-blended cases, use market terms
+            lease_terms = profile.market_terms
         
+        # Calculate market rent for the new lease start date using appropriate terms
+        # Check if _calculate_market_rent should be used or if it's embedded in the terms
+        # Assuming profile._calculate_market_rent handles blended logic correctly
+        market_rate_psf_monthly = profile._calculate_market_rent(lease_terms, lease_start)
+        
+        # --- Calculate Rollover Vacancy Loss ---
+        rollover_vacancy_loss_series: Optional[pd.Series] = None
+        if downtime_months > 0:
+            # Define the downtime period
+            # Starts the month *after* vacancy_start_date, ends month *before* lease_start
+            downtime_start_period = pd.Period(vacancy_start_date, freq='M') + 1
+            downtime_end_period = pd.Period(lease_start, freq='M') - 1
+            
+            # Check if start is before or same as end
+            if downtime_start_period <= downtime_end_period:
+                downtime_periods = pd.period_range(
+                    start=downtime_start_period, 
+                    end=downtime_end_period, 
+                    freq='M'
+                )
+                
+                # Assume lost rent during downtime = market rent calculated for the new lease * area
+                # TODO: Refine rent rate assumption during downtime.
+                #       Alternatives: use outgoing lease's last rent, separate downtime market assumption.
+                # This is a simplifying assumption; could use prior lease rent or time-varying market rent later.
+                lost_monthly_rent = market_rate_psf_monthly * self.area
+                
+                rollover_vacancy_loss_series = pd.Series(
+                    lost_monthly_rent, 
+                    index=downtime_periods,
+                    name="Rollover Vacancy Loss"
+                )
+                logger.debug(f"Calculated rollover vacancy loss for {self.suite}: {rollover_vacancy_loss_series.sum():.2f} over {len(downtime_periods)} months.")
+            else:
+                 logger.debug(f"No full months of downtime calculated for {self.suite} (Vac Start: {vacancy_start_date}, New Lease Start: {lease_start}).")
+
+
         # Create placeholder tenant for the speculative lease
         tenant = Tenant(
             id=f"speculative-{self.suite}-{lease_start}",
             name=f"Market Tenant ({self.suite})"
         )
         
-        # Create TI allowance if specified in the lease terms
+        # Create TI allowance and LC if specified in the lease terms
         ti_allowance, leasing_commission = self._create_lease_costs(
             lease_terms,
             timeline,
-            market_rate,
+            market_rate_psf_monthly, # Pass the calculated monthly rate
             self.area
         )
         
-        # Create and return the market lease with all appropriate attributes
-        return Lease(
+        # Create the market lease instance
+        market_lease = Lease(
             name=f"Market Lease - {self.suite}",
             tenant=tenant,
             suite=self.suite,
@@ -1078,9 +1113,9 @@ class Lease(CashFlowModel):
             lease_type=LeaseTypeEnum.NET,  # Default lease type for market leases
             area=self.area,
             timeline=timeline,
-            value=market_rate,
-            unit_of_measure=UnitOfMeasureEnum.PSF,
-            frequency=FrequencyEnum.MONTHLY,
+            value=market_rate_psf_monthly, # Store the calculated monthly rate
+            unit_of_measure=UnitOfMeasureEnum.PSF, # Rent is PSF
+            frequency=FrequencyEnum.MONTHLY, # Rate is monthly internally
             
             # Apply terms from the selected lease terms
             rent_escalation=lease_terms.rent_escalation,
@@ -1092,101 +1127,13 @@ class Lease(CashFlowModel):
             leasing_commission=leasing_commission,
             
             # Set rollover behavior for future projections
-            upon_expiration=profile.upon_expiration,
+            # Ensure upon_expiration is correctly determined from the profile
+            upon_expiration=profile.upon_expiration, 
             rollover_profile=profile
         )
-    
-    @classmethod
-    def create_market_lease_for_vacant(
-        cls,
-        suite_id: str,
-        area: PositiveFloat,
-        use_type: ProgramUseEnum,
-        lease_start: date,
-        rollover_profile: 'RolloverProfile',
-        floor: Optional[str] = None,
-        upon_expiration: UponExpirationEnum = UponExpirationEnum.MARKET,
-        **kwargs
-    ) -> "Lease":
-        """
-        Create a speculative market lease for a vacant space.
         
-        Args:
-            suite_id: Suite/unit identifier
-            area: Leasable area in square feet
-            use_type: The intended use of the space
-            lease_start: When the market lease begins
-            rollover_profile: Profile containing market assumptions
-            floor: Optional floor identifier
-            upon_expiration: Behavior for rollover at expiration
-            **kwargs: Additional arguments to pass to the Lease constructor
-            
-        Returns:
-            A new speculative Lease instance
-        """
-        # Create timeline for the market lease
-        timeline = Timeline(
-            start_date=lease_start,
-            duration_months=rollover_profile.term_months
-        )
-        
-        # Determine if we should use blended terms
-        lease_terms = None
-        if upon_expiration == UponExpirationEnum.MARKET:
-            # For MARKET case, use blended terms
-            lease_terms = rollover_profile.blend_lease_terms()
-        else:
-            # For other cases, use market terms
-            lease_terms = rollover_profile.market_terms
-        
-        # Determine market rent
-        market_rate = rollover_profile._calculate_market_rent(lease_terms, lease_start)
-        
-        # Create placeholder tenant
-        tenant = Tenant(
-            id=f"speculative-{suite_id}-{lease_start}",
-            name=f"Market Tenant ({suite_id})"
-        )
-        
-        # Create TI allowance if specified
-        ti_allowance, leasing_commission = cls._create_lease_costs(
-            lease_terms,
-            timeline,
-            market_rate,
-            area
-        )
-        
-        # Create and return the market lease
-        return cls(
-            name=f"Market Lease - {suite_id}",
-            tenant=tenant,
-            suite=suite_id,
-            floor=floor,
-            use_type=use_type,
-            status=LeaseStatusEnum.SPECULATIVE,
-            lease_type=LeaseTypeEnum.NET,  # Default lease type for market leases
-            area=area,
-            timeline=timeline,
-            value=market_rate,
-            unit_of_measure=UnitOfMeasureEnum.PSF,
-            frequency=FrequencyEnum.MONTHLY,
-            
-            # Apply terms from the selected lease terms
-            rent_escalation=lease_terms.rent_escalation,
-            rent_abatement=lease_terms.rent_abatement,
-            recovery_method=lease_terms.recovery_method,
-            
-            # Apply lease costs
-            ti_allowance=ti_allowance,
-            leasing_commission=leasing_commission,
-            
-            # Set rollover behavior
-            upon_expiration=upon_expiration,
-            rollover_profile=rollover_profile,
-            
-            # Include any additional kwargs
-            **kwargs
-        )
+        # Return the lease and the calculated loss series
+        return market_lease, rollover_vacancy_loss_series
 
     def create_option_lease(self, as_of_date: date) -> "Lease":
         """
