@@ -768,7 +768,7 @@ class CashFlowAnalysis(Model):
 
         # Collection Loss
         collection_basis_series: pd.Series
-        # NOTE: "scheduled_income" basis not implemented - requires summing specific rent components before loss/recovery
+        # FIXME: "scheduled_income" basis not implemented - requires summing specific rent components before loss/recovery
         if loss_config.collection_loss.basis == "pgr":
             collection_basis_series = aggregated_flows.get(AggregateLineKey.POTENTIAL_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
             logger.debug(f"  Collection loss basis: PGR (Sum: {collection_basis_series.sum():.2f})")

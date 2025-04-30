@@ -64,6 +64,7 @@ class RentEscalation(Model):
 
     # TODO: confirm fields are thorough and DRY
     type: Literal["fixed", "percentage", "cpi"]
+    # FIXME: add support for inflation. maybe via GrowthRate support?
     amount: PositiveFloat
     unit_of_measure: UnitOfMeasureEnum
     is_relative: bool  # True for relative to base rent
