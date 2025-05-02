@@ -6,14 +6,14 @@ from uuid import UUID
 import pandas as pd
 from pydantic import model_validator
 
-# Avoid circular imports
-if TYPE_CHECKING:
-    pass
-
 from ..core._model import Model
+from ..core._settings import GlobalSettings
 from ..core._types import FloatBetween0And1, PositiveFloat
 from ._expense import ExpenseItem, OpExItem
 from ._growth_rates import GrowthRate
+
+if TYPE_CHECKING:
+    from ._property import Property
 
 logger = logging.getLogger(__name__)
 
@@ -34,13 +34,21 @@ class ExpensePool(Model):
     expenses: Union[ExpenseItem, List[ExpenseItem]]
     pool_size_override: Optional[PositiveFloat] = None # Optional denominator override
     
-    def compute_cf(self, timeline: pd.PeriodIndex, occupancy_rate: Optional[float] = None) -> pd.Series:
+    def compute_cf(
+        self, 
+        timeline: pd.PeriodIndex, 
+        occupancy_rate: Optional[float] = None,
+        lookup_fn: Optional[Callable[[Union[str, UUID]], Any]] = None,
+        global_settings: Optional[GlobalSettings] = None
+    ) -> pd.Series:
         """
         Calculate total expenses in this pool.
         
         Args:
             timeline: PeriodIndex to align expense cash flows
             occupancy_rate: Optional occupancy rate for variable expenses
+            lookup_fn: Optional lookup function to resolve expense item references.
+            global_settings: Optional global settings for underlying item calculations.
             
         Returns:
             Series of total expenses by period
@@ -50,13 +58,21 @@ class ExpensePool(Model):
         
         # Handle single expense case
         if isinstance(self.expenses, ExpenseItem):
-            expense_cf = self.expenses.compute_cf(occupancy_rate=occupancy_rate)
+            expense_cf = self.expenses.compute_cf(
+                occupancy_rate=occupancy_rate,
+                lookup_fn=lookup_fn,
+                global_settings=global_settings
+            )
             expense_cf = expense_cf.reindex(timeline, fill_value=0)
             return expense_cf
             
         # Handle list of expenses
         for expense in self.expenses:
-            expense_cf = expense.compute_cf(occupancy_rate=occupancy_rate)
+            expense_cf = expense.compute_cf(
+                occupancy_rate=occupancy_rate,
+                lookup_fn=lookup_fn,
+                global_settings=global_settings
+            )
             # Reindex to match timeline
             expense_cf = expense_cf.reindex(timeline, fill_value=0)
             pool_cf += expense_cf
@@ -163,22 +179,22 @@ class RecoveryMethod(Model):
     def calculate_recoveries(
         self, 
         tenant_area: PositiveFloat,
-        property_area: PositiveFloat,
+        property_data: Optional['Property'], # Ensure original hint is used
         timeline: pd.PeriodIndex,
         occupancy_rate: Optional[float] = None,
         lookup_fn: Optional[Callable[[Union[str, UUID]], Union[float, int, str, date, pd.Series, Dict, Any]]] = None,
-        freeze_share_at_baseyear: bool = False
+        global_settings: Optional[GlobalSettings] = None
     ) -> pd.Series:
         """
         Calculate total recoveries for a tenant.
         
         Args:
             tenant_area: Tenant's leased area in square feet
-            property_area: Total property area in square feet
+            property_data: The full property context, providing access to area etc.
             timeline: Time periods to calculate recoveries for
             occupancy_rate: Optional property occupancy rate series/float.
             lookup_fn: Function to fetch computed cash flows and potentially model details.
-            freeze_share_at_baseyear: Boolean flag indicating if base year pro-rata share should be frozen.
+            global_settings: Optional global settings, providing analysis dates, recovery flags etc.
             
         Returns:
             Monthly recovery cash flow series
@@ -279,18 +295,18 @@ class RecoveryMethod(Model):
             
             logger.debug(f"  Calculated final pool expense CF sum (after potential gross-up): {pool_expense_cf.sum():.2f}")
 
-            if property_area is None or property_area <= 0:
-                logger.error(f"Invalid property_area ({property_area}) for recovery {recovery.expense_pool.name}. Cannot calculate pro-rata share. Skipping recovery.")
+            if property_data is None or property_data.property_area <= 0:
+                logger.error(f"Invalid property_area ({property_data.property_area}) for recovery {recovery.expense_pool.name}. Cannot calculate pro-rata share. Skipping recovery.")
                 continue
                 
             # Determine the denominator for pro-rata calculation
-            denominator = property_area # Default to property NRA
-            if recovery.expense_pool.pool_size_override is not None:
-                 if recovery.expense_pool.pool_size_override > 0:
-                     denominator = recovery.expense_pool.pool_size_override
+            denominator = property_data.property_area # Default to property NRA
+            if expense_pool.pool_size_override is not None:
+                 if expense_pool.pool_size_override > 0:
+                     denominator = expense_pool.pool_size_override
                      logger.debug(f"  Using pool size override ({denominator}) as denominator.")
                  else:
-                     logger.warning(f"  Expense pool '{recovery.expense_pool.name}' has invalid pool_size_override ({recovery.expense_pool.pool_size_override}). Using property area {property_area} instead.")
+                     logger.warning(f"  Expense pool '{expense_pool.name}' has invalid pool_size_override ({expense_pool.pool_size_override}). Using property area {property_data.property_area} instead.")
             
             # Calculate pro-rata share using the determined denominator
             pro_rata = recovery.prorata_share or (tenant_area / denominator)
@@ -339,13 +355,20 @@ class RecoveryMethod(Model):
                      # Determine which pro-rata share to use
                      frozen_share = recovery._frozen_base_year_pro_rata
                      
-                     # Check global setting for freeze_share_at_baseyear (passed as parameter)
-                     if freeze_share_at_baseyear and frozen_share is not None:
+                     # Check global setting for freeze_share_at_baseyear (passed via global_settings)
+                     freeze_share_flag = False
+                     if global_settings and hasattr(global_settings, 'recoveries') and hasattr(global_settings.recoveries, 'freeze_share_at_baseyear'):
+                         freeze_share_flag = global_settings.recoveries.freeze_share_at_baseyear
+                     elif global_settings and hasattr(global_settings, 'freeze_share_at_baseyear'): # Check top level
+                         freeze_share_flag = global_settings.freeze_share_at_baseyear
+
+                     if freeze_share_flag and frozen_share is not None:
                           share_to_use = frozen_share
+                          logger.debug(f"    Using frozen base year pro-rata share: {share_to_use:.4f}")
                      else:
                           share_to_use = pro_rata # Use the current period's pro-rata
-                          if freeze_share_at_baseyear and frozen_share is None:
-                              logger.warning(f"    Freeze share setting is ON, but no frozen share was calculated/stored for recovery '{recovery.expense_pool.name}'. Using current pro-rata.")
+                          if freeze_share_flag and frozen_share is None:
+                              logger.warning(f"    Freeze share setting is ON, but no frozen share was calculated/stored for recovery '{recovery.expense_pool.name}'. Using current pro-rata {pro_rata:.4f}.")
                      
                      monthly_recoverable_amount = (pool_expense_cf - monthly_stop).clip(lower=0)
                      recovery_cf = monthly_recoverable_amount * share_to_use

@@ -10,14 +10,14 @@ from ._expense import ExpenseItem, OpExItem
 
 if TYPE_CHECKING:
     from ._property import Property
-    # Avoid circular import Property <-> Lease <-> RecoveryMethod -> _calc_utils
+    # TODO: consider other ways to avoid circular import Property <-> Lease <-> RecoveryMethod -> _calc_utils
     
 logger = logging.getLogger(__name__)
 
 # TODO: Add docstrings explaining purpose and usage
 
 def _get_period_occupancy(
-    property_data: 'Property', 
+    property_data: 'Property',
     period_start: date, 
     period_end: date,
     frequency: str = 'M' # Default to Monthly
@@ -98,7 +98,7 @@ def _get_period_occupancy(
 
 # Placeholder for the expense calculation utility
 def _get_period_expenses(
-    property_data: 'Property', 
+    property_data: 'Property',
     period_start: date, 
     period_end: date, 
     expense_item_ids: List[UUID],
@@ -233,7 +233,7 @@ def _get_period_expenses(
 def _gross_up_period_expenses(
     raw_expenses: Dict[UUID, pd.Series], 
     occupancy_series: pd.Series, 
-    expense_items_map: Dict[UUID, 'ExpenseItem'],
+    expense_items_map: Dict[UUID, ExpenseItem],
     gross_up_target_rate: float = 0.95 # Default target
     ) -> Dict[UUID, pd.Series]:
     """

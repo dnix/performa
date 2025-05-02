@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import Dict, List, Optional
 
@@ -7,8 +8,12 @@ from ..core._enums import AssetTypeEnum
 from ..core._model import Model
 from ..core._types import FloatBetween0And1, PositiveFloat, PositiveInt
 from ._expense import Expenses
+from ._lease import Tenant
 from ._losses import Losses
-from ._revenue import MiscIncome, RentRoll, Tenant
+from ._misc_income import MiscIncome
+from ._rent_roll import RentRoll
+
+logger = logging.getLogger(__name__)
 
 
 class PropertyFloor(Model):

@@ -1,4 +1,5 @@
 from datetime import date
+from types import SimpleNamespace
 from unittest.mock import MagicMock, call
 
 import pandas as pd
@@ -9,6 +10,7 @@ from performa.asset._expense import OpExItem
 # Models to test/use
 from performa.asset._recovery import ExpensePool, Recovery, RecoveryMethod
 from performa.core._enums import FrequencyEnum, UnitOfMeasureEnum
+from performa.core._settings import GlobalSettings
 from performa.core._timeline import Timeline
 
 # --- Fixtures --- 
@@ -78,17 +80,25 @@ def test_calculate_recoveries_grossup_applied(recovery_method_fixture):
     # Mock lookup_fn to return raw monthly expenses
     mock_lookup = MagicMock()
     def side_effect(key):
-        if key == fixed_id: return pd.Series(1000/12, index=timeline)
-        if key == var_id: return pd.Series(2400/12, index=timeline) # 200/month
+        if key == fixed_id: 
+            return pd.Series(1000/12, index=timeline)
+        if key == var_id: 
+            return pd.Series(2400/12, index=timeline) # 200/month
         # Don't need nonrec for Net recovery test
         raise LookupError(f"Unexpected key: {key}")
     mock_lookup.side_effect = side_effect
 
-    # --- Execute (focus on the Net recovery which uses the pool directly) --- 
+    # Call calculate_recoveries with necessary context
+    # Use a simple mock for property_data for now
+    # TODO: Create a pytest fixture for a mock Property object
+    mock_prop = SimpleNamespace(property_area=prop_area)
     total_recoveries = method.calculate_recoveries(
-        tenant_area=tenant_area, property_area=prop_area, 
-        timeline=timeline, occupancy_rate=occupancy,
-        lookup_fn=mock_lookup
+        tenant_area=tenant_area,
+        property_data=mock_prop, # Corrected - Pass mock object
+        timeline=timeline,
+        occupancy_rate=occupancy,
+        lookup_fn=mock_lookup,
+        global_settings=GlobalSettings() # Corrected - Pass default settings
     )
     
     # --- Assertions --- 
@@ -108,7 +118,6 @@ def test_calculate_recoveries_grossup_applied(recovery_method_fixture):
     # Fixed: 1200/12 = 100
     # Total Monthly = 30.83 + 0 + 14.17 + 100 = 145.00 (approx)
     # Total Annual = 145.00 * 12 = 1740
-    expected_total_annual = (308.33 * pro_rata + 0 + (308.33-2000/12)*pro_rata + 1200/12) * 12
     
     assert total_recoveries.sum() == pytest.approx(1740.0, rel=1e-2)
 
@@ -125,21 +134,28 @@ def test_calculate_recoveries_base_year_used(recovery_method_fixture):
     tenant_area = 1000.0
     prop_area = 10000.0
     occupancy = pd.Series(0.95, index=timeline) # AT target, no gross up needed
-    pro_rata = tenant_area / prop_area
     
     # Mock lookup_fn - gross-up won't apply
     mock_lookup = MagicMock()
     def side_effect(key):
-        if key == fixed_id: return pd.Series(1000/12, index=timeline) # 83.33
-        if key == var_id: return pd.Series(2400/12, index=timeline) # 200.00
+        if key == fixed_id: 
+            return pd.Series(1000/12, index=timeline) # Moved to new line
+        if key == var_id: 
+            return pd.Series(2400/12, index=timeline) # Moved to new line
         raise LookupError(f"Unexpected key: {key}")
     mock_lookup.side_effect = side_effect
     
-    # --- Execute --- 
+    # Call calculate_recoveries with necessary context
+    # Use a simple mock for property_data for now
+    # FIXME: Create a pytest fixture for a mock Property object
+    mock_prop = SimpleNamespace(property_area=prop_area)
     total_recoveries = method.calculate_recoveries(
-        tenant_area=tenant_area, property_area=prop_area, 
-        timeline=timeline, occupancy_rate=occupancy,
-        lookup_fn=mock_lookup
+        tenant_area=tenant_area,
+        property_data=mock_prop, # Corrected - Pass mock object
+        timeline=timeline,
+        occupancy_rate=occupancy,
+        lookup_fn=mock_lookup,
+        global_settings=GlobalSettings() # Corrected - Pass default settings
     )
     
     # --- Assertions --- 
@@ -159,3 +175,103 @@ def test_calculate_recoveries_base_year_used(recovery_method_fixture):
 # TODO: Add test for frozen pro-rata share usage
 # TODO: Add test for pool_size_override usage
 # TODO: Add test for base_amount_unit = 'total' in Base Stop 
+
+@pytest.mark.parametrize(
+    "recovery_structure, expected_first_month_recovery",
+    [
+        ("net", 20.0),  # (100 + 100) * (1000 / 10000) = 20
+        # TODO: Add tests for other structures (base_stop, base_year, fixed)
+    ]
+)
+def test_recovery_method_simple(recovery_structure, expected_first_month_recovery):
+    """Test calculate_recoveries with basic structures."""
+    # --- Setup ---
+    start_date = date(2024, 1, 1)
+    end_date = date(2024, 12, 31)
+    timeline = pd.period_range(start=start_date, end=end_date, freq='M')
+    tenant_area = 1000
+    prop_area = 10000 # Simple 10% pro-rata
+    occupancy = 1.0 # Assume full occupancy for simplicity
+
+    # Mock expense items
+    exp1 = OpExItem(name="Exp1", subcategory="Test", timeline=Timeline(start_date=start_date, duration_months=12), value=100)
+
+def test_recovery_method_grossup():
+    """Test calculate_recoveries with gross-up enabled."""
+    # --- Setup ---
+    start_date = date(2024, 1, 1)
+    end_date = date(2024, 12, 31)
+    timeline = pd.period_range(start=start_date, end=end_date, freq='M')
+    tenant_area = 1000
+    prop_area = 10000
+    occupancy = 0.8 # Less than 1.0 to trigger gross-up
+    gross_up_target = 0.95
+
+    # Variable recoverable expense
+    exp_var = OpExItem(
+        name="ExpVar", 
+        subcategory="Test", 
+        timeline=Timeline(start_date=start_date, duration_months=12), 
+        value=100, # Monthly amount
+        variable_ratio=0.5, # 50% variable
+        recoverable_ratio=1.0 # 100% recoverable
+    )
+    # Fixed non-recoverable expense
+    exp_fixed_nonrec = OpExItem(
+        name="ExpFixedNonRec", 
+        subcategory="Test", 
+        timeline=Timeline(start_date=start_date, duration_months=12), 
+        value=50, # Monthly amount
+        variable_ratio=0.0, 
+        recoverable_ratio=0.0
+    )
+
+    pool = ExpensePool(name="Test Pool", expenses=[exp_var, exp_fixed_nonrec])
+    recovery = Recovery(expenses=pool, structure="net")
+    method = RecoveryMethod(
+        name="Test GrossUp Method", 
+        recoveries=[recovery],
+        gross_up=True, 
+        gross_up_percent=gross_up_target
+    )
+
+    # Mock lookup function
+    mock_lookup = MagicMock()
+    def side_effect(item_id):
+        if item_id == exp_var.model_id:
+            return pd.Series(100.0, index=timeline)
+        elif item_id == exp_fixed_nonrec.model_id:
+            return pd.Series(50.0, index=timeline)
+        raise LookupError(f"Unknown ID: {item_id}")
+    mock_lookup.side_effect = side_effect
+    
+    # --- Execute ---
+    # Call calculate_recoveries with necessary context
+    # Use a simple mock for property_data for now
+    # TODO: Create a pytest fixture for a mock Property object
+    mock_prop = SimpleNamespace(property_area=prop_area)
+    total_recoveries = method.calculate_recoveries(
+        tenant_area=tenant_area,
+        property_data=mock_prop, # Corrected - Pass mock object
+        timeline=timeline,
+        occupancy_rate=occupancy,
+        lookup_fn=mock_lookup,
+        global_settings=GlobalSettings() # Corrected - Pass default settings
+    )
+    
+    # --- Assert ---
+    # Expected Calculation:
+    # ExpVar: 100 = 50 Fixed + 50 Variable
+    # Gross-up Variable: 50 / 0.8 = 62.5
+    # Total Grossed-up ExpVar = 50 + 62.5 = 112.5
+    # ExpFixedNonRec: 50 (fixed, non-rec, not grossed-up in recovery calc)
+    # Pool Expense for Recovery Calc = 112.5 (only ExpVar is considered here as it's recoverable)
+    # Pro-rata = 1000 / 10000 = 0.1
+    # Recovery = 112.5 * 0.1 = 11.25 per month
+    expected_monthly_recovery = 11.25
+    pd.testing.assert_series_equal(
+        total_recoveries,
+        pd.Series(expected_monthly_recovery, index=timeline),
+        check_dtype=False,
+        atol=0.01
+    ) 

@@ -8,6 +8,7 @@ import pandas as pd
 from ..core._cash_flow import CashFlowModel
 from ..core._enums import ExpenseSubcategoryEnum, UnitOfMeasureEnum
 from ..core._model import Model
+from ..core._settings import GlobalSettings
 from ..core._types import FloatBetween0And1
 from ._growth_rates import GrowthRate
 
@@ -54,7 +55,8 @@ class OpExItem(ExpenseItem):
     def compute_cf(
         self,
         occupancy_rate: Optional[float] = None,
-        lookup_fn: Optional[Callable[[Union[str, UUID]], Union[float, int, str, date, pd.Series, Dict, Any]]] = None
+        lookup_fn: Optional[Callable[[Union[str, UUID]], Union[float, int, str, date, pd.Series, Dict, Any]]] = None,
+        global_settings: Optional[GlobalSettings] = None
     ) -> pd.Series:
         """
         Compute the cash flow for the operating expense.
@@ -76,6 +78,7 @@ class OpExItem(ExpenseItem):
                             to adjust variable portions of the expense.
             lookup_fn: Function provided by the analysis engine to resolve 
                        references (UUIDs, property attributes, or AggregateLineKeys).
+            global_settings: Optional global settings for analysis context (e.g., dates).
                        
         Returns:
             A pandas Series representing the monthly cash flow for this expense item.

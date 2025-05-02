@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 from typing import Dict, List, Optional, Union
 
@@ -6,18 +7,17 @@ from dateutil.relativedelta import relativedelta
 
 from ..core._enums import FrequencyEnum, UnitOfMeasureEnum, UponExpirationEnum
 from ..core._model import Model
+from ..core._settings import GlobalSettings
 from ..core._types import FloatBetween0And1, PositiveFloat, PositiveInt
 from ._growth_rates import GrowthRate
 from ._lc import (
     LeasingCommission,
 )
+from ._lease import RentAbatement, RentEscalation
 from ._recovery import RecoveryMethod
-from ._revenue import (
-    RentAbatement,
-    RentEscalation,
-)
 from ._ti import TenantImprovementAllowance
 
+logger = logging.getLogger(__name__) # Initialize logger at module level
 
 class RolloverLeaseTerms(Model):
     """
@@ -45,7 +45,6 @@ class RolloverLeaseTerms(Model):
 
     # Growth parameter
     growth_rate: Optional[GrowthRate] = None
-    # FIXME: need to integrate GrowthRate properly below
 
     # Lease modification terms
     rent_escalation: Optional[RentEscalation] = None
@@ -148,13 +147,19 @@ class RolloverProfile(Model):
     upon_expiration: UponExpirationEnum = UponExpirationEnum.MARKET
     next_profile: Optional[str] = None  # Name of next profile to use if chaining
 
-    def _calculate_rent(self, terms: RolloverLeaseTerms, as_of_date: date) -> PositiveFloat:
+    def _calculate_rent(
+        self, 
+        terms: RolloverLeaseTerms, 
+        as_of_date: date,
+        global_settings: Optional[GlobalSettings] = None,
+    ) -> PositiveFloat:
         """
         Calculate the market rent as of a specific date, applying growth factors.
         
         Args:
             terms: The lease terms containing market rent configuration
             as_of_date: The date to calculate market rent for
+            global_settings: Optional global settings (e.g., for analysis start date as base).
             
         Returns:
             The market rent per square foot as of the given date
@@ -175,19 +180,92 @@ class RolloverProfile(Model):
             
             # Apply growth rate if specified
             if terms.growth_rate:
-                # FIXME: need to integrate GrowthRate syntax properly
-                # Calculate years from today to as_of_date
-                today = date.today()
-                years_difference = (as_of_date.year - today.year) + (as_of_date.month - today.month) / 12
+                # --- Start Implementation --- 
+                growth_profile = terms.growth_rate
+                growth_value = growth_profile.value
+
+                # Determine Growth Base Date
+                growth_base_date: Optional[date] = None
+                if global_settings and global_settings.analysis_start_date:
+                    growth_base_date = global_settings.analysis_start_date
+                else:
+                    # Default to as_of_date if no context provided, implying no growth interval
+                    growth_base_date = as_of_date 
+                    logger.warning(
+                        f"Cannot determine growth base date for RolloverProfile '{self.name}' "
+                        f"(Terms: {terms.model_id}). Missing global_settings.analysis_start_date. "
+                        f"Growth will effectively be 0% for date {as_of_date}."
+                    )
+                    
+                # If as_of_date is before the base date, no growth applies
+                if as_of_date < growth_base_date:
+                    logger.debug(f"as_of_date {as_of_date} is before growth_base_date {growth_base_date}. No growth applied.")
+                    return base_market_rent
                 
-                # Apply growth compounding
-                market_rent = base_market_rent * (1 + terms.growth_rate) ** years_difference
-                return market_rent
+                # Create period range for growth calculation
+                try:
+                    growth_periods = pd.period_range(start=growth_base_date, end=as_of_date, freq='M')
+                except Exception as e:
+                    logger.error(f"Error creating period range for growth calculation: {e}")
+                    return base_market_rent # Cannot calculate growth
+
+                # Prepare Period-Based Growth Rates over the relevant range
+                period_rates = pd.Series(0.0, index=growth_periods) # Initialize with 0% growth
+
+                if isinstance(growth_value, (float, int)):
+                    # Constant annual rate - convert to monthly
+                    monthly_rate = float(growth_value) / 12.0
+                    # Apply only to periods within our range (already implicitly handled by index)
+                    period_rates[:] = monthly_rate 
+                elif isinstance(growth_value, pd.Series):
+                    aligned_rates = growth_value
+                    if not isinstance(aligned_rates.index, pd.PeriodIndex):
+                        try:
+                            aligned_rates.index = pd.PeriodIndex(aligned_rates.index, freq='M')
+                        except Exception as e:
+                            logger.error(f"Growth Series index cannot be converted to PeriodIndex: {e}")
+                            return base_market_rent # Cannot apply growth
+                    # Reindex to our specific growth period range and forward-fill
+                    aligned_rates = aligned_rates.reindex(growth_periods, method='ffill')
+                    aligned_rates = aligned_rates.fillna(0.0) # Fill initial NaNs
+                    period_rates = aligned_rates
+                elif isinstance(growth_value, dict):
+                    try:
+                        dict_series = pd.Series(growth_value)
+                        dict_series.index = pd.PeriodIndex(dict_series.index, freq='M')
+                    except Exception as e:
+                        logger.error(f"Growth Dict keys cannot be converted to PeriodIndex: {e}")
+                        return base_market_rent # Cannot apply growth
+                    aligned_rates = dict_series.reindex(growth_periods, method='ffill')
+                    aligned_rates = aligned_rates.fillna(0.0)
+                    period_rates = aligned_rates
+                else:
+                    logger.error(f"Unsupported type for GrowthRate value: {type(growth_value)}")
+                    return base_market_rent # Cannot apply growth
+                
+                # Calculate period-over-period growth factors (1 + monthly_rate)
+                growth_factors = 1.0 + period_rates
+                
+                # Calculate cumulative factor up to the as_of_date
+                # The cumulative product gives the factor to apply to the base value at the base date
+                # to get the value at each subsequent date.
+                cumulative_growth_factor = growth_factors.prod() 
+                # Alternative using cumprod if we needed intermediate values: 
+                # cumulative_factors = growth_factors.cumprod()
+                # final_factor = cumulative_factors.iloc[-1] if not cumulative_factors.empty else 1.0
+                
+                # Apply the cumulative factor
+                grown_rent = base_market_rent * cumulative_growth_factor
+                logger.debug(f"Applied growth factor {cumulative_growth_factor:.4f} to base rent {base_market_rent:.2f} (Base Date: {growth_base_date}, As Of: {as_of_date})")
+                return grown_rent
+                # --- End Implementation --- 
             else:
                 return base_market_rent
                 
         elif isinstance(terms.market_rent, pd.Series):
-            # If market rent is a series, look up the value at the given date
+            # If market rent is provided as a Series, assume these are the final 
+            # values for specific periods and ignore the terms.growth_rate.
+            # Growth should be baked into the Series values themselves if needed.
             as_of_period = pd.Period(as_of_date, freq="M")
             
             # Try to find the exact period or the most recent previous period
@@ -211,11 +289,13 @@ class RolloverProfile(Model):
             return rent
             
         elif isinstance(terms.market_rent, dict):
+            # If market rent is provided as a Dict, assume these are the final
+            # values for specific periods and ignore the terms.growth_rate.
             # Convert the dictionary to a Series and recursively call this method
             temp_series = pd.Series(terms.market_rent)
             # Create a copy of the terms with the Series
             temp_terms = terms.copy(update={"market_rent": temp_series})
-            return self._calculate_rent(temp_terms, as_of_date)
+            return self._calculate_rent(temp_terms, as_of_date, global_settings)
             
         elif isinstance(terms.market_rent, list):
             # We need context (timeline) to interpret a list, so this is not supported directly
@@ -224,41 +304,56 @@ class RolloverProfile(Model):
         else:
             raise ValueError(f"Unsupported market_rent type: {type(terms.market_rent)}")
     
-    def calculate_market_rent(self, as_of_date: date) -> PositiveFloat:
+    def calculate_market_rent(
+        self, 
+        as_of_date: date,
+        global_settings: Optional[GlobalSettings] = None,
+    ) -> PositiveFloat:
         """
         Calculate the market rent for a new market lease.
         
         Args:
             as_of_date: The date to calculate market rent for
+            global_settings: Optional global settings.
             
         Returns:
             The market rent value
         """
-        return self._calculate_rent(self.market_terms, as_of_date)
+        return self._calculate_rent(self.market_terms, as_of_date, global_settings)
     
-    def calculate_renewal_rent(self, as_of_date: date) -> PositiveFloat:
+    def calculate_renewal_rent(
+        self, 
+        as_of_date: date,
+        global_settings: Optional[GlobalSettings] = None,
+    ) -> PositiveFloat:
         """
         Calculate the rent for a renewal lease.
         
         Args:
             as_of_date: The date to calculate renewal rent for
+            global_settings: Optional global settings.
             
         Returns:
             The renewal rent value
         """
-        return self._calculate_rent(self.renewal_terms, as_of_date)
+        return self._calculate_rent(self.renewal_terms, as_of_date, global_settings)
 
-    def calculate_option_rent(self, as_of_date: date) -> PositiveFloat:
+    def calculate_option_rent(
+        self, 
+        as_of_date: date,
+        global_settings: Optional[GlobalSettings] = None,
+    ) -> PositiveFloat:
         """
         Calculate the rent for an option lease.
         
         Args:
             as_of_date: The date to calculate option rent for
+            global_settings: Optional global settings.
             
         Returns:
             The option rent value
         """
-        return self._calculate_rent(self.option_terms, as_of_date)
+        return self._calculate_rent(self.option_terms, as_of_date, global_settings)
 
     def blend_lease_terms(self) -> RolloverLeaseTerms:
         """

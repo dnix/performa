@@ -381,7 +381,6 @@ def test_gross_up_expenses_applies(gross_up_fixture_data):
     raw_expenses, occupancy_series, expense_items_map = gross_up_fixture_data
     opex1_id = list(expense_items_map.keys())[0]
     opex2_id = list(expense_items_map.keys())[1]
-    opex2_var_ratio = expense_items_map[opex2_id].variable_ratio # Should be 0.8
 
     grossed_up_dict = _gross_up_period_expenses(
         raw_expenses, occupancy_series, expense_items_map, gross_up_target_rate=0.95

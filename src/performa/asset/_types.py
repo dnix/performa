@@ -3,7 +3,8 @@ from typing import Annotated, Union
 from pydantic import Field
 
 from ._expense import CapExItem, ExpenseItem
-from ._revenue import Lease, RentEscalation, VacantSuite
+from ._lease import Lease, RentEscalation
+from ._rent_roll import VacantSuite
 
 # Revenue types
 

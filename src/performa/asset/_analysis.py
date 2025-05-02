@@ -1,12 +1,23 @@
 # Import inspect module
 import inspect
 import logging  # <-- Import logging
-from datetime import date
+from datetime import date, timedelta  # Added timedelta
 from graphlib import CycleError, TopologicalSorter
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import (  # Added TYPE_CHECKING
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 from uuid import UUID
 
 import pandas as pd
+from dateutil.relativedelta import relativedelta  # Added relativedelta
 from pydantic import Field
 
 from ..core._cash_flow import CashFlowModel
@@ -20,8 +31,23 @@ from ..core._enums import (
 from ..core._model import Model
 from ..core._settings import GlobalSettings
 from ..core._timeline import Timeline
+
+# Add utils imports
+from ._calc_utils import (
+    _get_period_expenses,
+    _get_period_occupancy,
+    _gross_up_period_expenses,
+)
+from ._lease import Lease  # TODO: Keep for now, might move to TYPE_CHECKING
+
+# Asset imports
 from ._property import Property
-from ._revenue import Lease
+
+# Handle potential circular imports for type hints
+if TYPE_CHECKING:
+    from ._expense import ExpenseItem
+    from ._lease import Lease
+    from ._recovery import Recovery
 
 # TODO: Add comprehensive unit and integration tests for CashFlowAnalysis logic.
 
@@ -58,7 +84,6 @@ class CashFlowAnalysis(Model):
         analysis_end_date: The end date (inclusive) for the cash flow analysis period.
     """
     property: Property
-    # TODO: Integrate self.settings to allow configuration of analysis behavior.
     settings: GlobalSettings = Field(default_factory=GlobalSettings)
     analysis_start_date: date
     analysis_end_date: date
@@ -194,19 +219,27 @@ class CashFlowAnalysis(Model):
             detailed_flows_this_pass: List[Tuple[Dict, pd.Series]] = []
             for res_model_id, result in computed_results.items():
                  original_model = model_map.get(res_model_id) 
-                 if not original_model: continue 
+                 if not original_model: 
+                     continue
                  results_to_process: Dict[str, pd.Series] = {}
-                 if isinstance(result, pd.Series): results_to_process = {"value": result}
-                 elif isinstance(result, dict): results_to_process = result
-                 else: logger.warning(f"Unexpected result type {type(result)} for model '{original_model.name}'. Skipped processing."); continue
+                 if isinstance(result, pd.Series): 
+                     results_to_process = {"value": result}
+                 elif isinstance(result, dict): 
+                     results_to_process = result
+                 else: 
+                     logger.warning(f"Unexpected result type {type(result)} for model '{original_model.name}'. Skipped processing.")
+                     continue
 
                  for component_name, series in results_to_process.items():
-                     if not isinstance(series, pd.Series): continue
+                     if not isinstance(series, pd.Series): 
+                         continue
                      try:
                          # Align index - crucial for aggregation
                          if not isinstance(series.index, pd.PeriodIndex):
-                              if isinstance(series.index, pd.DatetimeIndex): series.index = series.index.to_period(freq='M')
-                              else: series.index = pd.PeriodIndex(series.index, freq='M')
+                              if isinstance(series.index, pd.DatetimeIndex): 
+                                  series.index = series.index.to_period(freq='M')
+                              else: 
+                                  series.index = pd.PeriodIndex(series.index, freq='M')
                          # Use the main analysis_periods derived earlier
                          aligned_series = series.reindex(analysis_periods, fill_value=0.0) 
                      except Exception: 
@@ -239,6 +272,210 @@ class CashFlowAnalysis(Model):
         
         logger.debug("Finished iterative computation.") # DEBUG: Exit
         return computed_results
+
+    # --- Private Helper: Base Year Stop Pre-calculation ---
+    def _pre_calculate_all_base_year_stops(self, all_models: List[CashFlowModel]) -> None:
+        """
+        Iterates through leases in all_models and calculates/caches base year stops.
+        
+        This should be called once before dependency-based computation begins.
+        It finds Leases with base year recovery structures and populates the 
+        `_calculated_annual_base_year_stop` and `_frozen_base_year_pro_rata` 
+        attributes on their associated Recovery objects.
+        
+        Args:
+            all_models: List containing all CashFlowModel instances for the analysis,
+                       including projected leases.
+        """
+        logger.info("Starting pre-calculation of base year stops...")
+        
+        # Imports moved to top level
+            
+        # Cache data fetched per base year to avoid redundant lookups
+        base_year_data_cache: Dict[int, Dict[str, Any]] = {}
+        
+        # Iterate through all models provided
+        # Use string hint 'Lease' as it's imported under TYPE_CHECKING
+        leases_to_process = [model for model in all_models if isinstance(model, Lease)]
+        logger.debug(f"Found {len(leases_to_process)} Lease instances to check for base year recoveries.")
+
+        for lease in leases_to_process:
+            if not lease.recoveries: 
+                continue # Skip leases with no recovery definitions
+                
+            # Use string hint 'Recovery' here as well
+            recoveries_needing_calc: List['Recovery'] = [] 
+            # Use string hint 'ExpenseItem' if needed for type checking inside loop
+            all_by_expense_items_for_lease: Dict[UUID, 'ExpenseItem'] = {}
+            
+            # Check if this lease has relevant recovery structures and hasn't been calculated yet
+            for recovery in lease.recoveries:
+                if recovery.structure in ["base_year", "base_year_plus1", "base_year_minus1"]:
+                    # Check cache *on the recovery object* first
+                    if recovery._calculated_annual_base_year_stop is not None: 
+                        logger.debug(f"  Stop already calculated for Lease '{lease.name}', Recovery Pool '{recovery.expense_pool.name}'. Skipping.")
+                        continue 
+                    
+                    if recovery.base_year is None:
+                        logger.error(f"  Recovery '{recovery.expense_pool.name}' for lease '{lease.name}' is Base Year type but missing base_year value.")
+                        continue
+                        
+                    recoveries_needing_calc.append(recovery)
+                    pool_items = recovery.expense_pool.expenses
+                    if not isinstance(pool_items, list): pool_items = [pool_items]
+                    for item in pool_items:
+                        # Check type using string hint if necessary, or rely on structure
+                        # Assuming items in pool are ExpenseItem-like for now
+                        if hasattr(item, 'model_id'): # Duck-typing check
+                             if item.model_id not in all_by_expense_items_for_lease:
+                                 all_by_expense_items_for_lease[item.model_id] = item
+                        else:
+                             logger.warning(f"Item '{getattr(item, "name", "Unknown")}' in pool '{recovery.expense_pool.name}' does not have model_id. Skipping.")
+                             
+            if not recoveries_needing_calc:
+                continue # No base year recoveries needing calculation for this lease
+                
+            logger.debug(f"Calculating base year stops for Lease '{lease.name}'...")
+            lease_start_year = lease.lease_start.year # Use the specific lease's start year
+
+            # Use string hint 'Recovery' when iterating
+            for recovery in recoveries_needing_calc: 
+                 year_offset = 0
+                 if recovery.structure == "base_year_plus1": year_offset = 1
+                 elif recovery.structure == "base_year_minus1": year_offset = -1
+                 target_base_year = lease_start_year + year_offset
+                 
+                 # Check cache for the target year's data first
+                 if target_base_year not in base_year_data_cache:
+                     logger.debug(f"  Cache miss for base year {target_base_year}. Fetching data...")
+                     base_year_data_cache[target_base_year] = {"occupancy": None, "expenses": None}
+                     
+                     # Determine calendar mode and fiscal start month from analysis settings
+                     calendar_mode = self.settings.recoveries.calendar_mode.lower() if self.settings.recoveries else 'calendar'
+                     fiscal_start_month = 1
+                     if calendar_mode == 'fiscal':
+                         if self.settings.analysis_start_date:
+                             fiscal_start_month = self.settings.analysis_start_date.month
+                         else:
+                             logger.warning("Fiscal calendar_mode requires global_settings.analysis_start_date. Defaulting to January fiscal start.")
+                     
+                     # Define the base year period
+                     if calendar_mode == 'fiscal':
+                         by_start = date(target_base_year, fiscal_start_month, 1)
+                         by_end = by_start + relativedelta(years=1) - timedelta(days=1)
+                     else: # Default to Calendar
+                         by_start = date(target_base_year, 1, 1)
+                         by_end = date(target_base_year, 12, 31)
+                     logger.debug(f"    Base year {target_base_year} period: {by_start} to {by_end} ({calendar_mode} mode).")
+                     
+                     # Fetch occupancy
+                     monthly_occupancy = _get_period_occupancy(self.property, by_start, by_end, frequency='M')
+                     if monthly_occupancy is None: logger.error(f"    Failed to get occupancy for base year {target_base_year}."); continue
+                     base_year_data_cache[target_base_year]["occupancy"] = monthly_occupancy
+                     
+                     # Fetch expenses for *all* potential items needed for this lease
+                     expense_ids_to_fetch = list(all_by_expense_items_for_lease.keys())
+                     monthly_expenses = _get_period_expenses(self.property, by_start, by_end, expense_ids_to_fetch, frequency='M')
+                     if monthly_expenses is None: logger.error(f"    Failed to get expenses for base year {target_base_year}."); continue
+                     base_year_data_cache[target_base_year]["expenses"] = monthly_expenses
+                     logger.debug(f"  Fetched and cached data for base year {target_base_year}.")
+                     
+                 # --- Use cached data to calculate stop for this recovery --- 
+                 cached_data = base_year_data_cache[target_base_year]
+                 base_year_occupancy = cached_data["occupancy"]
+                 base_year_expenses = cached_data["expenses"]
+                 
+                 if base_year_occupancy is None or base_year_expenses is None:
+                     logger.warning(f"  Skipping stop calculation for recovery '{recovery.expense_pool.name}' due to missing cached data for base year {target_base_year}.")
+                     recovery._calculated_annual_base_year_stop = None
+                     continue
+                     
+                 # Filter expenses relevant to *this* recovery's pool
+                 pool_items = recovery.expense_pool.expenses
+                 if not isinstance(pool_items, list): pool_items = [pool_items]
+                 pool_item_ids = {item.model_id for item in pool_items if hasattr(item, 'model_id')}
+                 pool_expenses_raw: Dict[UUID, pd.Series] = { 
+                      item_id: series 
+                      for item_id, series in base_year_expenses.items() 
+                      if item_id in pool_item_ids
+                 }
+                 pool_items_map: Dict[UUID, 'ExpenseItem'] = {item.model_id: item for item in all_by_expense_items_for_lease.values() if item.model_id in pool_item_ids}
+
+                 if not pool_expenses_raw:
+                      logger.warning(f"  No expense data found for pool '{recovery.expense_pool.name}' in base year {target_base_year}. Setting stop to 0.")
+                      recovery._calculated_annual_base_year_stop = 0.0
+                      continue
+
+                 # Perform Gross-up
+                 gross_up_this_recovery = lease.recovery_method.gross_up if lease.recovery_method else False
+                 gross_up_target = lease.recovery_method.gross_up_percent if lease.recovery_method and lease.recovery_method.gross_up_percent is not None else 0.95
+                 
+                 pool_expenses_grossed_up: Dict[UUID, pd.Series]
+                 if gross_up_this_recovery:
+                      logger.debug(f"    Applying gross-up to base year {target_base_year} expenses for pool '{recovery.expense_pool.name}' (Target: {gross_up_target:.1%})")
+                      pool_expenses_grossed_up = _gross_up_period_expenses(
+                           pool_expenses_raw, base_year_occupancy, 
+                           expense_items_map=pool_items_map, # Use map for items in this lease
+                           gross_up_target_rate=gross_up_target
+                      )
+                 else:
+                      pool_expenses_grossed_up = pool_expenses_raw
+                      
+                 # Aggregate the grossed-up expenses for the pool
+                 total_pool_by_grossed_up = pd.Series(0.0, index=base_year_occupancy.index)
+                 for series in pool_expenses_grossed_up.values():
+                      total_pool_by_grossed_up = total_pool_by_grossed_up.add(series.reindex(total_pool_by_grossed_up.index, fill_value=0.0), fill_value=0.0)
+                      
+                 # Perform Annualization
+                 base_period_start_month = 0
+                 if recovery.structure == "base_year_plus1": base_period_start_month = 12
+                 elif recovery.structure == "base_year_minus1": base_period_start_month = -12
+                 
+                 base_period_start_date = lease.lease_start + relativedelta(months=base_period_start_month)
+                 base_period_end_date = base_period_start_date + relativedelta(months=12) - timedelta(days=1)
+                 
+                 try:
+                      precise_base_periods = pd.period_range(start=base_period_start_date, end=base_period_end_date, freq='M')
+                      if len(precise_base_periods) > 12: precise_base_periods = precise_base_periods[:12]
+                 except Exception as e:
+                      logger.error(f"    Could not create precise base period range for {recovery.expense_pool.name}. Cannot annualize. Error: {e}")
+                      recovery._calculated_annual_base_year_stop = None; continue
+                      
+                 sliced_base_year_total = total_pool_by_grossed_up.reindex(precise_base_periods, fill_value=0.0)
+                 months_in_slice = len(sliced_base_year_total)
+                 calculated_sum = sliced_base_year_total.sum()
+                 annual_stop_amount = 0.0
+                 if months_in_slice == 0:
+                      logger.warning(f"    No data found for base period of pool '{recovery.expense_pool.name}'. Setting stop to 0.")
+                 elif months_in_slice < 12:
+                      annual_stop_amount = (calculated_sum / months_in_slice) * 12
+                      logger.warning(f"    Partial data ({months_in_slice}/12 months) for base period of pool '{recovery.expense_pool.name}'. Annualized sum {annual_stop_amount:.2f}.")
+                 else:
+                      annual_stop_amount = calculated_sum
+
+                 logger.debug(f"    Calculated Annual Stop for pool '{recovery.expense_pool.name}': {annual_stop_amount:.2f}")
+                 recovery._calculated_annual_base_year_stop = annual_stop_amount
+                 
+                 # --- Check for Frozen Pro-rata Share --- 
+                 freeze_share_flag = False
+                 if self.settings and hasattr(self.settings, 'recoveries') and hasattr(self.settings.recoveries, 'freeze_share_at_baseyear'):
+                     freeze_share_flag = self.settings.recoveries.freeze_share_at_baseyear
+                 elif self.settings and hasattr(self.settings, 'freeze_share_at_baseyear'): 
+                     freeze_share_flag = self.settings.freeze_share_at_baseyear
+                     
+                 if freeze_share_flag:
+                      current_nra = self.property.net_rentable_area
+                      if current_nra > 0:
+                           base_year_pro_rata = lease.area / current_nra
+                           recovery._frozen_base_year_pro_rata = base_year_pro_rata
+                           logger.debug(f"    Storing frozen base year pro-rata share: {base_year_pro_rata:.4f}")
+                      else:
+                           logger.warning(f"    Cannot calculate base year pro-rata share for freezing (Property NRA={current_nra}).")
+                           recovery._frozen_base_year_pro_rata = None 
+                 else:
+                      recovery._frozen_base_year_pro_rata = None
+
+        logger.info("Finished pre-calculation of base year stops.")
 
     # --- Private Methods ---
     def _create_timeline(self) -> Timeline:
@@ -543,6 +780,10 @@ class CashFlowAnalysis(Model):
             all_models = ( self._collect_revenue_models() + self._collect_expense_models() + self._collect_other_cash_flow_models() )
             logger.debug(f"Collected {len(all_models)} models for computation.") # DEBUG: Model count
             
+            # --- Pre-calculate Base Year Stops --- 
+            self._pre_calculate_all_base_year_stops(all_models)
+            # -------------------------------------
+            
             # Ensure all models have unique IDs (safeguard)
             model_ids = [m.model_id for m in all_models]
             if len(model_ids) != len(set(model_ids)):
@@ -563,9 +804,11 @@ class CashFlowAnalysis(Model):
                 # It should NOT resolve aggregate keys, as those imply cycles.
                 if isinstance(key, UUID):
                     # Look up previously computed results within this DAG pass
-                    if key in computed_results: return computed_results[key]
+                    if key in computed_results: 
+                        return computed_results[key]
                     # If not found, it's an error in the DAG structure or definition
-                    else: raise LookupError(f"(DAG Path) Dependency result for model ID {key} not available.") 
+                    else: 
+                        raise LookupError(f"(DAG Path) Dependency result for model ID {key} not available.")
                 elif isinstance(key, str):
                     # Check if the string key matches a known Aggregate Line Key
                     matched_agg_key = AggregateLineKey.from_value(key)
@@ -592,7 +835,8 @@ class CashFlowAnalysis(Model):
                             f"(DAG Path) Cannot resolve string reference '{key}'. "
                             f"It is not a valid AggregateLineKey value or a known Property attribute."
                         )
-                else: raise TypeError(f"(DAG Path) Unsupported lookup key type: {type(key)}")
+                else: 
+                    raise TypeError(f"(DAG Path) Unsupported lookup key type: {type(key)}")
 
             # --- Attempt Topological Sort ---
             try:
@@ -610,10 +854,12 @@ class CashFlowAnalysis(Model):
                     # Also consider potential dependencies in TI/LC if they reference the Lease model_id
                     if hasattr(model, 'ti_allowance') and model.ti_allowance and isinstance(model.ti_allowance.reference, UUID):
                          dependency_id = model.ti_allowance.reference
-                         if dependency_id in graph: graph[model.ti_allowance.model_id].add(dependency_id)
+                         if dependency_id in graph: 
+                             graph[model.ti_allowance.model_id].add(dependency_id)
                     if hasattr(model, 'leasing_commission') and model.leasing_commission and isinstance(model.leasing_commission.reference, UUID):
                          dependency_id = model.leasing_commission.reference
-                         if dependency_id in graph: graph[model.leasing_commission.model_id].add(dependency_id)
+                         if dependency_id in graph: 
+                             graph[model.leasing_commission.model_id].add(dependency_id)
                          
                 ts = TopologicalSorter(graph)
                 # Prepare the graph for sorting
@@ -633,7 +879,8 @@ class CashFlowAnalysis(Model):
                              logger.debug(f"      Success: '{model.name}' ({model_id}) computed.")
                          except Exception as e: 
                              logger.error(f"(DAG Path) Error computing '{model.name}' ({model_id}). Skipped.", exc_info=True)
-                             if self.settings.calculation.fail_on_error: raise e
+                             if self.settings.calculation.fail_on_error: 
+                                 raise e
                          computed_results.pop(model_id, None)
                      ts.done(*node_group) # Mark nodes in the group as done
 
@@ -660,20 +907,28 @@ class CashFlowAnalysis(Model):
             processed_flows: List[Tuple[Dict, pd.Series]] = []
             for model_id, result in computed_results.items():
                 original_model = model_map.get(model_id) 
-                if not original_model: continue 
+                if not original_model: 
+                    continue
                 results_to_process: Dict[str, pd.Series] = {}
-                if isinstance(result, pd.Series): results_to_process = {"value": result}
-                elif isinstance(result, dict): results_to_process = result
+                if isinstance(result, pd.Series): 
+                    results_to_process = {"value": result}
+                elif isinstance(result, dict): 
+                    results_to_process = result
                 # Log warning instead of print
-                else: logger.warning(f"Unexpected result type {type(result)} for model '{original_model.name}'. Skipped processing."); continue
+                else: 
+                    logger.warning(f"Unexpected result type {type(result)} for model '{original_model.name}'. Skipped processing.")
+                    continue
 
                 for component_name, series in results_to_process.items():
-                    if not isinstance(series, pd.Series): continue
+                    if not isinstance(series, pd.Series): 
+                        continue
                     try:
                         # Align index
                         if not isinstance(series.index, pd.PeriodIndex):
-                             if isinstance(series.index, pd.DatetimeIndex): series.index = series.index.to_period(freq='M')
-                             else: series.index = pd.PeriodIndex(series.index, freq='M')
+                             if isinstance(series.index, pd.DatetimeIndex): 
+                                 series.index = series.index.to_period(freq='M')
+                             else: 
+                                 series.index = pd.PeriodIndex(series.index, freq='M')
                         aligned_series = series.reindex(analysis_periods, fill_value=0.0)
                     # Log warning with exception info instead of print
                     except Exception: 
