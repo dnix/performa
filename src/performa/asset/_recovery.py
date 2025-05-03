@@ -37,7 +37,7 @@ class ExpensePool(Model):
     def compute_cf(
         self, 
         timeline: pd.PeriodIndex, 
-        occupancy_rate: Optional[float] = None,
+        occupancy_rate: Optional[Union[float, pd.Series]] = None,
         lookup_fn: Optional[Callable[[Union[str, UUID]], Any]] = None,
         global_settings: Optional[GlobalSettings] = None
     ) -> pd.Series:
@@ -181,7 +181,7 @@ class RecoveryMethod(Model):
         tenant_area: PositiveFloat,
         property_data: Optional['Property'], # Ensure original hint is used
         timeline: pd.PeriodIndex,
-        occupancy_rate: Optional[float] = None,
+        occupancy_rate: Optional[Union[float, pd.Series]] = None,
         lookup_fn: Optional[Callable[[Union[str, UUID]], Union[float, int, str, date, pd.Series, Dict, Any]]] = None,
         global_settings: Optional[GlobalSettings] = None
     ) -> pd.Series:

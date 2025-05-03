@@ -3,7 +3,6 @@ from datetime import date
 from typing import (
     Any,
     Callable,
-    Dict,
     Optional,
     Union,
 )
@@ -50,9 +49,9 @@ class MiscIncome(CashFlowModel):
     
     def compute_cf(
         self,
-        occupancy_rate: Optional[float] = None,
-        lookup_fn: Optional[Callable[[Union[str, UUID]], Union[float, int, str, date, pd.Series, Dict, Any]]] = None,
-        global_settings: Optional[GlobalSettings] = None # Added for consistency
+        occupancy_rate: Optional[Union[float, pd.Series]] = None,
+        lookup_fn: Optional[Callable[[Union[str, UUID]], Any]] = None,
+        global_settings: Optional[GlobalSettings] = None,
     ) -> pd.Series:
         # (Implementation kept from previous move)
         logger.debug(f"Computing cash flow for MiscIncome: '{self.name}' ({self.model_id})") 
@@ -101,14 +100,32 @@ class MiscIncome(CashFlowModel):
             else:
                  logger.warning(f"MiscIncome '{self.name}' has growth_rate but _apply_compounding_growth method not found.")
         
-        if occupancy_rate is not None and self.is_variable:
-             if pd.api.types.is_numeric_dtype(calculated_flow) and self.variable_ratio is not None:
-                 variable_ratio = self.variable_ratio
-                 fixed_ratio = 1.0 - variable_ratio
-                 adjustment_ratio = fixed_ratio + (variable_ratio * float(occupancy_rate)) 
-                 calculated_flow = calculated_flow * adjustment_ratio
-             else:
-                 logger.warning(f"Cannot apply occupancy adjustment to non-numeric series or missing var_ratio for MiscIncome '{self.name}'.")
+        # Apply growth if applicable
+        calculated_flow = self._apply_growth(calculated_flow)
         
-        logger.debug(f"Finished computing cash flow for MiscIncome: '{self.name}'.") 
+        # Apply occupancy adjustment if income is variable
+        if occupancy_rate is not None and self.is_variable and self.variable_ratio is not None:
+            if pd.api.types.is_numeric_dtype(calculated_flow):
+                logger.debug(f"  Applying actual variable income adjustment (Ratio: {self.variable_ratio*100:.1f}%)")
+                fixed_ratio = 1.0 - self.variable_ratio
+                variable_ratio = self.variable_ratio # Explicitly use self.variable_ratio
+                
+                # Handle scalar or Series occupancy rate
+                if isinstance(occupancy_rate, pd.Series):
+                    # Align occupancy series to the calculated_flow index, forward fill for safety
+                    aligned_occupancy = occupancy_rate.reindex(calculated_flow.index, method='ffill').fillna(1.0)
+                    adjustment_ratio = fixed_ratio + (variable_ratio * aligned_occupancy)
+                    logger.debug(f"    Using occupancy Series (Min: {aligned_occupancy.min():.1%}, Max: {aligned_occupancy.max():.1%})")
+                else: # Assume float
+                    occ_rate = float(occupancy_rate) 
+                    adjustment_ratio = fixed_ratio + (variable_ratio * occ_rate)
+                    logger.debug(f"    Using scalar occupancy: {occ_rate:.1%})")
+                
+                calculated_flow = calculated_flow * adjustment_ratio
+            else:
+                 logger.warning(f"Cannot apply occupancy adjustment to non-numeric series for MiscIncome '{self.name}'. Calculated flow type: {calculated_flow.dtype}")
+        elif self.is_variable and occupancy_rate is None:
+             logger.warning(f"MiscIncome '{self.name}' is variable, but no occupancy_rate was provided for adjustment. Income calculated without variable adjustment.")
+
+        logger.debug(f"Finished computing cash flow for MiscIncome: '{self.name}'. Final Sum: {calculated_flow.sum():.2f}")
         return calculated_flow 
