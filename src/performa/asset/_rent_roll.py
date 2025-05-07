@@ -11,7 +11,7 @@ from ..core._types import (
     FloatBetween0And1,
     PositiveFloat,
 )
-from ._lease import Lease
+from ._lease import LeaseSpec
 
 logger = logging.getLogger(__name__)
 
@@ -36,23 +36,23 @@ class VacantSuite(Model):
 # --- Rent Roll ---
 class RentRoll(Model):
     """
-    Collection of all leases and vacant spaces.
-    
+    Collection of all defined lease specifications and vacant spaces.
+
     Attributes:
-        leases: List of all lease agreements
-        vacant_suites: List of all vacant suites
+        leases: List of LeaseSpec objects defining initial lease terms.
+        vacant_suites: List of all vacant suites at the start.
     """
-    leases: List[Lease] # Needs Lease import
+    leases: List[LeaseSpec]
     vacant_suites: List[VacantSuite]
 
     @property
     def total_occupied_area(self) -> PositiveFloat:
-        """Calculate total leased area in square feet."""
-        return sum(lease.area for lease in self.leases)
+        """Calculate total area defined in the lease specifications."""
+        return sum(lease_spec.area for lease_spec in self.leases)
 
     @property
     def occupancy_rate(self) -> FloatBetween0And1:
-        """Calculate current occupancy rate as a decimal between 0 and 1."""
+        """Calculate initial occupancy rate based on LeaseSpec areas."""
         total_area = self.total_occupied_area + sum(
             suite.area for suite in self.vacant_suites
         )
@@ -60,8 +60,8 @@ class RentRoll(Model):
 
     @model_validator(mode="after")
     def validate_lease_tenant_mapping(self) -> "RentRoll":
-        """Validate that all leases have a corresponding tenant."""
-        # TODO: implement this
+        """Validate placeholder - tenant mapping validation might change with LeaseSpec."""
+        # TODO: Review validation logic based on LeaseSpec (e.g., check tenant_name)
         return self
 
     # TODO: add validation for total area

@@ -2,12 +2,13 @@ from datetime import date
 from typing import Union
 
 import pandas as pd
-from pydantic import BaseModel, model_validator
+from pydantic import model_validator
 
+from ._model import Model
 from ._types import PositiveInt
 
 
-class Timeline(BaseModel):
+class Timeline(Model):
     """
     Represents a timeline for financial analysis.
     

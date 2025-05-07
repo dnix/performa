@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional
+from typing import List, Optional
 
 
 class CashFlowCategoryEnum(str, Enum):
@@ -324,6 +324,10 @@ class AggregateLineKey(str, Enum):
     _RAW_TOTAL_TI = "_RAW Total TI"         # Intermediate sum used above
     _RAW_TOTAL_LC = "_RAW Total LC"         # Intermediate sum used above
 
+    # Vacancy & Loss Specifics
+    DOWNTIME_VACANCY_LOSS = "Downtime Vacancy Loss" # Added for initial vacancy
+    ROLLOVER_VACANCY_LOSS = "Rollover Vacancy Loss" # Placeholder if aggregated separately
+
     @classmethod
     def from_value(cls, value: str) -> Optional['AggregateLineKey']:
         """Look up enum member by its string value."""
@@ -340,6 +344,6 @@ class AggregateLineKey(str, Enum):
 
     # Helper to get display keys (excluding internal ones)
     @classmethod
-    def get_display_keys(cls) -> list['AggregateLineKey']:
+    def get_display_keys(cls) -> List["AggregateLineKey"]:
         """Return a list of keys suitable for display/reporting."""
         return [k for k in cls if not cls.is_internal_key(k)]

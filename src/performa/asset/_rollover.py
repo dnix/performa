@@ -1,6 +1,6 @@
 import logging
 from datetime import date
-from typing import Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import pandas as pd
 from dateutil.relativedelta import relativedelta
@@ -16,6 +16,9 @@ from ._lc import (
 from ._lease import RentAbatement, RentEscalation
 from ._recovery import RecoveryMethod
 from ._ti import TenantImprovementAllowance
+
+if TYPE_CHECKING:
+    pass # RentAbatement, RentEscalation are now top-level for model_rebuild
 
 logger = logging.getLogger(__name__) # Initialize logger at module level
 
@@ -40,15 +43,15 @@ class RolloverLeaseTerms(Model):
     """
     # Market rent (paralleling CashFlowModel for flexibility)
     market_rent: Optional[Union[PositiveFloat, pd.Series, Dict, List]] = None
-    unit_of_measure: UnitOfMeasureEnum = UnitOfMeasureEnum.PSF
+    unit_of_measure: UnitOfMeasureEnum = UnitOfMeasureEnum.PER_UNIT
     frequency: FrequencyEnum = FrequencyEnum.ANNUAL
 
     # Growth parameter
     growth_rate: Optional[GrowthRate] = None
 
     # Lease modification terms
-    rent_escalation: Optional[RentEscalation] = None
-    rent_abatement: Optional[RentAbatement] = None
+    rent_escalation: Optional["RentEscalation"] = None
+    rent_abatement: Optional["RentAbatement"] = None
     recovery_method: Optional[RecoveryMethod] = None
     
     # Lease costs
@@ -573,3 +576,7 @@ class RolloverProfile(Model):
             Date when new lease would start after downtime
         """
         return vacancy_start_date + relativedelta(months=self.downtime_months)
+
+# Resolve forward references
+RolloverLeaseTerms.model_rebuild()
+RolloverProfile.model_rebuild()

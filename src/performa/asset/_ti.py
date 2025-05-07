@@ -3,9 +3,10 @@ from datetime import date
 from typing import Callable, Literal, Optional, Union
 
 import pandas as pd
-from pydantic import FloatBetween0And1, PositiveInt, model_validator
+from pydantic import model_validator
 
 from ..core._cash_flow import CashFlowModel
+from ..core._types import FloatBetween0And1, PositiveInt
 
 logger = logging.getLogger(__name__)
 

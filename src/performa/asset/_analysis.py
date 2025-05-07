@@ -24,13 +24,15 @@ from ..core._cash_flow import CashFlowModel
 from ..core._enums import (
     AggregateLineKey,
     ExpenseSubcategoryEnum,
+    FrequencyEnum,
     RevenueSubcategoryEnum,
-    UponExpirationEnum,
+    UnitOfMeasureEnum,
     VacancyLossMethodEnum,
 )
 from ..core._model import Model
 from ..core._settings import GlobalSettings
 from ..core._timeline import Timeline
+from ._absorption import AbsorptionPlan  # Add AbsorptionPlan
 
 # Add utils imports
 from ._calc_utils import (
@@ -38,15 +40,18 @@ from ._calc_utils import (
     _get_period_occupancy,
     _gross_up_period_expenses,
 )
-from ._lease import Lease  # TODO: Keep for now, might move to TYPE_CHECKING
+from ._lease import (  # Import _map_lease_to_spec here
+    Lease,
+    LeaseSpec,
+)
 
 # Asset imports
 from ._property import Property
 
 # Handle potential circular imports for type hints
 if TYPE_CHECKING:
+    from ._absorption import AbsorptionPlan  # Add AbsorptionPlan
     from ._expense import ExpenseItem
-    from ._lease import Lease
     from ._recovery import Recovery
 
 # TODO: Add comprehensive unit and integration tests for CashFlowAnalysis logic.
@@ -58,50 +63,54 @@ class CashFlowAnalysis(Model):
     Orchestrates the calculation and aggregation of property-level cash flows.
 
     This class computes cash flows over a specified analysis period by:
-    1. Generating the full sequence of actual and projected speculative leases 
-       that overlap with the analysis period using rollover profiles.
-    2. Collecting all relevant `CashFlowModel` instances (projected Leases, 
-       Expenses, MiscIncome, etc.).
-    3. Calculating a dynamic occupancy series based on the projected lease sequence.
-    4. Computing cash flows for each model, resolving dependencies:
-        - Uses `lookup_fn` to resolve `reference` attributes (UUIDs for inter-model
-          dependencies, strings for `Property` attributes or AggregateLineKeys).
-        - Injects the calculated occupancy series as an argument to models that require it
-          (e.g., `OpExItem`, `MiscIncome`) via signature inspection.
-        - Employs `graphlib.TopologicalSorter` for efficient single-pass computation if
-          model dependencies form a Directed Acyclic Graph (DAG).
-        - Falls back to a multi-pass iterative calculation if cycles are detected
-          (e.g., due to `model_id` or aggregate references), issuing a warning.
-    5. Aggregating the computed cash flows into standard financial line items
-       (Revenue, OpEx, CapEx, TI Allowance, Leasing Commission).
-    6. Providing access to these aggregated results via a DataFrame and specific
-       metric calculation methods (NOI, Unlevered Cash Flow, etc.).
+    1. Preparing lease definitions (`LeaseSpec`) from inputs (`RentRoll.leases` 
+       containing `LeaseSpec`s, including those representing initial vacancy
+       with future start dates) and generating additional `LeaseSpec`s from 
+       `AbsorptionPlan` configurations.
+    2. Instantiating initial `Lease` objects from the combined list of `LeaseSpec`s.
+    3. Projecting full cash flow chains (including rollovers specified by 
+       `RolloverProfile`s) for each initial `Lease` using `Lease.project_future_cash_flows()`.
+    4. Collecting all other relevant `CashFlowModel` instances (Expenses, MiscIncome, etc.) 
+       associated with the property or the initial leases (e.g., TIs, LCs).
+    5. Calculating a dynamic occupancy series based on the *initial* lease set 
+       (using `_cached_initial_lease_objects`).
+    6. Computing cash flows for non-lease models, resolving dependencies using 
+       DAG (TopologicalSorter) or iterative fallback if cycles are detected.
+    7. Combining the results from the projected lease chains and the computed non-lease 
+       models into a detailed list of `(metadata, series)` tuples.
+    8. Aggregating the combined detailed cash flows into standard financial line items 
+       (`AggregateLineKey`), including calculations for Downtime Vacancy, General Vacancy 
+       (with optional reduction by specific losses), and Collection Loss.
+    9. Providing access to these aggregated results via DataFrames (`create_cash_flow_dataframe`, 
+       `create_detailed_cash_flow_dataframe`) and specific metric methods (`net_operating_income`, etc.).
 
     Attributes:
         property: The input `Property` object containing asset details and base models.
+                  Its `rent_roll.leases` attribute must now contain `LeaseSpec` objects.
         settings: Global settings potentially influencing calculations.
         analysis_start_date: The start date for the cash flow analysis period.
         analysis_end_date: The end date (inclusive) for the cash flow analysis period.
+        absorption_plans: Optional list of `AbsorptionPlan` objects used to generate 
+                          speculative leases for vacant space.
     """
     property: Property
     settings: GlobalSettings = Field(default_factory=GlobalSettings)
     analysis_start_date: date
     analysis_end_date: date
+    absorption_plans: Optional[List["AbsorptionPlan"]] = None # Add absorption plans input
     
     # --- Cached Results ---
-    # NOTE: Basic caching implemented. Assumes inputs are immutable after instantiation.
-    # TODO: Implement more robust cache invalidation if inputs can change.
-    _cached_projected_leases: Optional[List['Lease']] = None
+    # Remove cache related to old projection method
+    # _cached_projected_leases: Optional[List['Lease']] = None
     _cached_detailed_flows: Optional[List[Tuple[Dict, pd.Series]]] = None
     _cached_aggregated_flows: Optional[Dict[AggregateLineKey, pd.Series]] = None
     _cached_cash_flow_dataframe: Optional[pd.DataFrame] = None
     _cached_detailed_cash_flow_dataframe: Optional[pd.DataFrame] = None
     _cached_occupancy_series: Optional[pd.Series] = None
-    # --- Add cache for rollover vacancy loss ---
-    _cached_rollover_vacancy_loss_series: Optional[pd.Series] = None 
+    # Cache for the *instantiated* initial lease objects (used by occupancy, expense collection)
+    _cached_initial_lease_objects: Optional[List["Lease"]] = None
 
     # --- Private Helper: Iterative Computation ---
-
     def _compute_cash_flows_iterative(
         self, 
         all_models: List[CashFlowModel], 
@@ -330,7 +339,7 @@ class CashFlowAnalysis(Model):
                              if item.model_id not in all_by_expense_items_for_lease:
                                  all_by_expense_items_for_lease[item.model_id] = item
                         else:
-                             logger.warning(f"Item '{getattr(item, "name", "Unknown")}' in pool '{recovery.expense_pool.name}' does not have model_id. Skipping.")
+                             logger.warning(f"Item '{getattr(item, 'name', 'Unknown')}' in pool '{recovery.expense_pool.name}' does not have model_id. Skipping.")
                              
             if not recoveries_needing_calc:
                 continue # No base year recoveries needing calculation for this lease
@@ -488,238 +497,70 @@ class CashFlowAnalysis(Model):
             end_date=self.analysis_end_date,
             # Default monthly frequency assumed
         )
-        
-    def _get_projected_leases(self) -> List['Lease']:
-        """
-        Generates the full sequence of actual and projected speculative leases 
-        that overlap with the analysis period.
-
-        Iterates through the initial rent roll and projects each lease forward
-        using its rollover profile until the analysis end date is reached.
-        
-        As part of this process, it captures and aggregates any specific rollover 
-        vacancy loss calculated by `Lease.create_market_lease` when a market 
-        lease is projected after downtime.
-        
-        Caches both the resulting list of projected Lease objects and the 
-        aggregated rollover vacancy loss series for use by other methods.
-
-        TODO: Consider refactoring loss aggregation. This method could return 
-              both leases and raw loss series, with aggregation handled elsewhere.
-              
-        Returns:
-            A list containing all Lease instances (original and projected) 
-            relevant to the analysis period.
-        """
-        logger.debug("Getting projected lease sequence (checking cache).")
-        # Only recalculate if leases aren't cached (loss calculation depends on lease projection)
-        if self._cached_projected_leases is None:
-            logger.debug("Projected leases cache miss. Generating now.")
-            analysis_timeline = self._create_timeline()
-            analysis_periods = analysis_timeline.period_index
-            analysis_end_date = analysis_timeline.end_date.to_timestamp().date() # Get analysis end date
-
-            all_relevant_leases: List['Lease'] = []
-            # List to store individual rollover loss series before aggregation
-            collected_rollover_losses: List[pd.Series] = [] 
-            
-            initial_leases = self.property.rent_roll.leases if self.property.rent_roll else []
-
-            for initial_lease in initial_leases:
-                current_lease: Optional[Lease] = initial_lease # Type hint for clarity
-                lease_chain: List['Lease'] = []
-
-                while current_lease is not None:
-                    # Check if the current lease overlaps with the analysis period at all
-                    lease_periods = current_lease.timeline.period_index
-                    
-                    # Ensure lease periods are monthly for comparison/intersection
-                    if lease_periods.freqstr != 'M':
-                         try:
-                             lease_periods = lease_periods.asfreq('M', how='start')
-                         except ValueError:
-                             logger.warning(f"Lease '{current_lease.name}' timeline frequency ({lease_periods.freqstr}) not monthly. Skipping for projection chain.")
-                             break # Stop processing this chain
-
-                    if analysis_periods.intersection(lease_periods).empty:
-                        # If this lease doesn't even touch the analysis period, 
-                        # stop processing its chain and move to the next initial lease.
-                        current_lease = None # Stop the inner while loop for this initial_lease
-                        continue # Proceed to the next initial_lease in the outer for loop
-
-                    # Add the overlapping lease to our chain
-                    lease_chain.append(current_lease)
-
-                    # Check if we need to project further
-                    lease_end_date = current_lease.lease_end
-                    # Check if the lease ends *on or after* the analysis end date. If so, no more projection needed.
-                    if lease_end_date >= analysis_end_date or current_lease.rollover_profile is None:
-                        current_lease = None 
-                    else:
-                        # Project the next lease based on the upon_expiration rule
-                        try:
-                            upon_expiration = current_lease.upon_expiration
-                            logger.debug(f"Projecting next lease for '{current_lease.name}' (ends {lease_end_date}). Upon Expiration: {upon_expiration}")
-                            
-                            # Initialize rollover loss for this step
-                            rollover_loss_this_step: Optional[pd.Series] = None 
-
-                            if upon_expiration == UponExpirationEnum.RENEW:
-                                current_lease = current_lease.create_renewal_lease(as_of_date=lease_end_date)
-                            elif upon_expiration == UponExpirationEnum.VACATE:
-                                 # Now returns a tuple: (Lease, Optional[pd.Series])
-                                 new_lease_tuple = current_lease.create_market_lease(
-                                     vacancy_start_date=lease_end_date, 
-                                     property_area=self.property.net_rentable_area # Pass NRA
-                                 )
-                                 current_lease = new_lease_tuple[0]
-                                 rollover_loss_this_step = new_lease_tuple[1]
-                            elif upon_expiration == UponExpirationEnum.MARKET:
-                                 # Now returns a tuple: (Lease, Optional[pd.Series])
-                                 new_lease_tuple = current_lease.create_market_lease(
-                                     vacancy_start_date=lease_end_date, 
-                                     property_area=self.property.net_rentable_area # Pass NRA
-                                 )
-                                 current_lease = new_lease_tuple[0]
-                                 rollover_loss_this_step = new_lease_tuple[1]
-                            elif upon_expiration == UponExpirationEnum.OPTION:
-                                current_lease = current_lease.create_option_lease(as_of_date=lease_end_date)
-                            elif upon_expiration == UponExpirationEnum.REABSORB:
-                                logger.warning(f"REABSORB not implemented for lease '{current_lease.name}'. Stopping projection chain.")
-                                current_lease = None # Stop chain if reabsorb hit
-                            else:
-                                logger.warning(f"Unknown UponExpirationEnum '{upon_expiration}' for lease '{current_lease.name}'. Stopping projection chain.")
-                                current_lease = None
-                            
-                            # Collect the loss series if it was generated
-                            if rollover_loss_this_step is not None:
-                                collected_rollover_losses.append(rollover_loss_this_step)
-
-                        except NotImplementedError as nie:
-                             logger.error(f"Projection failed for lease '{current_lease.name}' due to NotImplementedError: {nie}. Stopping chain.")
-                             current_lease = None
-                        except Exception as e:
-                            logger.error(f"Error projecting next lease state for '{current_lease.name}': {e}. Stopping chain.", exc_info=True)
-                            current_lease = None
-                
-                # Add the generated chain (that overlaps the analysis period) to the main list
-                all_relevant_leases.extend(lease_chain)
-
-            # TODO: Handle initial vacant suites - need to create first market lease for them
-            # This requires calling Lease.create_market_lease_for_vacant using rollover assumptions.
-            # This is deferred for now but needs implementation for full vacant space handling.
-
-            logger.debug(f"Generated {len(all_relevant_leases)} total lease instances for the analysis period.")
-            self._cached_projected_leases = all_relevant_leases # Cache result
-
-            # --- Aggregate and Cache Rollover Vacancy Loss --- 
-            if collected_rollover_losses:
-                # Create a zero series with the analysis timeline index
-                total_rollover_loss = pd.Series(0.0, index=analysis_periods, name="Aggregated Rollover Vacancy Loss")
-                for loss_series in collected_rollover_losses:
-                     # Reindex each series to the analysis periods and add
-                     total_rollover_loss = total_rollover_loss.add(loss_series.reindex(analysis_periods, fill_value=0.0), fill_value=0.0)
-                self._cached_rollover_vacancy_loss_series = total_rollover_loss
-                logger.debug(f"Aggregated total rollover vacancy loss: {total_rollover_loss.sum():.2f}")
-            else:
-                # If no losses were collected, cache an empty/zero series
-                self._cached_rollover_vacancy_loss_series = pd.Series(0.0, index=analysis_periods, name="Aggregated Rollover Vacancy Loss")
-                logger.debug("No specific rollover vacancy losses generated during projection.")
-
-        return self._cached_projected_leases
-
-    def _calculate_rollover_vacancy_loss_series(self) -> pd.Series:
-        """Helper method to ensure projected leases (and thus rollover loss) are 
-           calculated and return the cached rollover loss series."""
-        # Ensure the projection runs, which calculates and caches the loss
-        self._get_projected_leases() 
-        # Return the cached series (guaranteed to exist after calling _get_projected_leases)
-        return self._cached_rollover_vacancy_loss_series
 
     def _calculate_occupancy_series(self) -> pd.Series:
         """Calculates the physical occupancy rate series over the analysis timeline
-           using the projected lease sequence. Caches the result.
+           using the initial lease set (input + absorption). Caches the result.
         """
-        logger.debug("Calculating occupancy series (using projected leases - checking cache).") # Updated logging
-        
+        logger.debug("Calculating occupancy series (using initial leases - checking cache).")
         if self._cached_occupancy_series is None:
             logger.debug("Occupancy cache miss. Calculating now.")
             analysis_periods = self._create_timeline().period_index
             occupied_area_series = pd.Series(0.0, index=analysis_periods)
 
-            # Use the projected leases now
-            projected_leases = self._get_projected_leases() 
+            # Use the initial lease objects (populated by _prepare_initial_lease_objects)
+            initial_leases = self._cached_initial_lease_objects
+            if initial_leases is None:
+                 logger.warning("Initial lease object cache is empty during occupancy calculation. Running preparation step.")
+                 # Ensure initial lease objects are prepared and cached
+                 initial_leases = self._prepare_initial_lease_objects() 
+                 # No need to access cache again, use the returned list directly
+                 if initial_leases is None: # Should not happen if preparation works
+                     logger.error("Failed to get initial lease objects for occupancy calculation.")
+                     initial_leases = [] # Avoid error downstream
 
-            if projected_leases: # Check if list is not empty
-                for lease in projected_leases:
-                    # Existing logic to calculate active periods and sum area
+            # Sum area from the *initial* leases over their respective timelines
+            if initial_leases:
+                for lease in initial_leases:
                     lease_periods = lease.timeline.period_index
+                    # Ensure monthly frequency for alignment
                     if lease_periods.freqstr != 'M':
                          try:
                              lease_periods = lease_periods.asfreq('M', how='start')
                          except ValueError:
                              logger.warning(f"Lease '{lease.name}' timeline frequency ({lease_periods.freqstr}) not monthly. Skipping for occupancy calc.")
                              continue
-
-                    # Find periods where this specific lease is active within the analysis
+                    # Find intersection with the main analysis timeline
                     active_periods = analysis_periods.intersection(lease_periods)
                     if not active_periods.empty:
-                         # Add this lease's area to the occupied series for its active periods
+                         # Add the lease's area to the series for the active periods
                          occupied_area_series.loc[active_periods] += lease.area
             
-            # Rest of the calculation remains the same
             total_nra = self.property.net_rentable_area
             if total_nra > 0:
-                 # Clip occupancy between 0 and potentially > 1 if NRA definition issue, clip at 1 realistic max.
                  occupancy_series = (occupied_area_series / total_nra).clip(0, 1)
             else:
                  occupancy_series = pd.Series(0.0, index=analysis_periods)
-                 
             occupancy_series.name = "Occupancy Rate"
             self._cached_occupancy_series = occupancy_series
-            logger.debug(f"Calculated occupancy series using projected leases. Average: {occupancy_series.mean():.2%}") # Updated logging
+            logger.debug(f"Calculated occupancy series. Average: {occupancy_series.mean():.2%}")
 
         return self._cached_occupancy_series
 
-    def _collect_revenue_models(self) -> List[CashFlowModel]:
-        """Extracts all relevant projected revenue models for the analysis period."""
-        logger.debug("Collecting revenue models (including projections).") # Added logging
-        # Get the full list of actual and projected leases
-        projected_leases = self._get_projected_leases() 
-        revenue_models: List[CashFlowModel] = list(projected_leases) # Start with projected leases
-
-        # Add miscellaneous income items (Property.miscellaneous_income is now List[MiscIncome])
-        if self.property.miscellaneous_income: # Check if the list exists and is not empty
-            revenue_models.extend(self.property.miscellaneous_income) # Extend directly with the list
-        
-        logger.debug(f"Collected {len(revenue_models)} total revenue models.") # Added logging
-        return revenue_models
-
-    def _collect_expense_models(self) -> List[CashFlowModel]:
-        """Extracts all expense models from the property."""
+    def _collect_expense_models(self, initial_lease_objects: List["Lease"]) -> List[CashFlowModel]:
+        """Extracts all expense models from the property and associated initial leases."""
         expense_models: List[CashFlowModel] = []
-        if self.property.expenses and self.property.expenses.operating_expenses:
-            op_ex_items = self.property.expenses.operating_expenses.expense_items
-            if op_ex_items:
-                expense_models.extend(op_ex_items)
-        if self.property.expenses and self.property.expenses.capital_expenses:
-            cap_ex_items = self.property.expenses.capital_expenses.expense_items
-            if cap_ex_items:
-                expense_models.extend(cap_ex_items)
-        
-        # Add TIs and LCs associated with the *projected* leases
-        projected_leases = self._get_projected_leases()
-        for lease in projected_leases:
-             if lease.ti_allowance:
-                 expense_models.append(lease.ti_allowance)
-             if lease.leasing_commission:
-                 expense_models.append(lease.leasing_commission)
-                 
+        if self.property.expenses:
+            if self.property.expenses.operating_expenses: expense_models.extend(self.property.expenses.operating_expenses.expense_items or [])
+            if self.property.expenses.capital_expenses: expense_models.extend(self.property.expenses.capital_expenses.expense_items or [])
+        for lease in initial_lease_objects:
+            if lease.ti_allowance: expense_models.append(lease.ti_allowance)
+            if lease.leasing_commission: expense_models.append(lease.leasing_commission)
         return expense_models
 
     def _collect_other_cash_flow_models(self) -> List[CashFlowModel]:
-        """Extracts any other cash flow models."""
-        # TODO: Implement collection logic if/when debt or other non-property models are added.
+        """Extracts any other (non-lease, non-expense, non-misc-income) cash flow models."""
+        # Currently returns empty, placeholder for future models like Debt
         return []
 
     def _run_compute_cf(
@@ -768,188 +609,290 @@ class CashFlowAnalysis(Model):
     def _compute_detailed_flows(self) -> List[Tuple[Dict, pd.Series]]:
         """Computes all individual cash flows, handling dependencies and context injection.
         Returns a detailed list of results, each tagged with metadata. Caches results.
+        
+        Workflow using LeaseSpec:
+        1. Calls `_prepare_initial_lease_objects()` to get/generate all `LeaseSpec`s 
+           (input & absorption) and instantiate the initial `Lease` objects.
+        2. Collects non-lease models (Expenses, MiscIncome, etc.).
+        3. Calculates occupancy based on the *initial* lease objects.
+        4. Pre-calculates base year stops for recoveries using initial models.
+        5. Iterates through initial `Lease` objects, calling `project_future_cash_flows()` 
+           on each to get the full cash flow DataFrame for the *entire lease chain* 
+           (including rollovers).
+        6. Computes cash flows for non-lease models using DAG/iteration.
+        7. Processes results from lease chains (extracting components like base_rent, 
+           recoveries, ti_allowance, etc., from the chain DataFrames) and non-lease 
+           models into a unified list of `(metadata, series)` tuples, aligning 
+           indices to the analysis timeline.
+        8. Caches and returns this detailed list.
         """
-        logger.debug("Starting computation of detailed flows (checking cache).") # DEBUG: Entry
-        if self._cached_detailed_flows is None:
-            logger.debug("Detailed flows cache miss. Computing now.") # DEBUG: Cache miss
-            analysis_timeline = self._create_timeline()
-            analysis_periods = analysis_timeline.period_index
-            # Calculate occupancy using projected leases BEFORE collecting models
-            occupancy_series = self._calculate_occupancy_series() 
-            # Collect ALL models, including projected leases and their associated TIs/LCs
-            all_models = ( self._collect_revenue_models() + self._collect_expense_models() + self._collect_other_cash_flow_models() )
-            logger.debug(f"Collected {len(all_models)} models for computation.") # DEBUG: Model count
-            
-            # --- Pre-calculate Base Year Stops --- 
-            self._pre_calculate_all_base_year_stops(all_models)
-            # -------------------------------------
-            
-            # Ensure all models have unique IDs (safeguard)
-            model_ids = [m.model_id for m in all_models]
-            if len(model_ids) != len(set(model_ids)):
-                 logger.error("Duplicate model IDs detected in collected models. Aborting calculation.")
-                 # Find duplicates for better error message
-                 from collections import Counter
-                 duplicates = [item for item, count in Counter(model_ids).items() if count > 1]
-                 logger.error(f"Duplicate IDs: {duplicates}")
-                 raise ValueError("Duplicate model IDs found during collection.")
-                 
-            model_map = {model.model_id: model for model in all_models}
-            computed_results: Dict[UUID, Union[pd.Series, Dict[str, pd.Series]]] = {}
-            use_iterative_fallback = False
-            
-            # --- Define Lookup Function ---
-            def lookup_fn(key: Union[str, UUID]) -> Union[float, pd.Series, Dict, Any]:
-                # This lookup is used in the single-pass (DAG) computation.
-                # It should NOT resolve aggregate keys, as those imply cycles.
-                if isinstance(key, UUID):
-                    # Look up previously computed results within this DAG pass
-                    if key in computed_results: 
-                        return computed_results[key]
-                    # If not found, it's an error in the DAG structure or definition
-                    else: 
-                        raise LookupError(f"(DAG Path) Dependency result for model ID {key} not available.")
-                elif isinstance(key, str):
-                    # Check if the string key matches a known Aggregate Line Key
-                    matched_agg_key = AggregateLineKey.from_value(key)
-                    if matched_agg_key is not None:
-                        # If successful, raise error: aggregates shouldn't be needed in DAG path
-                        raise LookupError(
-                            f"(DAG Path) Attempted to look up aggregate line '{key}'. "
-                            f"This indicates a dependency cycle requiring iterative calculation. "
-                            # f"Model requesting: {model.name} ({model_id})" # model is not in scope here
-                        )
-                        
-                    # Check Property attributes
-                    if hasattr(self.property, key):
-                        value = getattr(self.property, key)
-                        # Validate that the retrieved property attribute has a simple, expected type
-                        if isinstance(value, (int, float, str, date)): 
-                            return value
-                        else: 
-                            # Raise error if property attribute is a complex object or unexpected type
-                            raise TypeError(f"(DAG Path) Property attribute '{key}' has unexpected type {type(value)}. Expected simple scalar/string/date.")
-                    # If not found as Aggregate or Property attribute, raise specific error
-                    else: 
-                        raise LookupError(
-                            f"(DAG Path) Cannot resolve string reference '{key}'. "
-                            f"It is not a valid AggregateLineKey value or a known Property attribute."
-                        )
-                else: 
-                    raise TypeError(f"(DAG Path) Unsupported lookup key type: {type(key)}")
+        logger.debug("Starting computation of detailed flows (checking cache).")
+        if self._cached_detailed_flows is not None:
+            logger.debug("Returning cached detailed flows.")
+            return self._cached_detailed_flows
 
-            # --- Attempt Topological Sort ---
+        logger.debug("Detailed flows cache miss. Computing now.")
+        analysis_timeline = self._create_timeline()
+        analysis_periods = analysis_timeline.period_index
+
+        # --- Prepare Initial Lease Objects (Handles Specs, Instantiation, Caching) --- #
+        initial_lease_objects = self._prepare_initial_lease_objects()
+        # Now self._cached_initial_lease_objects is populated
+
+        # --- Collect Non-Lease Models --- #
+        # Pass the initial objects to collect associated TIs/LCs
+        expense_models = self._collect_expense_models(initial_lease_objects)
+        misc_income_models = self.property.miscellaneous_income or []
+        other_models = self._collect_other_cash_flow_models()
+        non_lease_models = expense_models + misc_income_models + other_models
+        all_initial_models = initial_lease_objects + non_lease_models # For base year stop calc
+        model_map = {model.model_id: model for model in all_initial_models}
+
+        # --- Calculate Occupancy --- #
+        # Uses self._cached_initial_lease_objects implicitly now
+        occupancy_series = self._calculate_occupancy_series()
+
+        # --- Pre-calculate Base Year Stops --- #
+        # Uses the combined list including initial leases and their expenses
+        self._pre_calculate_all_base_year_stops(all_initial_models)
+
+        # --- Project Full Lease Chains --- #
+        logger.info(f"Projecting cash flows for {len(initial_lease_objects)} initial lease chains...")
+        # Store results as: {initial_lease_id: full_chain_df}
+        lease_chain_results_map: Dict[UUID, pd.DataFrame] = {}
+        for initial_lease in initial_lease_objects:
             try:
-                # Build dependency graph based on model_id references
-                graph: Dict[UUID, Set[UUID]] = {m_id: set() for m_id in model_map.keys()}
-                for model_id, model in model_map.items():
-                    # Check if the model has a reference attribute that is a UUID
-                    if hasattr(model, 'reference') and isinstance(model.reference, UUID):
-                        dependency_id = model.reference
-                        if dependency_id in graph: 
-                             graph[model_id].add(dependency_id)
-                             logger.debug(f"  Graph dependency: {model.name} ({model_id}) -> {model_map[dependency_id].name} ({dependency_id})")
-                        else: 
-                             logger.warning(f"Model '{model.name}' ({model_id}) refs unknown ID {dependency_id}. Ignored in dependency graph.")
-                    # Also consider potential dependencies in TI/LC if they reference the Lease model_id
-                    if hasattr(model, 'ti_allowance') and model.ti_allowance and isinstance(model.ti_allowance.reference, UUID):
-                         dependency_id = model.ti_allowance.reference
-                         if dependency_id in graph: 
-                             graph[model.ti_allowance.model_id].add(dependency_id)
-                    if hasattr(model, 'leasing_commission') and model.leasing_commission and isinstance(model.leasing_commission.reference, UUID):
-                         dependency_id = model.leasing_commission.reference
-                         if dependency_id in graph: 
-                             graph[model.leasing_commission.model_id].add(dependency_id)
-                         
+                # Build lookup potentially needed by project_future_cash_flows internals
+                # For now, assume a simple one might suffice or isn't strictly needed for THIS call
+                proj_lookup_fn = self._build_lookup_fn({}) # Placeholder
+                full_chain_cf_df = initial_lease.project_future_cash_flows(
+                    projection_end_date=self.analysis_end_date,
+                    property_data=self.property,
+                    global_settings=self.settings,
+                    occupancy_projection=occupancy_series, # Pass calculated occupancy
+                    lookup_fn=proj_lookup_fn
+                )
+                # Ensure the result DF index matches the analysis periods
+                full_chain_cf_df = full_chain_cf_df.reindex(analysis_periods, fill_value=0.0)
+                lease_chain_results_map[initial_lease.model_id] = full_chain_cf_df
+                logger.debug(f"  Projected chain for: '{initial_lease.name}' ({initial_lease.model_id})")
+            except Exception as e:
+                 logger.error(f"Error projecting full cash flow chain for lease '{initial_lease.name}': {e}", exc_info=True)
+                 if self.settings.calculation.fail_on_error:
+                     raise
+        logger.info(f"Finished projecting {len(lease_chain_results_map)} lease chains.")
+
+        # --- Compute Non-Lease Models (Expenses, Misc Inc, Other) --- #
+        logger.info(f"Computing flows for {len(non_lease_models)} non-lease models...")
+        non_lease_computed_results: Dict[UUID, Union[pd.Series, Dict[str, pd.Series]]] = {}
+        if non_lease_models:
+            non_lease_model_map = {model.model_id: model for model in non_lease_models}
+            use_iterative_fallback = False
+            # Build lookup using only non-lease results computed so far
+            computation_lookup_fn = self._build_lookup_fn(non_lease_computed_results)
+
+            try:
+                graph = self._build_dependency_graph(non_lease_model_map)
                 ts = TopologicalSorter(graph)
-                # Prepare the graph for sorting
                 ts.prepare()
-                logger.info("Attempting topological sort for single-pass computation.")
-                
-                # Process models level by level according to the topological sort
+                logger.info("Attempting topological sort for non-lease models.")
                 while ts.is_active():
                      node_group = ts.get_ready()
-                     logger.debug(f"  Processing node group: {[model_map[node_id].name for node_id in node_group]}")
                      for model_id in node_group:
-                         model = model_map[model_id]
-                         logger.debug(f"    Attempting DAG compute: '{model.name}' ({model_id})")
+                         model = non_lease_model_map[model_id]
                          try: 
-                             result = self._run_compute_cf(model, lookup_fn, occupancy_series)
-                             computed_results[model_id] = result
-                             logger.debug(f"      Success: '{model.name}' ({model_id}) computed.")
+                             result = self._run_compute_cf(model, computation_lookup_fn, occupancy_series)
+                             non_lease_computed_results[model_id] = result
                          except Exception as e: 
-                             logger.error(f"(DAG Path) Error computing '{model.name}' ({model_id}). Skipped.", exc_info=True)
-                             if self.settings.calculation.fail_on_error: 
-                                 raise e
-                         computed_results.pop(model_id, None)
-                     ts.done(*node_group) # Mark nodes in the group as done
-
-                # If topological sort completes, graph is a DAG
-                logger.info("Dependency graph is a DAG. Single-pass computation successful.")
-
-            # --- Fallback to Iterative on Cycle or Graph Error ---
-            except CycleError as e: 
-                # Log warning instead of print
-                logger.warning(f"Cycle detected in model dependencies: {[model_map[node_id].name for node_id in e.args[1]]}. Falling back to iteration.")
+                             logger.error(f"(DAG Path) Error computing non-lease model '{model.name}' ({model_id}). Skipped.", exc_info=True)
+                             if self.settings.calculation.fail_on_error: raise e
+                             non_lease_computed_results.pop(model_id, None)
+                     ts.done(*node_group)
+                logger.info("Non-lease models: DAG computation successful.")
+            except CycleError:
+                logger.warning("Non-lease models: Cycle detected. Falling back to iteration.")
                 use_iterative_fallback = True
-            # Log error with exception info instead of print
             except Exception as graph_err: 
-                logger.error(f"Error during dependency graph processing ({graph_err}). Falling back to iteration.", exc_info=True)
+                logger.error(f"Non-lease models: Error during graph processing: {graph_err}. Falling back to iteration.", exc_info=True)
                 use_iterative_fallback = True
                 
             if use_iterative_fallback:
-                logger.info("Using iterative multi-pass computation due to cycle or graph error.")
-                # Ensure occupancy_series uses the analysis_periods index
-                occupancy_series = occupancy_series.reindex(analysis_periods, fill_value=0.0)
-                computed_results = self._compute_cash_flows_iterative( all_models, occupancy_series )
+                logger.info("Non-lease models: Using iterative multi-pass computation.")
+                non_lease_computed_results = self._compute_cash_flows_iterative( non_lease_models, occupancy_series )
+        logger.info(f"Finished computing {len(non_lease_computed_results)} non-lease models.")
 
-            # --- Process computed results into the detailed list ---
-            processed_flows: List[Tuple[Dict, pd.Series]] = []
-            for model_id, result in computed_results.items():
-                original_model = model_map.get(model_id) 
-                if not original_model: 
-                    continue
-                results_to_process: Dict[str, pd.Series] = {}
-                if isinstance(result, pd.Series): 
-                    results_to_process = {"value": result}
-                elif isinstance(result, dict): 
-                    results_to_process = result
-                # Log warning instead of print
-                else: 
-                    logger.warning(f"Unexpected result type {type(result)} for model '{original_model.name}'. Skipped processing.")
-                    continue
+        # --- Process & Combine All Results into Detailed Flows --- #
+        processed_flows: List[Tuple[Dict, pd.Series]] = []
 
-                for component_name, series in results_to_process.items():
-                    if not isinstance(series, pd.Series): 
-                        continue
-                    try:
-                        # Align index
-                        if not isinstance(series.index, pd.PeriodIndex):
-                             if isinstance(series.index, pd.DatetimeIndex): 
-                                 series.index = series.index.to_period(freq='M')
-                             else: 
-                                 series.index = pd.PeriodIndex(series.index, freq='M')
-                        aligned_series = series.reindex(analysis_periods, fill_value=0.0)
-                    # Log warning with exception info instead of print
-                    except Exception: 
-                        logger.warning(f"Alignment failed for component '{component_name}' from model '{original_model.name}'. Skipping component.", exc_info=True)
-                        continue
-                    
-                    # Create metadata dictionary for this specific series
-                    metadata = {
-                        "model_id": str(model_id), # Store UUID as string for potential non-python use
-                        "name": original_model.name,
-                        "category": original_model.category,
-                        "subcategory": str(original_model.subcategory), # Ensure string
-                        "component": component_name,
-                    }
-                    processed_flows.append((metadata, aligned_series))
-            
-            logger.debug(f"Finished base computation. Got {len(computed_results)} results ({len(processed_flows)} detailed series).") # DEBUG: Computation end
-            self._cached_detailed_flows = processed_flows # Cache the result
-        
-        logger.debug("Finished computation of detailed flows.") # DEBUG: Exit
+        # 1. Process Lease Chain Results
+        for initial_lease_id, chain_df in lease_chain_results_map.items():
+            # Find the original initial lease object for metadata
+            initial_lease = model_map.get(initial_lease_id)
+            if not initial_lease or not isinstance(initial_lease, Lease):
+                 logger.warning(f"Could not find initial Lease object for ID {initial_lease_id} when processing chain results.")
+                 continue
+            # Extract components from the DataFrame
+            for component_name in chain_df.columns:
+                 if component_name in ["net"]: continue # Skip derived total
+                 series = chain_df[component_name]
+                 metadata = {
+                     "model_id": str(initial_lease_id),
+                     "name": initial_lease.name,
+                     "category": "Revenue" if component_name in ["base_rent", "recoveries", "revenue", "vacancy_loss"] else "Expense",
+                     "subcategory": str(initial_lease.subcategory),
+                     "component": component_name,
+                 }
+                 # Refine category/subcategory for specific components
+                 if component_name in ["ti_allowance", "leasing_commission"]:
+                      metadata["category"] = "Expense"
+                      metadata["subcategory"] = component_name.replace("_", " ").title()
+                 elif component_name == "vacancy_loss":
+                      metadata["subcategory"] = "Rollover Vacancy"
+                 elif component_name == "abatement":
+                      metadata["subcategory"] = "Rental Abatement"
+
+                 processed_flows.append((metadata, series)) # Already aligned
+
+        # 2. Process Non-Lease Model Results
+        processed_flows.extend(
+            self._process_computed_results(non_lease_computed_results, model_map, analysis_periods)
+        )
+
+        # --- Cache and Return Detailed Flows --- #
+        self._cached_detailed_flows = processed_flows
+        logger.debug(f"Finished computation. Generated {len(processed_flows)} detailed series.")
         return self._cached_detailed_flows
+
+    # --- Helper method to build lookup_fn (can be expanded) --- #
+    def _build_lookup_fn(self, computed_results_map: Dict[UUID, Any]) -> Callable:
+        """Builds the lookup function required by compute_cf and resolution methods.
+
+        FIXME: This lookup_fn is a placeholder. It currently only reliably resolves 
+               RolloverProfile names (from Property.rollover_profiles by name) and 
+               direct Property attributes. It does NOT support looking up arbitrary 
+               CashFlowModel results by ID (unless passed in computed_results_map, 
+               which is context-specific) or AggregateLineKeys during the main projection 
+               path. This needs to be made robust if future models within lease chains 
+               or non-lease DAGs require more complex dynamic lookups.
+
+        TODO: Extend _build_lookup_fn to allow resolution of computed CashFlowModel 
+              results by model_id (potentially requiring access to a broader model_map 
+              than just `computed_results_map` passed here) and AggregateLineKey 
+              values (potentially needing context of current_aggregates if used 
+              outside the iterative solver).
+        """
+        # This is a simplified placeholder. A real implementation needs robust
+        # handling of property attributes, aggregates (if iterative), profiles etc.
+        # It might need access to more context.
+        profile_map = {prof.name: prof for prof in getattr(self.property, 'rollover_profiles', [])} # Example
+
+        def lookup(key: Union[str, UUID]) -> Any:
+            if isinstance(key, UUID):
+                if key in computed_results_map: # This primarily serves the non-lease DAG solver
+                    return computed_results_map[key]
+                else:
+                    # TODO: Attempt to find model_id in a broader model_map if available 
+                    #       (e.g., self.model_map if accessible and appropriate for this context)
+                    raise LookupError(f"Lookup: Model ID {key} not found in provided computed_results_map.")
+            elif isinstance(key, str):
+                # Check profiles first (used by Lease.from_spec, AbsorptionPlan)
+                if key in profile_map:
+                    return profile_map[key]
+                # Check property attributes
+                if hasattr(self.property, key):
+                    val = getattr(self.property, key)
+                    if isinstance(val, (int, float, str, date)): return val
+                    else: raise TypeError(f"Lookup: Property attribute '{key}' has complex type {type(val)}")
+                
+                # TODO: Consider if AggregateLineKey resolution is needed here for non-iterative contexts.
+                #       Currently, only lookup_fn_iterative handles AggregateLineKeys.
+
+                raise LookupError(f"Lookup: Cannot resolve string key '{key}'. Not a known Profile name or Property attribute.")
+            else:
+                raise TypeError(f"Lookup: Unsupported key type {type(key)}")
+        return lookup
+
+    # --- Helper method to process computed results --- #
+    def _process_computed_results(
+        self,
+        computed_results: Dict[UUID, Any],
+        model_map: Dict[UUID, CashFlowModel],
+        analysis_periods: pd.PeriodIndex
+    ) -> List[Tuple[Dict, pd.Series]]:
+        """Processes the raw computed results into the detailed flow format."""
+        processed_flows: List[Tuple[Dict, pd.Series]] = []
+        for model_id, result in computed_results.items():
+            original_model = model_map.get(model_id)
+            if not original_model: 
+                continue
+            
+            results_to_process: Dict[str, pd.Series] = {}
+            if isinstance(result, pd.Series):
+                results_to_process = {"value": result}
+            elif isinstance(result, dict):
+                results_to_process = result
+            else:
+                logger.warning(f"Unexpected result type {type(result)} processing model '{original_model.name}'. Skipping.")
+                continue
+
+            for component_name, series in results_to_process.items():
+                if not isinstance(series, pd.Series):
+                    logger.warning(f"Item '{component_name}' in result for model '{original_model.name}' is not a pd.Series. Skipping.")
+                    continue
+                
+                aligned_series: pd.Series
+                try:
+                    # Ensure index is a monthly PeriodIndex before reindexing
+                    if not isinstance(series.index, pd.PeriodIndex) or series.index.freqstr != 'M':
+                        if isinstance(series.index, pd.DatetimeIndex):
+                            series.index = series.index.to_period(freq='M')
+                        else: 
+                            # Attempt conversion if not DatetimeIndex either
+                            series.index = pd.PeriodIndex(series.index, freq='M') 
+                    # Align to the analysis timeline, filling missing periods with 0
+                    aligned_series = series.reindex(analysis_periods, fill_value=0.0)
+                except Exception as e:
+                    logger.warning(f"Alignment/Reindexing failed for component '{component_name}' from model '{original_model.name}'. Skipping component. Error: {e}", exc_info=True)
+                    continue
+                
+                # Create metadata dictionary for this specific series
+                metadata = {
+                    "model_id": str(model_id),
+                    "name": original_model.name,
+                    "category": original_model.category,
+                    "subcategory": str(original_model.subcategory),
+                    "component": component_name,
+                }
+                processed_flows.append((metadata, aligned_series))
+                
+        return processed_flows
+
+    # --- Helper method to build dependency graph --- #
+    def _build_dependency_graph(self, model_map: Dict[UUID, CashFlowModel]) -> Dict[UUID, Set[UUID]]:
+        """Builds the dependency graph based on model_id references."""
+        graph: Dict[UUID, Set[UUID]] = {m_id: set() for m_id in model_map.keys()}
+        for model_id, model in model_map.items():
+            # Check direct reference
+            if hasattr(model, 'reference') and isinstance(model.reference, UUID):
+                dependency_id = model.reference
+                if dependency_id in graph:
+                    graph[model_id].add(dependency_id)
+                else:
+                    logger.warning(f"Model '{model.name}' ({model_id}) refs unknown ID {dependency_id}. Ignored in dependency graph.")
+            # Check TI reference
+            if hasattr(model, 'ti_allowance') and model.ti_allowance and isinstance(model.ti_allowance.reference, UUID):
+                 dependency_id = model.ti_allowance.reference
+                 ti_model_id = model.ti_allowance.model_id
+                 if dependency_id in graph and ti_model_id in graph:
+                     graph[ti_model_id].add(dependency_id)
+            # Check LC reference
+            if hasattr(model, 'leasing_commission') and model.leasing_commission and isinstance(model.leasing_commission.reference, UUID):
+                 dependency_id = model.leasing_commission.reference
+                 lc_model_id = model.leasing_commission.model_id
+                 if dependency_id in graph and lc_model_id in graph:
+                     graph[lc_model_id].add(dependency_id)
+            # TODO: Check other potential UUID references (e.g., within RecoveryMethod?)
+        return graph
 
     def _aggregate_detailed_flows(self, detailed_flows: List[Tuple[Dict, pd.Series]]) -> Dict[AggregateLineKey, pd.Series]:
         """Aggregates detailed flows into standard financial line items using AggregateLineKey.
@@ -961,7 +904,6 @@ class CashFlowAnalysis(Model):
         3. Calculates General Vacancy and Collection Loss based on property settings.
            - If configured, reduces General Vacancy by specific Rollover Vacancy Loss 
              to prevent double-counting.
-        4. Recalculates derived lines affected by vacancy/collection loss.
         
         Args:
             detailed_flows: A list where each item is a tuple containing:
@@ -973,7 +915,6 @@ class CashFlowAnalysis(Model):
             the corresponding aggregated pandas Series over the analysis timeline.
         """
         logger.debug(f"Starting aggregation of {len(detailed_flows)} detailed flows.") # DEBUG: Entry
-        # TODO: Incorporate GENERAL_VACANCY_LOSS when implemented - Addressed below
         # TODO: Allow for more flexible aggregation rules or custom groupings?
         analysis_periods = self._create_timeline().period_index # Get timeline for initialization
         
@@ -1013,12 +954,7 @@ class CashFlowAnalysis(Model):
                          target_aggregate_key = AggregateLineKey.RENTAL_ABATEMENT
                      elif component == "revenue": # Skip component: 'revenue' is derived (rent+recov-abate) within Lease.compute_cf
                          pass 
-                     elif component == "value": 
-                         # Skip component: Raw 'value' from Lease is not mapped here. 
-                         # 'base_rent' (mapped above) reflects rent after abatements, used for PGR.
-                         # FIXME: Mapping 'value' could double-count potential revenue.
-                         logger.debug(f"Skipping mapping for Lease component 'value': {metadata['name']}")
-                         pass
+                     # Removed dead code block for component == "value" as Lease.compute_cf doesn't return it.
 
             elif category == "Expense":
                  if subcategory == str(ExpenseSubcategoryEnum.OPEX) and component == "value":
@@ -1039,131 +975,157 @@ class CashFlowAnalysis(Model):
             else: 
                  logger.debug(f"Flow {metadata['name']}/{component} (Cat: {category}, Sub: {subcategory}) not mapped to aggregate.")
 
+        # --- Calculate Downtime Vacancy --- #
+        logger.debug("Calculating Downtime Vacancy Loss...")
+        downtime_vacancy_loss_series = pd.Series(0.0, index=analysis_periods, name=AggregateLineKey.DOWNTIME_VACANCY_LOSS.value)
+        # Use the cached initial lease objects
+        initial_leases = self._cached_initial_lease_objects or []
+        
+        for lease in initial_leases:
+             # Check if lease starts after the analysis begins
+             if lease.lease_start > self.analysis_start_date:
+                 # Determine the downtime periods
+                 downtime_start_period = pd.Period(self.analysis_start_date, freq='M')
+                 # End period is the month *before* the lease starts
+                 downtime_end_period = pd.Period(lease.lease_start, freq='M') - 1 
 
-        # --- Calculate derived lines --- 
-        # Placeholder for Vacancy (needs proper calculation model) - now calculated below
-        # Ensure keys exist even if no items mapped to them initially
-        aggregated_flows.setdefault(AggregateLineKey.GENERAL_VACANCY_LOSS, pd.Series(0.0, index=analysis_periods))
-        # RENTAL_ABATEMENT should now be populated correctly if present in detailed flows
-        aggregated_flows.setdefault(AggregateLineKey.RENTAL_ABATEMENT, pd.Series(0.0, index=analysis_periods)) 
-        aggregated_flows.setdefault(AggregateLineKey.TOTAL_DEBT_SERVICE, pd.Series(0.0, index=analysis_periods)) # Ensure Debt Service placeholder exists
+                 if downtime_start_period <= downtime_end_period:
+                     downtime_periods = pd.period_range(
+                         start=downtime_start_period,
+                         end=downtime_end_period,
+                         freq='M'
+                     )
+                     # Filter downtime periods to be within the analysis timeline
+                     valid_downtime_periods = analysis_periods.intersection(downtime_periods)
 
-        # Calculate Effective Gross Revenue (EGR) - *Before* Vacancy/Collection Loss
+                     if not valid_downtime_periods.empty:
+                         # Calculate potential monthly rent for this lease during downtime
+                         # Replicates the logic from compute_cf's start
+                         potential_monthly_rent = 0.0
+                         if isinstance(lease.value, (int, float)):
+                             potential_monthly_rent = lease.value
+                             if lease.frequency == FrequencyEnum.ANNUAL:
+                                 potential_monthly_rent /= 12
+                             if lease.unit_of_measure == UnitOfMeasureEnum.PSF:
+                                 potential_monthly_rent *= lease.area
+                             elif lease.unit_of_measure == UnitOfMeasureEnum.AMOUNT:
+                                 pass # Already monthly total
+                             else:
+                                 logger.warning(f"Cannot calculate potential rent for downtime vacancy for lease '{lease.name}' due to unsupported unit: {lease.unit_of_measure}")
+                                 potential_monthly_rent = 0.0
+                         else:
+                              # Cannot easily determine potential rent from Series/Dict/List for downtime
+                              logger.warning(f"Cannot calculate potential rent for downtime vacancy for lease '{lease.name}' as initial value is not scalar.")
+                         
+                         # Add loss to the aggregate series for the valid downtime periods
+                         if potential_monthly_rent > 0:
+                             downtime_vacancy_loss_series.loc[valid_downtime_periods] += potential_monthly_rent
+                             logger.debug(f"  Added downtime loss for Lease '{lease.name}' ({len(valid_downtime_periods)} periods): {potential_monthly_rent * len(valid_downtime_periods):.2f}")
+
+        # Store the calculated series
+        aggregated_flows[AggregateLineKey.DOWNTIME_VACANCY_LOSS] = downtime_vacancy_loss_series
+        logger.debug(f"Total calculated Downtime Vacancy Loss: {downtime_vacancy_loss_series.sum():.2f}")
+
+        # --- Calculate derived lines (EGR first) --- #
+        # EGR = PGR + Misc - Abatement
         pgr = aggregated_flows.get(AggregateLineKey.POTENTIAL_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
         misc = aggregated_flows.get(AggregateLineKey.MISCELLANEOUS_INCOME, pd.Series(0.0, index=analysis_periods))
         abate = aggregated_flows.get(AggregateLineKey.RENTAL_ABATEMENT, pd.Series(0.0, index=analysis_periods))
+        # NOTE: Downtime Vacancy is NOT subtracted here; it's treated like General Vacancy below.
         aggregated_flows[AggregateLineKey.EFFECTIVE_GROSS_REVENUE] = pgr + misc - abate
 
-        # Calculate Total Effective Gross Income (Total EGI) - Requires Vacancy, calculated later
-        # Calculate Net Operating Income (NOI) - Requires EGI & OpEx, calculated later
+        # --- Calculate Vacancy & Collection Loss (using property.losses) --- #
+        logger.debug("Calculating General Vacancy and Collection Loss based on property loss settings.")
+        loss_config = self.property.losses
+        # Get pre-calculated Downtime Vacancy
+        downtime_vacancy_loss_series = aggregated_flows.get(AggregateLineKey.DOWNTIME_VACANCY_LOSS, pd.Series(0.0, index=analysis_periods))
+        # Get pre-calculated or mapped Rollover Vacancy
+        rollover_vacancy_loss_series = aggregated_flows.get(AggregateLineKey.ROLLOVER_VACANCY_LOSS, pd.Series(0.0, index=analysis_periods))
 
-        # --- Calculate Vacancy & Collection Loss (using property.losses) --- 
-        logger.debug("Calculating Vacancy and Collection Loss based on property loss settings.")
-        # Get loss config from property
-        loss_config = self.property.losses 
-        # Retrieve the pre-calculated specific rollover vacancy loss
-        # This series contains potential rent lost ONLY during specific downtime periods.
-        rollover_vacancy_loss_series = self._calculate_rollover_vacancy_loss_series()
-
-        # --- General Vacancy Loss --- 
-        # Determine the basis for the general vacancy calculation (PGR or EGR)
+        # --- General Vacancy Loss --- #
         vacancy_basis_series: pd.Series
         if loss_config.general_vacancy.method == VacancyLossMethodEnum.POTENTIAL_GROSS_REVENUE:
             vacancy_basis_series = aggregated_flows.get(AggregateLineKey.POTENTIAL_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
-            logger.debug(f"  Vacancy basis: PGR (Sum: {vacancy_basis_series.sum():.2f})")
         elif loss_config.general_vacancy.method == VacancyLossMethodEnum.EFFECTIVE_GROSS_REVENUE:
-            # Use the EGR calculated *before* vacancy/collection loss application.
             vacancy_basis_series = aggregated_flows.get(AggregateLineKey.EFFECTIVE_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
-            logger.debug(f"  Vacancy basis: EGR (Sum: {vacancy_basis_series.sum():.2f})")
         else:
-            # Default to PGR if method is unknown
             logger.warning(f"Unknown vacancy_loss_method: '{loss_config.general_vacancy.method}'. Defaulting to PGR.")
             vacancy_basis_series = aggregated_flows.get(AggregateLineKey.POTENTIAL_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
         
-        # Calculate the gross general vacancy allowance based on the rate and basis
         gross_general_vacancy_loss = vacancy_basis_series * loss_config.general_vacancy.rate
         logger.debug(f"  Calculated Gross General Vacancy Loss (Rate: {loss_config.general_vacancy.rate:.1%}): {gross_general_vacancy_loss.sum():.2f}")
         
-        # Apply reduction by specific rollover vacancy loss if the flag is set
+        # --- Apply reduction by specific losses (Downtime and Rollover) --- #
         final_general_vacancy_loss: pd.Series
+        # Assuming reuse of the existing flag for now
         if loss_config.general_vacancy.reduce_general_vacancy_by_rollover_vacancy:
-            logger.debug(f"  Reducing general vacancy by specific rollover vacancy loss (Sum: {rollover_vacancy_loss_series.sum():.2f}).")
-            # Ensure alignment before subtraction (though should align via analysis_periods)
-            aligned_gross_vac, aligned_rollover_vac = gross_general_vacancy_loss.align(
-                rollover_vacancy_loss_series, join='left', fill_value=0.0
+            # Combine Downtime and Rollover vacancy before subtracting
+            specific_vacancy_loss = downtime_vacancy_loss_series.add(rollover_vacancy_loss_series, fill_value=0.0)
+            logger.debug(f"  Reducing general vacancy by combined specific vacancy loss (Downtime+Rollover Sum: {specific_vacancy_loss.sum():.2f}).")
+            
+            # Ensure alignment before subtraction (left join to keep all gross periods)
+            aligned_gross_vac, aligned_specific_vac = gross_general_vacancy_loss.align(
+                specific_vacancy_loss, join='left', fill_value=0.0
             )
-            # Subtract specific loss from gross allowance, ensuring result >= 0
-            net_general_vacancy_loss = (aligned_gross_vac - aligned_rollover_vac).clip(lower=0)
+            # Subtract combined specific loss, clipping at zero
+            net_general_vacancy_loss = (aligned_gross_vac - aligned_specific_vac).clip(lower=0)
             final_general_vacancy_loss = net_general_vacancy_loss
             logger.debug(f"    Net General Vacancy Loss after reduction: {net_general_vacancy_loss.sum():.2f}")
         else:
-            # If reduction is disabled, use the full gross general vacancy
-            logger.debug("  Reduction by rollover vacancy is disabled. Using gross general vacancy.")
+            # If reduction flag is off, use the gross amount
+            logger.debug("  Reduction by specific vacancy is disabled. Using gross general vacancy.")
             final_general_vacancy_loss = gross_general_vacancy_loss
-        
-        # Assign the final calculated general vacancy loss (net or gross) to the aggregate results
+
         aggregated_flows[AggregateLineKey.GENERAL_VACANCY_LOSS] = final_general_vacancy_loss
 
-        # --- Collection Loss --- 
-        # Determine the basis for collection loss calculation
+        # --- Collection Loss --- #
+        # ... (Existing logic for calculating calculated_collection_loss remains the same)
         collection_basis_series: pd.Series
-        # FIXME: "scheduled_income" basis not implemented - requires summing specific rent components before loss/recovery
         if loss_config.collection_loss.basis == "pgr":
             collection_basis_series = aggregated_flows.get(AggregateLineKey.POTENTIAL_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
-            logger.debug(f"  Collection loss basis: PGR (Sum: {collection_basis_series.sum():.2f})")
         elif loss_config.collection_loss.basis == "egi":
-            # Calculate EGI *before* collection loss but *after* General Vacancy
-            # EGI = EGR - General Vacancy (final) + Reimbursements
             egr = aggregated_flows.get(AggregateLineKey.EFFECTIVE_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
-            # Use the *final* general vacancy loss calculated above
-            vac = aggregated_flows.get(AggregateLineKey.GENERAL_VACANCY_LOSS, pd.Series(0.0, index=analysis_periods)) 
+            gen_vac = aggregated_flows.get(AggregateLineKey.GENERAL_VACANCY_LOSS, pd.Series(0.0, index=analysis_periods))
+            downtime_vac = aggregated_flows.get(AggregateLineKey.DOWNTIME_VACANCY_LOSS, pd.Series(0.0, index=analysis_periods))
             recov = aggregated_flows.get(AggregateLineKey.EXPENSE_REIMBURSEMENTS, pd.Series(0.0, index=analysis_periods))
-            collection_basis_series = egr - vac + recov # This is EGI *before* collection loss
-            logger.debug(f"  Collection loss basis: EGI (Sum: {collection_basis_series.sum():.2f})")
+            # EGI before collection loss = EGR - General Vacancy - Downtime Vacancy + Reimbursements
+            collection_basis_series = egr - gen_vac - downtime_vac + recov
         else: # Default or unknown basis
             logger.warning(f"Unsupported collection_loss_basis: '{loss_config.collection_loss.basis}'. Defaulting to EGI.")
             egr = aggregated_flows.get(AggregateLineKey.EFFECTIVE_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
-            vac = aggregated_flows.get(AggregateLineKey.GENERAL_VACANCY_LOSS, pd.Series(0.0, index=analysis_periods)) 
+            gen_vac = aggregated_flows.get(AggregateLineKey.GENERAL_VACANCY_LOSS, pd.Series(0.0, index=analysis_periods))
+            downtime_vac = aggregated_flows.get(AggregateLineKey.DOWNTIME_VACANCY_LOSS, pd.Series(0.0, index=analysis_periods))
             recov = aggregated_flows.get(AggregateLineKey.EXPENSE_REIMBURSEMENTS, pd.Series(0.0, index=analysis_periods))
-            collection_basis_series = egr - vac + recov # Default to EGI basis
-        
-        # Calculate collection loss amount
+            collection_basis_series = egr - gen_vac - downtime_vac + recov
         calculated_collection_loss = collection_basis_series * loss_config.collection_loss.rate
-        # Assign to the aggregate key
-        if AggregateLineKey.COLLECTION_LOSS in aggregated_flows:
-             aggregated_flows[AggregateLineKey.COLLECTION_LOSS] = calculated_collection_loss
-             logger.debug(f"  Calculated Collection Loss (Rate: {loss_config.collection_loss.rate:.1%}): {calculated_collection_loss.sum():.2f}")
-        else:
-             # Ensure placeholder exists if COLLECTION_LOSS wasn't a display key initially
-             aggregated_flows.setdefault(AggregateLineKey.COLLECTION_LOSS, calculated_collection_loss)
-             logger.error("AggregateLineKey.COLLECTION_LOSS was not pre-initialized. Added dynamically.")
+        aggregated_flows[AggregateLineKey.COLLECTION_LOSS] = calculated_collection_loss
 
-
-        # --- Recalculate derived lines using final calculated losses --- 
-        # Effective Gross Revenue (EGR) - Remains the same (calculated before losses)
-        # Already calculated above: aggregated_flows[AggregateLineKey.EFFECTIVE_GROSS_REVENUE] 
-
+        # --- Recalculate derived lines using final calculated losses --- #
         # Total Effective Gross Income (Total EGI)
         egr = aggregated_flows.get(AggregateLineKey.EFFECTIVE_GROSS_REVENUE, pd.Series(0.0, index=analysis_periods))
-        # Use the *final* vacancy and collection losses calculated above
-        vac = aggregated_flows.get(AggregateLineKey.GENERAL_VACANCY_LOSS, pd.Series(0.0, index=analysis_periods))
+        gen_vac = aggregated_flows.get(AggregateLineKey.GENERAL_VACANCY_LOSS, pd.Series(0.0, index=analysis_periods))
+        downtime_vac = aggregated_flows.get(AggregateLineKey.DOWNTIME_VACANCY_LOSS, pd.Series(0.0, index=analysis_periods))
         coll_loss = aggregated_flows.get(AggregateLineKey.COLLECTION_LOSS, pd.Series(0.0, index=analysis_periods))
         recov = aggregated_flows.get(AggregateLineKey.EXPENSE_REIMBURSEMENTS, pd.Series(0.0, index=analysis_periods))
-        aggregated_flows[AggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME] = egr - vac - coll_loss + recov # Subtract both losses
+        # EGI = EGR - General Vacancy - Downtime Vacancy - Collection Loss + Reimbursements
+        aggregated_flows[AggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME] = egr - gen_vac - downtime_vac - coll_loss + recov
 
         # Net Operating Income (NOI)
+        # ... (NOI calc remains the same: EGI - OpEx)
         egi = aggregated_flows.get(AggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME, pd.Series(0.0, index=analysis_periods))
         opex = aggregated_flows.get(AggregateLineKey.TOTAL_OPERATING_EXPENSES, pd.Series(0.0, index=analysis_periods))
         aggregated_flows[AggregateLineKey.NET_OPERATING_INCOME] = egi - opex
 
-        # Calculate Unlevered Cash Flow (UCF)
-        ucf = aggregated_flows.get(AggregateLineKey.NET_OPERATING_INCOME, pd.Series(0.0, index=analysis_periods))
+        # Unlevered Cash Flow (UCF)
+        # ... (UCF calc remains the same: NOI - TIs - LCs - CapEx)
+        noi = aggregated_flows.get(AggregateLineKey.NET_OPERATING_INCOME, pd.Series(0.0, index=analysis_periods))
         tis = aggregated_flows.get(AggregateLineKey.TOTAL_TENANT_IMPROVEMENTS, pd.Series(0.0, index=analysis_periods))
         lcs = aggregated_flows.get(AggregateLineKey.TOTAL_LEASING_COMMISSIONS, pd.Series(0.0, index=analysis_periods))
         capex = aggregated_flows.get(AggregateLineKey.TOTAL_CAPITAL_EXPENDITURES, pd.Series(0.0, index=analysis_periods))
-        aggregated_flows[AggregateLineKey.UNLEVERED_CASH_FLOW] = ucf - tis - lcs - capex
+        aggregated_flows[AggregateLineKey.UNLEVERED_CASH_FLOW] = noi - tis - lcs - capex # Note: TIs/LCs/CapEx are negative flows
 
-        # Calculate Levered Cash Flow (LCF)
+        # Levered Cash Flow (LCF)
+        # ... (LCF calc remains the same: UCF - Debt Service)
         ucf = aggregated_flows.get(AggregateLineKey.UNLEVERED_CASH_FLOW, pd.Series(0.0, index=analysis_periods))
         debt = aggregated_flows.get(AggregateLineKey.TOTAL_DEBT_SERVICE, pd.Series(0.0, index=analysis_periods))
         aggregated_flows[AggregateLineKey.LEVERED_CASH_FLOW] = ucf - debt
@@ -1354,3 +1316,116 @@ class CashFlowAnalysis(Model):
             ds = self.debt_service() 
             aligned_ucf, aligned_ds = ucf.align(ds, join='left', fill_value=0.0)
             return aligned_ucf - aligned_ds
+
+    # --- Private Helper: Lease Spec Generation & Initial Lease Instantiation --- #
+    def _prepare_initial_lease_objects(self) -> List["Lease"]:
+        """Generates LeaseSpecs from plans and instantiates initial Lease objects.
+
+        1. Gets input LeaseSpecs directly from RentRoll.
+        2. Generates LeaseSpecs from any AbsorptionPlans.
+        3. Combines all LeaseSpecs.
+        4. Instantiates Lease objects from specs that overlap the analysis period.
+        5. Caches the instantiated Lease objects.
+
+        Returns:
+            A list of instantiated Lease objects representing the first term
+            of each relevant lease chain.
+        """
+        # Check cache first
+        if self._cached_initial_lease_objects is not None:
+             logger.debug("Returning cached initial lease objects.")
+             return self._cached_initial_lease_objects
+
+        logger.info("Preparing initial Lease objects from specs...")
+
+        # --- Step 1: Get LeaseSpecs from Input RentRoll --- #
+        input_lease_specs = self.property.rent_roll.leases if self.property.rent_roll else []
+        logger.debug(f"Retrieved {len(input_lease_specs)} LeaseSpecs from input RentRoll.")
+
+        # --- Step 2: Generate LeaseSpecs from Absorption Plans --- #
+        absorption_lease_specs: List["LeaseSpec"] = []
+        if self.absorption_plans:
+            logger.debug(f"Processing {len(self.absorption_plans)} absorption plan(s)...")
+            vacant_inventory = self.property.rent_roll.vacant_suites if self.property.rent_roll else []
+
+            # Precedence Check: Filter inventory based on input specs
+            input_spec_suites = {
+                spec.suite for spec in input_lease_specs
+                if spec.start_date >= self.analysis_start_date
+            }
+            available_inventory = [
+                suite for suite in vacant_inventory
+                if suite.suite not in input_spec_suites
+            ]
+            if len(available_inventory) < len(vacant_inventory):
+                 logger.debug(f"  Filtered vacant inventory from {len(vacant_inventory)} to {len(available_inventory)} based on input lease specs.")
+
+            # Overlap Check & Generation
+            processed_suites_by_plans: Set[str] = set()
+            current_inventory = available_inventory.copy()
+            # Build a basic lookup just for profile resolution if needed by absorption
+            plan_lookup_fn = self._build_lookup_fn({}) # Placeholder
+
+            for i, plan in enumerate(self.absorption_plans):
+                logger.debug(f"  Running plan {i+1}: '{plan.name}'")
+                plan_target_suites_ids = {
+                    suite.suite for suite in current_inventory
+                    if plan.space_filter.matches(suite)
+                }
+                overlap = plan_target_suites_ids.intersection(processed_suites_by_plans)
+                if overlap:
+                     raise ValueError(f"AbsorptionPlan '{plan.name}' targets suites already targeted by a previous plan: {overlap}")
+
+                plan_specs = plan.generate_lease_specs(
+                    available_vacant_suites=current_inventory,
+                    analysis_start_date=self.analysis_start_date,
+                    analysis_end_date=self.analysis_end_date,
+                    lookup_fn=plan_lookup_fn,
+                    global_settings=self.settings
+                )
+                absorption_lease_specs.extend(plan_specs)
+
+                leased_suites_in_plan = {spec.suite for spec in plan_specs}
+                processed_suites_by_plans.update(leased_suites_in_plan)
+                current_inventory = [suite for suite in current_inventory if suite.suite not in leased_suites_in_plan]
+                logger.debug(f"  Plan '{plan.name}' generated {len(plan_specs)} specs. {len(current_inventory)} suites remaining.")
+
+        # --- Step 3: Combine All LeaseSpecs --- #
+        all_lease_specs = input_lease_specs + absorption_lease_specs
+        logger.debug(f"Total LeaseSpecs prepared: {len(all_lease_specs)}")
+
+        # --- Step 4: Instantiate Lease Objects from Specs --- #
+        # Build the main lookup function needed for Lease.from_spec (if it needs profile lookup)
+        main_lookup_fn = self._build_lookup_fn({}) # Placeholder for robust lookup
+
+        initial_lease_objects: List["Lease"] = []
+        for spec in all_lease_specs:
+            spec_end_date = spec.computed_end_date
+            # Instantiate only if the *first term* overlaps the analysis period
+            if spec.start_date <= self.analysis_end_date and spec_end_date >= self.analysis_start_date:
+                try:
+                    lease_obj = Lease.from_spec(
+                        spec=spec,
+                        analysis_start_date=self.analysis_start_date,
+                        lookup_fn=main_lookup_fn
+                    )
+                    initial_lease_objects.append(lease_obj)
+                except Exception as e:
+                    logger.error(f"Failed to instantiate Lease from spec for tenant '{spec.tenant_name}', suite '{spec.suite}': {e}", exc_info=True)
+                    if self.settings.calculation.fail_on_error:
+                        raise
+            else:
+                 logger.debug(f"Skipping instantiation for spec '{spec.tenant_name}' ({spec.start_date} - {spec_end_date}) as its first term falls outside analysis period.")
+
+        logger.info(f"Prepared {len(initial_lease_objects)} initial Lease objects relevant to analysis period.")
+
+        # --- Step 5: Cache the result --- #
+        self._cached_initial_lease_objects = initial_lease_objects
+        # Clear downstream caches that depend on this
+        self._cached_occupancy_series = None
+        self._cached_detailed_flows = None
+        self._cached_aggregated_flows = None
+        self._cached_cash_flow_dataframe = None
+        self._cached_detailed_cash_flow_dataframe = None
+
+        return initial_lease_objects

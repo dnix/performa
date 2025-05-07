@@ -78,6 +78,7 @@ src/performa/
 
 4. **AI-Ready**
    - Structured data models
+   - Strong typing and data validation
    - Clear schemas
    - Consistent interfaces
 
