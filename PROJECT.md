@@ -31,16 +31,25 @@ Performa aims to be the open standard for real estate financial modeling, provid
 ```sh
 src/performa/
 ├── asset/                # Core real estate asset primitives
-│   ├── _property.py      # Property characteristics
-│   ├── _tenant.py        # Tenant and lease modeling
-│   ├── _revenue.py       # Revenue modeling
+│   ├── _analysis.py      # Asset-level financial analysis
+│   ├── _absorption.py    # Space absorption modeling
+│   ├── _calc_utils.py    # Utility functions for asset calculations
 │   ├── _expense.py       # Expense modeling
-│   ├── _recovery.py      # Recovery calculations
+│   ├── _growth_rates.py  # Growth rate assumptions and application
+│   ├── _lc.py            # Leasing commission calculations
+│   ├── _lease.py         # Detailed lease modeling
+│   ├── _lease_spec.py    # Lease specification for market and rollover
+│   ├── _losses.py        # Vacancy and credit loss modeling
+│   ├── _misc_income.py   # Miscellaneous income modeling
+│   ├── _property.py      # Property characteristics
+│   ├── _recovery.py      # Expense recovery calculations
+│   ├── _rent_abatement.py # Rent abatement modeling
+│   ├── _rent_escalation.py # Rent escalation modeling
+│   ├── _rent_roll.py     # Rent roll management
 │   ├── _rollover.py      # Lease rollover analysis
-│   ├── _growth.py        # Growth assumptions
-│   ├── _line_item.py     # Financial line items
-│   ├── _types.py         # Type definitions
-│   └── _enums.py         # Enumerations
+│   ├── _ti.py            # Tenant improvement calculations
+│   ├── _types.py         # Type definitions for asset module
+│   └── __init__.py       # Package anitialization
 ├── debt/                 # Debt modeling components
 │   ├── _permanent.py     # Permanent debt facilities
 │   ├── _construction.py  # Construction financing
