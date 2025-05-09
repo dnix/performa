@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -32,6 +34,10 @@ from ._lc import LeasingCommission
 # Asset imports
 from ._lease import LeaseSpec, RentAbatement, RentEscalation
 from ._recovery import RecoveryMethod
+
+# Imports to resolve forward references
+from ._rent_roll import VacantSuite  # noqa
+from ._rollover import RolloverLeaseTerms, RolloverProfile
 from ._ti import TenantImprovementAllowance
 
 if TYPE_CHECKING:
@@ -43,6 +49,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # --- Supporting Structures for AbsorptionPlan ---
+
 
 class SpaceFilter(Model):
     """
@@ -58,6 +65,7 @@ class SpaceFilter(Model):
         min_area: Optional minimum area (inclusive) for a suite to be targeted.
         max_area: Optional maximum area (inclusive) for a suite to be targeted.
     """
+
     suite_ids: Optional[List[str]] = None
     floors: Optional[List[Union[str, int]]] = None
     use_types: Optional[List[ProgramUseEnum]] = None
@@ -80,12 +88,16 @@ class SpaceFilter(Model):
         # If none of the defined filters excluded the suite, it's a match
         return True
 
+
 # --- Pace Models --- #
+
 
 class BasePace(Model):
     """Base class for absorption pace models. Defines how quickly space is leased."""
+
     # TODO: add discriminator here? or use ABC for abstractions?
     pass
+
 
 class FixedQuantityPace(BasePace):
     """
@@ -97,10 +109,12 @@ class FixedQuantityPace(BasePace):
         unit: Specifies whether `quantity` refers to "SF" or "Units".
         frequency_months: The duration of each absorption period in months (e.g., 1 for monthly, 3 for quarterly).
     """
+
     type: Literal["FixedQuantity"] = "FixedQuantity"
     quantity: PositiveFloat
     unit: Literal["SF", "Units"]
     frequency_months: PositiveInt = 1
+
 
 class EqualSpreadPace(BasePace):
     """
@@ -112,9 +126,11 @@ class EqualSpreadPace(BasePace):
         total_deals: The total number of absorption deals/periods to spread the leasing over.
         frequency_months: The time lag in months between the start dates of consecutive deals.
     """
+
     type: Literal["EqualSpread"] = "EqualSpread"
     total_deals: PositiveInt
     frequency_months: PositiveInt = 1
+
 
 class CustomSchedulePace(BasePace):
     """
@@ -124,13 +140,16 @@ class CustomSchedulePace(BasePace):
         type: Discriminator field for Pydantic Union.
         schedule: A dictionary mapping specific dates to the target square footage to be absorbed *starting* on that date.
     """
+
     type: Literal["CustomSchedule"] = "CustomSchedule"
-    schedule: Dict[date, PositiveFloat] # Date -> Quantity (SF)
+    schedule: Dict[date, PositiveFloat]  # Date -> Quantity (SF)
     # TODO: Add unit flexibility (SF vs Units)?
+
 
 # --- Term Models --- #
 
-RolloverProfileIdentifier = str # Type alias for a string identifier (e.g., name) referencing a reusable RolloverProfile.
+RolloverProfileIdentifier = str  # Type alias for a string identifier (e.g., name) referencing a reusable RolloverProfile.
+
 
 class DirectLeaseTerms(Model):
     """
@@ -150,6 +169,7 @@ class DirectLeaseTerms(Model):
         ti_allowance: Optional override for the TenantImprovementAllowance structure.
         leasing_commission: Optional override for the LeasingCommission structure.
     """
+
     # Core term definition
     base_rent_value: Optional[PositiveFloat] = None
     base_rent_unit_of_measure: Optional[UnitOfMeasureEnum] = None
@@ -166,19 +186,25 @@ class DirectLeaseTerms(Model):
     # TODO: Add downtime_months override?
     # TODO: How to handle market rent if base_rent_value is None?
 
+
 # --- Anchor Logic --- #
 
+
+# FIXME: this is now living in core/_enums.py
 class StartDateAnchorEnum(str, Enum):
     """Defines how the absorption start date is determined."""
-    ANALYSIS_START = "AnalysisStart" # Start immediately at the analysis start date.
+
+    ANALYSIS_START = "AnalysisStart"  # Start immediately at the analysis start date.
     # RELATIVE_DATE = "RelativeDate" # Placeholder: Start after a specific offset from analysis start.
     # MILESTONE = "Milestone" # Placeholder: Start relative to a development milestone.
     # FIXED_DATE = "FixedDate" # Implicitly handled by passing a date object.
+
 
 # Placeholder for more complex anchor logic if needed (e.g., relative offsets)
 AnchorLogic = Any
 
 # --- Pace Strategy Pattern --- #
+
 
 @dataclass
 class PaceContext:
@@ -196,6 +222,7 @@ class PaceContext:
         create_spec_fn: Callable reference to AbsorptionPlan._create_lease_spec.
         total_target_area: Total area of all suites matching the space filter initially.
     """
+
     plan_name: str
     remaining_suites: List["VacantSuite"]
     initial_start_date: date
@@ -206,14 +233,15 @@ class PaceContext:
     create_spec_fn: Callable[..., Optional["LeaseSpec"]]
     total_target_area: float
 
+
 class PaceStrategy(ABC):
     """Abstract base class for different absorption pace strategies."""
 
     @abstractmethod
     def generate(
-        self, 
-        pace_model: BasePace, # The specific pace model instance (Fixed, Equal, Custom)
-        context: PaceContext
+        self,
+        pace_model: BasePace,  # The specific pace model instance (Fixed, Equal, Custom)
+        context: PaceContext,
     ) -> List["LeaseSpec"]:
         """Generates LeaseSpec objects based on the pace logic.
 
@@ -229,22 +257,26 @@ class PaceStrategy(ABC):
 
 # --- Concrete Pace Strategy Implementations --- #
 
+
 class FixedQuantityPaceStrategy(PaceStrategy):
     """Implements the Fixed Quantity pace logic."""
+
     def generate(
-        self, 
-        pace_model: FixedQuantityPace,
-        context: PaceContext
+        self, pace_model: FixedQuantityPace, context: PaceContext
     ) -> List["LeaseSpec"]:
         """Generates LeaseSpecs by absorbing a fixed quantity (SF or Units) per period."""
-        logger.info(f"  Executing FixedQuantityPaceStrategy ({pace_model.quantity} {pace_model.unit} / {pace_model.frequency_months}mo)")
+        logger.info(
+            f"  Executing FixedQuantityPaceStrategy ({pace_model.quantity} {pace_model.unit} / {pace_model.frequency_months}mo)"
+        )
         generated_specs: List["LeaseSpec"] = []
         current_period_start = context.initial_start_date
         absorbed_units = 0
         absorbed_area = 0.0
-        local_remaining_suites = context.remaining_suites # Work on the context's copy
+        local_remaining_suites = context.remaining_suites  # Work on the context's copy
 
-        while local_remaining_suites and current_period_start <= context.analysis_end_date:
+        while (
+            local_remaining_suites and current_period_start <= context.analysis_end_date
+        ):
             logger.debug(f"    Processing period starting: {current_period_start}")
             area_absorbed_this_period = 0.0
             units_absorbed_this_period = 0
@@ -257,7 +289,10 @@ class FixedQuantityPaceStrategy(PaceStrategy):
             for i, suite in enumerate(local_remaining_suites):
                 if pace_model.unit == "SF":
                     # Check if adding this suite fits within the remaining target SF for the period
-                    if area_absorbed_this_period + suite.area <= target_quantity_this_period:
+                    if (
+                        area_absorbed_this_period + suite.area
+                        <= target_quantity_this_period
+                    ):
                         area_absorbed_this_period += suite.area
                         units_absorbed_this_period += 1
                         suites_leased_this_period.append(suite)
@@ -268,19 +303,25 @@ class FixedQuantityPaceStrategy(PaceStrategy):
                 elif pace_model.unit == "Units":
                     # Check if we've hit the target unit count for the period
                     if units_absorbed_this_period < target_quantity_this_period:
-                        area_absorbed_this_period += suite.area # Track area even if target is units
+                        area_absorbed_this_period += (
+                            suite.area
+                        )  # Track area even if target is units
                         units_absorbed_this_period += 1
                         suites_leased_this_period.append(suite)
                         suites_to_remove_indices.append(i)
                     else:
-                        break # Reached target units for this period
+                        break  # Reached target units for this period
 
             if not suites_leased_this_period:
-                 logger.debug(f"    No suites could be leased in period starting {current_period_start} (target: {target_quantity_this_period} {pace_model.unit}).")
+                logger.debug(
+                    f"    No suites could be leased in period starting {current_period_start} (target: {target_quantity_this_period} {pace_model.unit})."
+                )
             else:
-                logger.debug(f"    Leasing {len(suites_leased_this_period)} suite(s) in period starting {current_period_start}:")
+                logger.debug(
+                    f"    Leasing {len(suites_leased_this_period)} suite(s) in period starting {current_period_start}:"
+                )
                 for suite_to_lease in suites_leased_this_period:
-                    deal_number = absorbed_units + 1 # Overall deal number
+                    deal_number = absorbed_units + 1  # Overall deal number
                     # Call the creation function passed via context
                     spec = context.create_spec_fn(
                         suite=suite_to_lease,
@@ -288,15 +329,19 @@ class FixedQuantityPaceStrategy(PaceStrategy):
                         profile_market_terms=context.market_lease_terms,
                         direct_terms=context.direct_terms,
                         deal_number=deal_number,
-                        global_settings=context.global_settings
+                        global_settings=context.global_settings,
                     )
                     if spec:
-                         generated_specs.append(spec)
-                         absorbed_units += 1
-                         absorbed_area += suite_to_lease.area
-                         logger.debug(f"      - Created LeaseSpec: Deal {deal_number}, Suite {suite_to_lease.suite}, Area {suite_to_lease.area:.0f} SF")
+                        generated_specs.append(spec)
+                        absorbed_units += 1
+                        absorbed_area += suite_to_lease.area
+                        logger.debug(
+                            f"      - Created LeaseSpec: Deal {deal_number}, Suite {suite_to_lease.suite}, Area {suite_to_lease.area:.0f} SF"
+                        )
                     else:
-                         logger.error(f"      - Failed to create LeaseSpec for suite {suite_to_lease.suite}")
+                        logger.error(
+                            f"      - Failed to create LeaseSpec for suite {suite_to_lease.suite}"
+                        )
 
                 # Remove leased suites from the local list (important: operate on context.remaining_suites)
                 for index in sorted(suites_to_remove_indices, reverse=True):
@@ -306,49 +351,78 @@ class FixedQuantityPaceStrategy(PaceStrategy):
             try:
                 # Use Timestamp for robust date arithmetic
                 current_period_start_dt = pd.Timestamp(current_period_start)
-                current_period_start_dt = current_period_start_dt + pd.DateOffset(months=pace_model.frequency_months)
+                current_period_start_dt = current_period_start_dt + pd.DateOffset(
+                    months=pace_model.frequency_months
+                )
                 current_period_start = current_period_start_dt.date()
             except OverflowError:
-                 logger.error(f"  Date overflow error when calculating next period start date from {current_period_start}. Stopping absorption.")
-                 break # Stop if date calculation fails
+                logger.error(
+                    f"  Date overflow error when calculating next period start date from {current_period_start}. Stopping absorption."
+                )
+                break  # Stop if date calculation fails
 
-        logger.info(f"  FixedQuantityPaceStrategy generated {len(generated_specs)} specs ({absorbed_units} units, {absorbed_area:.0f} SF).")
+        logger.info(
+            f"  FixedQuantityPaceStrategy generated {len(generated_specs)} specs ({absorbed_units} units, {absorbed_area:.0f} SF)."
+        )
         return generated_specs
+
 
 class EqualSpreadPaceStrategy(PaceStrategy):
     """Implements the Equal Spread pace logic."""
+
     def generate(
-        self, 
-        pace_model: EqualSpreadPace,
-        context: PaceContext
+        self, pace_model: EqualSpreadPace, context: PaceContext
     ) -> List["LeaseSpec"]:
         """Generates LeaseSpecs by spreading total target area evenly across a number of deals."""
-        logger.info(f"  Executing EqualSpreadPaceStrategy ({pace_model.total_deals} deals / {pace_model.frequency_months}mo)")
+        logger.info(
+            f"  Executing EqualSpreadPaceStrategy ({pace_model.total_deals} deals / {pace_model.frequency_months}mo)"
+        )
         generated_specs: List["LeaseSpec"] = []
         current_deal_start_date = context.initial_start_date
         absorbed_units = 0
         absorbed_area = 0.0
         local_remaining_suites = context.remaining_suites
-        remaining_total_target_area = context.total_target_area # Track overall remaining area
+        remaining_total_target_area = (
+            context.total_target_area
+        )  # Track overall remaining area
 
         if pace_model.total_deals <= 0:
-            logger.warning("  EqualSpreadPace has total_deals <= 0. No leases generated.")
+            logger.warning(
+                "  EqualSpreadPace has total_deals <= 0. No leases generated."
+            )
             return []
 
-        target_area_per_deal = (context.total_target_area / pace_model.total_deals) if pace_model.total_deals > 0 else 0
-        logger.debug(f"    Total Target Area: {context.total_target_area:.0f} SF, Target Area Per Deal: {target_area_per_deal:.0f} SF")
+        target_area_per_deal = (
+            (context.total_target_area / pace_model.total_deals)
+            if pace_model.total_deals > 0
+            else 0
+        )
+        logger.debug(
+            f"    Total Target Area: {context.total_target_area:.0f} SF, Target Area Per Deal: {target_area_per_deal:.0f} SF"
+        )
 
         # Loop through each deal period
         for deal_num in range(1, pace_model.total_deals + 1):
-            if not local_remaining_suites or current_deal_start_date > context.analysis_end_date:
-                logger.warning(f"  Stopping EqualSpreadPace early after {deal_num-1} deals due to lack of suites or exceeding analysis end date.")
+            if (
+                not local_remaining_suites
+                or current_deal_start_date > context.analysis_end_date
+            ):
+                logger.warning(
+                    f"  Stopping EqualSpreadPace early after {deal_num-1} deals due to lack of suites or exceeding analysis end date."
+                )
                 break
 
-            logger.debug(f"    Processing Deal #{deal_num} starting: {current_deal_start_date}")
+            logger.debug(
+                f"    Processing Deal #{deal_num} starting: {current_deal_start_date}"
+            )
             # Target for this specific deal, capped by overall remaining area
-            area_targeted_this_deal = min(target_area_per_deal, remaining_total_target_area)
+            area_targeted_this_deal = min(
+                target_area_per_deal, remaining_total_target_area
+            )
             area_absorbed_this_deal = 0.0
-            logger.debug(f"      Target Area for Deal #{deal_num}: {area_targeted_this_deal:.0f} SF (Remaining Total: {remaining_total_target_area:.0f} SF)")
+            logger.debug(
+                f"      Target Area for Deal #{deal_num}: {area_targeted_this_deal:.0f} SF (Remaining Total: {remaining_total_target_area:.0f} SF)"
+            )
 
             suites_leased_this_deal: List["VacantSuite"] = []
             suites_to_remove_indices: List[int] = []
@@ -356,19 +430,23 @@ class EqualSpreadPaceStrategy(PaceStrategy):
             # Greedily select largest suites until target area for this deal is met
             for i, suite in enumerate(local_remaining_suites):
                 if area_absorbed_this_deal < area_targeted_this_deal:
-                     suites_leased_this_deal.append(suite)
-                     suites_to_remove_indices.append(i)
-                     area_absorbed_this_deal += suite.area
-                     # Stop once the target for *this specific deal* is met or exceeded
-                     if area_absorbed_this_deal >= area_targeted_this_deal:
-                         break
+                    suites_leased_this_deal.append(suite)
+                    suites_to_remove_indices.append(i)
+                    area_absorbed_this_deal += suite.area
+                    # Stop once the target for *this specific deal* is met or exceeded
+                    if area_absorbed_this_deal >= area_targeted_this_deal:
+                        break
                 else:
-                    break # Already met the target area for this deal
+                    break  # Already met the target area for this deal
 
             if not suites_leased_this_deal:
-                 logger.warning(f"    No suites could be leased for Deal #{deal_num} starting {current_deal_start_date}")
+                logger.warning(
+                    f"    No suites could be leased for Deal #{deal_num} starting {current_deal_start_date}"
+                )
             else:
-                logger.debug(f"    Leasing {len(suites_leased_this_deal)} suite(s) for Deal #{deal_num}:")
+                logger.debug(
+                    f"    Leasing {len(suites_leased_this_deal)} suite(s) for Deal #{deal_num}:"
+                )
                 for suite_to_lease in suites_leased_this_deal:
                     overall_deal_number = absorbed_units + 1
                     spec = context.create_spec_fn(
@@ -377,16 +455,22 @@ class EqualSpreadPaceStrategy(PaceStrategy):
                         profile_market_terms=context.market_lease_terms,
                         direct_terms=context.direct_terms,
                         deal_number=overall_deal_number,
-                        global_settings=context.global_settings
+                        global_settings=context.global_settings,
                     )
                     if spec:
                         generated_specs.append(spec)
                         absorbed_units += 1
                         absorbed_area += suite_to_lease.area
-                        remaining_total_target_area -= suite_to_lease.area # Decrease overall remaining area
-                        logger.debug(f"      - Created LeaseSpec: Deal {overall_deal_number}, Suite {suite_to_lease.suite}, Area {suite_to_lease.area:.0f} SF")
+                        remaining_total_target_area -= (
+                            suite_to_lease.area
+                        )  # Decrease overall remaining area
+                        logger.debug(
+                            f"      - Created LeaseSpec: Deal {overall_deal_number}, Suite {suite_to_lease.suite}, Area {suite_to_lease.area:.0f} SF"
+                        )
                     else:
-                         logger.error(f"      - Failed to create LeaseSpec for suite {suite_to_lease.suite}")
+                        logger.error(
+                            f"      - Failed to create LeaseSpec for suite {suite_to_lease.suite}"
+                        )
 
                 # Remove leased suites from the shared remaining list
                 for index in sorted(suites_to_remove_indices, reverse=True):
@@ -396,21 +480,28 @@ class EqualSpreadPaceStrategy(PaceStrategy):
             if deal_num < pace_model.total_deals:
                 try:
                     current_deal_start_date_dt = pd.Timestamp(current_deal_start_date)
-                    current_deal_start_date_dt = current_deal_start_date_dt + pd.DateOffset(months=pace_model.frequency_months)
+                    current_deal_start_date_dt = (
+                        current_deal_start_date_dt
+                        + pd.DateOffset(months=pace_model.frequency_months)
+                    )
                     current_deal_start_date = current_deal_start_date_dt.date()
                 except OverflowError:
-                    logger.error(f"  Date overflow error calculating next deal start date from {current_deal_start_date}. Stopping absorption.")
+                    logger.error(
+                        f"  Date overflow error calculating next deal start date from {current_deal_start_date}. Stopping absorption."
+                    )
                     break
 
-        logger.info(f"  EqualSpreadPaceStrategy generated {len(generated_specs)} specs ({absorbed_units} units, {absorbed_area:.0f} SF).")
+        logger.info(
+            f"  EqualSpreadPaceStrategy generated {len(generated_specs)} specs ({absorbed_units} units, {absorbed_area:.0f} SF)."
+        )
         return generated_specs
+
 
 class CustomSchedulePaceStrategy(PaceStrategy):
     """Implements the Custom Schedule pace logic."""
+
     def generate(
-        self, 
-        pace_model: CustomSchedulePace,
-        context: PaceContext
+        self, pace_model: CustomSchedulePace, context: PaceContext
     ) -> List["LeaseSpec"]:
         """Generates LeaseSpecs based on a specific date/quantity schedule."""
         logger.info("  Executing CustomSchedulePaceStrategy")
@@ -420,26 +511,36 @@ class CustomSchedulePaceStrategy(PaceStrategy):
         local_remaining_suites = context.remaining_suites
 
         if not pace_model.schedule:
-             logger.warning("  CustomSchedulePace has an empty schedule. No leases generated.")
-             return []
+            logger.warning(
+                "  CustomSchedulePace has an empty schedule. No leases generated."
+            )
+            return []
 
         sorted_schedule = sorted(pace_model.schedule.items())
 
         # Iterate through the defined schedule points
         for schedule_date, quantity_sf in sorted_schedule:
             if not local_remaining_suites:
-                logger.warning(f"  Stopping CustomSchedulePace early as no vacant suites remain before processing schedule date {schedule_date}.")
+                logger.warning(
+                    f"  Stopping CustomSchedulePace early as no vacant suites remain before processing schedule date {schedule_date}."
+                )
                 break
 
             if schedule_date > context.analysis_end_date:
-                 logger.warning(f"  Skipping schedule entry for {schedule_date} as it is after analysis end date {context.analysis_end_date}.")
-                 continue
+                logger.warning(
+                    f"  Skipping schedule entry for {schedule_date} as it is after analysis end date {context.analysis_end_date}."
+                )
+                continue
 
             if quantity_sf <= 0:
-                 logger.warning(f"  Skipping schedule entry for {schedule_date} as quantity_sf is not positive ({quantity_sf}).")
-                 continue
+                logger.warning(
+                    f"  Skipping schedule entry for {schedule_date} as quantity_sf is not positive ({quantity_sf})."
+                )
+                continue
 
-            logger.debug(f"    Processing Schedule Date: {schedule_date}, Target SF: {quantity_sf:.0f}")
+            logger.debug(
+                f"    Processing Schedule Date: {schedule_date}, Target SF: {quantity_sf:.0f}"
+            )
             area_targeted_this_date = quantity_sf
             area_absorbed_this_date = 0.0
 
@@ -449,46 +550,57 @@ class CustomSchedulePaceStrategy(PaceStrategy):
             # Greedily select largest suites until target SF for this date is met
             for i, suite in enumerate(local_remaining_suites):
                 if area_absorbed_this_date < area_targeted_this_date:
-                     suites_leased_this_date.append(suite)
-                     suites_to_remove_indices.append(i)
-                     area_absorbed_this_date += suite.area
-                     if area_absorbed_this_date >= area_targeted_this_date:
-                         break # Met or exceeded target area for this specific date
+                    suites_leased_this_date.append(suite)
+                    suites_to_remove_indices.append(i)
+                    area_absorbed_this_date += suite.area
+                    if area_absorbed_this_date >= area_targeted_this_date:
+                        break  # Met or exceeded target area for this specific date
                 else:
-                    break # Already met target area
+                    break  # Already met target area
 
             if not suites_leased_this_date:
-                 logger.warning(f"    No suites could be leased for schedule date {schedule_date} (Target SF: {quantity_sf:.0f}).")
+                logger.warning(
+                    f"    No suites could be leased for schedule date {schedule_date} (Target SF: {quantity_sf:.0f})."
+                )
             else:
-                logger.debug(f"    Leasing {len(suites_leased_this_date)} suite(s) for schedule date {schedule_date}:")
+                logger.debug(
+                    f"    Leasing {len(suites_leased_this_date)} suite(s) for schedule date {schedule_date}:"
+                )
                 for suite_to_lease in suites_leased_this_date:
                     overall_deal_number = absorbed_units + 1
                     spec = context.create_spec_fn(
                         suite=suite_to_lease,
-                        start_date=schedule_date, # Use the specific date from the schedule
+                        start_date=schedule_date,  # Use the specific date from the schedule
                         profile_market_terms=context.market_lease_terms,
                         direct_terms=context.direct_terms,
                         deal_number=overall_deal_number,
-                        global_settings=context.global_settings
+                        global_settings=context.global_settings,
                     )
                     if spec:
                         generated_specs.append(spec)
                         absorbed_units += 1
                         absorbed_area += suite_to_lease.area
                         # remaining_target_area from context isn't decremented here, target is per-date
-                        logger.debug(f"      - Created LeaseSpec: Deal {overall_deal_number}, Suite {suite_to_lease.suite}, Area {suite_to_lease.area:.0f} SF")
+                        logger.debug(
+                            f"      - Created LeaseSpec: Deal {overall_deal_number}, Suite {suite_to_lease.suite}, Area {suite_to_lease.area:.0f} SF"
+                        )
                     else:
-                         logger.error(f"      - Failed to create LeaseSpec for suite {suite_to_lease.suite}")
+                        logger.error(
+                            f"      - Failed to create LeaseSpec for suite {suite_to_lease.suite}"
+                        )
 
                 # Remove leased suites from the shared remaining list
                 for index in sorted(suites_to_remove_indices, reverse=True):
                     del local_remaining_suites[index]
 
-        logger.info(f"  CustomSchedulePaceStrategy generated {len(generated_specs)} specs ({absorbed_units} units, {absorbed_area:.0f} SF).")
+        logger.info(
+            f"  CustomSchedulePaceStrategy generated {len(generated_specs)} specs ({absorbed_units} units, {absorbed_area:.0f} SF)."
+        )
         return generated_specs
 
 
 # --- Absorption Plan --- #
+
 
 class AbsorptionPlan(Model):
     """
@@ -507,10 +619,14 @@ class AbsorptionPlan(Model):
                                Can be an identifier for a reusable RolloverProfile (from which market terms are used)
                                or a DirectLeaseTerms object defining terms explicitly.
     """
+
     name: str
     space_filter: SpaceFilter
     start_date_anchor: Union[date, StartDateAnchorEnum, AnchorLogic]
-    pace: Annotated[Union[FixedQuantityPace, EqualSpreadPace, CustomSchedulePace], Field(discriminator='type')]
+    pace: Annotated[
+        Union[FixedQuantityPace, EqualSpreadPace, CustomSchedulePace],
+        Field(discriminator="type"),
+    ]
     leasing_assumptions: Union[RolloverProfileIdentifier, DirectLeaseTerms]
 
     def generate_lease_specs(
@@ -519,7 +635,7 @@ class AbsorptionPlan(Model):
         analysis_start_date: date,
         analysis_end_date: date,
         lookup_fn: Optional[Callable[[Union[str, UUID]], Any]] = None,
-        global_settings: Optional["GlobalSettings"] = None
+        global_settings: Optional["GlobalSettings"] = None,
     ) -> List["LeaseSpec"]:
         """
         Generates a list of LeaseSpec objects based on the plan using Pace Strategies.
@@ -547,21 +663,31 @@ class AbsorptionPlan(Model):
 
         # 1. Filter relevant vacant suites
         target_suites = sorted(
-            [suite for suite in available_vacant_suites if self.space_filter.matches(suite)],
+            [
+                suite
+                for suite in available_vacant_suites
+                if self.space_filter.matches(suite)
+            ],
             key=lambda s: s.area,
-            reverse=True # Default: lease largest suites first
+            reverse=True,  # Default: lease largest suites first
         )
         total_target_area = sum(s.area for s in target_suites)
         if not target_suites:
-            logger.warning(f"  No vacant suites match filter for plan '{self.name}'. Returning empty list.")
+            logger.warning(
+                f"  No vacant suites match filter for plan '{self.name}'. Returning empty list."
+            )
             return []
-        logger.debug(f"  Target suites ({len(target_suites)} units, {total_target_area:.0f} SF): {[s.suite for s in target_suites]}")
+        logger.debug(
+            f"  Target suites ({len(target_suites)} units, {total_target_area:.0f} SF): {[s.suite for s in target_suites]}"
+        )
 
         # 2. Determine the actual start date for the *first* deal/period
         initial_start_date = self._resolve_start_date(analysis_start_date)
         if initial_start_date > analysis_end_date:
-             logger.warning(f"  Resolved initial lease start date ({initial_start_date}) is after analysis end date ({analysis_end_date}). No leases will be generated.")
-             return []
+            logger.warning(
+                f"  Resolved initial lease start date ({initial_start_date}) is after analysis end date ({analysis_end_date}). No leases will be generated."
+            )
+            return []
         logger.debug(f"  Resolved initial lease start date: {initial_start_date}")
 
         # 3. Determine lease terms
@@ -572,17 +698,23 @@ class AbsorptionPlan(Model):
             logger.debug("  Using DirectLeaseTerms.")
         elif isinstance(self.leasing_assumptions, str):
             profile_id = self.leasing_assumptions
-            market_lease_terms = self._resolve_market_terms_from_profile(profile_id, lookup_fn)
+            market_lease_terms = self._resolve_market_terms_from_profile(
+                profile_id, lookup_fn
+            )
             if not market_lease_terms:
-                 logger.error(f"  Could not resolve market terms from profile '{profile_id}'. Cannot generate specs.")
-                 return []
+                logger.error(
+                    f"  Could not resolve market terms from profile '{profile_id}'. Cannot generate specs."
+                )
+                return []
             logger.debug(f"  Resolved market terms from profile: '{profile_id}'")
         else:
-             logger.error(f"  Invalid leasing_assumptions type: {type(self.leasing_assumptions)}. Cannot generate specs.")
-             return []
+            logger.error(
+                f"  Invalid leasing_assumptions type: {type(self.leasing_assumptions)}. Cannot generate specs."
+            )
+            return []
         if not market_lease_terms and not direct_terms:
-             logger.error("  No valid lease terms found. Cannot generate specs.")
-             return []
+            logger.error("  No valid lease terms found. Cannot generate specs.")
+            return []
 
         # 4. Select and Execute Pace Strategy
         strategy: Optional[PaceStrategy] = None
@@ -597,21 +729,22 @@ class AbsorptionPlan(Model):
         # 5. Prepare Context and Generate
         context = PaceContext(
             plan_name=self.name,
-            remaining_suites=target_suites.copy(), # Pass a copy
+            remaining_suites=target_suites.copy(),  # Pass a copy
             initial_start_date=initial_start_date,
             analysis_end_date=analysis_end_date,
             market_lease_terms=market_lease_terms,
             direct_terms=direct_terms,
             global_settings=global_settings,
             create_spec_fn=self._create_lease_spec,
-            total_target_area=total_target_area
+            total_target_area=total_target_area,
         )
 
         generated_specs = strategy.generate(self.pace, context)
 
-        logger.info(f"Finished generating {len(generated_specs)} specs for plan '{self.name}'")
+        logger.info(
+            f"Finished generating {len(generated_specs)} specs for plan '{self.name}'"
+        )
         return generated_specs
-
 
     def _resolve_start_date(self, analysis_start_date: date) -> date:
         """Determines the actual start date for the absorption plan based on the anchor."""
@@ -621,11 +754,15 @@ class AbsorptionPlan(Model):
             return analysis_start_date
         # TODO: Implement other AnchorLogic types (RELATIVE_DATE, MILESTONE)
         else:
-            logger.warning(f"Unknown/unhandled start_date_anchor: {self.start_date_anchor}. Defaulting to analysis start date.")
+            logger.warning(
+                f"Unknown/unhandled start_date_anchor: {self.start_date_anchor}. Defaulting to analysis start date."
+            )
             return analysis_start_date
 
     def _resolve_market_terms_from_profile(
-        self, profile_identifier: RolloverProfileIdentifier, lookup_fn: Optional[Callable[[Union[str, UUID]], Any]]
+        self,
+        profile_identifier: RolloverProfileIdentifier,
+        lookup_fn: Optional[Callable[[Union[str, UUID]], Any]],
     ) -> Optional["RolloverLeaseTerms"]:
         """Fetches a RolloverProfile using the lookup function and returns its market terms.
 
@@ -633,23 +770,35 @@ class AbsorptionPlan(Model):
         Returns None if lookup fails, profile is wrong type, or profile lacks market_terms.
         """
         if not lookup_fn:
-            logger.error(f"lookup_fn required to resolve RolloverProfileIdentifier '{profile_identifier}'")
+            logger.error(
+                f"lookup_fn required to resolve RolloverProfileIdentifier '{profile_identifier}'"
+            )
             return None
         try:
             profile = lookup_fn(profile_identifier)
             if isinstance(profile, RolloverProfile):
-                 # Access the market_terms attribute directly
-                 if hasattr(profile, 'market_terms') and isinstance(profile.market_terms, RolloverLeaseTerms):
-                     logger.debug(f"  Extracted market terms from profile '{profile_identifier}'")
-                     return profile.market_terms
-                 else:
-                     logger.error(f"  RolloverProfile '{profile_identifier}' does not have valid 'market_terms' attribute.")
-                     return None
+                # Access the market_terms attribute directly
+                if hasattr(profile, "market_terms") and isinstance(
+                    profile.market_terms, RolloverLeaseTerms
+                ):
+                    logger.debug(
+                        f"  Extracted market terms from profile '{profile_identifier}'"
+                    )
+                    return profile.market_terms
+                else:
+                    logger.error(
+                        f"  RolloverProfile '{profile_identifier}' does not have valid 'market_terms' attribute."
+                    )
+                    return None
             else:
-                 logger.error(f"  Lookup for profile '{profile_identifier}' did not return RolloverProfile object, got {type(profile)}.")
-                 return None
+                logger.error(
+                    f"  Lookup for profile '{profile_identifier}' did not return RolloverProfile object, got {type(profile)}."
+                )
+                return None
         except Exception as e:
-            logger.error(f"  Error looking up profile '{profile_identifier}': {e}", exc_info=True)
+            logger.error(
+                f"  Error looking up profile '{profile_identifier}': {e}", exc_info=True
+            )
             return None
 
     def _create_lease_spec(
@@ -659,7 +808,7 @@ class AbsorptionPlan(Model):
         profile_market_terms: Optional["RolloverLeaseTerms"],
         direct_terms: Optional[DirectLeaseTerms],
         deal_number: int,
-        global_settings: Optional["GlobalSettings"]
+        global_settings: Optional["GlobalSettings"],
     ) -> Optional["LeaseSpec"]:
         """Helper method (called by Pace Strategies) to create a LeaseSpec.
 
@@ -683,8 +832,10 @@ class AbsorptionPlan(Model):
         from ._lease import LeaseSpec  # Local import
 
         if not profile_market_terms and not direct_terms:
-             logger.error(f"  Cannot create lease spec for suite {suite.suite} without profile market terms or direct terms.")
-             return None
+            logger.error(
+                f"  Cannot create lease spec for suite {suite.suite} without profile market terms or direct terms."
+            )
+            return None
 
         # --- Determine Lease Parameters (Direct > Profile Market > Default) --- #
         _term_months: Optional[int] = None
@@ -714,16 +865,42 @@ class AbsorptionPlan(Model):
         # Fallback to RolloverProfile Market Terms (if not set by direct_terms)
         if profile_market_terms:
             # Basic terms
-            if _term_months is None: _term_months = profile_market_terms.term_months
+            if _term_months is None:
+                _term_months = profile_market_terms.term_months
             # Note: RolloverLeaseTerms doesn't typically define upon_expiration directly, it's part of the Profile
             # We'll rely on the override or a default for upon_expiration for the *generated* lease.
 
             # Components (deep copy needed to avoid modifying shared profile terms)
-            if _rent_escalation is None: _rent_escalation = profile_market_terms.rent_escalation.model_copy(deep=True) if profile_market_terms.rent_escalation else None
-            if _rent_abatement is None: _rent_abatement = profile_market_terms.rent_abatement.model_copy(deep=True) if profile_market_terms.rent_abatement else None
-            if _recovery_method is None: _recovery_method = profile_market_terms.recovery_method.model_copy(deep=True) if profile_market_terms.recovery_method else None
-            if _ti_allowance is None: _ti_allowance = profile_market_terms.ti_allowance.model_copy(deep=True) if profile_market_terms.ti_allowance else None
-            if _leasing_commission is None: _leasing_commission = profile_market_terms.leasing_commission.model_copy(deep=True) if profile_market_terms.leasing_commission else None
+            if _rent_escalation is None:
+                _rent_escalation = (
+                    profile_market_terms.rent_escalation.model_copy(deep=True)
+                    if profile_market_terms.rent_escalation
+                    else None
+                )
+            if _rent_abatement is None:
+                _rent_abatement = (
+                    profile_market_terms.rent_abatement.model_copy(deep=True)
+                    if profile_market_terms.rent_abatement
+                    else None
+                )
+            if _recovery_method is None:
+                _recovery_method = (
+                    profile_market_terms.recovery_method.model_copy(deep=True)
+                    if profile_market_terms.recovery_method
+                    else None
+                )
+            if _ti_allowance is None:
+                _ti_allowance = (
+                    profile_market_terms.ti_allowance.model_copy(deep=True)
+                    if profile_market_terms.ti_allowance
+                    else None
+                )
+            if _leasing_commission is None:
+                _leasing_commission = (
+                    profile_market_terms.leasing_commission.model_copy(deep=True)
+                    if profile_market_terms.leasing_commission
+                    else None
+                )
 
             # Rent value/UoM calculation requires calling the profile's logic
             if _base_rent_value is None:
@@ -732,18 +909,23 @@ class AbsorptionPlan(Model):
                     _base_rent_value = profile_market_terms._calculate_rent(
                         term_config=profile_market_terms,
                         rollover_date=start_date,
-                        global_settings=global_settings
+                        global_settings=global_settings,
                     )
                     _base_rent_uom = profile_market_terms.unit_of_measure
                 except AttributeError:
-                    logger.error(f"  Profile market terms object {type(profile_market_terms)} missing expected '_calculate_rent' or 'unit_of_measure'. Cannot determine base rent.")
+                    logger.error(
+                        f"  Profile market terms object {type(profile_market_terms)} missing expected '_calculate_rent' or 'unit_of_measure'. Cannot determine base rent."
+                    )
                     return None
                 except Exception as e:
-                    logger.error(f"  Error calculating base rent from profile market terms for deal {deal_number}: {e}", exc_info=True)
+                    logger.error(
+                        f"  Error calculating base rent from profile market terms for deal {deal_number}: {e}",
+                        exc_info=True,
+                    )
                     return None
             elif _base_rent_uom is None:
-                 # Use UoM from profile if rent value was overridden directly
-                 _base_rent_uom = profile_market_terms.unit_of_measure
+                # Use UoM from profile if rent value was overridden directly
+                _base_rent_uom = profile_market_terms.unit_of_measure
 
             # Determine rollover profile ref (needs a way to link back from terms to parent profile)
             if _rollover_profile_ref is None:
@@ -752,51 +934,69 @@ class AbsorptionPlan(Model):
                 # This requires the lookup function or context to provide this reverse mapping, or the profile itself.
                 # For now, we don't have a clean way, leave as None or try to get from direct_terms if provided.
                 # TODO: Improve determination of rollover_profile_ref for generated specs to ensure subsequent rollovers function correctly.
-                logger.warning(f"  Cannot determine RolloverProfile reference for generated LeaseSpec Deal {deal_number}. Subsequent rollovers may fail.")
+                logger.warning(
+                    f"  Cannot determine RolloverProfile reference for generated LeaseSpec Deal {deal_number}. Subsequent rollovers may fail."
+                )
                 # Example placeholder if direct_terms could specify it:
                 # _rollover_profile_ref = direct_terms.rollover_profile_ref if direct_terms and direct_terms.rollover_profile_ref else None
 
         # Apply Defaults / Final Checks (should ideally rely on RLA/Override having required fields)
-        if _term_months is None: _term_months = 60; logger.warning(f"  Using default term_months ({_term_months}) for deal {deal_number}")
-        if _base_rent_value is None or _base_rent_value <= 0: logger.error(f"  Invalid base_rent_value ({_base_rent_value}) determined for deal {deal_number}"); return None
-        if _base_rent_uom is None: _base_rent_uom = UnitOfMeasureEnum.PSF; logger.warning(f"  Using default base_rent_uom ({_base_rent_uom}) for deal {deal_number}")
+        if _term_months is None:
+            _term_months = 60
+            logger.warning(
+                f"  Using default term_months ({_term_months}) for deal {deal_number}"
+            )
+        if _base_rent_value is None or _base_rent_value <= 0:
+            logger.error(
+                f"  Invalid base_rent_value ({_base_rent_value}) determined for deal {deal_number}"
+            )
+            return None
+        if _base_rent_uom is None:
+            _base_rent_uom = UnitOfMeasureEnum.PER_UNIT
+            logger.warning(
+                f"  Using default base_rent_uom ({_base_rent_uom}) for deal {deal_number}"
+            )
         # Set a default upon_expiration if still None after checking override/profile(which likely doesn't have it)
-        if _upon_expiration is None: _upon_expiration = UponExpirationEnum.MARKET; logger.warning(f"  Using default upon_expiration ({_upon_expiration}) for deal {deal_number}")
+        if _upon_expiration is None:
+            _upon_expiration = UponExpirationEnum.MARKET
+            logger.warning(
+                f"  Using default upon_expiration ({_upon_expiration}) for deal {deal_number}"
+            )
 
         # Map suite use type to lease type
-        lease_type_mapping = {ProgramUseEnum.OFFICE: LeaseTypeEnum.OFFICE}
+        lease_type_mapping = {ProgramUseEnum.OFFICE: LeaseTypeEnum.NET}
         lease_type = lease_type_mapping.get(suite.use_type, LeaseTypeEnum.NET)
 
         # --- Create and Return LeaseSpec --- #
         try:
             spec = LeaseSpec(
-                 tenant_name=f"{self.name}-Deal{deal_number}-{suite.suite}",
-                 suite=suite.suite,
-                 floor=suite.floor,
-                 area=suite.area,
-                 use_type=suite.use_type,
-                 lease_type=lease_type,
-                 start_date=start_date,
-                 term_months=_term_months,
-                 end_date=None,
-                 base_rent_value=_base_rent_value,
-                 base_rent_unit_of_measure=_base_rent_uom,
-                 rent_escalation=_rent_escalation,
-                 rent_abatement=_rent_abatement,
-                 recovery_method=_recovery_method,
-                 ti_allowance=_ti_allowance,
-                 leasing_commission=_leasing_commission,
-                 upon_expiration=_upon_expiration,
-                 rollover_profile_ref=_rollover_profile_ref,
-                 source="AbsorptionPlan"
+                tenant_name=f"{self.name}-Deal{deal_number}-{suite.suite}",
+                suite=suite.suite,
+                floor=suite.floor,
+                area=suite.area,
+                use_type=suite.use_type,
+                lease_type=lease_type,
+                start_date=start_date,
+                term_months=_term_months,
+                end_date=None,
+                base_rent_value=_base_rent_value,
+                base_rent_unit_of_measure=_base_rent_uom,
+                rent_escalation=_rent_escalation,
+                rent_abatement=_rent_abatement,
+                recovery_method=_recovery_method,
+                ti_allowance=_ti_allowance,
+                leasing_commission=_leasing_commission,
+                upon_expiration=_upon_expiration,
+                rollover_profile_ref=_rollover_profile_ref,
+                source="AbsorptionPlan",
             )
-            logger.debug(f"    Successfully created LeaseSpec for deal {deal_number} / suite {suite.suite}")
+            logger.debug(
+                f"    Successfully created LeaseSpec for deal {deal_number} / suite {suite.suite}"
+            )
             return spec
         except Exception as e:
-             logger.error(f"    Failed to create LeaseSpec for deal {deal_number} / suite {suite.suite}: {e}", exc_info=True)
-             return None
-
-# Resolve forward references
-DirectLeaseTerms.model_rebuild()
-AbsorptionPlan.model_rebuild()
-
+            logger.error(
+                f"    Failed to create LeaseSpec for deal {deal_number} / suite {suite.suite}: {e}",
+                exc_info=True,
+            )
+            return None

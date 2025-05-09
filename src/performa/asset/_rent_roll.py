@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from typing import List
 
@@ -27,6 +29,7 @@ class VacantSuite(Model):
         area: Square footage
         use_type: Intended use
     """
+
     suite: str
     floor: str
     area: PositiveFloat
@@ -42,6 +45,7 @@ class RentRoll(Model):
         leases: List of LeaseSpec objects defining initial lease terms.
         vacant_suites: List of all vacant suites at the start.
     """
+
     leases: List[LeaseSpec]
     vacant_suites: List[VacantSuite]
 

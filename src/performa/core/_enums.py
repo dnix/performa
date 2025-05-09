@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from enum import Enum
 from typing import List, Optional
 
@@ -209,11 +211,11 @@ class UnitOfMeasureEnum(str, Enum):
 
     # amount (direct amt, as in $/yr or $/mo)
     CURRENCY = "currency"  # Formerly AMOUNT / $
-    # unitized (usually, $/sf or $/unit)
-    PER_UNIT = "per_unit" # Formerly "$/Unit"
+    # unitized (usually, $/sf or $/DU  or $/space)
+    PER_UNIT = "per_unit"  # "$/Unit"
     # by factor (compared to a reference) or percentage
-    BY_FACTOR = "factor"  # Formerly "Factor"
-    BY_PERCENT = "percent"  # Formerly "%"
+    BY_FACTOR = "factor"
+    BY_PERCENT = "percent"
 
 
 class UnitOfMeasureTypeEnum(str, Enum):
@@ -255,14 +257,15 @@ class FrequencyEnum(str, Enum):
 
     MONTHLY = "monthly"
     QUARTERLY = "quarterly"
-    ANNUAL = "annual" # Formerly YEARLY / yearly
+    ANNUAL = "annual"
+
 
 class UponExpirationEnum(str, Enum):
     """
     Defines behavior when a lease expires, controlling how the space is treated in rollover scenarios.
-    
+
     Options:
-        MARKET: Weighted average approach based on market conditions, reflecting both new tenant and 
+        MARKET: Weighted average approach based on market conditions, reflecting both new tenant and
                renewal probabilities. Creates a speculative lease with blended terms.
         RENEW: Assumes 100% renewal probability, extending the lease under predetermined terms.
                Creates a renewal lease using either contractual terms or renewal market assumptions.
@@ -274,11 +277,12 @@ class UponExpirationEnum(str, Enum):
                   re-leasing input or processing through a space absorption model. No speculative
                   lease is created automatically.
     """
-    MARKET = "market"     # Weighted average approach using market conditions
-    RENEW = "renew"       # 100% renewal with predetermined terms
-    VACATE = "vacate"     # 0% renewal, immediate repositioning with new tenant
-    OPTION = "option"     # Explicit modeling of contractual renewal options
-    REABSORB = "reabsorb" # Space remains vacant pending separate re-leasing process
+
+    MARKET = "market"  # Weighted average approach using market conditions
+    RENEW = "renew"  # 100% renewal with predetermined terms
+    VACATE = "vacate"  # 0% renewal, immediate repositioning with new tenant
+    OPTION = "option"  # Explicit modeling of contractual renewal options
+    REABSORB = "reabsorb"  # Space remains vacant pending separate re-leasing process
 
 
 class VacancyLossMethodEnum(str, Enum):
@@ -291,45 +295,47 @@ class AggregateLineKey(str, Enum):
     """Defines standard keys for aggregated financial line items."""
 
     # --- Revenue Side ---
-    POTENTIAL_GROSS_REVENUE = "Potential Gross Revenue"       # Sum of potential base rent (often contractual)
-    RENTAL_ABATEMENT = "Rental Abatement / Concessions"      # Free rent periods
-    MISCELLANEOUS_INCOME = "Miscellaneous Income"          # Parking, laundry, fees, etc.
-    EFFECTIVE_GROSS_REVENUE = "Effective Gross Revenue"     # Potential + Misc - Abatement (BEFORE Vacancy/Recoveries)
-    GENERAL_VACANCY_LOSS = "General Vacancy & Credit Loss"  # Allowance based on market/assumptions
-    COLLECTION_LOSS = "Collection Loss"                 # Allowance for uncollectible income
-    EXPENSE_REIMBURSEMENTS = "Expense Reimbursements"       # Recoveries from tenants
+    POTENTIAL_GROSS_REVENUE = "Potential Gross Revenue"           # Sum of potential base rent (often contractual)
+    RENTAL_ABATEMENT = "Rental Abatement / Concessions"           # Free rent periods
+    MISCELLANEOUS_INCOME = "Miscellaneous Income"                 # Parking, laundry, fees, etc.
+    EFFECTIVE_GROSS_REVENUE = "Effective Gross Revenue"           # Potential + Misc - Abatement (BEFORE Vacancy/Recoveries)
+    GENERAL_VACANCY_LOSS = "General Vacancy & Credit Loss"        # Allowance based on market/assumptions
+    COLLECTION_LOSS = "Collection Loss"                           # Allowance for uncollectible income
+    EXPENSE_REIMBURSEMENTS = "Expense Reimbursements"             # Recoveries from tenants
     TOTAL_EFFECTIVE_GROSS_INCOME = "Total Effective Gross Income" # EGR - Vacancy + Recoveries (often called EGI)
 
     # --- Expense Side ---
-    TOTAL_OPERATING_EXPENSES = "Total Operating Expenses"     # Sum of all OpEx items
+    TOTAL_OPERATING_EXPENSES = "Total Operating Expenses"  # Sum of all OpEx items
 
     # --- Profitability Metrics ---
-    NET_OPERATING_INCOME = "Net Operating Income"           # Total EGI - Total OpEx
+    NET_OPERATING_INCOME = "Net Operating Income"  # Total EGI - Total OpEx
 
     # --- Capital & Leasing Costs ---
-    TOTAL_TENANT_IMPROVEMENTS = "Total Tenant Improvements"     # TIs
-    TOTAL_LEASING_COMMISSIONS = "Total Leasing Commissions"   # LCs
-    TOTAL_CAPITAL_EXPENDITURES = "Total Capital Expenditures"    # CapEx (incl. reserves maybe)
+    TOTAL_TENANT_IMPROVEMENTS = "Total Tenant Improvements"  # TIs
+    TOTAL_LEASING_COMMISSIONS = "Total Leasing Commissions"  # LCs
+    TOTAL_CAPITAL_EXPENDITURES = "Total Capital Expenditures"  # CapEx (incl. reserves maybe)
+
 
     # --- Cash Flow Metrics ---
-    UNLEVERED_CASH_FLOW = "Unlevered Cash Flow"           # NOI - TIs - LCs - CapEx
-    TOTAL_DEBT_SERVICE = "Total Debt Service"             # Principal + Interest
-    LEVERED_CASH_FLOW = "Levered Cash Flow"             # UCF - Debt Service
+    UNLEVERED_CASH_FLOW = "Unlevered Cash Flow"  # NOI - TIs - LCs - CapEx
+    TOTAL_DEBT_SERVICE = "Total Debt Service"  # Principal + Interest
+    LEVERED_CASH_FLOW = "Levered Cash Flow"  # UCF - Debt Service
 
     # --- Raw Aggregates (Less commonly referenced directly, but needed for calculation) ---
-    _RAW_TOTAL_REVENUE = "_RAW Total Revenue" # Intermediate sum of all revenue components (rent, misc)
-    _RAW_TOTAL_RECOVERIES = "_RAW Total Recoveries" # Intermediate sum of all recovery components
-    _RAW_TOTAL_OPEX = "_RAW Total OpEx"       # Intermediate sum used above
-    _RAW_TOTAL_CAPEX = "_RAW Total CapEx"     # Intermediate sum used above
-    _RAW_TOTAL_TI = "_RAW Total TI"         # Intermediate sum used above
-    _RAW_TOTAL_LC = "_RAW Total LC"         # Intermediate sum used above
+    _RAW_TOTAL_REVENUE = "_RAW Total Revenue"  # Intermediate sum of all revenue components (rent, misc)
+    _RAW_TOTAL_RECOVERIES = "_RAW Total Recoveries"  # Intermediate sum of all recovery components
+
+    _RAW_TOTAL_OPEX = "_RAW Total OpEx"  # Intermediate sum used above
+    _RAW_TOTAL_CAPEX = "_RAW Total CapEx"  # Intermediate sum used above
+    _RAW_TOTAL_TI = "_RAW Total TI"  # Intermediate sum used above
+    _RAW_TOTAL_LC = "_RAW Total LC"  # Intermediate sum used above
 
     # Vacancy & Loss Specifics
-    DOWNTIME_VACANCY_LOSS = "Downtime Vacancy Loss" # Added for initial vacancy
-    ROLLOVER_VACANCY_LOSS = "Rollover Vacancy Loss" # Placeholder if aggregated separately
+    DOWNTIME_VACANCY_LOSS = "Downtime Vacancy Loss"  # Added for initial vacancy
+    ROLLOVER_VACANCY_LOSS = "Rollover Vacancy Loss"  # Placeholder if aggregated separately
 
     @classmethod
-    def from_value(cls, value: str) -> Optional['AggregateLineKey']:
+    def from_value(cls, value: str) -> Optional["AggregateLineKey"]:
         """Look up enum member by its string value."""
         for member in cls:
             if member.value == value:
@@ -338,7 +344,7 @@ class AggregateLineKey(str, Enum):
 
     # Helper to check if a key is intended for internal calculation steps
     @classmethod
-    def is_internal_key(cls, key: 'AggregateLineKey') -> bool:
+    def is_internal_key(cls, key: "AggregateLineKey") -> bool:
         """Check if the key is prefixed for internal calculation use."""
         return key.value.startswith("_RAW")
 
@@ -347,3 +353,12 @@ class AggregateLineKey(str, Enum):
     def get_display_keys(cls) -> List["AggregateLineKey"]:
         """Return a list of keys suitable for display/reporting."""
         return [k for k in cls if not cls.is_internal_key(k)]
+
+
+class StartDateAnchorEnum(str, Enum):
+    """Defines how the absorption start date is determined."""
+
+    ANALYSIS_START = "AnalysisStart"
+    # RELATIVE_DATE = "RelativeDate" # TODO: Placeholder: Start after a specific offset from analysis start.
+    # MILESTONE = "Milestone" # TODO: Placeholder: Start relative to a development milestone.
+    # FIXED_DATE = "FixedDate" # TODO: Implicitly handled by passing a date object.

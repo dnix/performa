@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from datetime import date
 from typing import Callable, Dict, List, Optional, Union
@@ -48,7 +50,7 @@ class PercentFactorStrategy(CashFlowStrategy):
 class CashFlowModel(Model):
     """
     Base class for any cash flow description.
-    
+
     Uses Timeline for date/period handling while focusing on cash flow specific logic.
     All cash flows use monthly frequency internally.
 
@@ -76,12 +78,15 @@ class CashFlowModel(Model):
             - UUID: The `model_id` of another `CashFlowModel` instance. `lookup_fn` is expected
               to resolve this to the computed cash flow result (often a pd.Series) of that other model instance.
             The resolution logic and handling of the returned type (scalar vs. Series) are handled
-            by the `lookup_fn` provided during computation and potentially overridden in the 
+            by the `lookup_fn` provided during computation and potentially overridden in the
             `compute_cf` method of subclasses.
     """
 
     # GENERAL
-    model_id: UUID = Field(default_factory=uuid4, description="Stable unique identifier for this model instance")
+    model_id: UUID = Field(
+        default_factory=uuid4,
+        description="Stable unique identifier for this model instance",
+    )
     name: str  # e.g., "Construction Cost"
     category: str  # category of the item (investment, budget, revenue, expense, etc.)
     subcategory: str  # subcategory of the item (land, hard costs, soft costs, etc.)
@@ -116,20 +121,20 @@ class CashFlowModel(Model):
     ) -> Optional[Union[float, pd.Series, Dict]]:
         """
         Resolves the reference attribute using the provided lookup function.
-        
+
         - If the reference is a direct value (numeric, Series, Dict), returns it directly.
         - If it is a string identifier (e.g., "net_rentable_area") or a UUID
           (referencing another model's `model_id`), it calls the provided `lookup_fn`.
-          
+
         Args:
             lookup_fn: A callable that accepts a string or UUID and returns the
                 corresponding resolved value (float, Series, Dict, None). The implementation
                 of this function typically resides in the orchestration layer (e.g., CashFlowAnalysis)
                 and needs access to the relevant context (property attributes, computed results registry).
-                
+
         Returns:
             The resolved value (float, Series, Dict) or None if reference is None.
-            
+
         Raises:
             ValueError: If a string or UUID reference is provided but `lookup_fn` is None.
             Exception: Potentially raises exceptions from the `lookup_fn` itself if resolution fails.
@@ -138,7 +143,9 @@ class CashFlowModel(Model):
             return self.reference
         elif isinstance(self.reference, (str, UUID)):
             if lookup_fn is None:
-                raise ValueError("A lookup function is required to resolve string or UUID references.")
+                raise ValueError(
+                    "A lookup function is required to resolve string or UUID references."
+                )
             return lookup_fn(self.reference)
         return None
 
@@ -147,7 +154,7 @@ class CashFlowModel(Model):
     ) -> Union[float, pd.Series, Dict]:
         """
         Convert the value from its original frequency (e.g., annual) to monthly.
-        
+
         - If the frequency is ANNUAL, a conversion factor of 1/12 is used.
         - For pandas Series:
             - If the index is detected as annual (PeriodIndex freq 'A' or DatetimeIndex inferred 'A'),
@@ -179,29 +186,37 @@ class CashFlowModel(Model):
                 # Ensure index is sorted for reliable frequency inference and resampling
                 value = value.sort_index()
                 index_freq = pd.infer_freq(value.index)
-            
+
             if index_freq and index_freq.startswith("A"):
                 # Convert annual Series to monthly by distributing value/12
-                
+
                 # Ensure we have a DatetimeIndex for resampling
                 if is_period_index:
                     # Ensure start_time aligns with the beginning of the year for proper month distribution
-                    ts_index = value.index.to_timestamp(freq='M', how='start').normalize() 
-                else: # Already DatetimeIndex
+                    ts_index = value.index.to_timestamp(
+                        freq="M", how="start"
+                    ).normalize()
+                else:  # Already DatetimeIndex
                     ts_index = value.index.normalize()
-                    
+
                 temp_series = pd.Series(value.values, index=ts_index)
-                
+
                 # Upsample to daily first to easily find year boundaries, then resample to monthly
                 # Fill NaNs with 0 temporarily before dividing
-                daily_upsampled = temp_series.resample('D').ffill().fillna(0) 
-                
+                daily_upsampled = temp_series.resample("D").ffill().fillna(0)
+
                 # Assign the divided value to each day within the year
-                daily_distributed = daily_upsampled / daily_upsampled.groupby(daily_upsampled.index.year).transform('size') * 12
+                daily_distributed = (
+                    daily_upsampled
+                    / daily_upsampled.groupby(daily_upsampled.index.year).transform(
+                        "size"
+                    )
+                    * 12
+                )
 
                 # Resample daily to monthly, summing the daily distributed values
-                monthly_series = daily_distributed.resample('M').sum()
-                
+                monthly_series = daily_distributed.resample("M").sum()
+
                 # Convert the index back to a monthly PeriodIndex
                 monthly_series.index = monthly_series.index.to_period("M")
                 return monthly_series
@@ -213,18 +228,16 @@ class CashFlowModel(Model):
             # Assumes keys are monthly periods or convertible
             return {k: v * conversion_factor for k, v in value.items()}
 
-        return value # Should not be reached for supported types
+        return value  # Should not be reached for supported types
 
     @field_validator("value")
     @classmethod
     def validate_value(
-        cls, 
-        v: Union[PositiveFloat, pd.Series, Dict, List], 
-        info: FieldValidationInfo
+        cls, v: Union[PositiveFloat, pd.Series, Dict, List], info: FieldValidationInfo
     ) -> Union[PositiveFloat, pd.Series, Dict, List]:
         """
         Validate that the value is one of the allowed types.
-        
+
         For dicts: Validate that keys can be converted to a monthly Period and that
         each value is numeric and positive.
         For lists: Validate that the list length matches the timeline period index length.
@@ -257,27 +270,28 @@ class CashFlowModel(Model):
                 )
         # TODO: more validation, e.g., for Series, check that the index is a PeriodIndex
         elif isinstance(v, pd.Series):
-             # Validate Series index type
-             if not isinstance(v.index, (pd.PeriodIndex, pd.DatetimeIndex)):
-                  raise ValueError(
-                       "Series value must have a PeriodIndex or DatetimeIndex."
-                  )
-             # Ensure index is monotonic increasing if it's a DatetimeIndex
-             # PeriodIndex is implicitly sorted
-             if isinstance(v.index, pd.DatetimeIndex) and not v.index.is_monotonic_increasing:
-                  raise ValueError("DatetimeIndex must be monotonic increasing.")
-                  
+            # Validate Series index type
+            if not isinstance(v.index, (pd.PeriodIndex, pd.DatetimeIndex)):
+                raise ValueError(
+                    "Series value must have a PeriodIndex or DatetimeIndex."
+                )
+            # Ensure index is monotonic increasing if it's a DatetimeIndex
+            # PeriodIndex is implicitly sorted
+            if (
+                isinstance(v.index, pd.DatetimeIndex)
+                and not v.index.is_monotonic_increasing
+            ):
+                raise ValueError("DatetimeIndex must be monotonic increasing.")
+
         return v
 
-    def _cast_to_flow(
-        self, value: Union[float, pd.Series, Dict, List]
-    ) -> pd.Series:
+    def _cast_to_flow(self, value: Union[float, pd.Series, Dict, List]) -> pd.Series:
         """
         Cast a scalar, pandas Series, dict, or list value into a full flow series spanning the model's timeline.
-        
+
         For a dict, the keys are expected to be dates (or strings representing dates) that can be converted to a
         PeriodIndex with monthly frequency.
-        
+
         For a list, the list is directly cast to a pandas Series using the timeline's period index.
         """
         periods = self.timeline.period_index
@@ -309,23 +323,25 @@ class CashFlowModel(Model):
 
     def compute_cf(
         self,
-        lookup_fn: Optional[Callable[[Union[str, UUID]], Union[float, pd.Series]]] = None # Updated lookup_fn type hint
+        lookup_fn: Optional[
+            Callable[[Union[str, UUID]], Union[float, pd.Series]]
+        ] = None,  # Updated lookup_fn type hint
         # NOTE: consider functools.partial to pass callable to lookup_fn
     ) -> pd.Series:
         """
         Compute the final cash flow as a time series using the model's built-in timeline.
-        
+
         This method performs these steps:
           - Resolves any reference required to compute the value using the lookup_fn.
           - Selects an appropriate strategy based on unit_of_measure.
           - Converts frequency as needed (e.g. from annual to monthly).
           - Casts the resulting value into a full flow series spanning the timeline.
           - Aligns the resulting series using the Timeline helper.
-          
+
         The returned series represents the cash flow over the model's timeline.
         """
         # Pass the potentially complex lookup_fn down
-        resolved_reference = self.resolve_reference(lookup_fn) 
+        resolved_reference = self.resolve_reference(lookup_fn)
 
         if self.unit_of_measure == UnitOfMeasureEnum.AMOUNT:
             strategy = DirectAmountStrategy()
@@ -333,9 +349,14 @@ class CashFlowModel(Model):
             if resolved_reference is None:
                 raise ValueError("A reference is required for PER_UNIT calculations.")
             strategy = UnitizedStrategy(reference=resolved_reference)
-        elif self.unit_of_measure in (UnitOfMeasureEnum.BY_FACTOR, UnitOfMeasureEnum.BY_PERCENT):
+        elif self.unit_of_measure in (
+            UnitOfMeasureEnum.BY_FACTOR,
+            UnitOfMeasureEnum.BY_PERCENT,
+        ):
             if resolved_reference is None:
-                raise ValueError("A reference is required for factor/percentage calculations.")
+                raise ValueError(
+                    "A reference is required for factor/percentage calculations."
+                )
             strategy = PercentFactorStrategy(reference=resolved_reference)
         else:
             raise ValueError(f"Unsupported unit_of_measure: {self.unit_of_measure}")
@@ -349,7 +370,7 @@ class CashFlowModel(Model):
         self,
         base_series: pd.Series,
         growth_profile: GrowthRate,
-        growth_start_date: date
+        growth_start_date: date,
     ) -> pd.Series:
         """
         Apply compounding growth to a base cash flow series.
@@ -359,24 +380,24 @@ class CashFlowModel(Model):
 
         **Assumptions & Behavior:**
         - Base series index must be a monthly `pd.PeriodIndex` or convertible to one.
-        - Constant float rates (`growth_profile.value`) are assumed to be **annual** and 
+        - Constant float rates (`growth_profile.value`) are assumed to be **annual** and
           are automatically converted to monthly (divided by 12) for compounding.
-        - Rates in `pd.Series` or `dict` values (`growth_profile.value`) are assumed 
+        - Rates in `pd.Series` or `dict` values (`growth_profile.value`) are assumed
           to be **already at the intended frequency** for their respective periods (typically monthly).
           For example, if a Series has a monthly PeriodIndex, the rates are assumed to be monthly rates.
-          The method aligns these to the base series' monthly timeline using forward-fill 
-          (filling NaNs before the first rate with 0%). No automatic annual-to-monthly 
+          The method aligns these to the base series' monthly timeline using forward-fill
+          (filling NaNs before the first rate with 0%). No automatic annual-to-monthly
           conversion is performed for Series/Dict rates.
         - Growth is applied starting from the **period containing** `growth_start_date`.
-        
+
         Args:
             base_series: The un-grown, period-indexed series (monthly).
             growth_profile: The GrowthRate object containing the rate definition.
             growth_start_date: The date from which compounding should begin.
-            
+
         Returns:
             A new pandas Series with compounding growth applied.
-            
+
         Raises:
             TypeError: If the growth_profile.value is an unsupported type.
             ValueError: If base_series index is not a PeriodIndex.
@@ -384,28 +405,30 @@ class CashFlowModel(Model):
         if not isinstance(base_series.index, pd.PeriodIndex):
             # Ensure the index is a PeriodIndex for reliable period arithmetic
             try:
-                base_series.index = pd.PeriodIndex(base_series.index, freq='M')
+                base_series.index = pd.PeriodIndex(base_series.index, freq="M")
             except ValueError:
-                raise ValueError("Base series index must be convertible to a monthly PeriodIndex.")
-                
+                raise ValueError(
+                    "Base series index must be convertible to a monthly PeriodIndex."
+                )
+
         if not pd.api.types.is_numeric_dtype(base_series):
-             raise ValueError("Base series must have numeric dtype to apply growth.")
+            raise ValueError("Base series must have numeric dtype to apply growth.")
 
         grown_series = base_series.copy()
         periods = base_series.index
         growth_start_period = pd.Period(growth_start_date, freq=periods.freq)
-        
+
         # Create mask for periods on or after the growth start date
         growth_mask = periods >= growth_start_period
-        
+
         if not growth_mask.any():
-            return grown_series # No growth applicable within the series timeline
+            return grown_series  # No growth applicable within the series timeline
 
         growth_value = growth_profile.value
-        
-        # --- Prepare Period-Based Growth Rates --- 
-        period_rates = pd.Series(0.0, index=periods) # Initialize with 0% growth
-        
+
+        # --- Prepare Period-Based Growth Rates ---
+        period_rates = pd.Series(0.0, index=periods)  # Initialize with 0% growth
+
         if isinstance(growth_value, (float, int)):
             # Constant annual rate - convert to monthly
             monthly_rate = float(growth_value) / 12.0
@@ -415,39 +438,49 @@ class CashFlowModel(Model):
             aligned_rates = growth_value
             # Ensure growth series index is PeriodIndex
             if not isinstance(aligned_rates.index, pd.PeriodIndex):
-                 # Attempt conversion assuming date-like keys
-                 try:
-                      aligned_rates.index = pd.PeriodIndex(aligned_rates.index, freq='M')
-                 except Exception as e:
-                      raise ValueError("Growth Series index must be convertible to PeriodIndex.") from e
+                # Attempt conversion assuming date-like keys
+                try:
+                    aligned_rates.index = pd.PeriodIndex(aligned_rates.index, freq="M")
+                except Exception as e:
+                    raise ValueError(
+                        "Growth Series index must be convertible to PeriodIndex."
+                    ) from e
             # Reindex and forward-fill rates
-            aligned_rates = aligned_rates.reindex(periods, method='ffill')
-            aligned_rates = aligned_rates.fillna(0.0) # Fill any remaining NaNs (e.g., before first rate) with 0%
+            aligned_rates = aligned_rates.reindex(periods, method="ffill")
+            aligned_rates = aligned_rates.fillna(
+                0.0
+            )  # Fill any remaining NaNs (e.g., before first rate) with 0%
             # Convert annual rates in series to monthly if necessary (Assume annual if not specified otherwise? Needs clarification or explicit flag in GrowthRate)
-            # **Decision:** Assume rates in Series/Dict are *already at the intended frequency* (e.g., monthly if index is monthly). 
+            # **Decision:** Assume rates in Series/Dict are *already at the intended frequency* (e.g., monthly if index is monthly).
             # If annual rates are provided in a Series, they should be pre-converted to monthly by the user.
             # annual_to_monthly_factor = 1/12 # Example if conversion was needed
-            period_rates[growth_mask] = aligned_rates[growth_mask] # * annual_to_monthly_factor 
+            period_rates[growth_mask] = aligned_rates[
+                growth_mask
+            ]  # * annual_to_monthly_factor
         elif isinstance(growth_value, dict):
             # Convert dict to series and align
             try:
-                 dict_series = pd.Series(growth_value)
-                 dict_series.index = pd.PeriodIndex(dict_series.index, freq='M')
+                dict_series = pd.Series(growth_value)
+                dict_series.index = pd.PeriodIndex(dict_series.index, freq="M")
             except Exception as e:
-                 raise ValueError("Growth Dict keys must be convertible to PeriodIndex.") from e
+                raise ValueError(
+                    "Growth Dict keys must be convertible to PeriodIndex."
+                ) from e
             # Reindex and forward-fill rates
-            aligned_rates = dict_series.reindex(periods, method='ffill')
+            aligned_rates = dict_series.reindex(periods, method="ffill")
             aligned_rates = aligned_rates.fillna(0.0)
             # Assume rates are already monthly if dict keys are dates/periods
             # If annual rates are provided via dict, they should be pre-converted.
             period_rates[growth_mask] = aligned_rates[growth_mask]
         else:
-            raise TypeError(f"Unsupported type for GrowthRate value: {type(growth_value)}")
-            
-        # --- Apply Compounding Growth --- 
+            raise TypeError(
+                f"Unsupported type for GrowthRate value: {type(growth_value)}"
+            )
+
+        # --- Apply Compounding Growth ---
         # Calculate period-over-period growth factors (1 + monthly_rate)
         growth_factors = 1.0 + period_rates
-        
+
         # Calculate cumulative growth factors starting from the growth_start_period
         # Initialize cumulative factor series
         cumulative_factors = pd.Series(1.0, index=periods)
@@ -456,8 +489,8 @@ class CashFlowModel(Model):
         try:
             start_idx_loc = periods.get_loc(growth_start_period)
         except KeyError:
-             # Start period is outside the series index, no growth applies
-             return grown_series 
+            # Start period is outside the series index, no growth applies
+            return grown_series
 
         # Iterate from the start index location
         for i in range(start_idx_loc, len(periods)):
@@ -466,10 +499,14 @@ class CashFlowModel(Model):
                 cumulative_factors.iloc[i] = growth_factors.iloc[i]
             else:
                 # Subsequent periods: previous cumulative factor * current period factor
-                cumulative_factors.iloc[i] = cumulative_factors.iloc[i-1] * growth_factors.iloc[i]
+                cumulative_factors.iloc[i] = (
+                    cumulative_factors.iloc[i - 1] * growth_factors.iloc[i]
+                )
 
         # Apply cumulative factors only to periods on or after the start date
         # The factor for periods *before* start_idx_loc remains 1.0
-        grown_series[growth_mask] = base_series[growth_mask] * cumulative_factors[growth_mask]
-        
+        grown_series[growth_mask] = (
+            base_series[growth_mask] * cumulative_factors[growth_mask]
+        )
+
         return grown_series

@@ -1,10 +1,11 @@
-"""Base model for all modules"""
+from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict
 
 
 class Model(BaseModel):
     """Base model with common configuration"""
+
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         use_enum_values=True,
@@ -14,10 +15,10 @@ class Model(BaseModel):
     def copy(self, *, updates: dict = None) -> "Model":
         """
         Return a deep copy of the model (shorter alias for model_copy)
-        
+
         Args:
             updates: Optional dictionary of field values to update
-        
+
         Returns:
             A deep copy of the model with any specified updates
         """

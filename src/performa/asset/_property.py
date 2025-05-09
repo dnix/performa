@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import uuid
 from typing import Dict, List, Optional
@@ -8,10 +10,10 @@ from ..core._enums import AssetTypeEnum
 from ..core._model import Model
 from ..core._types import FloatBetween0And1, PositiveFloat, PositiveInt
 from ._expense import Expenses
-from ._lease import Tenant
 from ._losses import Losses
 from ._misc_income import MiscIncome
 from ._rent_roll import RentRoll
+from ._tenant import Tenant
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,7 @@ class PropertyFloor(Model):
 
 class PropertySuite(Model):
     """Building suite details
-    
+
     Attributes:
         suite_id: Unique identifier for the suite
         area: Rentable area in square feet
@@ -81,11 +83,11 @@ class Property(Model):
 
     # Structural Losses (i.e., vacancy, credit)
     losses: Losses
-    
+
     @property
     def suites(self) -> List[PropertySuite]:
         """List of all suites in the property from both leased and vacant spaces.
-        
+
         Returns:
             List of PropertySuite objects
         """
@@ -97,7 +99,7 @@ class Property(Model):
                 tenant=lease.tenant
             ) for lease in self.rent_roll.leases
         ]
-        
+
         # Convert vacant spaces to PropertySuite objects
         vacant_suites = [
             PropertySuite(
@@ -106,20 +108,20 @@ class Property(Model):
                 tenant=None
             ) for suite in self.rent_roll.vacant_suites
         ]
-        
+
         return leased_suites + vacant_suites
 
     @property
     def floors(self) -> List[PropertyFloor]:
         """List all floors in the property from leased spaces.
-        
+
         Returns:
             List of PropertyFloor objects grouped by floor number
         """
         # Create a dictionary to group tenants by floor
         floor_tenants: Dict[str, List[Tenant]] = {}
         floor_areas: Dict[str, float] = {}
-        
+
         # Group leases by floor
         for lease in self.rent_roll.leases:
             if lease.floor:  # Only process leases with floor information
@@ -128,13 +130,15 @@ class Property(Model):
                     floor_areas[lease.floor] = 0
                 floor_tenants[lease.floor].append(lease.tenant)
                 floor_areas[lease.floor] += lease.area
-        
+
         # Convert to PropertyFloor objects
         return [
             PropertyFloor(
-                number=int(floor_num) if floor_num.isdigit() else 0,  # Default to 0 if not numeric
+                number=int(floor_num)
+                if floor_num.isdigit()
+                else 0,  # Default to 0 if not numeric
                 area=floor_areas[floor_num],
-                tenants=tenants
+                tenants=tenants,
             )
             for floor_num, tenants in floor_tenants.items()
         ]

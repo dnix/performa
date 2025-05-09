@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import date
 from typing import Dict, Optional, Union
 
@@ -11,7 +13,7 @@ from ..core._types import FloatBetween0And1
 class GrowthRate(Model):
     """
     Individual growth rate profile with flexible value representation
-    
+
     Attributes:
         name: Name of the growth rate (e.g., "Market Rent Growth")
         value: The growth rate value(s), which can be:
@@ -19,17 +21,18 @@ class GrowthRate(Model):
             - A pandas Series (time-based rates). The rates are assumed to be at the
               frequency implied by the Series index (e.g., provide monthly rates if the index
               is monthly). Index should be convertible to `pd.PeriodIndex`.
-            - A dictionary with date keys and rate values. Rates are assumed to be 
+            - A dictionary with date keys and rate values. Rates are assumed to be
               effective for the period containing the date key (typically monthly).
               Keys should be convertible to `pd.PeriodIndex`.
     """
+
     name: str
     value: Union[FloatBetween0And1, pd.Series, Dict[date, FloatBetween0And1]]
-    
+
     @field_validator("value")
     @classmethod
     def validate_value(
-        cls, 
+        cls,
         v: Union[FloatBetween0And1, pd.Series, Dict],
     ) -> Union[FloatBetween0And1, pd.Series, Dict]:
         """Validate that value has the correct format and constraints"""
@@ -37,9 +40,13 @@ class GrowthRate(Model):
             # Ensure all dict values are between 0 and 1
             for key, rate in v.items():
                 if not isinstance(key, date):
-                     raise ValueError(f"Growth rate dictionary keys must be dates, got {type(key)}")
+                    raise ValueError(
+                        f"Growth rate dictionary keys must be dates, got {type(key)}"
+                    )
                 if not isinstance(rate, (int, float)) or not (0 <= rate <= 1):
-                    raise ValueError(f"Growth rate for {key} must be between 0 and 1, got {rate}")
+                    raise ValueError(
+                        f"Growth rate for {key} must be between 0 and 1, got {rate}"
+                    )
         elif isinstance(v, pd.Series):
             # Ensure all series values are between 0 and 1
             if not pd.api.types.is_numeric_dtype(v.dtype):
@@ -47,7 +54,7 @@ class GrowthRate(Model):
             if (v < 0).any() or (v > 1).any():
                 raise ValueError("Growth rates in Series must be between 0 and 1")
         elif not isinstance(v, (int, float)):
-             raise TypeError(f"Unsupported type for GrowthRate value: {type(v)}")
+            raise TypeError(f"Unsupported type for GrowthRate value: {type(v)}")
 
         return v
 
@@ -105,23 +112,25 @@ class GrowthRates(Model):
         )
 
     @classmethod
-    def with_custom_rates(cls, extra_rates: Optional[Dict[str, GrowthRate]] = None, **default_rates) -> "GrowthRates":
+    def with_custom_rates(
+        cls, extra_rates: Optional[Dict[str, GrowthRate]] = None, **default_rates
+    ) -> "GrowthRates":
         """
         Create a dynamic GrowthRates instance supporting arbitrary growth rate fields.
-        
+
         This method leverages pydantic's create_model to extend the existing GrowthRates model
         with extra fields provided in extra_rates. The resulting model supports dot notation access
         for both the predefined static rates and any additional dynamic rates.
-        
+
         Args:
-            extra_rates: A dictionary where each key is the name of an extra growth rate and 
+            extra_rates: A dictionary where each key is the name of an extra growth rate and
                          the value is a GrowthRate instance.
             default_rates: Keyword arguments for setting/overriding the static GrowthRates fields
                            (including default_rate or standard growth types).
-        
+
         Returns:
             An instance of a dynamically generated GrowthRates model with the extra fields included.
-            
+
         Example:
             ```python
             # Create growth rates with custom fields
@@ -134,7 +143,7 @@ class GrowthRates(Model):
                 default_rate=0.025,
                 market_rent_growth=GrowthRate(name="Market Rent Custom", value=0.035)
             )
-            
+
             # Access both standard and custom fields with dot notation
             print(custom_rates.market_rent_growth.value)  # 0.035
             print(custom_rates.inflation_rate.value)  # 0.03
@@ -150,16 +159,16 @@ class GrowthRates(Model):
         # Validate extra_rates values are GrowthRate instances
         for name, rate in extra_rates.items():
             if not isinstance(rate, GrowthRate):
-                raise TypeError(f"Value for extra rate '{name}' must be a GrowthRate instance, got {type(rate)}")
+                raise TypeError(
+                    f"Value for extra rate '{name}' must be a GrowthRate instance, got {type(rate)}"
+                )
 
         # Prepare fields for the dynamic model creation
         dynamic_fields = {name: (GrowthRate, ...) for name in extra_rates.keys()}
 
         # Create the dynamic model class
         DynamicGrowthRates = create_model(
-            "DynamicGrowthRates",
-            __base__=cls,
-            **dynamic_fields
+            "DynamicGrowthRates", __base__=cls, **dynamic_fields
         )
 
         # Combine the provided default/static fields with the extra rates for instantiation
