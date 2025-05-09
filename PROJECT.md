@@ -47,6 +47,7 @@ src/performa/
 │   ├── _rent_escalation.py # Rent escalation modeling
 │   ├── _rent_roll.py     # Rent roll management
 │   ├── _rollover.py      # Lease rollover analysis
+│   ├── _tenant.py        # Tenant data modeling
 │   ├── _ti.py            # Tenant improvement calculations
 │   ├── _types.py         # Type definitions for asset module
 │   └── __init__.py       # Package anitialization
