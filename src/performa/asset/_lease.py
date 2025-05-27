@@ -58,6 +58,11 @@ class Lease(CashFlowModel):
     """
     Represents a lease agreement and its projected cash flows.
     Instantiated from a LeaseSpec.
+
+    The Lease object is responsible for calculating its own cash flows for its
+    defined term and also for projecting subsequent lease terms (renewals or new
+    market leases) upon its expiration, based on an associated `RolloverProfile`.
+    This includes modeling downtime and re-absorption of the suite into the market.
     """
 
     # Basic fields from CashFlowModel
@@ -268,15 +273,14 @@ class Lease(CashFlowModel):
                         )
                         escalation_series = base_flow * (growth_factor - 1)
                         rent_with_escalations += escalation_series
+                elif self.rent_escalation.is_relative:
+                    growth_factor = 1 + (self.rent_escalation.amount / 100)
+                    rent_with_escalations[mask] *= growth_factor
                 else:
-                    if self.rent_escalation.is_relative:
-                        growth_factor = 1 + (self.rent_escalation.amount / 100)
-                        rent_with_escalations[mask] *= growth_factor
-                    else:
-                        growth_factor = self.rent_escalation.amount / 100
-                        escalation_series = pd.Series(0.0, index=periods)
-                        escalation_series[mask] = base_flow[mask] * growth_factor
-                        rent_with_escalations += escalation_series
+                    growth_factor = self.rent_escalation.amount / 100
+                    escalation_series = pd.Series(0.0, index=periods)
+                    escalation_series[mask] = base_flow[mask] * growth_factor
+                    rent_with_escalations += escalation_series
             elif self.rent_escalation.type == "fixed":
                 monthly_amount = (
                     self.rent_escalation.amount / 12
@@ -491,7 +495,49 @@ class Lease(CashFlowModel):
         occupancy_projection: Optional[pd.Series] = None,
         lookup_fn: Optional[Callable[[Union[str, UUID]], Any]] = None,
     ) -> pd.DataFrame:
-        """Projects cash flows for this lease and subsequent rollovers until projection_end_date."""
+        """Projects cash flows for this lease and subsequent rollovers until projection_end_date.
+
+        This method orchestrates the cash flow projection for the entire chain of leases
+        originating from this current lease instance. It calculates the cash flows for the
+        current lease term and then, if the lease expires within the `projection_end_date`
+        and a `RolloverProfile` is associated, it proceeds to model the next lease event.
+
+        Rollover and Re-absorption (Market Re-Leasing) Logic:
+        When an existing lease term ends, the method uses the `upon_expiration` status of
+        the current lease and its associated `RolloverProfile` to determine the next steps:
+
+        1.  **Downtime:** If the `upon_expiration` action (e.g., `MARKET`, `VACATE`, `REABSORB`)
+            implies a vacancy period before a new lease commences, the `downtime_months`
+            from the `RolloverProfile` is applied. During this downtime, vacancy loss is
+            calculated based on potential market rent for the suite.
+
+        2.  **New Lease Terms:** The `RolloverProfile` dictates the terms for the subsequent
+            lease:
+            *   `market_terms` (a `RolloverLeaseTerms` object) are used if the suite is
+                going to market (e.g., `upon_expiration` is `MARKET`, `VACATE`, or `REABSORB`).
+                These terms define the new rent, lease term length, TIs, LCs, escalations, etc.
+            *   `renewal_terms` are used if `upon_expiration` is `RENEW`.
+            *   `option_terms` are used if `upon_expiration` is `OPTION`.
+
+        3.  **`UponExpirationEnum.REABSORB` Behavior:** When a lease's `upon_expiration` status
+            is set to `REABSORB`, it triggers the standard market re-leasing process:
+            downtime is applied (from `RolloverProfile.downtime_months`), followed by the
+            creation of a new speculative lease based on the `market_terms` defined in the
+            `RolloverProfile`.
+
+        4.  **TI/LC Application:** Tenant Improvements (`ti_allowance`) and Leasing Commissions
+            (`leasing_commission`) specified within the relevant `RolloverLeaseTerms` (e.g.,
+            `market_terms` or `renewal_terms`) are instantiated and applied to the new
+            speculative lease, ensuring these costs are captured for future terms.
+
+        5.  **Recursive Projection:** The method then recursively calls itself for the newly
+            created speculative lease, continuing the projection until the `projection_end_date`
+            is reached or no further rollovers are defined.
+
+        The result is a pandas DataFrame containing all cash flow components (base rent,
+        recoveries, TIs, LCs, vacancy loss, etc.) for the entire projected lease chain,
+        indexed by monthly periods.
+        """
         # Calculate CF for the current lease term
         current_cf_dict = self.compute_cf(
             property_data=property_data,
@@ -516,7 +562,10 @@ class Lease(CashFlowModel):
 
             # Determine downtime and next start date
             downtime_months = 0
-            if action in [UponExpirationEnum.VACATE, UponExpirationEnum.MARKET]:
+            if action in [
+                UponExpirationEnum.VACATE,
+                UponExpirationEnum.MARKET,
+            ]:
                 downtime_months = profile.downtime_months
             next_lease_start_date = self.lease_end + pd.DateOffset(
                 months=downtime_months
@@ -560,15 +609,17 @@ class Lease(CashFlowModel):
                 next_tenant = Tenant(
                     id=f"Vacant-{self.suite}", name=f"Vacant - {self.suite}"
                 )
-                next_name_suffix = " - Market"
+                next_name_suffix = " - Vacant"
                 next_lease_type = LeaseTypeEnum.NET  # Market typically Net?
             elif action == UponExpirationEnum.MARKET:
-                next_lease_terms = profile.market_terms
+                # For MARKET action, use blended terms and apply market downtime.
+                # The RolloverProfile.renewal_probability is used within blend_lease_terms.
+                next_lease_terms = profile.blend_lease_terms()
                 next_tenant = Tenant(
-                    id=f"Market-{self.suite}", name=f"Market - {self.suite}"
+                    id=f"MarketBlended-{self.suite}", name=f"MarketBlended - {self.suite}"
                 )
-                next_name_suffix = " - Market"
-                next_lease_type = LeaseTypeEnum.NET
+                next_name_suffix = " - MarketBlended"
+                next_lease_type = LeaseTypeEnum.NET # FIXME Assuming blended still results in a NET type or similar default -- is this correct?
             elif action == UponExpirationEnum.OPTION:
                 next_lease_terms = profile.option_terms
                 next_tenant = self.tenant  # Reuse tenant
@@ -576,8 +627,10 @@ class Lease(CashFlowModel):
                 next_lease_type = self.lease_type
             elif action == UponExpirationEnum.REABSORB:
                 logger.debug(
-                    f"Lease '{self.name}' set to REABSORB. Stopping projection."
+                    f"Lease '{self.name}' set to REABSORB. Stopping projection for this chain. User to handle space manually."
                 )
+                # Ensure next_lease_terms and next_tenant remain None to stop chain
+                pass
             else:
                 logger.warning(
                     f"Unhandled UponExpirationEnum: {action} for lease '{self.name}'. Stopping projection."

@@ -110,28 +110,31 @@ class RolloverLeaseTerms(Model):
 
 class RolloverProfile(Model):
     """
-    Comprehensive profile for lease rollovers, renewals and market assumptions.
+    Comprehensive profile for lease rollovers, renewals, and market re-leasing assumptions.
 
-    Used to project speculative/market leases after actual/contractual lease expiration.
-    This profile contains all parameters needed to model future leasing scenarios.
+    This profile governs how a lease is projected upon expiration, supporting the following scenarios:
 
-    The profile supports different rollover methodologies common in real estate modeling:
-    - RENEW: Force renewal with renewal terms (100% probability)
-    - VACATE: Force vacancy followed by market lease (0% renewal)
-    - MARKET: Probability-weighted blend of renewal and market scenarios
-    - OPTION: Exercise option terms when available
-    - REABSORB: Space remains vacant for custom reabsorption
+    - **RENEW**: The tenant is assumed to renew the lease at the end of the term. The `renewal_terms` are applied, and no downtime is modeled between leases.
+    - **VACATE**: The tenant vacates at expiration. The suite is assumed to be vacant for `downtime_months`, after which a new market lease is created using `market_terms`.
+    - **MARKET**: A probability-weighted blend of renewal and market scenarios. The lease terms are blended (not the cash flows), using `renewal_probability`. Downtime is always applied as specified by `downtime_months` (i.e., the market downtime is used for the blended scenario, even if renewal probability is nonzero).
+    - **OPTION**: The tenant exercises an option to renew, using `option_terms`. Downtime is not applied.
+    - **REABSORB**: Functionally identical to VACATE/MARKET for modeling purposes: the suite is re-leased to the market after `downtime_months` using `market_terms`.
 
-    For MARKET methodology, the profile uses a blended terms approach where
-    lease parameters are blended based on renewal probability, rather than
-    blending resulting cash flows. This industry-standard approach provides
-    more accurate modeling and better reflects real-world leasing dynamics.
+    **Downtime and Re-Absorption:**
+    - Downtime (`downtime_months`) is the period of vacancy between leases when a suite is re-leased to the market (VACATE, MARKET, REABSORB). No downtime is applied for RENEW or OPTION.
+    - During downtime, vacancy loss is calculated based on the market rent.
+    - After downtime, a new speculative lease is created using `market_terms`.
+
+    **Blended Terms (MARKET):**
+    - When `upon_expiration` is MARKET, lease terms (rent, TI, LC, etc.) are blended according to `renewal_probability`.
+    - Downtime is not blended: the full `downtime_months` is always applied for the blended scenario.
+    # FIXME: consider if this downtime assumption is correct
 
     Attributes:
         name: Identifier for this rollover profile
         term_months: Standard lease term duration in months
         renewal_probability: Probability that a tenant will renew their lease
-        downtime_months: Expected vacancy period between leases
+        downtime_months: Expected vacancy period between leases (applies to MARKET, VACATE, REABSORB)
         market_terms: Terms to apply for new market leases
         renewal_terms: Terms to apply if lease is renewed
         option_terms: Terms to apply if option is exercised
@@ -391,9 +394,14 @@ class RolloverProfile(Model):
         """
         Blend market and renewal terms based on renewal probability.
 
+        # TODO: check if this is correct. should we be using conditionals with 0.5 at all?
+
         Creates a weighted average of lease terms for MARKET case scenarios.
         This produces a single blended set of terms rather than blending
         the resultant cash flows, which is more efficient and accurate.
+
+        **Downtime Assumption:**
+        When using blended terms (MARKET), the full `downtime_months` specified on the profile is always applied between leases, regardless of the renewal probability. Downtime is not blended or prorated; it is treated as a market downtime event for the entire blended scenario. This is consistent with industry precedent (e.g., Argus, Rockport VAL).
 
         Example:
             For a profile with:
@@ -498,13 +506,10 @@ class RolloverProfile(Model):
                     + self.market_terms.rent_escalation.amount
                     * (1 - self.renewal_probability)
                 )
+            elif self.renewal_probability > 0.5:
+                blended_rent_escalation = self.renewal_terms.rent_escalation
             else:
-                # If types don't match, use market terms weighted by probability
-                # This is a simplification - in reality one might be completely ignored
-                if self.renewal_probability > 0.5:
-                    blended_rent_escalation = self.renewal_terms.rent_escalation
-                else:
-                    blended_rent_escalation = self.market_terms.rent_escalation
+                blended_rent_escalation = self.market_terms.rent_escalation
         elif self.renewal_terms.rent_escalation:
             # Only renewal terms have rent escalation
             # Weight its impact by renewal probability

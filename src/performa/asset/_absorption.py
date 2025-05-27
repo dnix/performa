@@ -25,31 +25,64 @@ from pydantic import Field, PositiveFloat, PositiveInt
 from ..core._enums import (
     LeaseTypeEnum,
     ProgramUseEnum,
+    StartDateAnchorEnum,
     UnitOfMeasureEnum,
     UponExpirationEnum,
 )
 from ..core._model import Model
-from ._lc import LeasingCommission
+from ..core._settings import GlobalSettings
 
 # Asset imports
-from ._lease import LeaseSpec, RentAbatement, RentEscalation
-from ._recovery import RecoveryMethod
-
-# Imports to resolve forward references
-from ._rent_roll import VacantSuite  # noqa
-from ._rollover import RolloverLeaseTerms, RolloverProfile
-from ._ti import TenantImprovementAllowance
+from ._lease_spec import LeaseSpec
 
 if TYPE_CHECKING:
-    from ..core._settings import GlobalSettings
+    from ._lc import LeasingCommission
+    from ._recovery import RecoveryMethod
+    from ._rent_abatement import RentAbatement
+    from ._rent_escalation import RentEscalation
     from ._rent_roll import VacantSuite
     from ._rollover import RolloverLeaseTerms, RolloverProfile
-    # Potentially Property context needed for filtering?
+    from ._ti import TenantImprovementAllowance
+    # TODO: potentially import Property context needed for filtering?
 
 logger = logging.getLogger(__name__)
 
-# --- Supporting Structures for AbsorptionPlan ---
+# --- External State Tracking for Dynamic Subdivision --- #
 
+@dataclass
+class SuiteAbsorptionState:
+    """
+    Mutable state for tracking subdivision progress of a VacantSuite during absorption.
+    Used because VacantSuite is an immutable (frozen) Pydantic model.
+    """
+    remaining_area: float
+    units_created: int = 0
+
+# --- Supporting Structures for AbsorptionPlan --- #
+
+# TODO (Dynamic Subdivision - Future Refinements):
+# The core dynamic subdivision functionality (suite-centric with external state management)
+# has been implemented. Future enhancements or considerations could include:
+#
+# - More Advanced Subdivision Modes:
+#   - `subdivision_mode: Literal['by_number_of_units']` in addition to the current area-based logic.
+#     This would allow specifying a target number of leases to divide a suite into, rather than just average area.
+#   - Potentially, `target_number_of_leases: Optional[PositiveInt]` as a parameter on `VacantSuite`.
+#
+# - Impact on VacantSuite Inventory Management (Advanced):
+#   - Currently, the original `VacantSuite` object remains unchanged, and its absorption is tracked externally.
+#   - Future thought: Should there be an option for the absorption process to output a new set of
+#     `VacantSuite` objects representing the *actual* subdivided spaces if that level of detail
+#     is needed for other reporting or downstream processes? This would be a significant change.
+#
+# - Handling of Remainder Areas:
+#   - Current logic leases the remainder if it meets the `subdivision_minimum_lease_area`.
+#   - Further refinement on how very small, un-leasable remainders are treated or reported, if any.
+#
+# - Precedents for Further Ideas:
+#   - Continue to draw inspiration from Argus "Space Absorption" and Rockport VAL bulk space lease-up features
+#     for additional nuanced behaviors or reporting.
+# FIXME: remove this comment
 
 class SpaceFilter(Model):
     """
@@ -72,7 +105,7 @@ class SpaceFilter(Model):
     min_area: Optional[PositiveFloat] = None
     max_area: Optional[PositiveFloat] = None
 
-    def matches(self, suite: "VacantSuite") -> bool:
+    def matches(self, suite: VacantSuite) -> bool:
         """Checks if a vacant suite matches the filter criteria."""
         # Check each filter criterion if it's defined
         if self.suite_ids and suite.suite not in self.suite_ids:
@@ -177,27 +210,17 @@ class DirectLeaseTerms(Model):
     upon_expiration: Optional[UponExpirationEnum] = None
 
     # Optional component overrides (reuse existing models)
-    rent_escalation: Optional["RentEscalation"] = None
-    rent_abatement: Optional["RentAbatement"] = None
-    recovery_method: Optional["RecoveryMethod"] = None
-    ti_allowance: Optional["TenantImprovementAllowance"] = None
-    leasing_commission: Optional["LeasingCommission"] = None
+    rent_escalation: Optional[RentEscalation] = None
+    rent_abatement: Optional[RentAbatement] = None
+    recovery_method: Optional[RecoveryMethod] = None
+    ti_allowance: Optional[TenantImprovementAllowance] = None
+    leasing_commission: Optional[LeasingCommission] = None
 
     # TODO: Add downtime_months override?
     # TODO: How to handle market rent if base_rent_value is None?
 
 
 # --- Anchor Logic --- #
-
-
-# FIXME: this is now living in core/_enums.py
-class StartDateAnchorEnum(str, Enum):
-    """Defines how the absorption start date is determined."""
-
-    ANALYSIS_START = "AnalysisStart"  # Start immediately at the analysis start date.
-    # RELATIVE_DATE = "RelativeDate" # Placeholder: Start after a specific offset from analysis start.
-    # MILESTONE = "Milestone" # Placeholder: Start relative to a development milestone.
-    # FIXED_DATE = "FixedDate" # Implicitly handled by passing a date object.
 
 
 # Placeholder for more complex anchor logic if needed (e.g., relative offsets)
@@ -208,30 +231,33 @@ AnchorLogic = Any
 
 @dataclass
 class PaceContext:
-    """Context object passed to PaceStrategy methods during execution.
+    """
+    Context object passed to PaceStrategy methods during execution.
 
     Attributes:
         plan_name: Name of the parent AbsorptionPlan.
         remaining_suites: A mutable list of VacantSuite objects available for leasing.
-                          Strategies should remove suites from this list as they are leased.
         initial_start_date: The calculated start date for the first lease/period.
         analysis_end_date: The end date of the overall analysis horizon.
         market_lease_terms: The resolved RolloverLeaseTerms (market terms) if a profile was used.
         direct_terms: The DirectLeaseTerms object if provided in the plan.
         global_settings: Global analysis settings.
-        create_spec_fn: Callable reference to AbsorptionPlan._create_lease_spec.
+        create_spec_fn: Callable reference to AbsorptionPlan._create_lease_spec (for standard suites).
+        create_subdivided_spec_fn: Callable reference to AbsorptionPlan._create_subdivided_lease_spec (for F4).
         total_target_area: Total area of all suites matching the space filter initially.
+        _suite_states: Dict mapping suite.suite to SuiteAbsorptionState for all target suites. All mutable state for subdivision must be tracked here, not on the VacantSuite itself. This is a private/internal field.
     """
-
     plan_name: str
-    remaining_suites: List["VacantSuite"]
+    remaining_suites: List[VacantSuite]
     initial_start_date: date
     analysis_end_date: date
-    market_lease_terms: Optional["RolloverLeaseTerms"]
+    market_lease_terms: Optional[RolloverLeaseTerms]
     direct_terms: Optional[DirectLeaseTerms]
-    global_settings: Optional["GlobalSettings"]
-    create_spec_fn: Callable[..., Optional["LeaseSpec"]]
+    global_settings: Optional[GlobalSettings]
+    create_spec_fn: Callable[..., Optional[LeaseSpec]]
+    create_subdivided_spec_fn: Callable[..., Optional[LeaseSpec]]
     total_target_area: float
+    _suite_states: dict  # suite.suite -> SuiteAbsorptionState (private)
 
 
 class PaceStrategy(ABC):
@@ -242,7 +268,7 @@ class PaceStrategy(ABC):
         self,
         pace_model: BasePace,  # The specific pace model instance (Fixed, Equal, Custom)
         context: PaceContext,
-    ) -> List["LeaseSpec"]:
+    ) -> List[LeaseSpec]:
         """Generates LeaseSpec objects based on the pace logic.
 
         Args:
@@ -259,19 +285,27 @@ class PaceStrategy(ABC):
 
 
 class FixedQuantityPaceStrategy(PaceStrategy):
-    """Implements the Fixed Quantity pace logic."""
+    """
+    Implements the Fixed Quantity pace logic.
+
+    Note:
+        All mutable state for dynamic subdivision (such as remaining area and units created) is tracked externally using SuiteAbsorptionState objects, keyed by suite.suite, and stored in the private _suite_states field of PaceContext. Do not mutate any attribute of VacantSuite during absorption; it is an immutable (frozen) Pydantic model.
+    """
 
     def generate(
         self, pace_model: FixedQuantityPace, context: PaceContext
-    ) -> List["LeaseSpec"]:
-        """Generates LeaseSpecs by absorbing a fixed quantity (SF or Units) per period."""
+    ) -> List[LeaseSpec]:
+        """
+        Generates LeaseSpecs by absorbing a fixed quantity (SF or Units) per period.
+        Uses external SuiteAbsorptionState for all subdivision state tracking (via context._suite_states).
+        """
         logger.info(
             f"  Executing FixedQuantityPaceStrategy ({pace_model.quantity} {pace_model.unit} / {pace_model.frequency_months}mo)"
         )
-        generated_specs: List["LeaseSpec"] = []
+        generated_specs: List[LeaseSpec] = []
         current_period_start = context.initial_start_date
-        absorbed_units = 0
-        absorbed_area = 0.0
+        absorbed_units_overall = 0
+        absorbed_area_overall = 0.0
         local_remaining_suites = context.remaining_suites  # Work on the context's copy
 
         while (
@@ -279,77 +313,145 @@ class FixedQuantityPaceStrategy(PaceStrategy):
         ):
             logger.debug(f"    Processing period starting: {current_period_start}")
             area_absorbed_this_period = 0.0
-            units_absorbed_this_period = 0
-            target_quantity_this_period = pace_model.quantity
+            units_absorbed_this_period = 0  # Tracks LeaseSpecs generated this period
+            target_quantity_for_this_period = pace_model.quantity
 
-            suites_leased_this_period: List["VacantSuite"] = []
-            suites_to_remove_indices: List[int] = []
+            suites_processed_indices_this_period: List[int] = []  # Indices of suites fully absorbed or processed
 
-            # Iterate through available suites (currently largest first due to initial sort)
+            # Iterate through available suites. Original sort is largest first.
+            # The iteration might not go through all suites if period target is met early.
             for i, suite in enumerate(local_remaining_suites):
-                if pace_model.unit == "SF":
-                    # Check if adding this suite fits within the remaining target SF for the period
-                    if (
-                        area_absorbed_this_period + suite.area
-                        <= target_quantity_this_period
-                    ):
-                        area_absorbed_this_period += suite.area
-                        units_absorbed_this_period += 1
-                        suites_leased_this_period.append(suite)
-                        suites_to_remove_indices.append(i)
-                    # Simple greedy approach: If the largest remaining suite doesn't fit, we don't try smaller ones this period.
-                    # Could be enhanced later to pack smaller suites if needed.
-                    # TODO: Enhance SF leasing logic to potentially pack smaller suites if the largest doesn't fit the remaining target.
-                elif pace_model.unit == "Units":
-                    # Check if we've hit the target unit count for the period
-                    if units_absorbed_this_period < target_quantity_this_period:
-                        area_absorbed_this_period += (
-                            suite.area
-                        )  # Track area even if target is units
-                        units_absorbed_this_period += 1
-                        suites_leased_this_period.append(suite)
-                        suites_to_remove_indices.append(i)
-                    else:
-                        break  # Reached target units for this period
+                if i in suites_processed_indices_this_period:  # Already marked for removal this period by prior divisible processing
+                    continue
 
-            if not suites_leased_this_period:
-                logger.debug(
-                    f"    No suites could be leased in period starting {current_period_start} (target: {target_quantity_this_period} {pace_model.unit})."
-                )
-            else:
-                logger.debug(
-                    f"    Leasing {len(suites_leased_this_period)} suite(s) in period starting {current_period_start}:"
-                )
-                for suite_to_lease in suites_leased_this_period:
-                    deal_number = absorbed_units + 1  # Overall deal number
-                    # Call the creation function passed via context
+                current_deal_number = absorbed_units_overall + len(generated_specs) + 1
+
+                # --- Divisible Suite Processing --- #
+                if suite.is_divisible:
+                    state = context._suite_states[suite.suite]
+                    logger.debug(f"      Processing divisible suite: {suite.suite}, current remaining area: {state.remaining_area:.2f}")
+                    while state.remaining_area > (suite.subdivision_minimum_lease_area or 0.001):
+                        if pace_model.unit == "Units" and units_absorbed_this_period >= target_quantity_for_this_period:
+                            logger.debug(f"        Period's UNIT target ({target_quantity_for_this_period}) met. Moving to next suite/period.")
+                            break 
+                        if pace_model.unit == "SF" and area_absorbed_this_period >= target_quantity_for_this_period:
+                            logger.debug(f"        Period's SF target ({target_quantity_for_this_period:.2f}) met. Moving to next suite/period.")
+                            break
+                        area_for_this_sub_lease = suite.subdivision_average_lease_area
+                        if area_for_this_sub_lease is None:
+                            logger.error(f"Divisible suite {suite.suite} missing subdivision_average_lease_area.")
+                            break
+                        area_for_this_sub_lease = min(area_for_this_sub_lease, state.remaining_area)
+                        if area_for_this_sub_lease < (suite.subdivision_minimum_lease_area or 0.001) and state.remaining_area >= (suite.subdivision_minimum_lease_area or 0.001):
+                            area_for_this_sub_lease = state.remaining_area
+                        if area_for_this_sub_lease < (suite.subdivision_minimum_lease_area or 0.001):
+                            logger.debug(f"        Sub-lease area {area_for_this_sub_lease:.2f} for {suite.suite} is below minimum. Processing of this divisible suite ends.")
+                            state.remaining_area = 0 
+                            break 
+                        if pace_model.unit == "SF":
+                            sf_needed_for_period_target = target_quantity_for_this_period - area_absorbed_this_period
+                            if area_for_this_sub_lease > sf_needed_for_period_target:
+                                area_for_this_sub_lease = sf_needed_for_period_target
+                                if area_for_this_sub_lease < (suite.subdivision_minimum_lease_area or 0.001):
+                                    logger.debug(f"        Adjusted sub-lease area {area_for_this_sub_lease:.2f} for SF target is below minimum. Breaking from this divisible suite for the period.")
+                                    break # Break from while loop of this divisible suite
+                        if area_for_this_sub_lease <= 0:
+                            break
+                        state.units_created += 1
+                        current_deal_number_for_sub = absorbed_units_overall + len(generated_specs) + 1 
+                        logger.debug(f"        Attempting to create sub-lease: {suite.subdivision_naming_pattern.format(master_suite_id=suite.suite, count=state.units_created)}, Area {area_for_this_sub_lease:.0f} SF")
+                        spec = context.create_subdivided_spec_fn(
+                            master_suite=suite,
+                            subdivided_area=area_for_this_sub_lease,
+                            sub_unit_count=state.units_created,
+                            start_date=current_period_start,
+                            profile_market_terms=context.market_lease_terms,
+                            direct_terms=context.direct_terms,
+                            deal_number=current_deal_number_for_sub, 
+                            global_settings=context.global_settings,
+                        )
+                        if spec:
+                            logger.info(f"          - Created Subdivided LeaseSpec: {spec.tenant_name}, Area {spec.area:.0f} SF, Sub-unit #{state.units_created} of {suite.suite}")
+                            generated_specs.append(spec)
+                            area_absorbed_this_period += area_for_this_sub_lease
+                            units_absorbed_this_period += 1 
+                            state.remaining_area -= area_for_this_sub_lease
+                        else:
+                            logger.error(f"          - Failed to create Subdivided LeaseSpec for part of suite {suite.suite}")
+                            state.units_created -= 1 # Rollback counter if spec creation failed
+                            break # Stop processing this divisible suite if spec creation fails for some reason
+                    if state.remaining_area < (suite.subdivision_minimum_lease_area or 0.001):
+                        state.remaining_area = 0 # Normalize to 0
+                        if i not in suites_processed_indices_this_period:
+                            suites_processed_indices_this_period.append(i)
+                        logger.info(f"      Divisible suite {suite.suite} fully subdivided or remainder too small. Marked for removal from main list if loop continues.")
+                    continue
+
+                # --- Standard (non-divisible) suite processing --- #
+                if suite.is_divisible and state.remaining_area == 0:
+                    if i not in suites_processed_indices_this_period:
+                        suites_processed_indices_this_period.append(i) # Ensure it's marked for removal
+                    continue # Already processed this divisible suite in a previous iteration of this period or it was too small initially
+
+                logger.debug(f"      Processing standard suite: {suite.suite}, Area: {suite.area:.2f}")
+                can_lease_standard_suite = False
+                if pace_model.unit == "SF":
+                    if (area_absorbed_this_period + suite.area) <= target_quantity_for_this_period:
+                        can_lease_standard_suite = True
+                elif pace_model.unit == "Units":
+                    if units_absorbed_this_period < target_quantity_for_this_period:
+                        can_lease_standard_suite = True
+                if can_lease_standard_suite:
                     spec = context.create_spec_fn(
-                        suite=suite_to_lease,
+                        suite=suite,
                         start_date=current_period_start,
                         profile_market_terms=context.market_lease_terms,
                         direct_terms=context.direct_terms,
-                        deal_number=deal_number,
+                        deal_number=current_deal_number,
                         global_settings=context.global_settings,
                     )
                     if spec:
+                        logger.info(f"      - Created LeaseSpec: Deal {current_deal_number}, Suite {suite.suite}, Area {suite.area:.0f} SF")
                         generated_specs.append(spec)
-                        absorbed_units += 1
-                        absorbed_area += suite_to_lease.area
-                        logger.debug(
-                            f"      - Created LeaseSpec: Deal {deal_number}, Suite {suite_to_lease.suite}, Area {suite_to_lease.area:.0f} SF"
-                        )
+                        area_absorbed_this_period += suite.area
+                        units_absorbed_this_period += 1
+                        if i not in suites_processed_indices_this_period:
+                            suites_processed_indices_this_period.append(i)
                     else:
-                        logger.error(
-                            f"      - Failed to create LeaseSpec for suite {suite_to_lease.suite}"
-                        )
+                        logger.error(f"        - Failed to create LeaseSpec for suite {suite.suite}")
+                # else: Standard suite cannot be leased this period due to target limits
 
-                # Remove leased suites from the local list (important: operate on context.remaining_suites)
-                for index in sorted(suites_to_remove_indices, reverse=True):
-                    del local_remaining_suites[index]
+                # Check if period's target is met after processing current suite
+                if pace_model.unit == "Units" and units_absorbed_this_period >= target_quantity_for_this_period:
+                    logger.debug(f"    Period's UNIT target ({target_quantity_for_this_period}) met. Finalizing period.")
+                    break 
+                if pace_model.unit == "SF" and area_absorbed_this_period >= target_quantity_for_this_period:
+                    logger.debug(f"    Period's SF target ({target_quantity_for_this_period:.2f}) met. Finalizing period.")
+                    break
 
-            # Move to the next period start date
+            # --- End of processing suites for the current period's targets ---
+
+            if units_absorbed_this_period == 0:
+                logger.debug(
+                    f"    No suites or sub-suites leased in period starting {current_period_start}. Target: {target_quantity_for_this_period} {pace_model.unit}. Area absorbed: {area_absorbed_this_period:.2f}")
+
+            else:
+                absorbed_units_overall += units_absorbed_this_period
+                absorbed_area_overall += area_absorbed_this_period
+
+            # Remove fully processed suites from the main list for the next period
+            if suites_processed_indices_this_period:
+                logger.debug(f"    Removing {len(suites_processed_indices_this_period)} fully processed suites from consideration for next period.")
+                for index in sorted(suites_processed_indices_this_period, reverse=True):
+                    if index < len(local_remaining_suites):
+                        del local_remaining_suites[index]
+                    else:
+                        logger.warning(f"      Attempted to remove suite at invalid index {index} from local_remaining_suites (length {len(local_remaining_suites)}). This might indicate an issue in tracking processed suites.")
+
+            if not local_remaining_suites:
+                logger.debug("    All suites processed. Ending absorption.")
+                break
             try:
-                # Use Timestamp for robust date arithmetic
                 current_period_start_dt = pd.Timestamp(current_period_start)
                 current_period_start_dt = current_period_start_dt + pd.DateOffset(
                     months=pace_model.frequency_months
@@ -359,25 +461,32 @@ class FixedQuantityPaceStrategy(PaceStrategy):
                 logger.error(
                     f"  Date overflow error when calculating next period start date from {current_period_start}. Stopping absorption."
                 )
-                break  # Stop if date calculation fails
+                break
 
         logger.info(
-            f"  FixedQuantityPaceStrategy generated {len(generated_specs)} specs ({absorbed_units} units, {absorbed_area:.0f} SF)."
+            f"  FixedQuantityPaceStrategy generated {len(generated_specs)} specs ({absorbed_units_overall} total LeaseSpecs created, {absorbed_area_overall:.0f} SF total area absorbed)."
         )
         return generated_specs
 
 
 class EqualSpreadPaceStrategy(PaceStrategy):
-    """Implements the Equal Spread pace logic."""
+    """
+    Implements the Equal Spread pace logic.
 
+    Note:
+        All mutable state for dynamic subdivision (such as remaining area and units created) is tracked externally using SuiteAbsorptionState objects, keyed by suite.suite, and stored in the private _suite_states field of PaceContext. Do not mutate any attribute of VacantSuite during absorption; it is an immutable (frozen) Pydantic model.
+    """
     def generate(
         self, pace_model: EqualSpreadPace, context: PaceContext
-    ) -> List["LeaseSpec"]:
-        """Generates LeaseSpecs by spreading total target area evenly across a number of deals."""
+    ) -> List[LeaseSpec]:
+        """
+        Generates LeaseSpecs by spreading total target area evenly across a number of deals.
+        Supports dynamic subdivision using external SuiteAbsorptionState (via context._suite_states).
+        """
         logger.info(
             f"  Executing EqualSpreadPaceStrategy ({pace_model.total_deals} deals / {pace_model.frequency_months}mo)"
         )
-        generated_specs: List["LeaseSpec"] = []
+        generated_specs: List[LeaseSpec] = []
         current_deal_start_date = context.initial_start_date
         absorbed_units = 0
         absorbed_area = 0.0
@@ -424,33 +533,64 @@ class EqualSpreadPaceStrategy(PaceStrategy):
                 f"      Target Area for Deal #{deal_num}: {area_targeted_this_deal:.0f} SF (Remaining Total: {remaining_total_target_area:.0f} SF)"
             )
 
-            suites_leased_this_deal: List["VacantSuite"] = []
             suites_to_remove_indices: List[int] = []
 
-            # Greedily select largest suites until target area for this deal is met
+            # Greedily select suites (with subdivision support) until target area for this deal is met
             for i, suite in enumerate(local_remaining_suites):
-                if area_absorbed_this_deal < area_targeted_this_deal:
-                    suites_leased_this_deal.append(suite)
-                    suites_to_remove_indices.append(i)
-                    area_absorbed_this_deal += suite.area
-                    # Stop once the target for *this specific deal* is met or exceeded
-                    if area_absorbed_this_deal >= area_targeted_this_deal:
-                        break
-                else:
-                    break  # Already met the target area for this deal
-
-            if not suites_leased_this_deal:
-                logger.warning(
-                    f"    No suites could be leased for Deal #{deal_num} starting {current_deal_start_date}"
-                )
-            else:
-                logger.debug(
-                    f"    Leasing {len(suites_leased_this_deal)} suite(s) for Deal #{deal_num}:"
-                )
-                for suite_to_lease in suites_leased_this_deal:
-                    overall_deal_number = absorbed_units + 1
+                if area_absorbed_this_deal >= area_targeted_this_deal:
+                    break
+                if suite.is_divisible:
+                    state = context._suite_states[suite.suite]
+                    logger.debug(f"      Processing divisible suite: {suite.suite}, current remaining area: {state.remaining_area:.2f}")
+                    while state.remaining_area > (suite.subdivision_minimum_lease_area or 0.001) and area_absorbed_this_deal < area_targeted_this_deal:
+                        area_for_this_sub_lease = suite.subdivision_average_lease_area
+                        if area_for_this_sub_lease is None:
+                            logger.error(f"Divisible suite {suite.suite} missing subdivision_average_lease_area.")
+                            break
+                        area_for_this_sub_lease = min(area_for_this_sub_lease, state.remaining_area, area_targeted_this_deal - area_absorbed_this_deal)
+                        if area_for_this_sub_lease < (suite.subdivision_minimum_lease_area or 0.001) and state.remaining_area >= (suite.subdivision_minimum_lease_area or 0.001):
+                            area_for_this_sub_lease = state.remaining_area
+                        if area_for_this_sub_lease < (suite.subdivision_minimum_lease_area or 0.001):
+                            logger.debug(f"        Sub-lease area {area_for_this_sub_lease:.2f} for {suite.suite} is below minimum. Processing of this divisible suite ends.")
+                            state.remaining_area = 0
+                            break
+                        if area_for_this_sub_lease <= 0:
+                            break
+                        state.units_created += 1
+                        overall_deal_number = absorbed_units + len(generated_specs) + 1
+                        logger.debug(f"        Attempting to create sub-lease: {suite.subdivision_naming_pattern.format(master_suite_id=suite.suite, count=state.units_created)}, Area {area_for_this_sub_lease:.0f} SF")
+                        spec = context.create_subdivided_spec_fn(
+                            master_suite=suite,
+                            subdivided_area=area_for_this_sub_lease,
+                            sub_unit_count=state.units_created,
+                            start_date=current_deal_start_date,
+                            profile_market_terms=context.market_lease_terms,
+                            direct_terms=context.direct_terms,
+                            deal_number=overall_deal_number,
+                            global_settings=context.global_settings,
+                        )
+                        if spec:
+                            logger.info(f"          - Created Subdivided LeaseSpec: {spec.tenant_name}, Area {spec.area:.0f} SF, Sub-unit #{state.units_created} of {suite.suite}")
+                            generated_specs.append(spec)
+                            absorbed_units += 1
+                            absorbed_area += area_for_this_sub_lease
+                            area_absorbed_this_deal += area_for_this_sub_lease
+                            remaining_total_target_area -= area_for_this_sub_lease
+                            state.remaining_area -= area_for_this_sub_lease
+                        else:
+                            logger.error(f"          - Failed to create Subdivided LeaseSpec for part of suite {suite.suite}")
+                            state.units_created -= 1
+                            break
+                    if state.remaining_area < (suite.subdivision_minimum_lease_area or 0.001):
+                        state.remaining_area = 0
+                        suites_to_remove_indices.append(i)
+                        logger.info(f"      Divisible suite {suite.suite} fully subdivided or remainder too small. Marked for removal from main list if loop continues.")
+                    continue
+                # Standard (non-divisible) suite
+                if (area_absorbed_this_deal + suite.area) <= area_targeted_this_deal:
+                    overall_deal_number = absorbed_units + len(generated_specs) + 1
                     spec = context.create_spec_fn(
-                        suite=suite_to_lease,
+                        suite=suite,
                         start_date=current_deal_start_date,
                         profile_market_terms=context.market_lease_terms,
                         direct_terms=context.direct_terms,
@@ -458,23 +598,16 @@ class EqualSpreadPaceStrategy(PaceStrategy):
                         global_settings=context.global_settings,
                     )
                     if spec:
+                        logger.info(f"      - Created LeaseSpec: Deal {overall_deal_number}, Suite {suite.suite}, Area {suite.area:.0f} SF")
                         generated_specs.append(spec)
                         absorbed_units += 1
-                        absorbed_area += suite_to_lease.area
-                        remaining_total_target_area -= (
-                            suite_to_lease.area
-                        )  # Decrease overall remaining area
-                        logger.debug(
-                            f"      - Created LeaseSpec: Deal {overall_deal_number}, Suite {suite_to_lease.suite}, Area {suite_to_lease.area:.0f} SF"
-                        )
-                    else:
-                        logger.error(
-                            f"      - Failed to create LeaseSpec for suite {suite_to_lease.suite}"
-                        )
-
-                # Remove leased suites from the shared remaining list
-                for index in sorted(suites_to_remove_indices, reverse=True):
-                    del local_remaining_suites[index]
+                        absorbed_area += suite.area
+                        area_absorbed_this_deal += suite.area
+                        remaining_total_target_area -= suite.area
+                        suites_to_remove_indices.append(i)
+            # Remove leased suites from the shared remaining list
+            for index in sorted(suites_to_remove_indices, reverse=True):
+                del local_remaining_suites[index]
 
             # Increment date for the next deal
             if deal_num < pace_model.total_deals:
@@ -498,14 +631,21 @@ class EqualSpreadPaceStrategy(PaceStrategy):
 
 
 class CustomSchedulePaceStrategy(PaceStrategy):
-    """Implements the Custom Schedule pace logic."""
+    """
+    Implements the Custom Schedule pace logic.
 
+    Note:
+        All mutable state for dynamic subdivision (such as remaining area and units created) is tracked externally using SuiteAbsorptionState objects, keyed by suite.suite, and stored in the private _suite_states field of PaceContext. Do not mutate any attribute of VacantSuite during absorption; it is an immutable (frozen) Pydantic model.
+    """
     def generate(
         self, pace_model: CustomSchedulePace, context: PaceContext
-    ) -> List["LeaseSpec"]:
-        """Generates LeaseSpecs based on a specific date/quantity schedule."""
+    ) -> List[LeaseSpec]:
+        """
+        Generates LeaseSpecs based on a specific date/quantity schedule.
+        Supports dynamic subdivision using external SuiteAbsorptionState (via context._suite_states).
+        """
         logger.info("  Executing CustomSchedulePaceStrategy")
-        generated_specs: List["LeaseSpec"] = []
+        generated_specs: List[LeaseSpec] = []
         absorbed_units = 0
         absorbed_area = 0.0
         local_remaining_suites = context.remaining_suites
@@ -544,32 +684,63 @@ class CustomSchedulePaceStrategy(PaceStrategy):
             area_targeted_this_date = quantity_sf
             area_absorbed_this_date = 0.0
 
-            suites_leased_this_date: List["VacantSuite"] = []
             suites_to_remove_indices: List[int] = []
 
-            # Greedily select largest suites until target SF for this date is met
+            # Greedily select suites (with subdivision support) until target SF for this date is met
             for i, suite in enumerate(local_remaining_suites):
-                if area_absorbed_this_date < area_targeted_this_date:
-                    suites_leased_this_date.append(suite)
-                    suites_to_remove_indices.append(i)
-                    area_absorbed_this_date += suite.area
-                    if area_absorbed_this_date >= area_targeted_this_date:
-                        break  # Met or exceeded target area for this specific date
-                else:
-                    break  # Already met target area
-
-            if not suites_leased_this_date:
-                logger.warning(
-                    f"    No suites could be leased for schedule date {schedule_date} (Target SF: {quantity_sf:.0f})."
-                )
-            else:
-                logger.debug(
-                    f"    Leasing {len(suites_leased_this_date)} suite(s) for schedule date {schedule_date}:"
-                )
-                for suite_to_lease in suites_leased_this_date:
-                    overall_deal_number = absorbed_units + 1
+                if area_absorbed_this_date >= area_targeted_this_date:
+                    break
+                if suite.is_divisible:
+                    state = context._suite_states[suite.suite]
+                    logger.debug(f"      Processing divisible suite: {suite.suite}, current remaining area: {state.remaining_area:.2f}")
+                    while state.remaining_area > (suite.subdivision_minimum_lease_area or 0.001) and area_absorbed_this_date < area_targeted_this_date:
+                        area_for_this_sub_lease = suite.subdivision_average_lease_area
+                        if area_for_this_sub_lease is None:
+                            logger.error(f"Divisible suite {suite.suite} missing subdivision_average_lease_area.")
+                            break
+                        area_for_this_sub_lease = min(area_for_this_sub_lease, state.remaining_area, area_targeted_this_date - area_absorbed_this_date)
+                        if area_for_this_sub_lease < (suite.subdivision_minimum_lease_area or 0.001) and state.remaining_area >= (suite.subdivision_minimum_lease_area or 0.001):
+                            area_for_this_sub_lease = state.remaining_area
+                        if area_for_this_sub_lease < (suite.subdivision_minimum_lease_area or 0.001):
+                            logger.debug(f"        Sub-lease area {area_for_this_sub_lease:.2f} for {suite.suite} is below minimum. Processing of this divisible suite ends.")
+                            state.remaining_area = 0
+                            break
+                        if area_for_this_sub_lease <= 0:
+                            break
+                        state.units_created += 1
+                        overall_deal_number = absorbed_units + len(generated_specs) + 1
+                        logger.debug(f"        Attempting to create sub-lease: {suite.subdivision_naming_pattern.format(master_suite_id=suite.suite, count=state.units_created)}, Area {area_for_this_sub_lease:.0f} SF")
+                        spec = context.create_subdivided_spec_fn(
+                            master_suite=suite,
+                            subdivided_area=area_for_this_sub_lease,
+                            sub_unit_count=state.units_created,
+                            start_date=schedule_date,
+                            profile_market_terms=context.market_lease_terms,
+                            direct_terms=context.direct_terms,
+                            deal_number=overall_deal_number,
+                            global_settings=context.global_settings,
+                        )
+                        if spec:
+                            logger.info(f"          - Created Subdivided LeaseSpec: {spec.tenant_name}, Area {spec.area:.0f} SF, Sub-unit #{state.units_created} of {suite.suite}")
+                            generated_specs.append(spec)
+                            absorbed_units += 1
+                            absorbed_area += area_for_this_sub_lease
+                            area_absorbed_this_date += area_for_this_sub_lease
+                            state.remaining_area -= area_for_this_sub_lease
+                        else:
+                            logger.error(f"          - Failed to create Subdivided LeaseSpec for part of suite {suite.suite}")
+                            state.units_created -= 1
+                            break
+                    if state.remaining_area < (suite.subdivision_minimum_lease_area or 0.001):
+                        state.remaining_area = 0
+                        suites_to_remove_indices.append(i)
+                        logger.info(f"      Divisible suite {suite.suite} fully subdivided or remainder too small. Marked for removal from main list if loop continues.")
+                    continue
+                # Standard (non-divisible) suite
+                if (area_absorbed_this_date + suite.area) <= area_targeted_this_date:
+                    overall_deal_number = absorbed_units + len(generated_specs) + 1
                     spec = context.create_spec_fn(
-                        suite=suite_to_lease,
+                        suite=suite,
                         start_date=schedule_date,  # Use the specific date from the schedule
                         profile_market_terms=context.market_lease_terms,
                         direct_terms=context.direct_terms,
@@ -577,21 +748,15 @@ class CustomSchedulePaceStrategy(PaceStrategy):
                         global_settings=context.global_settings,
                     )
                     if spec:
+                        logger.info(f"      - Created LeaseSpec: Deal {overall_deal_number}, Suite {suite.suite}, Area {suite.area:.0f} SF")
                         generated_specs.append(spec)
                         absorbed_units += 1
-                        absorbed_area += suite_to_lease.area
-                        # remaining_target_area from context isn't decremented here, target is per-date
-                        logger.debug(
-                            f"      - Created LeaseSpec: Deal {overall_deal_number}, Suite {suite_to_lease.suite}, Area {suite_to_lease.area:.0f} SF"
-                        )
-                    else:
-                        logger.error(
-                            f"      - Failed to create LeaseSpec for suite {suite_to_lease.suite}"
-                        )
-
-                # Remove leased suites from the shared remaining list
-                for index in sorted(suites_to_remove_indices, reverse=True):
-                    del local_remaining_suites[index]
+                        absorbed_area += suite.area
+                        area_absorbed_this_date += suite.area
+                        suites_to_remove_indices.append(i)
+            # Remove leased suites from the shared remaining list
+            for index in sorted(suites_to_remove_indices, reverse=True):
+                del local_remaining_suites[index]
 
         logger.info(
             f"  CustomSchedulePaceStrategy generated {len(generated_specs)} specs ({absorbed_units} units, {absorbed_area:.0f} SF)."
@@ -607,6 +772,60 @@ class AbsorptionPlan(Model):
     Defines a plan for leasing up vacant space over time.
     Generates LeaseSpec objects based on configured pace and leasing assumptions.
     Uses the Strategy pattern to delegate pace logic implementation.
+
+    Note:
+        All mutable state for dynamic subdivision (such as remaining area and units created) is tracked externally using SuiteAbsorptionState objects, keyed by suite.suite, and stored in the private _suite_states field of PaceContext. Do not mutate any attribute of VacantSuite during absorption; it is an immutable (frozen) Pydantic model.
+
+    The `AbsorptionPlan` is designed to model the initial lease-up of vacant space.
+    It operates on a collection of `VacantSuite` objects that must be pre-defined
+    in the input rent roll (e.g., via `Property.rent_roll.vacant_suites`).
+
+    Key Concepts for Usage:
+    *   **Pre-defined `VacantSuite`s:** The `AbsorptionPlan` consumes `VacantSuite`
+        objects as defined in the input. Each `VacantSuite` represents a distinct,
+        leasable unit of space with a specific area.
+    *   **Leasing Multiple Suites (F1 Scenario):** If a property has several individual
+        vacant suites, an `AbsorptionPlan` can manage their phased lease-up. Its
+        `space_filter` identifies the target suites, and its `PaceStrategy` (e.g.,
+        `FixedQuantityPace`, `EqualSpreadPace`) determines the timing and grouping
+        for when these individual suites are leased. Each selected `VacantSuite`
+        will generate one new `LeaseSpec`.
+    *   **Leasing a Single Large Suite (F2 Scenario):** If a property has a single large
+        vacant space to be leased to one tenant, an `AbsorptionPlan` can also model this.
+        The large space should be defined as a single `VacantSuite` in the input.
+        The `PaceStrategy` would typically be configured to absorb this one "unit" at a
+        specific start date, generating a single `LeaseSpec` for the entire area.
+    *   **No Dynamic Subdivision:** The `AbsorptionPlan` does **not** dynamically subdivide
+        a single large `VacantSuite` into multiple smaller leases during its execution.
+        If the modeling goal is to lease out a large block of space as several smaller,
+        distinct units, these smaller units **must be defined as individual `VacantSuite`
+        objects in the input `RentRoll`** prior to running the `AbsorptionPlan`.
+        The `AbsorptionPlan` will then process these pre-defined smaller suites according
+        to its configuration.
+    *   **Leasing Assumptions:** The terms for the new leases generated by the
+        `AbsorptionPlan` (rent, TIs, LCs, escalations, etc.) are defined by the
+        `leasing_assumptions` attribute. This can be a `DirectLeaseTerms` object or
+        a `RolloverProfileIdentifier` referencing a `RolloverProfile`.
+
+    Workflow Example:
+    1.  Define vacant inventory as a list of `VacantSuite` objects (e.g., in `RentRoll`).
+        -   For a 50,000 SF floor to be leased as five 10,000 SF units, create five
+            `VacantSuite` entries, each 10,000 SF.
+        -   For a 50,000 SF floor to be leased to one tenant, create one `VacantSuite`
+            entry of 50,000 SF.
+    2.  Create an `AbsorptionPlan`, specifying:
+        -   `space_filter` to target the desired `VacantSuite`(s).
+        -   `pace` to control the timing and velocity of leasing.
+        -   `leasing_assumptions` to define the terms for the new leases.
+    3.  The `CashFlowAnalysis` process will use the `AbsorptionPlan` to generate
+        `LeaseSpec` objects for the absorbed suites.
+
+    #     these dynamically defined sub-areas.
+    # - Considerations:
+    #   - How to handle remainder areas if total area isn't perfectly divisible.
+    #   - Impact on VacantSuite inventory management.
+    #   - User interface for defining these parameters.
+    # Refer to Argus "Space Absorption" feature for precedent.
 
     Attributes:
         name: A descriptive name for this absorption plan.
@@ -631,12 +850,12 @@ class AbsorptionPlan(Model):
 
     def generate_lease_specs(
         self,
-        available_vacant_suites: List["VacantSuite"],
+        available_vacant_suites: List[VacantSuite],
         analysis_start_date: date,
         analysis_end_date: date,
         lookup_fn: Optional[Callable[[Union[str, UUID]], Any]] = None,
-        global_settings: Optional["GlobalSettings"] = None,
-    ) -> List["LeaseSpec"]:
+        global_settings: Optional[GlobalSettings] = None,
+    ) -> List[LeaseSpec]:
         """
         Generates a list of LeaseSpec objects based on the plan using Pace Strategies.
 
@@ -645,18 +864,11 @@ class AbsorptionPlan(Model):
         2. Resolves the initial start date based on `start_date_anchor`.
         3. Resolves leasing terms (fetches profile market terms or uses direct terms).
         4. Selects and instantiates the appropriate `PaceStrategy` based on `pace`.
-        5. Creates a `PaceContext` object with necessary data.
+        5. Creates a `PaceContext` object with necessary data, including _suite_states for subdivision tracking.
         6. Calls the strategy's `generate` method to produce the `LeaseSpec` list.
 
-        Args:
-            available_vacant_suites: List of VacantSuite objects representing the current inventory.
-            analysis_start_date: Start date of the overall analysis.
-            analysis_end_date: End date of the overall analysis.
-            lookup_fn: Function to resolve references (e.g., RolloverProfileIdentifier).
-            global_settings: Global analysis settings.
-
-        Returns:
-            A list of generated LeaseSpec objects, or an empty list if no leases are generated.
+        Note:
+            All mutable state for dynamic subdivision (such as remaining area and units created) is tracked externally using SuiteAbsorptionState objects, keyed by suite.suite, and stored in the private _suite_states field of PaceContext. Do not mutate any attribute of VacantSuite during absorption; it is an immutable (frozen) Pydantic model.
         """
         logger.info(f"Generating lease specs for AbsorptionPlan: '{self.name}'")
         # Result list initialization moved inside generate method
@@ -691,7 +903,7 @@ class AbsorptionPlan(Model):
         logger.debug(f"  Resolved initial lease start date: {initial_start_date}")
 
         # 3. Determine lease terms
-        market_lease_terms: Optional["RolloverLeaseTerms"] = None
+        market_lease_terms: Optional[RolloverLeaseTerms] = None
         direct_terms: Optional[DirectLeaseTerms] = None
         if isinstance(self.leasing_assumptions, DirectLeaseTerms):
             direct_terms = self.leasing_assumptions
@@ -727,6 +939,7 @@ class AbsorptionPlan(Model):
         # No else needed, Pydantic discriminated union ensures self.pace is one of these
 
         # 5. Prepare Context and Generate
+        _suite_states = {suite.suite: SuiteAbsorptionState(remaining_area=suite.area) for suite in target_suites}
         context = PaceContext(
             plan_name=self.name,
             remaining_suites=target_suites.copy(),  # Pass a copy
@@ -736,7 +949,9 @@ class AbsorptionPlan(Model):
             direct_terms=direct_terms,
             global_settings=global_settings,
             create_spec_fn=self._create_lease_spec,
+            create_subdivided_spec_fn=self._create_subdivided_lease_spec,
             total_target_area=total_target_area,
+            _suite_states=_suite_states,
         )
 
         generated_specs = strategy.generate(self.pace, context)
@@ -763,7 +978,7 @@ class AbsorptionPlan(Model):
         self,
         profile_identifier: RolloverProfileIdentifier,
         lookup_fn: Optional[Callable[[Union[str, UUID]], Any]],
-    ) -> Optional["RolloverLeaseTerms"]:
+    ) -> Optional[RolloverLeaseTerms]:
         """Fetches a RolloverProfile using the lookup function and returns its market terms.
 
         Assumes the lookup_fn can resolve the identifier to a RolloverProfile object.
@@ -803,14 +1018,14 @@ class AbsorptionPlan(Model):
 
     def _create_lease_spec(
         self,
-        suite: "VacantSuite",
+        suite: VacantSuite,
         start_date: date,
-        profile_market_terms: Optional["RolloverLeaseTerms"],
+        profile_market_terms: Optional[RolloverLeaseTerms],
         direct_terms: Optional[DirectLeaseTerms],
         deal_number: int,
-        global_settings: Optional["GlobalSettings"],
-    ) -> Optional["LeaseSpec"]:
-        """Helper method (called by Pace Strategies) to create a LeaseSpec.
+        global_settings: Optional[GlobalSettings],
+    ) -> Optional[LeaseSpec]:
+        """Helper method (called by Pace Strategies) to create a LeaseSpec for a whole suite.
 
         Populates a LeaseSpec object using either directly defined terms
         (DirectLeaseTerms) or terms derived from a resolved RolloverProfile's
@@ -829,7 +1044,205 @@ class AbsorptionPlan(Model):
         Returns:
             A populated LeaseSpec object, or None if essential terms cannot be determined.
         """
-        from ._lease import LeaseSpec  # Local import
+
+        if not profile_market_terms and not direct_terms:
+            logger.error(
+                f"  Cannot create lease spec for suite {suite.suite} without profile market terms or direct terms."
+            )
+            return None
+
+        # --- Determine Lease Parameters (Direct > Profile Market > Default) --- #
+        _term_months: Optional[int] = None
+        _base_rent_value: Optional[float] = None
+        _base_rent_uom: Optional[UnitOfMeasureEnum] = None
+        _upon_expiration: Optional[UponExpirationEnum] = None
+        _rent_escalation: Optional[RentEscalation] = None
+        _rent_abatement: Optional[RentAbatement] = None
+        _recovery_method: Optional[RecoveryMethod] = None
+        _ti_allowance: Optional[TenantImprovementAllowance] = None
+        _leasing_commission: Optional[LeasingCommission] = None
+        _rollover_profile_ref: Optional[str] = None
+
+        # Prioritize DirectLeaseTerms
+        if direct_terms:
+            _term_months = direct_terms.term_months
+            _base_rent_value = direct_terms.base_rent_value
+            _base_rent_uom = direct_terms.base_rent_unit_of_measure
+            _upon_expiration = direct_terms.upon_expiration
+            _rent_escalation = direct_terms.rent_escalation
+            _rent_abatement = direct_terms.rent_abatement
+            _recovery_method = direct_terms.recovery_method
+            _ti_allowance = direct_terms.ti_allowance
+            _leasing_commission = direct_terms.leasing_commission
+            # Note: rollover_profile_ref typically comes from the profile, not direct override
+
+        # Fallback to RolloverProfile Market Terms (if not set by direct_terms)
+        if profile_market_terms:
+            # Basic terms
+            if _term_months is None:
+                _term_months = profile_market_terms.term_months
+            # Note: RolloverLeaseTerms doesn't typically define upon_expiration directly, it's part of the Profile
+            # We'll rely on the override or a default for upon_expiration for the *generated* lease.
+
+            # Components (deep copy needed to avoid modifying shared profile terms)
+            if _rent_escalation is None:
+                _rent_escalation = (
+                    profile_market_terms.rent_escalation.model_copy(deep=True)
+                    if profile_market_terms.rent_escalation
+                    else None
+                )
+            if _rent_abatement is None:
+                _rent_abatement = (
+                    profile_market_terms.rent_abatement.model_copy(deep=True)
+                    if profile_market_terms.rent_abatement
+                    else None
+                )
+            if _recovery_method is None:
+                _recovery_method = (
+                    profile_market_terms.recovery_method.model_copy(deep=True)
+                    if profile_market_terms.recovery_method
+                    else None
+                )
+            if _ti_allowance is None:
+                _ti_allowance = (
+                    profile_market_terms.ti_allowance.model_copy(deep=True)
+                    if profile_market_terms.ti_allowance
+                    else None
+                )
+            if _leasing_commission is None:
+                _leasing_commission = (
+                    profile_market_terms.leasing_commission.model_copy(deep=True)
+                    if profile_market_terms.leasing_commission
+                    else None
+                )
+
+            # Rent value/UoM calculation requires calling the profile's logic
+            if _base_rent_value is None:
+                try:
+                    # Assuming RolloverLeaseTerms has _calculate_rent method
+                    _base_rent_value = profile_market_terms._calculate_rent(
+                        term_config=profile_market_terms,
+                        rollover_date=start_date,
+                        global_settings=global_settings,
+                    )
+                    _base_rent_uom = profile_market_terms.unit_of_measure
+                except AttributeError:
+                    logger.error(
+                        f"  Profile market terms object {type(profile_market_terms)} missing expected '_calculate_rent' or 'unit_of_measure'. Cannot determine base rent."
+                    )
+                    return None
+                except Exception as e:
+                    logger.error(
+                        f"  Error calculating base rent from profile market terms for deal {deal_number}: {e}",
+                        exc_info=True,
+                    )
+                    return None
+            elif _base_rent_uom is None:
+                # Use UoM from profile if rent value was overridden directly
+                _base_rent_uom = profile_market_terms.unit_of_measure
+
+            # Determine rollover profile ref (needs a way to link back from terms to parent profile)
+            if _rollover_profile_ref is None:
+                # If the terms came from a profile, assume the generated lease uses the *same* profile for its rollover
+                # Find the identifier of the profile that these market terms belong to.
+                # This requires the lookup function or context to provide this reverse mapping, or the profile itself.
+                # For now, we don't have a clean way, leave as None or try to get from direct_terms if provided.
+                # TODO: Improve determination of rollover_profile_ref for generated specs to ensure subsequent rollovers function correctly.
+                logger.warning(
+                    f"  Cannot determine RolloverProfile reference for generated LeaseSpec Deal {deal_number}. Subsequent rollovers may fail."
+                )
+                # Example placeholder if direct_terms could specify it:
+                # _rollover_profile_ref = direct_terms.rollover_profile_ref if direct_terms and direct_terms.rollover_profile_ref else None
+
+        # Apply Defaults / Final Checks (should ideally rely on RLA/Override having required fields)
+        if _term_months is None:
+            _term_months = 60
+            logger.warning(
+                f"  Using default term_months ({_term_months}) for deal {deal_number}"
+            )
+        if _base_rent_value is None or _base_rent_value <= 0:
+            logger.error(
+                f"  Invalid base_rent_value ({_base_rent_value}) determined for deal {deal_number}"
+            )
+            return None
+        if _base_rent_uom is None:
+            _base_rent_uom = UnitOfMeasureEnum.PER_UNIT
+            logger.warning(
+                f"  Using default base_rent_uom ({_base_rent_uom}) for deal {deal_number}"
+            )
+        # Set a default upon_expiration if still None after checking override/profile(which likely doesn't have it)
+        if _upon_expiration is None:
+            _upon_expiration = UponExpirationEnum.MARKET
+            logger.warning(
+                f"  Using default upon_expiration ({_upon_expiration}) for deal {deal_number}"
+            )
+
+        # Map suite use type to lease type
+        lease_type_mapping = {ProgramUseEnum.OFFICE: LeaseTypeEnum.NET}
+        lease_type = lease_type_mapping.get(suite.use_type, LeaseTypeEnum.NET)
+
+        # --- Create and Return LeaseSpec --- #
+        try:
+            spec = LeaseSpec(
+                tenant_name=f"{self.name}-Deal{deal_number}-{suite.suite}",
+                suite=suite.suite,
+                floor=suite.floor,
+                area=suite.area,
+                use_type=suite.use_type,
+                lease_type=lease_type,
+                start_date=start_date,
+                term_months=_term_months,
+                end_date=None,
+                base_rent_value=_base_rent_value,
+                base_rent_unit_of_measure=_base_rent_uom,
+                rent_escalation=_rent_escalation,
+                rent_abatement=_rent_abatement,
+                recovery_method=_recovery_method,
+                ti_allowance=_ti_allowance,
+                leasing_commission=_leasing_commission,
+                upon_expiration=_upon_expiration,
+                rollover_profile_ref=_rollover_profile_ref,
+                source="AbsorptionPlan",
+            )
+            logger.debug(
+                f"    Successfully created LeaseSpec for deal {deal_number} / suite {suite.suite}"
+            )
+            return spec
+        except Exception as e:
+            logger.error(
+                f"    Failed to create LeaseSpec for deal {deal_number} / suite {suite.suite}: {e}",
+                exc_info=True,
+            )
+            return None
+
+    def _create_subdivided_lease_spec(
+        self,
+        suite: VacantSuite,
+        start_date: date,
+        profile_market_terms: Optional[RolloverLeaseTerms],
+        direct_terms: Optional[DirectLeaseTerms],
+        deal_number: int,
+        global_settings: Optional[GlobalSettings],
+    ) -> Optional[LeaseSpec]:
+        """Helper method (called by Pace Strategies) to create a subdivided LeaseSpec.
+
+        Populates a LeaseSpec object using either directly defined terms
+        (DirectLeaseTerms) or terms derived from a resolved RolloverProfile's
+        market terms (RolloverLeaseTerms).
+
+        Prioritization: DirectLeaseTerms fields override RolloverLeaseTerms fields.
+
+        Args:
+            suite: The VacantSuite being leased for this deal.
+            start_date: The calculated start date for this specific lease spec.
+            profile_market_terms: The resolved market terms from a RolloverProfile (if used).
+            direct_terms: The directly defined terms from the AbsorptionPlan (if used).
+            deal_number: A sequential number for the generated lease/deal (for naming).
+            global_settings: Global analysis settings (needed for rent calculation).
+
+        Returns:
+            A populated LeaseSpec object, or None if essential terms cannot be determined.
+        """
 
         if not profile_market_terms and not direct_terms:
             logger.error(
