@@ -40,7 +40,7 @@ from ..core._types import (
 )
 from ._lc import LeasingCommission
 from ._lease_spec import LeaseSpec
-from ._recovery import RecoveryMethod
+from ._recovery import RecoveryCalculationState, RecoveryMethod
 from ._rent_abatement import RentAbatement
 from ._rent_escalation import RentEscalation
 from ._rollover import RolloverLeaseTerms, RolloverProfile
@@ -332,8 +332,24 @@ class Lease(CashFlowModel):
         global_settings: Optional["GlobalSettings"] = None,
         occupancy_rate: Optional[Union[float, pd.Series]] = None,
         lookup_fn: Optional[Callable[[Union[str, UUID]], Any]] = None,
+        recovery_states: Optional[Dict[UUID, RecoveryCalculationState]] = None
     ) -> Dict[str, pd.Series]:
-        """Computes cash flows for this specific lease term."""
+        """Computes cash flows for this specific lease term.
+
+        Args:
+            property_data: Optional `Property` instance providing context.
+            global_settings: Optional `GlobalSettings` for analysis-wide parameters.
+            occupancy_rate: Optional occupancy rate (float or Series) for adjusting
+                            recoveries or variable components.
+            lookup_fn: Optional callable to resolve references.
+            recovery_states: Optional dictionary mapping Recovery model_ids to their
+                             pre-calculated `RecoveryCalculationState` (base year stops, etc.),
+                             primarily used by the associated `RecoveryMethod`.
+
+        Returns:
+            A dictionary where keys are cash flow component names (e.g., "base_rent",
+            "recoveries") and values are pandas Series of monthly amounts.
+        """
         # --- Base Rent Calculation ---
         # Assumes self.value holds the initial rent rate for the specified unit/freq
         if isinstance(self.value, (int, float)):
@@ -373,6 +389,12 @@ class Lease(CashFlowModel):
                 )
             else:
                 # Calculate recoveries using the attached method instance
+                if recovery_states is None:
+                    logger.warning(f"Recovery states not provided for lease '{self.name}'. Recoveries may be incorrect if base year stops are needed.")
+                    effective_recovery_states = {} 
+                else:
+                    effective_recovery_states = recovery_states
+
                 recoveries_cf = self.recovery_method.calculate_recoveries(
                     tenant_area=self.area,
                     property_data=property_data,
@@ -380,6 +402,7 @@ class Lease(CashFlowModel):
                     occupancy_rate=occupancy_rate,
                     lookup_fn=lookup_fn,
                     global_settings=global_settings,
+                    recovery_states=effective_recovery_states
                 )
                 # TODO: Store the calculated Recovery objects in self.recoveries if needed?
                 # self.recoveries = ...
@@ -494,6 +517,7 @@ class Lease(CashFlowModel):
         global_settings: Optional["GlobalSettings"] = None,
         occupancy_projection: Optional[pd.Series] = None,
         lookup_fn: Optional[Callable[[Union[str, UUID]], Any]] = None,
+        recovery_states: Optional[Dict[UUID, RecoveryCalculationState]] = None
     ) -> pd.DataFrame:
         """Projects cash flows for this lease and subsequent rollovers until projection_end_date.
 
@@ -534,9 +558,19 @@ class Lease(CashFlowModel):
             created speculative lease, continuing the projection until the `projection_end_date`
             is reached or no further rollovers are defined.
 
-        The result is a pandas DataFrame containing all cash flow components (base rent,
-        recoveries, TIs, LCs, vacancy loss, etc.) for the entire projected lease chain,
-        indexed by monthly periods.
+        Args:
+            projection_end_date: The final date for the cash flow projection horizon.
+            property_data: Optional `Property` instance providing context like area, expense items.
+            global_settings: Optional `GlobalSettings` for analysis-wide parameters.
+            occupancy_projection: Optional `pd.Series` of occupancy rates over the analysis period.
+            lookup_fn: Optional callable to resolve references (e.g., `RolloverProfile` names).
+            recovery_states: Optional dictionary mapping Recovery model_ids to their
+                             pre-calculated `RecoveryCalculationState` (base year stops, etc.).
+
+        Returns:
+            A pandas DataFrame containing all cash flow components (base rent,
+            recoveries, TIs, LCs, vacancy loss, etc.) for the entire projected lease chain,
+            indexed by monthly periods.
         """
         # Calculate CF for the current lease term
         current_cf_dict = self.compute_cf(
@@ -544,6 +578,7 @@ class Lease(CashFlowModel):
             global_settings=global_settings,
             occupancy_rate=occupancy_projection,
             lookup_fn=lookup_fn,
+            recovery_states=recovery_states
         )
         result_df = pd.DataFrame(current_cf_dict)
         result_df["vacancy_loss"] = 0.0  # Initialize vacancy loss for this term
@@ -659,6 +694,7 @@ class Lease(CashFlowModel):
                     global_settings=global_settings,
                     occupancy_projection=occupancy_projection,
                     lookup_fn=lookup_fn,
+                    recovery_states=recovery_states
                 )
         elif not self.rollover_profile:
             logger.debug(

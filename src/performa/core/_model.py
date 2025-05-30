@@ -9,7 +9,7 @@ class Model(BaseModel):
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         use_enum_values=True,
-        frozen=True,  # TODO: evaluate shared state implications without freezing
+        frozen=True,  # Decision: Stick with frozen=True. Mutable state for specific processes (e.g., absorption, recovery pre-calcs) will be handled by external state objects.
     )
 
     def copy(self, *, updates: dict = None) -> "Model":

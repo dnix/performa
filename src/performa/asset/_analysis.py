@@ -44,6 +44,7 @@ from ._lease import (
     LeaseSpec,
 )
 from ._property import Property
+from ._recovery import Recovery, RecoveryCalculationState
 
 if TYPE_CHECKING:
     from ._expense import ExpenseItem
@@ -328,20 +329,25 @@ class CashFlowAnalysis(Model):
     # --- Private Helper: Base Year Stop Pre-calculation ---
     def _pre_calculate_all_base_year_stops(
         self, all_models: List[CashFlowModel]
-    ) -> None:
+    ) -> Dict[UUID, RecoveryCalculationState]:
         """
-        Iterates through leases in all_models and calculates/caches base year stops.
+        Iterates through leases in all_models and calculates base year stops.
 
         This should be called once before dependency-based computation begins.
-        It finds Leases with base year recovery structures and populates the
-        `_calculated_annual_base_year_stop` and `_frozen_base_year_pro_rata`
-        attributes on their associated Recovery objects.
+        It finds Leases with base year recovery structures, calculates the
+        annual base year stop amount and any frozen pro-rata share, and returns
+        this information in a dictionary mapping each Recovery object's model_id
+        to a RecoveryCalculationState object containing these pre-calculated values.
+        This method does not modify the Recovery objects themselves.
 
         Args:
             all_models: List containing all CashFlowModel instances for the analysis,
-                       including projected leases.
+                       including projected leases and their associated recovery rules.
+        Returns:
+            A dictionary mapping Recovery model_id to its RecoveryCalculationState.
         """
         logger.info("Starting pre-calculation of base year stops...")
+        recovery_states_map: Dict[UUID, RecoveryCalculationState] = {}
 
         # Imports moved to top level
 
@@ -364,22 +370,27 @@ class CashFlowAnalysis(Model):
 
             # Check if this lease has relevant recovery structures and hasn't been calculated yet
             for recovery in lease.recoveries:
+                # Initialize state for every recovery object encountered that needs calculation
+                current_state = recovery_states_map.get(recovery.model_id, RecoveryCalculationState(recovery_model_id=recovery.model_id))
+                recovery_states_map[recovery.model_id] = current_state
+
                 if recovery.structure in [
                     "base_year",
                     "base_year_plus1",
                     "base_year_minus1",
-                ]:
-                    # Check cache *on the recovery object* first
-                    if recovery._calculated_annual_base_year_stop is not None:
-                        logger.debug(
-                            f"  Stop already calculated for Lease '{lease.name}', Recovery Pool '{recovery.expense_pool.name}'. Skipping."
-                        )
-                        continue
+                 ]:
+                    # Check cache *on the recovery object* first -> This check is no longer valid here, pre-calc state is external
+                    # if recovery._calculated_annual_base_year_stop is not None:
+                    #     logger.debug(
+                    #         f"  Stop already calculated for Lease '{lease.name}', Recovery Pool '{recovery.expense_pool.name}'. Skipping."
+                    #     )
+                    #     continue
 
                     if recovery.base_year is None:
                         logger.error(
                             f"  Recovery '{recovery.expense_pool.name}' for lease '{lease.name}' is Base Year type but missing base_year value."
                         )
+                        # current_state.calculated_annual_base_year_stop remains None
                         continue
 
                     recoveries_needing_calc.append(recovery)
@@ -396,7 +407,6 @@ class CashFlowAnalysis(Model):
                             logger.warning(
                                 f"Item '{getattr(item, 'name', 'Unknown')}' in pool '{recovery.expense_pool.name}' does not have model_id. Skipping."
                             )
-
             if not recoveries_needing_calc:
                 continue  # No base year recoveries needing calculation for this lease
 
@@ -407,6 +417,7 @@ class CashFlowAnalysis(Model):
 
             # Use string hint 'Recovery' when iterating
             for recovery in recoveries_needing_calc:
+                current_state = recovery_states_map[recovery.model_id] # Should exist
                 year_offset = 0
                 if recovery.structure == "base_year_plus1":
                     year_offset = 1
@@ -458,6 +469,7 @@ class CashFlowAnalysis(Model):
                         logger.error(
                             f"    Failed to get occupancy for base year {target_base_year}."
                         )
+                        # current_state.calculated_annual_base_year_stop remains None
                         continue
                     base_year_data_cache[target_base_year]["occupancy"] = (
                         monthly_occupancy
@@ -476,6 +488,7 @@ class CashFlowAnalysis(Model):
                         logger.error(
                             f"    Failed to get expenses for base year {target_base_year}."
                         )
+                        # current_state.calculated_annual_base_year_stop remains None
                         continue
                     base_year_data_cache[target_base_year]["expenses"] = (
                         monthly_expenses
@@ -493,7 +506,7 @@ class CashFlowAnalysis(Model):
                     logger.warning(
                         f"  Skipping stop calculation for recovery '{recovery.expense_pool.name}' due to missing cached data for base year {target_base_year}."
                     )
-                    recovery._calculated_annual_base_year_stop = None
+                    # current_state.calculated_annual_base_year_stop remains None
                     continue
 
                 # Filter expenses relevant to *this* recovery's pool
@@ -518,7 +531,7 @@ class CashFlowAnalysis(Model):
                     logger.warning(
                         f"  No expense data found for pool '{recovery.expense_pool.name}' in base year {target_base_year}. Setting stop to 0."
                     )
-                    recovery._calculated_annual_base_year_stop = 0.0
+                    current_state.calculated_annual_base_year_stop = 0.0
                     continue
 
                 # Perform Gross-up
@@ -582,7 +595,7 @@ class CashFlowAnalysis(Model):
                     logger.error(
                         f"    Could not create precise base period range for {recovery.expense_pool.name}. Cannot annualize. Error: {e}"
                     )
-                    recovery._calculated_annual_base_year_stop = None
+                    # current_state.calculated_annual_base_year_stop remains None
                     continue
 
                 sliced_base_year_total = total_pool_by_grossed_up.reindex(
@@ -606,7 +619,7 @@ class CashFlowAnalysis(Model):
                 logger.debug(
                     f"    Calculated Annual Stop for pool '{recovery.expense_pool.name}': {annual_stop_amount:.2f}"
                 )
-                recovery._calculated_annual_base_year_stop = annual_stop_amount
+                current_state.calculated_annual_base_year_stop = annual_stop_amount
 
                 # --- Check for Frozen Pro-rata Share ---
                 freeze_share_flag = False
@@ -627,7 +640,7 @@ class CashFlowAnalysis(Model):
                     current_nra = self.property.net_rentable_area
                     if current_nra > 0:
                         base_year_pro_rata = lease.area / current_nra
-                        recovery._frozen_base_year_pro_rata = base_year_pro_rata
+                        current_state.frozen_base_year_pro_rata = base_year_pro_rata
                         logger.debug(
                             f"    Storing frozen base year pro-rata share: {base_year_pro_rata:.4f}"
                         )
@@ -635,11 +648,12 @@ class CashFlowAnalysis(Model):
                         logger.warning(
                             f"    Cannot calculate base year pro-rata share for freezing (Property NRA={current_nra})."
                         )
-                        recovery._frozen_base_year_pro_rata = None
+                        current_state.frozen_base_year_pro_rata = None
                 else:
-                    recovery._frozen_base_year_pro_rata = None
+                    current_state.frozen_base_year_pro_rata = None
 
         logger.info("Finished pre-calculation of base year stops.")
+        return recovery_states_map
 
     # --- Private Methods ---
     def _create_timeline(self) -> Timeline:
@@ -838,7 +852,7 @@ class CashFlowAnalysis(Model):
 
         # --- Pre-calculate Base Year Stops --- #
         # Uses the combined list including initial leases and their expenses
-        self._pre_calculate_all_base_year_stops(all_initial_models)
+        recovery_states_map = self._pre_calculate_all_base_year_stops(all_initial_models)
 
         # --- Project Full Lease Chains --- #
         logger.info(
@@ -857,6 +871,7 @@ class CashFlowAnalysis(Model):
                     global_settings=self.settings,
                     occupancy_projection=occupancy_series,  # Pass calculated occupancy
                     lookup_fn=proj_lookup_fn,
+                    recovery_states=recovery_states_map
                 )
                 # Ensure the result DF index matches the analysis periods
                 full_chain_cf_df = full_chain_cf_df.reindex(
