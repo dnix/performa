@@ -63,7 +63,7 @@ def test_cashflowmodel_default_field_values(sample_timeline: Timeline):
         value=500.0,
         unit_of_measure=UnitOfMeasureEnum.CURRENCY,
     )
-    assert isinstance(model.model_id, UUID)
+    assert isinstance(model.uid, UUID)
     assert model.description is None
     assert model.account is None
     assert model.reference is None

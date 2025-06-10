@@ -50,11 +50,11 @@ class CashFlowOrchestrator(Model):
         self, model_map: Dict[UUID, CashFlowModel]
     ) -> Dict[UUID, Set[UUID]]:
         """Builds a dependency graph from the cash flow models."""
-        graph = {model_id: set() for model_id in model_map}
-        for model_id, model in model_map.items():
+        graph = {uid: set() for uid in model_map}
+        for uid, model in model_map.items():
             if isinstance(model.reference, UUID):
                 if model.reference in model_map:
-                    graph[model_id].add(model.reference)
+                    graph[uid].add(model.reference)
         return graph
 
     def _run_compute_cf(
@@ -79,7 +79,7 @@ class CashFlowOrchestrator(Model):
         """
         Main method to run the full cash flow computation and aggregation.
         """
-        model_map = {model.model_id: model for model in self.cash_flow_models}
+        model_map = {model.uid: model for model in self.cash_flow_models}
         graph = self._build_dependency_graph(model_map)
         
         computed_results: Dict[UUID, Union[pd.Series, Dict[str, pd.Series]]] = {}
@@ -94,9 +94,9 @@ class CashFlowOrchestrator(Model):
             ts = TopologicalSorter(graph)
             sorted_nodes = list(ts.static_order())
             
-            for model_id in sorted_nodes:
-                model = model_map[model_id]
-                computed_results[model_id] = self._run_compute_cf(model, lookup_fn, **kwargs)
+            for model_uid in sorted_nodes:
+                model = model_map[model_uid]
+                computed_results[model_uid] = self._run_compute_cf(model, lookup_fn, **kwargs)
 
         except CycleError:
             # Fallback to iterative computation if a cycle is detected

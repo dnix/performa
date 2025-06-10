@@ -21,7 +21,7 @@ class RecoveryCalculationState:
     """
     Holds pre-calculated, mutable state for a Recovery object during analysis.
     """
-    recovery_model_id: UUID
+    recovery_uid: UUID
     calculated_annual_base_year_stop: Optional[float] = None
     frozen_base_year_pro_rata: Optional[float] = None
 
@@ -41,7 +41,7 @@ class RecoveryBase(Model):
     Base model for cost recovery rules.
     """
 
-    model_id: UUID = Field(default_factory=uuid4)
+    uid: UUID = Field(default_factory=uuid4)
     expenses: Union[ExpensePoolBase, ExpenseItemBase]
     structure: Literal[
         "net",
@@ -90,4 +90,4 @@ class RecoveryMethodBase(Model):
     name: str
     gross_up: bool = True
     gross_up_percent: Optional[FloatBetween0And1] = None
-    recoveries: List[RecoveryBase] 
+    recoveries: List[RecoveryBase]

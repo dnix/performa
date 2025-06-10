@@ -22,10 +22,7 @@ class CashFlowModel(Model, ABC):
     Subclasses must implement the compute_cf method.
     """
 
-    # FIXME: Address Pydantic V2 warning: `model_id` conflicts with protected namespace 'model_'.
-    # Possible fix is to set `model_config['protected_namespaces'] = ()` in base Model
-    # or rename field to `item_id`.
-    model_id: UUID = Field(
+    uid: UUID = Field(
         default_factory=uuid4,
         description="Stable unique identifier for this model instance",
     )

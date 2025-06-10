@@ -75,8 +75,8 @@ def test_orchestrator_dependency_resolution_dag(mock_cash_flow_factory, sample_p
     """Test that the orchestrator computes a valid DAG in the correct order."""
     # Create a simple DAG: C -> B -> A
     model_a = mock_cash_flow_factory("A")
-    model_b = mock_cash_flow_factory("B", reference=model_a.model_id)
-    model_c = mock_cash_flow_factory("C", reference=model_b.model_id)
+    model_b = mock_cash_flow_factory("B", reference=model_a.uid)
+    model_c = mock_cash_flow_factory("C", reference=model_b.uid)
 
     # Use a manager mock to track the order of calls to the individual mocks
     manager = MagicMock()
