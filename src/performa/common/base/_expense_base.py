@@ -1,19 +1,15 @@
 from __future__ import annotations
 
 import logging
-from datetime import date
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import pandas as pd
 
 from ..primitives._cash_flow import CashFlowModel
 from ..primitives._enums import ExpenseSubcategoryEnum
+from ..primitives._growth_rates import GrowthRate
 from ..primitives._model import Model
 from ..primitives._types import FloatBetween0And1
-
-if TYPE_CHECKING:
-    from ..primitives._growth_rates import GrowthRate
-
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +39,7 @@ class OpExItemBase(ExpenseItemBase):
     """Base class for operating expenses."""
 
     subcategory: ExpenseSubcategoryEnum = ExpenseSubcategoryEnum.OPEX
-    growth_rate: Optional["GrowthRate"] = None
+    growth_rate: Optional[GrowthRate] = None
     variable_ratio: Optional[FloatBetween0And1] = None
     recoverable_ratio: Optional[FloatBetween0And1] = 0.0
 

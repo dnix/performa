@@ -8,13 +8,10 @@ from uuid import UUID, uuid4
 import pandas as pd
 from pydantic import Field, model_validator
 
+from ..primitives._growth_rates import GrowthRate
 from ..primitives._model import Model
 from ..primitives._types import FloatBetween0And1, PositiveFloat
-
-if TYPE_CHECKING:
-    from ..primitives._growth_rates import GrowthRate
-    from ._expense_base import ExpenseItemBase
-
+from ._expense_base import ExpenseItemBase
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +32,7 @@ class ExpensePoolBase(Model):
     """
 
     name: str
-    expenses: Union["ExpenseItemBase", List["ExpenseItemBase"]]
+    expenses: Union[ExpenseItemBase, List[ExpenseItemBase]]
     pool_size_override: Optional[PositiveFloat] = None
 
 
@@ -45,7 +42,7 @@ class RecoveryBase(Model):
     """
 
     model_id: UUID = Field(default_factory=uuid4)
-    expenses: Union[ExpensePoolBase, "ExpenseItemBase"]
+    expenses: Union[ExpensePoolBase, ExpenseItemBase]
     structure: Literal[
         "net",
         "base_stop",
@@ -57,7 +54,7 @@ class RecoveryBase(Model):
     base_amount: Optional[PositiveFloat] = None
     base_amount_unit: Optional[Literal["total", "psf"]] = "psf"
     base_year: Optional[int] = None
-    growth_rate: Optional["GrowthRate"] = None
+    growth_rate: Optional[GrowthRate] = None
     contribution_deduction: Optional[PositiveFloat] = None
     admin_fee_percent: Optional[FloatBetween0And1] = None
     prorata_share: Optional[PositiveFloat] = None

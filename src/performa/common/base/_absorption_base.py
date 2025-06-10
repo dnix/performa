@@ -29,16 +29,11 @@ from ..primitives._enums import (
 from ..primitives._model import Model
 from ..primitives._settings import GlobalSettings
 from ..primitives._types import PositiveFloat, PositiveInt
-
-if TYPE_CHECKING:
-    from ._cost_base import LeasingCommissionBase, TenantImprovementAllowanceBase
-    from ._lease_base import LeaseSpecBase
-    from ._recovery_base import RecoveryMethodBase
-    from ._rent_abatement_base import RentAbatementBase
-    from ._rent_escalation_base import RentEscalationBase
-    from ._rent_roll_base import VacantSuiteBase
-    from ._rollover_base import RolloverLeaseTermsBase, RolloverProfileBase
-
+from ._cost_base import LeasingCommissionBase, TenantImprovementAllowanceBase
+from ._lease_base import LeaseSpecBase, RentAbatementBase, RentEscalationBase
+from ._recovery_base import RecoveryMethodBase
+from ._rent_roll_base import VacantSuiteBase
+from ._rollover_base import RolloverLeaseTermsBase
 
 logger = logging.getLogger(__name__)
 

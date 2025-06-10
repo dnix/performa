@@ -5,17 +5,12 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Union
 import pandas as pd
 
 from ..primitives._enums import FrequencyEnum, UnitOfMeasureEnum, UponExpirationEnum
+from ..primitives._growth_rates import GrowthRate
 from ..primitives._model import Model
 from ..primitives._types import FloatBetween0And1, PositiveFloat, PositiveInt
-
-if TYPE_CHECKING:
-    from ..primitives._growth_rates import GrowthRate
-
-    # Import placeholder base classes from other .base modules
-    from ._cost_base import LeasingCommissionBase, TenantImprovementAllowanceBase
-    from ._recovery_base import RecoveryMethodBase
-    from ._rent_abatement_base import RentAbatementBase
-    from ._rent_escalation_base import RentEscalationBase
+from ._cost_base import LeasingCommissionBase, TenantImprovementAllowanceBase
+from ._lease_base import RentAbatementBase, RentEscalationBase
+from ._recovery_base import RecoveryMethodBase
 
 
 class RolloverLeaseTermsBase(Model):
@@ -26,12 +21,12 @@ class RolloverLeaseTermsBase(Model):
     market_rent: Optional[Union[PositiveFloat, pd.Series, Dict, List]] = None
     unit_of_measure: UnitOfMeasureEnum = UnitOfMeasureEnum.PER_UNIT
     frequency: FrequencyEnum = FrequencyEnum.ANNUAL
-    growth_rate: Optional["GrowthRate"] = None
-    rent_escalation: Optional["RentEscalationBase"] = None
-    rent_abatement: Optional["RentAbatementBase"] = None
-    recovery_method: Optional["RecoveryMethodBase"] = None
-    ti_allowance: Optional["TenantImprovementAllowanceBase"] = None
-    leasing_commission: Optional["LeasingCommissionBase"] = None
+    growth_rate: Optional[GrowthRate] = None
+    rent_escalation: Optional[RentEscalationBase] = None
+    rent_abatement: Optional[RentAbatementBase] = None
+    recovery_method: Optional[RecoveryMethodBase] = None
+    ti_allowance: Optional[TenantImprovementAllowanceBase] = None
+    leasing_commission: Optional[LeasingCommissionBase] = None
 
 
 class RolloverProfileBase(Model):
@@ -44,6 +39,6 @@ class RolloverProfileBase(Model):
     downtime_months: int
     market_terms: RolloverLeaseTermsBase
     renewal_terms: RolloverLeaseTermsBase
-    option_terms: RolloverLeaseTermsBase
+    option_terms: Optional[RolloverLeaseTermsBase] = None
     upon_expiration: UponExpirationEnum = UponExpirationEnum.MARKET
     next_profile: Optional[str] = None 

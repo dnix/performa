@@ -19,6 +19,7 @@ from uuid import UUID
 
 import pandas as pd
 
+from ..base._property_base import PropertyBaseModel
 from ..primitives._cash_flow import CashFlowModel
 from ..primitives._enums import AggregateLineKey
 from ..primitives._model import Model
@@ -37,7 +38,7 @@ class CashFlowOrchestrator(Model):
     Orchestrates the calculation and aggregation of cash flows.
     """
 
-    subject_model: "PropertyBaseModel"
+    subject_model: PropertyBaseModel
     cash_flow_models: List[CashFlowModel]
     timeline: Timeline
     settings: GlobalSettings = GlobalSettings()
@@ -48,8 +49,13 @@ class CashFlowOrchestrator(Model):
     def _build_dependency_graph(
         self, model_map: Dict[UUID, CashFlowModel]
     ) -> Dict[UUID, Set[UUID]]:
-        # Logic from _build_dependency_graph
-        return {}
+        """Builds a dependency graph from the cash flow models."""
+        graph = {model_id: set() for model_id in model_map}
+        for model_id, model in model_map.items():
+            if isinstance(model.reference, UUID):
+                if model.reference in model_map:
+                    graph[model_id].add(model.reference)
+        return graph
 
     def _run_compute_cf(
         self, model: CashFlowModel, lookup_fn: Callable, **kwargs
@@ -69,10 +75,44 @@ class CashFlowOrchestrator(Model):
         # Logic from _aggregate_detailed_flows
         return {}
 
-    def compute_all(self) -> None:
+    def compute_all(self, **kwargs) -> None:
         """
         Main method to run the full cash flow computation and aggregation.
         """
-        # This will contain the primary orchestration logic
-        # For now, it's a placeholder
-        pass 
+        model_map = {model.model_id: model for model in self.cash_flow_models}
+        graph = self._build_dependency_graph(model_map)
+        
+        computed_results: Dict[UUID, Union[pd.Series, Dict[str, pd.Series]]] = {}
+
+        def lookup_fn(identifier: Union[str, UUID]):
+            if isinstance(identifier, UUID):
+                return computed_results.get(identifier)
+            # Placeholder for other lookups (e.g., from property)
+            return None
+
+        try:
+            ts = TopologicalSorter(graph)
+            sorted_nodes = list(ts.static_order())
+            
+            for model_id in sorted_nodes:
+                model = model_map[model_id]
+                computed_results[model_id] = self._run_compute_cf(model, lookup_fn, **kwargs)
+
+        except CycleError:
+            # Fallback to iterative computation if a cycle is detected
+            # For now, we'll just log it. The iterative logic will be added later.
+            logger.warning("Circular dependency detected. Iterative calculation required but not yet implemented.")
+            self._cached_detailed_flows = []
+            return
+
+        # Simplified flow processing for now
+        detailed_flows = []
+        for result in computed_results.values():
+            # This logic is incomplete; needs to handle dicts and metadata
+            if isinstance(result, pd.Series):
+                 # This is a simplification; need to extract metadata from the model
+                metadata = {} 
+                detailed_flows.append((metadata, result))
+
+        self._cached_detailed_flows = detailed_flows
+        self._cached_aggregated_flows = self._aggregate_detailed_flows(detailed_flows) 

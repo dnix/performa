@@ -33,6 +33,7 @@ from ._recovery_base import (
     RecoveryCalculationState,
     RecoveryMethodBase,
 )
+from ._rent_roll_base import VacantSuiteBase
 from ._revenue_base import MiscIncomeBase
 from ._rollover_base import RolloverLeaseTermsBase, RolloverProfileBase
 
@@ -65,6 +66,7 @@ __all__ = [
     "RecoveryBase",
     "RecoveryCalculationState",
     "RecoveryMethodBase",
+    "VacantSuiteBase",
     "MiscIncomeBase",
     "RolloverLeaseTermsBase",
     "RolloverProfileBase",

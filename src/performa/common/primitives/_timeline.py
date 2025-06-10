@@ -1,100 +1,97 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Union
+from typing import Any, Optional, Union
 
 import pandas as pd
-from pydantic import model_validator
+from pydantic import Field, field_validator, model_validator
 
-from ._model import Model  # Corrected path
-from ._types import PositiveInt  # Corrected path
+from ._model import Model
+from ._types import PositiveInt
 
 
 class Timeline(Model):
     """
-    Represents a timeline for financial analysis.
+    Represents a timeline for financial analysis, which can be either absolute
+    (tied to specific dates) or relative (tied to an offset from a master timeline).
 
-    Handles both absolute dates and relative periods, with utilities for conversion
-    and alignment. All timelines use monthly frequency internally.
+    A timeline must be defined with either a `start_date` (for absolute timelines)
+    or a `start_offset_months` (for relative timelines), but not both.
 
     Attributes:
-        start_date: Analysis start date
-        duration_months: Length of timeline in months
+        start_date: Analysis start date (for absolute timelines).
+        start_offset_months: Month offset from a master timeline start (for relative timelines).
+        duration_months: Length of timeline in months.
     """
 
-    start_date: Union[date, pd.Period]
+    start_date: Optional[pd.Period] = None
+    start_offset_months: Optional[int] = None
     duration_months: PositiveInt
 
-    @model_validator(mode="after")
-    def validate_and_normalize_dates(self) -> "Timeline":
-        """Ensure dates are properly formatted and normalized to monthly periods"""
-        # Note: Using 'M' generates FutureWarning in pandas 2.0+, but 'ME' causes errors with
-        # some existing code. Keeping 'M' for now, will need to migrate later.
-        if isinstance(self.start_date, date):
-            self.start_date = pd.Period(self.start_date, freq="M")
-        elif self.start_date.freq != "M":
-            self.start_date = pd.Period(self.start_date.to_timestamp(), freq="M")
-        return self
+    @model_validator(mode="before")
+    @classmethod
+    def check_start_definition(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            start_date = data.get("start_date")
+            start_offset = data.get("start_offset_months")
+            if (start_date is None and start_offset is None) or \
+               (start_date is not None and start_offset is not None):
+                raise ValueError(
+                    "Timeline must be initialized with either 'start_date' or 'start_offset_months', but not both."
+                )
+        return data
 
+    @field_validator("start_date", mode="before")
+    @classmethod
+    def normalize_start_date(cls, v: Union[date, pd.Period]) -> pd.Period:
+        """Ensure start_date is a monthly pd.Period."""
+        if v is None:
+            return None
+        if isinstance(v, date):
+            return pd.Period(v, freq="M")
+        if isinstance(v, pd.Period) and v.freq != "M":
+            return pd.Period(v.to_timestamp(), freq="M")
+        return v
+    
     @property
     def is_relative(self) -> bool:
-        """Check if timeline is relative (based on ordinal 0) or absolute"""
-        return self.start_date.ordinal == 0
+        """Check if the timeline is relative (defined by an offset)."""
+        return self.start_offset_months is not None
+
+    def _get_absolute_start(self) -> pd.Period:
+        """Internal helper to get the start date, raising error if relative."""
+        if self.is_relative:
+            raise ValueError("Cannot get a start date from a relative timeline. It must be shifted first.")
+        return self.start_date
 
     @property
     def end_date(self) -> pd.Period:
-        """Calculate the end date based on duration"""
-        return self.start_date + (self.duration_months - 1)
+        """Calculate the end date based on duration (only for absolute timelines)."""
+        return self._get_absolute_start() + (self.duration_months - 1)
 
     @property
     def period_index(self) -> pd.PeriodIndex:
-        """Generate a monthly PeriodIndex for the timeline"""
-        # Note: Using 'M' generates FutureWarning in pandas 2.0+, but 'ME' causes errors with
-        # some existing code. Keeping 'M' for now, will need to migrate later.
+        """Generate a monthly PeriodIndex for the timeline (only for absolute timelines)."""
+        start = self._get_absolute_start()
         return pd.period_range(
-            start=self.start_date, periods=self.duration_months, freq="M"
+            start=start, periods=self.duration_months, freq="M"
         )
 
     @property
     def date_index(self) -> pd.DatetimeIndex:
-        """Generate a DatetimeIndex for the timeline"""
+        """Generate a DatetimeIndex for the timeline (only for absolute timelines)."""
         return self.period_index.to_timestamp()
 
     def align_series(self, series: pd.Series) -> pd.Series:
-        """
-        Align a series to this timeline's period index.
-
-        Args:
-            series: Input series with datetime or period index
-
-        Returns:
-            Series aligned to this timeline's period index
-        """
-        # Convert series index to monthly PeriodIndex if it's DatetimeIndex
+        """Align a series to this timeline's period index (only for absolute timelines)."""
+        period_index = self.period_index  # Will raise ValueError if relative
         if isinstance(series.index, pd.DatetimeIndex):
-            # Note: Using 'M' generates FutureWarning in pandas 2.0+, but 'ME' causes errors with
-            # some existing code. Keeping 'M' for now, will need to migrate later.
             series.index = series.index.to_period(freq="M")
+        return series.reindex(period_index)
 
-        # Reindex to match this timeline
-        return series.reindex(self.period_index)
-
-    def relative_period(self, months_offset: int) -> pd.Period:
-        """Get a period relative to start_date"""
-        return self.start_date + months_offset
-
-    def resample(self, freq: str) -> pd.DatetimeIndex:
-        """
-        Resample timeline to a different frequency.
-        Useful for reporting and visualization.
-
-        Args:
-            freq: Pandas frequency string ('Q', 'Y', etc.)
-
-        Returns:
-            Resampled DatetimeIndex
-        """
-        return self.date_index.to_period(freq).to_timestamp()
+    def resample(self, freq: str) -> pd.PeriodIndex:
+        """Resample timeline to a different frequency (only for absolute timelines)."""
+        return self.period_index.asfreq(freq, how='start').unique()
 
     @classmethod
     def from_dates(
@@ -102,75 +99,30 @@ class Timeline(Model):
         start_date: Union[date, pd.Period],
         end_date: Union[date, pd.Period],
     ) -> "Timeline":
-        """
-        Create timeline from start and end dates.
-
-        Args:
-            start_date: Start of analysis period
-            end_date: End of analysis period
-
-        Returns:
-            Timeline instance
-        """
-        # Convert to periods if dates
-        # Note: Using 'M' generates FutureWarning in pandas 2.0+, but 'ME' causes errors with
-        # some existing code. Keeping 'M' for now, will need to migrate later.
+        """Create an absolute timeline from start and end dates."""
         start_period = pd.Period(start_date, freq="M")
         end_period = pd.Period(end_date, freq="M")
-
-        # Calculate duration - extract n attribute to get integer months
-        period_diff = end_period - start_period
-        duration = period_diff.n + 1
-
+        duration = (end_period.year - start_period.year) * 12 + (end_period.month - start_period.month) + 1
         return cls(start_date=start_period, duration_months=duration)
 
     @classmethod
     def from_relative(
         cls,
-        months_until_start: int = 0,
-        duration_months: int = 1,
+        months_until_start: int,
+        duration_months: int,
     ) -> "Timeline":
-        """
-        Create timeline using relative timing.
-        Uses ordinal period 0 as reference start and defines duration from there.
-
-        Args:
-            months_until_start: Months offset from reference start (default 0)
-            duration_months: Duration in months (default 1)
-
-        Returns:
-            Timeline instance with relative timeline
-        """
-        # Note: Using 'M' generates FutureWarning in pandas 2.0+, but 'ME' causes errors with
-        # some existing code. Keeping 'M' for now, will need to migrate later.
-        reference_start = pd.Period(ordinal=0, freq="M")
-        start_date = reference_start + months_until_start
-
-        return cls(start_date=start_date, duration_months=duration_months)
+        """Create a relative timeline using an offset and duration."""
+        return cls(start_offset_months=months_until_start, duration_months=duration_months)
 
     def shift_to_index(
         self, reference_index: Union[pd.PeriodIndex, pd.DatetimeIndex]
-    ) -> None:
-        """
-        Shift timeline to align with a reference index, modifying in place.
-        Particularly useful for converting relative timelines to absolute ones.
+    ) -> "Timeline":
+        """Creates a new, absolute timeline by shifting this relative timeline."""
+        if not self.is_relative:
+            raise ValueError("Can only shift relative timelines.")
 
-        Args:
-            reference_index: Index to align with. If DatetimeIndex, will be converted to PeriodIndex
-        """
         if isinstance(reference_index, pd.DatetimeIndex):
-            # Note: Using 'M' generates FutureWarning in pandas 2.0+, but 'ME' causes errors with
-            # some existing code. Keeping 'M' for now, will need to migrate later.
             reference_index = reference_index.to_period(freq="M")
 
-        # Calculate offset needed
-        if self.is_relative:
-            # For relative timelines, shift to start at reference_index start
-            offset = reference_index[0].ordinal - self.start_date.ordinal
-            self.start_date = pd.Period(
-                ordinal=self.start_date.ordinal + offset, freq="M"
-            )
-        else:
-            raise ValueError(
-                "Can only shift relative timelines. This timeline is absolute."
-            ) 
+        new_start_date = reference_index[0] + self.start_offset_months
+        return Timeline(start_date=new_start_date, duration_months=self.duration_months) 

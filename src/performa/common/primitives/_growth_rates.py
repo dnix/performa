@@ -85,96 +85,54 @@ class GrowthRatesBase(Model):
 
         return cls(
             default_rate=default_rate,
-            general_growth=GrowthRate(
-                name="General",
-                value=default_rate
-            ),
-            market_rent_growth=GrowthRate(
-                name="Market Rent",
-                value=default_rate
-            ),
-            misc_income_growth=GrowthRate(
-                name="Misc Income",
-                value=default_rate
-            ),
-            operating_expense_growth=GrowthRate(
-                name="Operating Expenses",
-                value=default_rate
-            ),
-            leasing_costs_growth=GrowthRate(
-                name="Leasing Costs",
-                value=default_rate
-            ),
-            capital_expense_growth=GrowthRate(
-                name="Capital Expenses",
-                value=default_rate
-            ),
+            general_growth=GrowthRate(name="General", value=default_rate),
+            market_rent_growth=GrowthRate(name="Market Rent", value=default_rate),
+            misc_income_growth=GrowthRate(name="Misc Income", value=default_rate),
+            operating_expense_growth=GrowthRate(name="Operating Expenses", value=default_rate),
+            leasing_costs_growth=GrowthRate(name="Leasing Costs", value=default_rate),
+            capital_expense_growth=GrowthRate(name="Capital Expenses", value=default_rate),
         )
 
     @classmethod
     def with_custom_rates(
-        cls, extra_rates: Optional[Dict[str, GrowthRate]] = None, **default_rates
+        cls, extra_rates: Optional[Dict[str, GrowthRate]] = None, **kwargs
     ) -> "GrowthRatesBase":
         """
         Create a dynamic GrowthRatesBase instance supporting arbitrary growth rate fields.
-
-        This method leverages pydantic's create_model to extend the existing GrowthRatesBase model
-        with extra fields provided in extra_rates. The resulting model supports dot notation access
-        for both the predefined static rates and any additional dynamic rates.
-
-        Args:
-            extra_rates: A dictionary where each key is the name of an extra growth rate and
-                         the value is a GrowthRate instance.
-            default_rates: Keyword arguments for setting/overriding the static GrowthRatesBase fields
-                           (including default_rate or standard growth types).
-
-        Returns:
-            An instance of a dynamically generated GrowthRatesBase model with the extra fields included.
-
-        Example:
-            ```python
-            # Create growth rates with custom fields
-            custom_rates = GrowthRatesBase.with_custom_rates(
-                # Add a custom growth rate for inflation
-                extra_rates={
-                    "inflation_rate": GrowthRate(name="Inflation", value=0.03)
-                },
-                # Override a standard field
-                default_rate=0.025,
-                market_rent_growth=GrowthRate(name="Market Rent Custom", value=0.035)
-            )
-
-            # Access both standard and custom fields with dot notation
-            print(custom_rates.market_rent_growth.value)  # 0.035
-            print(custom_rates.inflation_rate.value)  # 0.03
-            print(custom_rates.default_rate) # 0.025
-            # Access an untouched default field
-            print(custom_rates.general_growth.value) # This would raise AttributeError unless provided in default_rates
-            ```
+        Any standard fields not provided in kwargs will be populated using the default_rate,
+        which must be provided if not all standard fields are specified.
         """
         from pydantic import create_model
 
         extra_rates = extra_rates or {}
 
-        # Validate extra_rates values are GrowthRate instances
-        for name, rate in extra_rates.items():
-            if not isinstance(rate, GrowthRate):
-                raise TypeError(
-                    f"Value for extra rate '{name}' must be a GrowthRate instance, got {type(rate)}"
-                )
+        # Use a default rate if provided, otherwise check if all fields are covered
+        default_rate = kwargs.get("default_rate")
+        
+        # Populate standard fields that are not explicitly provided in kwargs
+        standard_fields = {
+            "general_growth", "market_rent_growth", "misc_income_growth",
+            "operating_expense_growth", "leasing_costs_growth", "capital_expense_growth"
+        }
 
-        # Prepare fields for the dynamic model creation
+        if not standard_fields.issubset(kwargs.keys()) and default_rate is None:
+            raise ValueError("A 'default_rate' must be provided if not all standard growth rates are specified.")
+
+        base_data = {}
+        if default_rate is not None:
+            base_data = {
+                "general_growth": GrowthRate(name="General", value=default_rate),
+                "market_rent_growth": GrowthRate(name="Market Rent", value=default_rate),
+                "misc_income_growth": GrowthRate(name="Misc Income", value=default_rate),
+                "operating_expense_growth": GrowthRate(name="Operating Expenses", value=default_rate),
+                "leasing_costs_growth": GrowthRate(name="Leasing Costs", value=default_rate),
+                "capital_expense_growth": GrowthRate(name="Capital Expenses", value=default_rate),
+            }
+        
+        # Combine base data with user-provided kwargs, kwargs take precedence
+        instance_data = {**base_data, **kwargs, **extra_rates}
+        
         dynamic_fields = {name: (GrowthRate, ...) for name in extra_rates.keys()}
+        DynamicGrowthRates = create_model("DynamicGrowthRates", __base__=cls, **dynamic_fields)
 
-        # Create the dynamic model class
-        DynamicGrowthRates = create_model(
-            "DynamicGrowthRates", __base__=cls, **dynamic_fields
-        )
-
-        # Combine the provided default/static fields with the extra rates for instantiation
-        # Ensure that keys in extra_rates properly override any conflicting keys in default_rates
-        instance_data = {**default_rates, **extra_rates}
-
-        # Instantiate the dynamic model using the combined data
-        # Pydantic V2 uses model_validate
         return DynamicGrowthRates.model_validate(instance_data) 

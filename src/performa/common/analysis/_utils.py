@@ -13,9 +13,30 @@ import pandas as pd
 if TYPE_CHECKING:
     from ..base._expense_base import ExpenseItemBase, OpExItemBase
     from ..base._property_base import PropertyBaseModel
+    from ..base._recovery_base import RecoveryBase, RecoveryCalculationState
+    from ..primitives._timeline import Timeline
 
 
 logger = logging.getLogger(__name__)
+
+
+def pre_calculate_all_base_year_stops(
+    property_data: "PropertyBaseModel",
+    analysis_timeline: "Timeline"
+) -> Dict[UUID, "RecoveryCalculationState"]:
+    """
+    Pre-calculates all base year and base stop amounts for all relevant leases.
+    This is a placeholder implementation.
+    """
+    #
+    # Full logic would involve:
+    # 1. Finding all leases with base_year or base_stop recovery methods.
+    # 2. For each lease, identifying the relevant base year.
+    # 3. Looking up historical expense data for that year.
+    # 4. Applying gross-up logic if necessary.
+    # 5. Storing the calculated stop amount in a RecoveryCalculationState object.
+    #
+    return {}
 
 
 def get_period_occupancy(
@@ -46,4 +67,4 @@ def gross_up_period_expenses(
     gross_up_target_rate: float = 0.95,
 ) -> Dict[UUID, pd.Series]:
     # Logic from gross_up_period_expenses, adapted for ExpenseItemBase/OpExItemBase
-    return {} 
+    return {}

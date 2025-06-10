@@ -7,11 +7,8 @@ import pandas as pd
 
 from ..primitives._cash_flow import CashFlowModel
 from ..primitives._enums import RevenueSubcategoryEnum
+from ..primitives._growth_rates import GrowthRate
 from ..primitives._types import FloatBetween0And1
-
-if TYPE_CHECKING:
-    from ..primitives._growth_rates import GrowthRate
-
 
 logger = logging.getLogger(__name__)
 
