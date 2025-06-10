@@ -3,6 +3,7 @@ Performa Asset Models
 Public API for the performa.asset subpackage.
 """
 
+from . import office
 from ._expense import CapExItem, ExpenseItem, OpExItem
 from ._growth_rates import GrowthRate
 from ._lc import LeasingCommission
@@ -18,25 +19,18 @@ from ._rent_roll import RentRoll, VacantSuite
 from ._rollover import RolloverLeaseTerms, RolloverProfile
 from ._ti import TenantImprovementAllowance
 
+# from . import retail # To be uncommented when implemented
+# from . import residential
+# from . import industrial
+# from . import hotel
+# Potentially re-export the AssetAnalysisWrapper for convenience
+from .analysis import AssetAnalysisWrapper as AssetAnalysis
+
 __all__ = [
-    "ExpenseItem",
-    "OpExItem",
-    "CapExItem",
-    "GrowthRate",
-    "Losses",
-    "MiscIncome",
-    "Property",
-    "RentRoll",
-    "VacantSuite",
-    "RentEscalation",
-    "RentAbatement",
-    "LeaseSpec",
-    "Lease",
-    "Tenant",
-    "SecurityDeposit",
-    "LeasingCommission",
-    "RecoveryMethod",
-    "TenantImprovementAllowance",
-    "RolloverLeaseTerms",
-    "RolloverProfile",
+    "office",
+    # "retail",
+    # "residential",
+    # "industrial",
+    # "hotel",
+    "AssetAnalysis",
 ]
