@@ -7,6 +7,7 @@ from ._enums import (
     ExpenseSubcategoryEnum,
     FrequencyEnum,
     LeaseStatusEnum,
+    LeaseTypeEnum,
     ProgramUseEnum,
     RevenueSubcategoryEnum,
     StartDateAnchorEnum,
@@ -18,6 +19,7 @@ from ._growth_rates import GrowthRate, GrowthRatesBase
 from ._model import Model
 from ._settings import GlobalSettings
 from ._timeline import Timeline
+from ._types import FloatBetween0And1, PositiveFloat, PositiveInt
 
 __all__ = [
     "CashFlowModel",
@@ -28,6 +30,7 @@ __all__ = [
     "ExpenseSubcategoryEnum",
     "FrequencyEnum",
     "LeaseStatusEnum",
+    "LeaseTypeEnum",
     "ProgramUseEnum",
     "RevenueSubcategoryEnum",
     "StartDateAnchorEnum",
@@ -36,4 +39,7 @@ __all__ = [
     "VacancyLossMethodEnum",
     "GrowthRate",
     "GrowthRatesBase",
+    "FloatBetween0And1",
+    "PositiveFloat",
+    "PositiveInt",
 ]

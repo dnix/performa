@@ -19,7 +19,7 @@ from ._cost_base import (
     TenantImprovementAllowanceBase,
 )
 from ._expense_base import CapExItemBase, ExpenseItemBase, OpExItemBase
-from ._lease_base import LeaseBase, LeaseSpecBase
+from ._lease_base import LeaseBase, LeaseSpecBase, RentAbatementBase, RentEscalationBase
 from ._loss_base import (
     CollectionLossConfigBase,
     GeneralVacancyLossConfigBase,
@@ -56,6 +56,8 @@ __all__ = [
     "OpExItemBase",
     "LeaseBase",
     "LeaseSpecBase",
+    "RentAbatementBase",
+    "RentEscalationBase",
     "CollectionLossConfigBase",
     "GeneralVacancyLossConfigBase",
     "LossesBase",

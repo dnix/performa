@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from enum import Enum
 from typing import Literal, Optional
 
@@ -186,6 +187,7 @@ class GlobalSettings(Model):
     potentially override these defaults where applicable.
     """
 
+    analysis_start_date: date = Field(default_factory=date.today)
     reporting: ReportingSettings = Field(default_factory=ReportingSettings)
     calculation: CalculationSettings = Field(default_factory=CalculationSettings)
     inflation: InflationSettings = Field(default_factory=InflationSettings)

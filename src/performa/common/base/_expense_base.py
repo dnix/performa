@@ -23,17 +23,6 @@ class ExpenseItemBase(CashFlowModel):
     subcategory: ExpenseSubcategoryEnum
     group: Optional[str] = None
 
-    def compute_cf(self, **kwargs: Any) -> Union[pd.Series, Dict[str, pd.Series]]:
-        """
-        Base expense calculation. Subclasses should override this.
-        """
-        # A simple base implementation might just return its value over the timeline
-        if isinstance(self.value, (int, float)):
-             return pd.Series(self.value, index=self.timeline.period_index)
-        elif isinstance(self.value, pd.Series):
-             return self.value.reindex(self.timeline.period_index, fill_value=0.0)
-        raise NotImplementedError("Base compute_cf requires override for complex value types.")
-
 
 class OpExItemBase(ExpenseItemBase):
     """Base class for operating expenses."""

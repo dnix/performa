@@ -131,21 +131,28 @@ class CashFlowModel(Model, ABC):
         # product of (1 + rate) up to `t`.
         compounding_factors = (1 + period_rates).cumprod()
         
+        # Shift factors by one period so growth starts from the second period.
+        compounding_factors = compounding_factors.shift(periods=1, fill_value=1.0)
+
         # Apply the compounding factors to the base series.
         # This assumes the base_series contains the starting values for each period
         # before any growth is applied.
         return base_series * compounding_factors
 
-    @abstractmethod
     def compute_cf(
         self,
-        # The orchestrator will likely pass lookup_fn and possibly other context.
-        # Subclasses will define the specific arguments they need.
+        lookup_fn: Optional[Callable[[Union[str, UUID]], Any]] = None,
         **kwargs: Any,
     ) -> Union[pd.Series, Dict[str, pd.Series]]:
         """
         Compute the cash flow for this model instance.
-        The result should be a pandas Series or a dictionary of pandas Series,
-        with a monthly PeriodIndex.
         """
-        pass 
+        resolved_value = self.value
+        if self.reference and lookup_fn:
+            resolved_reference = self.resolve_reference(lookup_fn)
+            if self.unit_of_measure == UnitOfMeasureEnum.PER_UNIT and isinstance(resolved_reference, (int,float)):
+                 resolved_value = self.value * resolved_reference
+            # Other reference-based calculations would go here
+        
+        monthly_value = self._convert_frequency(resolved_value)
+        return self._cast_to_flow(monthly_value) 

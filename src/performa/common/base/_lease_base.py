@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -17,16 +17,27 @@ from ..primitives._enums import (
 )
 from ..primitives._model import Model
 from ..primitives._timeline import Timeline
-from ..primitives._types import PositiveFloat, PositiveInt
+from ..primitives._types import FloatBetween0And1, PositiveFloat, PositiveInt
 
 # --- Placeholder Base Classes to avoid circular imports ---
 # These will be replaced with actual imports from other .base modules once they are created.
 
 class RentEscalationBase(Model):
-    pass
+    type: Literal["fixed", "percentage", "cpi"]
+    amount: PositiveFloat
+    unit_of_measure: UnitOfMeasureEnum
+    is_relative: bool
+    start_date: date
+    recurring: bool = False
+    frequency_months: Optional[int] = None
+
 
 class RentAbatementBase(Model):
-    pass
+    months: int
+    includes_recoveries: bool = False
+    start_month: int = 1
+    abated_ratio: FloatBetween0And1 = 1.0
+
 
 class RecoveryMethodBase(Model):
     pass
