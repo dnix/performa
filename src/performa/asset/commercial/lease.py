@@ -3,14 +3,18 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from datetime import date
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
+from dateutil.relativedelta import relativedelta
 
 from performa.common.base import LeaseBase, RolloverLeaseTermsBase
 from performa.common.primitives import (
     FrequencyEnum,
+    LeaseStatusEnum,
+    LeaseTypeEnum,
+    Timeline,
     UnitOfMeasureEnum,
     UponExpirationEnum,
 )
@@ -160,28 +164,109 @@ class CommercialLeaseBase(LeaseBase, ABC):
         }
         return result
 
-    def project_future_cash_flows(self, context: "AnalysisContext") -> pd.DataFrame:
+    def project_future_cash_flows(
+        self, context: "AnalysisContext", recursion_depth: int = 0
+    ) -> pd.DataFrame:
         """
-        Projects cash flows for this lease and subsequent rollovers.
-        This is a complex method that will be implemented based on the deprecated logic,
-        but adapted for the new context-based engine.
+        Recursively projects cash flows for this lease and all subsequent rollovers.
         """
-        # TODO: Port the recursive rollover logic from the deprecated Lease class.
-        # This will involve:
-        # 1. Calling self.compute_cf(context) for the current term.
-        # 2. Checking if the lease expires within the main analysis timeline.
-        # 3. If so, using the self.rollover_profile to determine the next action.
-        # 4. Calculating downtime/vacancy loss.
-        # 5. Creating a new speculative lease instance.
-        # 6. Recursively calling project_future_cash_flows on the new lease.
-        # 7. Combining the DataFrames.
-        raise NotImplementedError("Future cash flow projection is not yet implemented.")
+        current_cf_dict = self.compute_cf(context)
+        all_cfs = [pd.DataFrame(current_cf_dict)]
+        
+        lease_end_period = self.timeline.end_date
+        analysis_end_period = context.timeline.end_date
+
+        if self.rollover_profile and lease_end_period < analysis_end_period:
+            action = self.upon_expiration
+            profile = self.rollover_profile
+            logger.debug(f"Lease '{self.name}' expires {lease_end_period}. Action: {action}. Projecting rollover...")
+
+            downtime_months = 0
+            if action in [UponExpirationEnum.MARKET, UponExpirationEnum.VACATE]:
+                downtime_months = profile.downtime_months
+            
+            # This is a bit of a hack since we don't have a real tenant object on lease yet
+            # It's sufficient for naming purposes.
+            current_tenant_name = self.name.split(' - ')[0]
+
+            next_lease_start_date = (lease_end_period.to_timestamp() + pd.DateOffset(months=downtime_months + 1)).date()
+
+            # Handle Downtime
+            if downtime_months > 0:
+                downtime_start_date = (lease_end_period + 1).start_time.date()
+                downtime_timeline = Timeline(start_date=downtime_start_date, duration_months=downtime_months)
+                market_rent_at_downtime = profile._calculate_rent(
+                    terms=profile.market_terms, as_of_date=downtime_start_date, global_settings=context.settings
+                )
+                monthly_vacancy_loss = market_rent_at_downtime * self.area
+                vacancy_loss_series = pd.Series(monthly_vacancy_loss, index=downtime_timeline.period_index, name="vacancy_loss")
+                all_cfs.append(vacancy_loss_series.to_frame())
+
+            # The Dispatcher Logic
+            next_lease_terms: Optional[RolloverLeaseTermsBase] = None
+            next_name_suffix: str = ""
+            
+            if action == UponExpirationEnum.RENEW:
+                next_lease_terms = profile.renewal_terms
+                next_name_suffix = f" (Renewal {recursion_depth + 1})"
+            elif action == UponExpirationEnum.VACATE:
+                next_lease_terms = profile.market_terms
+                current_tenant_name = f"Market Tenant for {self.suite}" # New tenant
+                next_name_suffix = f" (Rollover {recursion_depth + 1})"
+            elif action == UponExpirationEnum.MARKET:
+                next_lease_terms = profile.blend_lease_terms()
+                current_tenant_name = f"Market Tenant for {self.suite}" # New tenant
+                next_name_suffix = f" (Rollover {recursion_depth + 1})"
+            elif action == UponExpirationEnum.OPTION and profile.option_terms:
+                next_lease_terms = profile.option_terms
+                next_name_suffix = f" (Option {recursion_depth + 1})"
+            elif action == UponExpirationEnum.REABSORB:
+                logger.debug(f"Lease '{self.name}' set to REABSORB. Stopping projection chain.")
+                # next_lease_terms remains None, stopping the recursion
+            
+            # Create and recurse if a next step was determined
+            if next_lease_terms and pd.Period(next_lease_start_date, freq='M') <= analysis_end_period:
+                new_rent_rate = profile._calculate_rent(
+                    terms=next_lease_terms, as_of_date=next_lease_start_date, global_settings=context.settings
+                )
+                speculative_lease = self._create_speculative_lease_instance(
+                    start_date=next_lease_start_date,
+                    lease_terms=next_lease_terms,
+                    rent_rate=new_rent_rate,
+                    tenant_name=current_tenant_name,
+                    name_suffix=next_name_suffix,
+                )
+                logger.debug(f"Created speculative lease '{speculative_lease.name}' starting {next_lease_start_date}.")
+                
+                future_rollover_df = speculative_lease.project_future_cash_flows(
+                    context, recursion_depth=recursion_depth + 1
+                )
+                all_cfs.append(future_rollover_df)
+
+        # Aggregate all collected cash flows
+        if not all_cfs:
+            return pd.DataFrame(index=context.timeline.period_index).fillna(0)
+            
+        combined_df = pd.concat(all_cfs, sort=False).fillna(0)
+        final_df = combined_df.groupby(combined_df.index).sum()
+        
+        # Ensure all standard columns from the original lease exist for safety
+        base_cols = list(all_cfs[0].columns)
+        for col in base_cols:
+            if col not in final_df.columns:
+                final_df[col] = 0.0
+        
+        # Only add vacancy loss if it's already present from a downtime calculation
+        if 'vacancy_loss' not in final_df.columns:
+            final_df['vacancy_loss'] = 0.0
+
+        return final_df.reindex(context.timeline.period_index, fill_value=0.0)
 
     @abstractmethod
     def _create_speculative_lease_instance(
         self,
         start_date: date,
-        lease_terms: "RolloverLeaseTermsBase",
+        lease_terms: RolloverLeaseTermsBase,
         rent_rate: float,
         tenant_name: str,
         name_suffix: str,
