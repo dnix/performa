@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from performa.common.primitives._growth_rates import GrowthRate, GrowthRatesBase
+from performa.common.primitives import GrowthRate, GrowthRatesBase
 
 
 # GrowthRate Tests

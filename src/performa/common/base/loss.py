@@ -4,9 +4,9 @@ from typing import Literal
 
 from pydantic import Field
 
-from ..primitives._enums import VacancyLossMethodEnum
-from ..primitives._model import Model
-from ..primitives._types import FloatBetween0And1
+from ..primitives.enums import VacancyLossMethodEnum
+from ..primitives.model import Model
+from ..primitives.types import FloatBetween0And1
 
 
 class GeneralVacancyLossConfigBase(Model):

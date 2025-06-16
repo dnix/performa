@@ -44,9 +44,8 @@ def test_calculate_rent_with_growth(sample_global_settings):
     
     rent = profile._calculate_rent(terms, date(2025, 6, 15), sample_global_settings)
     # Base monthly rent = 100/12 = 8.333
-    # Growth for 1.5 years (approx) at 3% annual
-    # This is a complex calc, let's just check it's higher than base
-    assert rent > (100.0 / 12.0)
+    # as_of_date is before analysis_start_date, so no growth should apply
+    assert rent == (100.0 / 12.0)
     
 def test_blend_lease_terms(sample_timeline):
     market_terms = OfficeRolloverLeaseTerms(

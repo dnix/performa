@@ -5,10 +5,10 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 import pandas as pd
 
-from ..primitives._cash_flow import CashFlowModel
-from ..primitives._enums import RevenueSubcategoryEnum
-from ..primitives._growth_rates import GrowthRate
-from ..primitives._types import FloatBetween0And1
+from ..primitives.cash_flow import CashFlowModel
+from ..primitives.enums import RevenueSubcategoryEnum
+from ..primitives.growth_rates import GrowthRate
+from ..primitives.types import FloatBetween0And1
 
 logger = logging.getLogger(__name__)
 

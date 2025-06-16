@@ -1,9 +1,8 @@
-# src/performa/common/primitives/__init__.py
-# Intentionally blank for now, will be populated in Phase 2 
-
 from .cash_flow import CashFlowModel
 from .enums import (
+    AggregateLineKey,
     AssetTypeEnum,
+    CashFlowCategoryEnum,
     ExpenseSubcategoryEnum,
     FrequencyEnum,
     LeaseStatusEnum,
@@ -17,7 +16,12 @@ from .enums import (
 )
 from .growth_rates import GrowthRate, GrowthRatesBase
 from .model import Model
-from .settings import GlobalSettings
+from .settings import (
+    GlobalSettings,
+    InflationSettings,
+    InflationTimingEnum,
+    ReportingSettings,
+)
 from .timeline import Timeline
 from .types import FloatBetween0And1, PositiveFloat, PositiveInt
 
@@ -26,7 +30,11 @@ __all__ = [
     "Model",
     "Timeline",
     "GlobalSettings",
+    "InflationSettings",
+    "InflationTimingEnum",
+    "ReportingSettings",
     "AssetTypeEnum",
+    "CashFlowCategoryEnum",
     "ExpenseSubcategoryEnum",
     "FrequencyEnum",
     "LeaseStatusEnum",
@@ -42,4 +50,5 @@ __all__ = [
     "FloatBetween0And1",
     "PositiveFloat",
     "PositiveInt",
+    "AggregateLineKey",
 ]

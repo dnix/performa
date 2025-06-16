@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from performa.common.base._program_base import ProgramComponentSpec
+from performa.common.base import ProgramComponentSpec
 from performa.common.primitives import ProgramUseEnum
 
 

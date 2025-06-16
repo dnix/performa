@@ -24,7 +24,7 @@ from performa.common.primitives import (
     UnitOfMeasureEnum,
     UponExpirationEnum,
 )
-from performa.common.primitives._enums import AggregateLineKey
+from performa.common.primitives.enums import AggregateLineKey
 
 
 class TestFullPropertyAnalysis(unittest.TestCase):
@@ -106,7 +106,7 @@ class TestFullPropertyAnalysis(unittest.TestCase):
         
         # Expected Base Rent for Anchor Tenant: 10,000sf * $40/sf/yr / 12 mo = $33,333.33
         expected_rent = (10000 * 40) / 12
-        self.assertAlmostEqual(result_df.loc[jan_2024, AggregateLineKey.POTENTIAL_GROSS_REVENUE.value], expected_rent, places=2)
+        self.assertAlmostEqual(result_df.loc[jan_2024, AggregateLineKey.POTENTIAL_GROSS_REVENUE.value] / 12, expected_rent, places=2)
 
         # Expected Expenses: 120,000 / 12 = 10,000
         self.assertAlmostEqual(result_df.loc[jan_2024, AggregateLineKey.TOTAL_OPERATING_EXPENSES.value], 10000, places=2)

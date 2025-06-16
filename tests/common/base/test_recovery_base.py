@@ -4,9 +4,9 @@ from datetime import date
 
 import pytest
 
-from performa.common.base._expense_base import OpExItemBase
-from performa.common.base._recovery_base import (
+from performa.common.base import (
     ExpensePoolBase,
+    OpExItemBase,
     RecoveryBase,
     RecoveryMethodBase,
 )

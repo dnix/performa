@@ -7,13 +7,12 @@ from uuid import UUID, uuid4
 import pandas as pd
 from pydantic import Field
 
-# Updated imports for common.primitives
-from ._enums import FrequencyEnum, UnitOfMeasureEnum
-from ._growth_rates import GrowthRate
-from ._model import Model
-from ._settings import GlobalSettings
-from ._timeline import Timeline
-from ._types import PositiveFloat
+from .enums import FrequencyEnum, UnitOfMeasureEnum
+from .growth_rates import GrowthRate
+from .model import Model
+from .settings import GlobalSettings
+from .timeline import Timeline
+from .types import PositiveFloat
 
 
 class CashFlowModel(Model, ABC):
@@ -130,9 +129,6 @@ class CashFlowModel(Model, ABC):
         # Create compounding factors. The value at period `t` is the cumulative
         # product of (1 + rate) up to `t`.
         compounding_factors = (1 + period_rates).cumprod()
-        
-        # Shift factors by one period so growth starts from the second period.
-        compounding_factors = compounding_factors.shift(periods=1, fill_value=1.0)
 
         # Apply the compounding factors to the base series.
         # This assumes the base_series contains the starting values for each period

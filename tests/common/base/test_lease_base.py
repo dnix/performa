@@ -5,7 +5,7 @@ from datetime import date
 import pandas as pd
 import pytest
 
-from performa.common.base._lease_base import LeaseBase, LeaseSpecBase
+from performa.common.base import LeaseBase, LeaseSpecBase
 from performa.common.primitives import (
     FrequencyEnum,
     LeaseStatusEnum,

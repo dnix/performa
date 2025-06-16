@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from performa.common.base._absorption_base import (
+from performa.common.base import (
     AbsorptionPlanBase,
     FixedQuantityPace,
     SpaceFilter,

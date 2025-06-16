@@ -7,9 +7,9 @@ from typing import Any, Dict, List, Literal, Optional, Union
 import pandas as pd
 from pydantic import model_validator
 
-from ..primitives._cash_flow import CashFlowModel
-from ..primitives._model import Model
-from ..primitives._types import FloatBetween0And1, PositiveInt
+from ..primitives.cash_flow import CashFlowModel
+from ..primitives.model import Model
+from ..primitives.types import FloatBetween0And1, PositiveInt
 
 logger = logging.getLogger(__name__)
 

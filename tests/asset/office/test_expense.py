@@ -59,9 +59,9 @@ def test_office_opex_item_with_growth(sample_timeline):
         growth_rate=GrowthRate(name="Test Growth", value=0.12) # 12% annual -> 1% monthly
     )
     cf = opex.compute_cf()
-    # First month is 1000. Second month is 1000 * 1.01 = 1010
-    assert pytest.approx(cf.iloc[0]) == 1000
-    assert pytest.approx(cf.iloc[1]) == 1010
+    # First month is 1000 * 1.01 = 1010. Second month is 1000 * 1.01^2 = 1020.1
+    assert pytest.approx(cf.iloc[0]) == 1010
+    assert pytest.approx(cf.iloc[1]) == 1020.1
     assert cf.sum() > 12000 # Should be greater than flat 12k
 
 def test_expenses_container(sample_timeline):

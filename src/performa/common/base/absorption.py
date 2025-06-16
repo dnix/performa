@@ -20,20 +20,21 @@ from uuid import UUID
 import pandas as pd
 from pydantic import Field
 
-from ..primitives._enums import (
+from ..primitives.enums import (
     ProgramUseEnum,
     StartDateAnchorEnum,
     UnitOfMeasureEnum,
     UponExpirationEnum,
 )
-from ..primitives._model import Model
-from ..primitives._settings import GlobalSettings
-from ..primitives._types import PositiveFloat, PositiveInt
-from ._cost_base import LeasingCommissionBase, TenantImprovementAllowanceBase
-from ._lease_base import LeaseSpecBase, RentAbatementBase, RentEscalationBase
-from ._recovery_base import RecoveryMethodBase
-from ._rent_roll_base import VacantSuiteBase
-from ._rollover_base import RolloverLeaseTermsBase
+from ..primitives.model import Model
+from ..primitives.settings import GlobalSettings
+from ..primitives.timeline import Timeline
+from ..primitives.types import PositiveFloat, PositiveInt
+from .cost import LeasingCommissionBase, TenantImprovementAllowanceBase
+from .lease import LeaseSpecBase, RentAbatementBase, RentEscalationBase
+from .recovery import RecoveryMethodBase
+from .rent_roll import VacantSuiteBase
+from .rollover import RolloverLeaseTermsBase
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from performa.common.primitives._enums import (
+from performa.common.primitives import (
     AggregateLineKey,
     AssetTypeEnum,
     FrequencyEnum,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from performa.common.base._loss_base import (
+from performa.common.base import (
     CollectionLossConfigBase,
     GeneralVacancyLossConfigBase,
     LossesBase,

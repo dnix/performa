@@ -4,13 +4,13 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import pandas as pd
 
-from ..primitives._enums import FrequencyEnum, UnitOfMeasureEnum, UponExpirationEnum
-from ..primitives._growth_rates import GrowthRate
-from ..primitives._model import Model
-from ..primitives._types import FloatBetween0And1, PositiveFloat, PositiveInt
-from ._cost_base import LeasingCommissionBase, TenantImprovementAllowanceBase
-from ._lease_base import RentAbatementBase, RentEscalationBase
-from ._recovery_base import RecoveryMethodBase
+from ..primitives.enums import FrequencyEnum, UnitOfMeasureEnum, UponExpirationEnum
+from ..primitives.growth_rates import GrowthRate
+from ..primitives.model import Model
+from ..primitives.types import FloatBetween0And1, PositiveFloat, PositiveInt
+from .cost import LeasingCommissionBase, TenantImprovementAllowanceBase
+from .lease import RentAbatementBase, RentEscalationBase
+from .recovery import RecoveryMethodBase
 
 
 class RolloverLeaseTermsBase(Model):

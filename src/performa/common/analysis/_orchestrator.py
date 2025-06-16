@@ -19,19 +19,20 @@ from uuid import UUID
 
 import pandas as pd
 
-from ..base._property_base import PropertyBaseModel
-from ..primitives._cash_flow import CashFlowModel
-from ..primitives._enums import (
+from performa.common.base import PropertyBaseModel
+
+from ..primitives.cash_flow import CashFlowModel
+from ..primitives.enums import (
     AggregateLineKey,
     ExpenseSubcategoryEnum,
     RevenueSubcategoryEnum,
 )
-from ..primitives._model import Model
-from ..primitives._settings import GlobalSettings
-from ..primitives._timeline import Timeline
+from ..primitives.model import Model
+from ..primitives.settings import GlobalSettings
+from ..primitives.timeline import Timeline
 
 if TYPE_CHECKING:
-    from ..base._property_base import PropertyBaseModel
+    from performa.common.base import PropertyBaseModel
 
 
 logger = logging.getLogger(__name__)

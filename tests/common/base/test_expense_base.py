@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from performa.common.base._expense_base import CapExItemBase, OpExItemBase
+from performa.common.base import CapExItemBase, OpExItemBase
 from performa.common.primitives import (
     ExpenseSubcategoryEnum,
     Timeline,

@@ -6,8 +6,8 @@ from typing import Dict, Optional, Union
 import pandas as pd
 from pydantic import field_validator
 
-from ._model import Model
-from ._types import FloatBetween0And1
+from .model import Model
+from .types import FloatBetween0And1
 
 
 class GrowthRate(Model):

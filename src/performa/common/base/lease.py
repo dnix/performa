@@ -7,17 +7,17 @@ import numpy as np
 import pandas as pd
 from pydantic import computed_field, model_validator
 
-from ..primitives._cash_flow import CashFlowModel
-from ..primitives._enums import (
+from ..primitives.cash_flow import CashFlowModel
+from ..primitives.enums import (
     FrequencyEnum,
     LeaseStatusEnum,
     ProgramUseEnum,
     UnitOfMeasureEnum,
     UponExpirationEnum,
 )
-from ..primitives._model import Model
-from ..primitives._timeline import Timeline
-from ..primitives._types import FloatBetween0And1, PositiveFloat, PositiveInt
+from ..primitives.model import Model
+from ..primitives.timeline import Timeline
+from ..primitives.types import FloatBetween0And1, PositiveFloat, PositiveInt
 
 # FIXME: --- Placeholder Base Classes to avoid circular imports ---
 # These will be replaced with actual imports from other .base modules once they are created.

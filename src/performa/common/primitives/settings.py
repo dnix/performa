@@ -6,9 +6,9 @@ from typing import Literal, Optional
 
 from pydantic import Field, model_validator
 
-from ._enums import FrequencyEnum
-from ._model import Model
-from ._types import FloatBetween0And1, PositiveFloat, PositiveInt
+from .enums import FrequencyEnum
+from .model import Model
+from .types import FloatBetween0And1, PositiveFloat, PositiveInt
 
 
 class DayCountConvention(str, Enum):

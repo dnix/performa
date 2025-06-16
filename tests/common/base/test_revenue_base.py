@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from performa.common.base._revenue_base import MiscIncomeBase
+from performa.common.base import MiscIncomeBase
 from performa.common.primitives import (
     RevenueSubcategoryEnum,
     Timeline,

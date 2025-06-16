@@ -8,10 +8,10 @@ from uuid import UUID, uuid4
 import pandas as pd
 from pydantic import Field, model_validator
 
-from ..primitives._growth_rates import GrowthRate
-from ..primitives._model import Model
-from ..primitives._types import FloatBetween0And1, PositiveFloat
-from ._expense_base import ExpenseItemBase
+from ..primitives.growth_rates import GrowthRate
+from ..primitives.model import Model
+from ..primitives.types import FloatBetween0And1, PositiveFloat
+from .expense import ExpenseItemBase
 
 logger = logging.getLogger(__name__)
 

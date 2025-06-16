@@ -5,10 +5,10 @@ from typing import List, Optional
 
 from pydantic import Field
 
-from ..primitives._enums import AssetTypeEnum
-from ..primitives._model import Model
-from ..primitives._types import PositiveFloat, PositiveInt
-from ._program_base import ProgramComponentSpec
+from ..primitives.enums import AssetTypeEnum
+from ..primitives.model import Model
+from ..primitives.types import PositiveFloat, PositiveInt
+from .program import ProgramComponentSpec
 
 
 class Address(Model):

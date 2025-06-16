@@ -11,10 +11,10 @@ from uuid import UUID
 import pandas as pd
 
 if TYPE_CHECKING:
-    from ..base._expense_base import ExpenseItemBase, OpExItemBase
-    from ..base._property_base import PropertyBaseModel
-    from ..base._recovery_base import RecoveryBase, RecoveryCalculationState
-    from ..primitives._timeline import Timeline
+    from ..base.expense import ExpenseItemBase, OpExItemBase
+    from ..base.property import PropertyBaseModel
+    from ..base.recovery import RecoveryBase, RecoveryCalculationState
+    from ..primitives.timeline import Timeline
 
 
 logger = logging.getLogger(__name__)

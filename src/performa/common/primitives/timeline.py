@@ -6,8 +6,8 @@ from typing import Any, Optional, Union
 import pandas as pd
 from pydantic import Field, field_validator, model_validator
 
-from ._model import Model
-from ._types import PositiveInt
+from .model import Model
+from .types import PositiveInt
 
 
 class Timeline(Model):

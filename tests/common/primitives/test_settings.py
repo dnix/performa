@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from performa.common.primitives._settings import (
+from performa.common.primitives import (
     FrequencyEnum,
     GlobalSettings,
     InflationSettings,

@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from performa.common.base._cost_base import (
+from performa.common.base import (
     CommissionTier,
     LeasingCommissionBase,
     TenantImprovementAllowanceBase,
