@@ -19,7 +19,7 @@ from ..primitives._model import Model
 from ..primitives._timeline import Timeline
 from ..primitives._types import FloatBetween0And1, PositiveFloat, PositiveInt
 
-# --- Placeholder Base Classes to avoid circular imports ---
+# FIXME: --- Placeholder Base Classes to avoid circular imports ---
 # These will be replaced with actual imports from other .base modules once they are created.
 
 class RentEscalationBase(Model):
@@ -117,14 +117,14 @@ class LeaseBase(CashFlowModel):
         # Simplified escalation logic for the base class
         if not self.rent_escalation:
             return base_flow
-        # Placeholder for real implementation
+        # FIXME: Placeholder for real implementation
         return base_flow
 
     def _apply_abatements(self, rent_flow: pd.Series) -> tuple[pd.Series, pd.Series]:
         # Simplified abatement logic for the base class
         if not self.rent_abatement:
             return rent_flow, pd.Series(0.0, index=rent_flow.index)
-        # Placeholder for real implementation
+        # FIXME: Placeholder for real implementation
         return rent_flow, pd.Series(0.0, index=rent_flow.index)
 
     def compute_cf(self, **kwargs: Any) -> Dict[str, pd.Series]:

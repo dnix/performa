@@ -26,7 +26,7 @@ def pre_calculate_all_base_year_stops(
 ) -> Dict[UUID, "RecoveryCalculationState"]:
     """
     Pre-calculates all base year and base stop amounts for all relevant leases.
-    This is a placeholder implementation.
+    FIXME: This is a placeholder implementation.
     """
     #
     # Full logic would involve:

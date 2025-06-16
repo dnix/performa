@@ -41,7 +41,7 @@ class RecoveryMethodEnum(str, Enum):  # Placeholder, often expense-specific
 
 
 class PercentageRentSettings(Model):
-    """Percentage rent and occupancy cost settings (Placeholder)"""
+    """FIXME: Percentage rent and occupancy cost settings (Placeholder)"""
 
     # FIXME: Define actual settings based on requirements for retail etc.
     enabled: bool = False
@@ -146,8 +146,8 @@ class RecoverySettings(Model):
     # default_recovery_method: Optional[RecoveryMethodEnum] = None # Often expense-specific
 
 
-# Market Leasing Assumptions are complex. Deferring a dedicated 'MarketLeasingSettings' sub-model.
-# Rollover logic in `_rollover.py` will need inputs, possibly passed directly or via a simpler global default placeholder for now.
+# FIXME: Market Leasing Assumptions are complex. Deferring a dedicated 'MarketLeasingSettings' sub-model.
+# FIXME: Rollover logic in `_rollover.py` will need inputs, possibly passed directly or via a simpler global default placeholder for now.
 
 
 class ValuationSettings(Model):
