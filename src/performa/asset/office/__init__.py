@@ -1,4 +1,7 @@
 # src/performa/asset/office/__init__.py
+from . import (
+    analysis,
+)
 from .absorption import DirectLeaseTerms, OfficeAbsorptionPlan
 from .expense import OfficeCapExItem, OfficeExpenses, OfficeOpExItem
 from .lc import OfficeLeasingCommission
@@ -42,4 +45,4 @@ __all__ = [
     "OfficeCapExItem",
     "OfficeAbsorptionPlan",
     "DirectLeaseTerms",
-] 
+]

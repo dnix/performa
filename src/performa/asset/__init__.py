@@ -9,7 +9,6 @@ from . import office
 # from . import residential
 # from . import industrial
 # from . import hotel
-from .analysis import AssetAnalysisWrapper as AssetAnalysis
 
 __all__ = [
     "office",
@@ -17,5 +16,4 @@ __all__ = [
     # "residential",
     # "industrial",
     # "hotel",
-    "AssetAnalysis",
 ]

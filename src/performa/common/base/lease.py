@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import abstractmethod
 from datetime import date
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
 
@@ -21,6 +22,9 @@ from ..primitives.types import FloatBetween0And1, PositiveFloat, PositiveInt
 
 # FIXME: --- Placeholder Base Classes to avoid circular imports ---
 # These will be replaced with actual imports from other .base modules once they are created.
+
+if TYPE_CHECKING:
+    from ...analysis import AnalysisContext
 
 class RentEscalationBase(Model):
     type: Literal["fixed", "percentage", "cpi"]
@@ -110,6 +114,9 @@ class LeaseBase(CashFlowModel):
     subcategory: str = "Lease" # Simplified from enum for base class
     status: LeaseStatusEnum
     area: PositiveFloat
+    suite: str
+    floor: str
+    upon_expiration: UponExpirationEnum
     rent_escalation: Optional[RentEscalationBase] = None
     rent_abatement: Optional[RentAbatementBase] = None
 
@@ -157,4 +164,11 @@ class LeaseBase(CashFlowModel):
         return {
             "base_rent": base_rent_final,
             "abatement_applied": abatement_cf,
-        } 
+        }
+
+    @abstractmethod
+    def project_future_cash_flows(self, context: "AnalysisContext") -> pd.DataFrame:
+        """
+        Projects cash flows for this lease and subsequent rollovers.
+        """
+        pass 

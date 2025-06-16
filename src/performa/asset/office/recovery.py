@@ -9,8 +9,9 @@ import pandas as pd
 from pydantic import Field, model_validator
 
 from ...common.base import ExpensePoolBase as CommonExpensePoolBase
-from ...common.base import OpExItemBase, RecoveryMethodBase
+from ...common.base import OpExItemBase, RecoveryBase, RecoveryMethodBase
 from ...common.primitives import GlobalSettings, GrowthRate, Model
+from ..commercial.recovery import CommercialRecoveryMethodBase
 
 if TYPE_CHECKING:
     from .property import OfficeProperty
@@ -74,8 +75,12 @@ class Recovery(Model):
         return self.expenses
 
 
-class OfficeRecoveryMethod(RecoveryMethodBase):
-    recoveries: List[Recovery]
+class OfficeRecoveryMethod(CommercialRecoveryMethodBase):
+    """
+    Office-specific recovery method. Inherits core calculation logic 
+    from CommercialRecoveryMethodBase.
+    """
+    recoveries: List[RecoveryBase]
 
     def calculate_recoveries(
         self,

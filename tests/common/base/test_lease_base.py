@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
 
 import pandas as pd
 import pytest
 
+from performa.analysis import AnalysisContext
 from performa.common.base import LeaseBase, LeaseSpecBase
 from performa.common.primitives import (
     FrequencyEnum,
@@ -72,15 +74,29 @@ def test_lease_spec_computed_end_date():
 
 # --- LeaseBase Tests ---
 
+# A concrete class for testing the abstract LeaseBase
+class ConcreteLease(LeaseBase):
+    def project_future_cash_flows(self, context: "AnalysisContext") -> pd.DataFrame:
+        # Not needed for these tests, just needs to be implemented
+        return pd.DataFrame()
+
+@pytest.fixture
+def sample_timeline() -> Timeline:
+    timeline = Timeline(start_date=date(2024, 1, 1), duration_months=12)
+    return timeline
+
 @pytest.fixture
 def sample_lease() -> LeaseBase:
     """Provides a sample LeaseBase fixture for tests."""
     timeline = Timeline(start_date=date(2024, 1, 1), duration_months=12)
-    return LeaseBase(
+    return ConcreteLease(
         name="Test Lease",
         timeline=timeline,
         status=LeaseStatusEnum.CONTRACT,
         area=1000.0,
+        suite="100",
+        floor="1",
+        upon_expiration=UponExpirationEnum.MARKET, # Required field
         value=50 * 1000 / 12, # Monthly amount
         unit_of_measure=UnitOfMeasureEnum.CURRENCY, # Test with currency first
         frequency=FrequencyEnum.MONTHLY,
