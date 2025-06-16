@@ -1,7 +1,7 @@
 # src/performa/common/base/__init__.py
 # Intentionally blank for now, will be populated in Phase 3 
 
-from ._absorption_base import (
+from .absorption import (
     AbsorptionPlanBase,
     BasePace,
     CustomSchedulePace,
@@ -13,29 +13,29 @@ from ._absorption_base import (
     SpaceFilter,
     SuiteAbsorptionState,
 )
-from ._cost_base import (
+from .cost import (
     CommissionTier,
     LeasingCommissionBase,
     TenantImprovementAllowanceBase,
 )
-from ._expense_base import CapExItemBase, ExpenseItemBase, OpExItemBase
-from ._lease_base import LeaseBase, LeaseSpecBase, RentAbatementBase, RentEscalationBase
-from ._loss_base import (
+from .expense import CapExItemBase, ExpenseItemBase, OpExItemBase
+from .lease import LeaseBase, LeaseSpecBase, RentAbatementBase, RentEscalationBase
+from .loss import (
     CollectionLossConfigBase,
     GeneralVacancyLossConfigBase,
     LossesBase,
 )
-from ._program_base import ProgramComponentSpec
-from ._property_base import Address, PropertyBaseModel
-from ._recovery_base import (
+from .program import ProgramComponentSpec
+from .property import Address, PropertyBaseModel
+from .recovery import (
     ExpensePoolBase,
     RecoveryBase,
     RecoveryCalculationState,
     RecoveryMethodBase,
 )
-from ._rent_roll_base import VacantSuiteBase
-from ._revenue_base import MiscIncomeBase
-from ._rollover_base import RolloverLeaseTermsBase, RolloverProfileBase
+from .rent_roll import VacantSuiteBase
+from .revenue import MiscIncomeBase
+from .rollover import RolloverLeaseTermsBase, RolloverProfileBase
 
 __all__ = [
     "AbsorptionPlanBase",

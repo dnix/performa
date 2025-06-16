@@ -1,8 +1,8 @@
 # src/performa/common/primitives/__init__.py
 # Intentionally blank for now, will be populated in Phase 2 
 
-from ._cash_flow import CashFlowModel
-from ._enums import (
+from .cash_flow import CashFlowModel
+from .enums import (
     AssetTypeEnum,
     ExpenseSubcategoryEnum,
     FrequencyEnum,
@@ -15,11 +15,11 @@ from ._enums import (
     UponExpirationEnum,
     VacancyLossMethodEnum,
 )
-from ._growth_rates import GrowthRate, GrowthRatesBase
-from ._model import Model
-from ._settings import GlobalSettings
-from ._timeline import Timeline
-from ._types import FloatBetween0And1, PositiveFloat, PositiveInt
+from .growth_rates import GrowthRate, GrowthRatesBase
+from .model import Model
+from .settings import GlobalSettings
+from .timeline import Timeline
+from .types import FloatBetween0And1, PositiveFloat, PositiveInt
 
 __all__ = [
     "CashFlowModel",
