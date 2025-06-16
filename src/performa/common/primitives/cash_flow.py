@@ -18,7 +18,9 @@ from .types import PositiveFloat
 class CashFlowModel(Model, ABC):
     """
     Base Abstract class for any cash flow description.
-    Subclasses must implement the compute_cf method.
+    
+    Subclasses must implement the compute_cf method. This base class is not
+    intended for direct instantiation.
     """
 
     uid: UUID = Field(

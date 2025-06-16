@@ -6,6 +6,7 @@ from uuid import UUID
 
 import pandas as pd
 import pytest
+from pydantic import ValidationError
 
 from performa.common.primitives import (
     CashFlowCategoryEnum,
@@ -30,23 +31,6 @@ class MinimalConcreteCashFlowModel(CashFlowModel):
     def compute_cf(self, **kwargs) -> pd.Series:
         # A simple implementation for testing purposes
         return pd.Series([self.value] * self.timeline.duration_months, index=self.timeline.period_index)
-
-
-@pytest.mark.skip(reason="Pydantic V2 and ABC interaction is complex, revisit testing abstractness")
-# FIXME: revisit testing abstractness
-def test_cashflowmodel_is_abc():
-    """Test that the base CashFlowModel is abstract and cannot be instantiated."""
-    with pytest.raises(TypeError, match="Can't instantiate abstract class .* with abstract method compute_cf"):
-        # We need to provide dummy values for Pydantic validation to pass
-        # before the abstract class check is triggered.
-        CashFlowModel(
-            name="Abstract",
-            category="Abstract",
-            subcategory="Abstract",
-            timeline=Timeline(start_date=date.today(), duration_months=1),
-            value=0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY
-        )
 
 
 def test_minimal_concrete_cashflowmodel_instantiation(sample_timeline: Timeline):
