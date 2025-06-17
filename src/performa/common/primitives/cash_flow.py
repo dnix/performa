@@ -30,7 +30,7 @@ class CashFlowModel(Model):
     The core calculation logic resides in the `compute_cf` method, which can be
     called by subclasses via `super().compute_cf(context)` to get a base,
     grown cash flow series. Subclasses can then apply their own specific
-    adjustments (like occupancy).
+    adjustments (like occupancy-based adjustments).
     """
 
     uid: UUID = Field(
