@@ -82,11 +82,9 @@ class LeaseSpecBase(Model):
     base_rent_frequency: FrequencyEnum = FrequencyEnum.MONTHLY
     rent_escalation: Optional[RentEscalationBase] = None
     rent_abatement: Optional[RentAbatementBase] = None
-    recovery_method_ref: Optional[UUID] = None
-    ti_allowance_ref: Optional[UUID] = None
-    lc_ref: Optional[UUID] = None
+    recovery_method: Optional[RecoveryMethodBase] = None
+    rollover_profile: Optional[RolloverProfileBase] = None
     upon_expiration: UponExpirationEnum
-    rollover_profile_ref: Optional[UUID] = None
 
     @model_validator(mode="after")
     def check_term(self) -> "LeaseSpecBase":

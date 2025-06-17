@@ -80,14 +80,13 @@ class TestOfficeLease(unittest.TestCase):
             base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
             base_rent_frequency=FrequencyEnum.ANNUAL,
             upon_expiration=UponExpirationEnum.MARKET,
-            rollover_profile_ref="rollover_1",
+            rollover_profile=self.rollover_profile,
         )
         lease = OfficeLease.from_spec(
             spec,
             analysis_start_date=self.analysis_start_date,
             timeline=self.timeline,
             settings=self.settings,
-            lookup_fn=self.lookup_fn,
         )
         self.assertEqual(lease.name, "Test Tenant")
         self.assertEqual(lease.area, 1000.0)
@@ -123,7 +122,7 @@ class TestOfficeLease(unittest.TestCase):
             start_date=spec.start_date, duration_months=spec.term_months
         )
         lease = OfficeLease.from_spec(
-            spec, self.analysis_start_date, lease_timeline, self.settings, self.lookup_fn
+            spec, self.analysis_start_date, lease_timeline, self.settings
         )
         context = AnalysisContext(
             timeline=lease_timeline,
@@ -166,14 +165,13 @@ class TestOfficeLease(unittest.TestCase):
             base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
             base_rent_frequency=FrequencyEnum.ANNUAL,
             upon_expiration=UponExpirationEnum.MARKET,
-            rollover_profile_ref="rollover_1",
+            rollover_profile=rollover_profile_no_costs,
         )
         lease = OfficeLease.from_spec(
             spec,
             analysis_start_date=self.analysis_start_date,
             timeline=self.timeline, # Pass the main timeline
             settings=self.settings,
-            lookup_fn=self.lookup_fn,
         )
         
         # Use a shorter analysis timeline to prevent infinite recursion in test
@@ -223,14 +221,13 @@ class TestOfficeLease(unittest.TestCase):
             base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
             base_rent_frequency=FrequencyEnum.ANNUAL,
             upon_expiration=UponExpirationEnum.MARKET,
-            rollover_profile_ref="rollover_1",
+            rollover_profile=self.rollover_profile,
         )
         lease = OfficeLease.from_spec(
             spec,
             self.analysis_start_date,
             self.timeline,
             self.settings,
-            self.lookup_fn,
         )
         short_analysis_timeline = Timeline(start_date=date(2023, 1, 1), duration_months=36)
         context = AnalysisContext(
@@ -276,10 +273,10 @@ class TestOfficeLease(unittest.TestCase):
             base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
             base_rent_frequency=FrequencyEnum.ANNUAL,
             upon_expiration=UponExpirationEnum.RENEW, # Explicitly set to RENEW
-            rollover_profile_ref="rollover_1",
+            rollover_profile=self.rollover_profile,
         )
         lease = OfficeLease.from_spec(
-            spec, self.analysis_start_date, self.timeline, self.settings, self.lookup_fn
+            spec, self.analysis_start_date, self.timeline, self.settings
         )
         short_analysis_timeline = Timeline(start_date=date(2023, 1, 1), duration_months=36)
 
@@ -344,10 +341,10 @@ class TestOfficeLease(unittest.TestCase):
             base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
             base_rent_frequency=FrequencyEnum.ANNUAL,
             upon_expiration=UponExpirationEnum.REABSORB, # Explicitly set to REABSORB
-            rollover_profile_ref="rollover_1",
+            rollover_profile=self.rollover_profile,
         )
         lease = OfficeLease.from_spec(
-            spec, self.analysis_start_date, self.timeline, self.settings, self.lookup_fn
+            spec, self.analysis_start_date, self.timeline, self.settings
         )
         short_analysis_timeline = Timeline(start_date=date(2023, 1, 1), duration_months=36)
         context = AnalysisContext(timeline=short_analysis_timeline, settings=self.settings, property_data=None)

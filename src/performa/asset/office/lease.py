@@ -55,7 +55,6 @@ class OfficeLease(CommercialLeaseBase):
         analysis_start_date: date,
         timeline: Timeline,
         settings: Optional[GlobalSettings] = None,
-        lookup_fn: Optional[Callable[[Union[str, UUID]], Any]] = None,
     ) -> OfficeLease:
         """
         Creates an OfficeLease instance from a specification.
@@ -67,33 +66,26 @@ class OfficeLease(CommercialLeaseBase):
             else LeaseStatusEnum.SPECULATIVE
         )
 
-        rollover_profile_instance = None
-        if spec.rollover_profile_ref and lookup_fn:
-            fetched_profile = lookup_fn(spec.rollover_profile_ref)
-            if fetched_profile.__class__.__name__ == "OfficeRolloverProfile":
-                rollover_profile_instance = fetched_profile
-        
-        recovery_method_instance = None
-        if spec.recovery_method_ref and lookup_fn:
-            fetched_recovery = lookup_fn(spec.recovery_method_ref)
-            if isinstance(fetched_recovery, OfficeRecoveryMethod):
-                recovery_method_instance = fetched_recovery
+        # Direct object association
+        rollover_profile_instance = spec.rollover_profile
+
+        recovery_method_instance = spec.recovery_method
 
         ti_instance = None
-        if spec.ti_allowance_ref and lookup_fn:
-             ti_config = lookup_fn(spec.ti_allowance_ref)
-             ti_instance = OfficeTenantImprovement.model_validate(ti_config).model_copy(
-                 deep=True, update={"timeline": lease_timeline, "reference": spec.area}
-             )
+        if spec.ti_allowance:
+            # Clone TI allowance with updated timeline and reference
+            ti_instance = spec.ti_allowance.model_copy(
+                deep=True, update={"timeline": lease_timeline, "reference": spec.area}
+            )
 
         lc_instance = None
-        if spec.lc_ref and lookup_fn:
-            lc_config = lookup_fn(spec.lc_ref)
+        if spec.leasing_commission:
+            # Calculate annual rent for leasing commission
             annual_rent = spec.base_rent_value
             if spec.base_rent_unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
                 annual_rent *= spec.area
-            
-            lc_instance = OfficeLeasingCommission.model_validate(lc_config).model_copy(
+            # Clone LC with updated timeline and value
+            lc_instance = spec.leasing_commission.model_copy(
                 deep=True, update={"timeline": lease_timeline, "value": annual_rent}
             )
 

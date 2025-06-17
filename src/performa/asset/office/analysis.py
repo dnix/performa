@@ -30,21 +30,12 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
         return {}
 
     def _create_lease_from_spec(self, spec: LeaseSpecBase) -> CashFlowModel:
-        # The `from_spec` method on OfficeLease needs a lookup function to resolve
-        # references to rollover profiles, TIs, etc. We can define a simple one here
-        # that looks up objects on the `OfficeProperty` model itself.
-        def lookup_fn(ref: Union[str, UUID]) -> Any:
-            if hasattr(self.model, ref):
-                return getattr(self.model, ref)
-            # This is a simplified lookup. A real one might check databases, etc.
-            return None
-
+        # Create OfficeLease directly from spec using attached objects
         return OfficeLease.from_spec(
             spec=spec,
             analysis_start_date=self.timeline.start_date.to_timestamp().date(),
-            timeline=self.timeline, # The from_spec method creates its own timeline, this is not ideal
+            timeline=self.timeline,
             settings=self.settings,
-            lookup_fn=lookup_fn
         )
 
     def _create_misc_income_models(self) -> List[CashFlowModel]:

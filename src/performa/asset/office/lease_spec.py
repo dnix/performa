@@ -13,6 +13,7 @@ from .lc import OfficeLeasingCommission
 from .recovery import OfficeRecoveryMethod
 from .rent_abatement import OfficeRentAbatement
 from .rent_escalation import OfficeRentEscalation
+from .rollover import OfficeRolloverProfile
 from .ti import OfficeTenantImprovement
 
 
@@ -26,8 +27,8 @@ class OfficeLeaseSpec(LeaseSpecBase):
     recovery_method: Optional[OfficeRecoveryMethod] = None
     ti_allowance: Optional[OfficeTenantImprovement] = None
     leasing_commission: Optional[OfficeLeasingCommission] = None
+    rollover_profile: Optional[OfficeRolloverProfile] = None
     upon_expiration: UponExpirationEnum
-    rollover_profile_ref: Optional[str] = None
 
     @model_validator(mode="after")
     def check_term(self) -> "OfficeLeaseSpec":
