@@ -105,7 +105,25 @@ class CommercialLeaseBase(LeaseBase, ABC):
         abatement_amount_series[abatement_mask] = abatement_reduction
         return abated_rent_flow, abatement_amount_series
 
-    def compute_cf(self, context: "AnalysisContext") -> Dict[str, pd.Series]:
+    def compute_cf(self, context: AnalysisContext) -> Dict[str, pd.Series]:
+        """
+        Calculates all cash flows for the initial term of a commercial lease.
+
+        This method provides the concrete implementation for the abstract `compute_cf`
+        in `LeaseBase`. It orchestrates the calculation of all financial components
+        associated with the lease, including:
+        1.  Base Rent: Calculated from the lease's `value` and adjusted for frequency and unit of measure.
+        2.  Escalations: Applies rent escalations if defined.
+        3.  Abatements: Applies rent abatements if defined.
+        4.  Recoveries: Computes expense reimbursements by calling the `compute_cf`
+            method of its associated `RecoveryMethod` model.
+        5.  TI & LC: Computes tenant improvements and leasing commissions by calling the
+            `compute_cf` methods of their respective models.
+
+        Returns:
+            A dictionary of pandas Series, where each key represents a cash flow
+            component (e.g., "base_rent", "recoveries", "ti_allowance").
+        """
         # --- Base Rent Calculation ---
         if isinstance(self.value, (int, float)):
             initial_monthly_value = self.value
@@ -122,7 +140,8 @@ class CommercialLeaseBase(LeaseBase, ABC):
             base_rent = self.value.copy()
             base_rent = base_rent.reindex(self.timeline.period_index, fill_value=0.0)
         else:
-            base_rent = super().compute_cf(context=context)
+            # Handle other potential value types or raise error
+            raise TypeError(f"Unsupported type for lease value: {type(self.value)}")
 
         base_rent_with_escalations = self._apply_escalations(base_rent)
         base_rent_final, abatement_cf = self._apply_abatements(base_rent_with_escalations)
@@ -165,7 +184,7 @@ class CommercialLeaseBase(LeaseBase, ABC):
         return result
 
     def project_future_cash_flows(
-        self, context: "AnalysisContext", recursion_depth: int = 0
+        self, context: AnalysisContext, recursion_depth: int = 0
     ) -> pd.DataFrame:
         """
         Recursively projects cash flows for this lease and all subsequent rollovers.

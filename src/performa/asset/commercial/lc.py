@@ -1,33 +1,23 @@
 from __future__ import annotations
 
-import logging
 import math
-from typing import Callable, List, Literal, Optional, Union
+from typing import List, Literal
 
 import pandas as pd
-from pydantic import model_validator
 
 from ...analysis import AnalysisContext
-from ...common.base import CommissionTier
-from ..commercial.lc import CommercialLeasingCommissionBase
-
-logger = logging.getLogger(__name__)
+from ...common.base import CommissionTier, LeasingCommissionBase
+from ...common.primitives.types import FloatBetween0And1
 
 
-class OfficeLeasingCommission(CommercialLeasingCommissionBase):
+class CommercialLeasingCommissionBase(LeasingCommissionBase):
     """
-    Office-specific leasing commission. Inherits tiered calculation
-    logic from the commercial base class.
+    Base class for leasing commissions in commercial properties,
+    featuring a tiered calculation logic.
     """
     tiers: List[CommissionTier]
-
-    @model_validator(mode="after")
-    def validate_broker_percentages(self) -> "OfficeLeasingCommission":
-        if not math.isclose(
-            self.landlord_broker_percentage + self.tenant_broker_percentage, 1.0
-        ):
-            raise ValueError("Broker percentages must sum to 1.0")
-        return self
+    landlord_broker_percentage: FloatBetween0And1 = 0.5
+    tenant_broker_percentage: FloatBetween0And1 = 0.5
 
     def compute_cf(self, context: AnalysisContext) -> pd.Series:
         """
@@ -42,37 +32,30 @@ class OfficeLeasingCommission(CommercialLeasingCommissionBase):
         
         total_commission = 0.0
         
-        # Sort tiers by year_start to ensure correct processing
         sorted_tiers = sorted(self.tiers, key=lambda t: t.year_start)
         
         for tier in sorted_tiers:
             tier_start_year = tier.year_start
-            # If year_end is None, it's the last tier
             tier_end_year = tier.year_end or term_in_years
             
-            # Determine how many years of the lease fall into this tier
             years_in_tier = max(0, min(term_in_years, tier_end_year) - (tier_start_year - 1))
             
             if years_in_tier > 0:
                 commissionable_rent_in_tier = total_annual_rent * years_in_tier
                 total_commission += commissionable_rent_in_tier * tier.rate
                 
-        # Handle renewal rate if applicable (simplified logic for now)
-        # A more complex model might need to distinguish initial vs. renewal terms
-        # but for now we assume if renewal_rate is set, it applies.
         if self.renewal_rate is not None:
              total_commission *= self.renewal_rate
 
         lc_cf = pd.Series(0.0, index=self.timeline.period_index)
         if total_commission > 0 and not self.timeline.period_index.empty:
-            # Payment timing logic
-            if self.payment_timing == "signing":
-                 # Simplified: assume signing is at the start of the timeline
-                 payment_period = self.timeline.period_index[0]
-            else: # commencement
+            payment_period = self.timeline.period_index[0]
+            if self.payment_timing == "commencement":
+                 # This is a simplification; a more robust model might have an explicit
+                 # rent commencement date that differs from the timeline start.
                  payment_period = self.timeline.period_index[0]
             
             if payment_period in lc_cf.index:
                 lc_cf[payment_period] = total_commission
 
-        return lc_cf
+        return lc_cf 

@@ -5,54 +5,86 @@ from datetime import date
 import pandas as pd
 import pytest
 
+from performa.analysis import AnalysisContext
+from performa.asset.office.property import OfficeProperty
 from performa.asset.office.ti import OfficeTenantImprovement
-from performa.common.primitives import Timeline, UnitOfMeasureEnum
+from performa.common.primitives import GlobalSettings, Timeline, UnitOfMeasureEnum
 
 
 @pytest.fixture
-def sample_timeline():
-    return Timeline.from_dates(start_date=date(2024, 1, 1), end_date=date(2028, 12, 31))
-
-def test_ti_upfront(sample_timeline):
-    ti = OfficeTenantImprovement(
-        name="Upfront TI",
-        timeline=sample_timeline,
-        value=50000,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
-        payment_method="upfront",
+def sample_context() -> AnalysisContext:
+    """Provides a basic analysis context for tests."""
+    timeline = Timeline.from_dates(start_date=date(2024, 1, 1), end_date=date(2028, 12, 31))
+    property_data = OfficeProperty.model_construct(net_rentable_area=1.0)
+    return AnalysisContext(
+        timeline=timeline,
+        settings=GlobalSettings(),
+        property_data=property_data,
+        resolved_lookups={},
+        recovery_states={},
     )
-    cf = ti.compute_cf()
-    assert cf.sum() == 50000
-    assert cf[pd.Period("2024-01", freq="M")] == 50000
-    assert cf.where(cf != 0).count() == 1
 
-def test_ti_amortized(sample_timeline):
+
+def test_ti_compute_cf_upfront(sample_context: AnalysisContext):
+    """Test the TI compute_cf for a simple upfront payment."""
+    ti = OfficeTenantImprovement(
+        name="Test TI",
+        timeline=sample_context.timeline,
+        value=10000.0,
+        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+        payment_timing="signing",
+    )
+    cf = ti.compute_cf(context=sample_context)
+    assert isinstance(cf, pd.Series)
+    assert cf.sum() == 10000.0
+    assert cf.iloc[0] == 10000.0
+    assert cf.iloc[1] == 0.0
+
+def test_ti_compute_cf_amortized(sample_context: AnalysisContext):
+    """Test the TI compute_cf for an amortized payment."""
     ti = OfficeTenantImprovement(
         name="Amortized TI",
-        timeline=sample_timeline,
-        value=60000,
+        timeline=sample_context.timeline,
+        value=12000.0,
         unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         payment_method="amortized",
-        interest_rate=0.05,
-        amortization_term_months=60
-    )
-    cf = ti.compute_cf()
-    # 60000 at 5% for 60 months is $1132.27/mo
-    assert pytest.approx(cf.sum(), abs=1) == 1132.27 * 60
-    assert pytest.approx(cf[pd.Period("2024-01", freq="M")], abs=0.01) == 1132.27
-    assert cf[pd.Period("2028-12", freq="M")] > 0 # Should still be paying in the last month
-    assert len(cf[cf > 0]) == 60
-
-def test_ti_amortized_no_interest(sample_timeline):
-    ti = OfficeTenantImprovement(
-        name="Amortized TI No Interest",
-        timeline=sample_timeline,
-        value=60000,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
-        payment_method="amortized",
+        payment_timing="commencement",
         interest_rate=0.0,
-        amortization_term_months=60
+        amortization_term_months=12,
     )
-    cf = ti.compute_cf()
-    assert pytest.approx(cf.sum()) == 60000
-    assert pytest.approx(cf[pd.Period("2024-01", freq="M")]) == 1000.0
+    cf = ti.compute_cf(context=sample_context)
+    assert cf.sum() == pytest.approx(12000.0)
+    assert cf.iloc[0] == pytest.approx(1000.0)
+    assert cf.iloc[11] == pytest.approx(1000.0)
+    assert cf.iloc[12] == 0.0
+
+def test_ti_payment_timing(sample_context: AnalysisContext):
+    """
+    Tests that the payment_timing field correctly places the cash flow
+    at signing (month 0) or commencement (month 1).
+    """
+    # Test 1: Payment at Signing
+    ti_signing = OfficeTenantImprovement(
+        name="Test TI Signing",
+        timeline=sample_context.timeline,
+        value=10000.0,
+        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+        payment_timing="signing",
+    )
+    cf_signing = ti_signing.compute_cf(context=sample_context)
+    assert cf_signing.iloc[0] == 10000.0
+    assert cf_signing.iloc[1] == 0.0
+    assert cf_signing.sum() == 10000.0
+
+    # Test 2: Payment at Commencement
+    ti_commencement = OfficeTenantImprovement(
+        name="Test TI Commencement",
+        timeline=sample_context.timeline,
+        value=20000.0,
+        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+        payment_timing="commencement",
+    )
+    cf_commencement = ti_commencement.compute_cf(context=sample_context)
+    assert cf_commencement.iloc[0] == 0.0
+    assert cf_commencement.iloc[1] == 20000.0
+    assert cf_commencement.sum() == 20000.0

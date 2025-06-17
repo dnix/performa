@@ -3,6 +3,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from datetime import date
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
+from uuid import UUID
 
 import numpy as np
 import pandas as pd
@@ -24,7 +25,7 @@ from ..primitives.types import FloatBetween0And1, PositiveFloat, PositiveInt
 # These will be replaced with actual imports from other .base modules once they are created.
 
 if TYPE_CHECKING:
-    from ...analysis import AnalysisContext
+    from performa.analysis import AnalysisContext
 
 class RentEscalationBase(Model):
     type: Literal["fixed", "percentage", "cpi"]
@@ -80,11 +81,11 @@ class LeaseSpecBase(Model):
     base_rent_frequency: FrequencyEnum = FrequencyEnum.MONTHLY
     rent_escalation: Optional[RentEscalationBase] = None
     rent_abatement: Optional[RentAbatementBase] = None
-    recovery_method_ref: Optional[str] = None
-    ti_allowance_ref: Optional[str] = None
-    lc_ref: Optional[str] = None
+    recovery_method_ref: Optional[UUID] = None
+    ti_allowance_ref: Optional[UUID] = None
+    lc_ref: Optional[UUID] = None
     upon_expiration: UponExpirationEnum
-    rollover_profile_ref: Optional[str] = None
+    rollover_profile_ref: Optional[UUID] = None
 
     @model_validator(mode="after")
     def check_term(self) -> "LeaseSpecBase":
@@ -108,7 +109,12 @@ class LeaseSpecBase(Model):
 
 class LeaseBase(CashFlowModel):
     """
-    Base model for a lease, handling fundamental cash flow calculations.
+    Base abstract model for a lease.
+
+    This class serves as the foundation for all lease types. It is abstract
+    and requires concrete subclasses (e.g., `CommercialLeaseBase`) to implement
+    the detailed cash flow calculation logic in `compute_cf` and the rollover
+    projection logic in `project_future_cash_flows`.
     """
     category: str = "Revenue"
     subcategory: str = "Lease" # Simplified from enum for base class
@@ -120,55 +126,25 @@ class LeaseBase(CashFlowModel):
     rent_escalation: Optional[RentEscalationBase] = None
     rent_abatement: Optional[RentAbatementBase] = None
 
-    def _apply_escalations(self, base_flow: pd.Series) -> pd.Series:
-        # Simplified escalation logic for the base class
-        if not self.rent_escalation:
-            return base_flow
-        # FIXME: Placeholder for real implementation
-        return base_flow
-
-    def _apply_abatements(self, rent_flow: pd.Series) -> tuple[pd.Series, pd.Series]:
-        # Simplified abatement logic for the base class
-        if not self.rent_abatement:
-            return rent_flow, pd.Series(0.0, index=rent_flow.index)
-        # FIXME: Placeholder for real implementation
-        return rent_flow, pd.Series(0.0, index=rent_flow.index)
-
-    def compute_cf(self, **kwargs: Any) -> Dict[str, pd.Series]:
+    @abstractmethod
+    def compute_cf(self, context: AnalysisContext) -> Dict[str, pd.Series]:
         """
-        Computes base rent, applies escalations and abatements.
-        Does NOT handle recoveries or other complex components.
+        Computes all cash flows related to the lease for its initial term.
+
+        This method must be implemented by subclasses to calculate all relevant
+        cash flow components (e.g., base rent, escalations, abatements, recoveries,
+        TI, LC) and return them as a dictionary of pandas Series.
         """
-        # 1. Calculate Base Rent from `value`, `unit_of_measure`, `frequency`
-        if isinstance(self.value, (int, float)):
-            initial_monthly_value = self.value
-            if self.frequency == FrequencyEnum.ANNUAL:
-                initial_monthly_value /= 12
-            if self.unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
-                initial_monthly_value *= self.area
-            base_rent = pd.Series(
-                initial_monthly_value, index=self.timeline.period_index
-            )
-        else:
-            # Handle series/dict value if necessary, or raise error for base class
-            raise NotImplementedError("Base class only supports scalar rent value.")
-
-        # 2. Apply Escalations
-        base_rent_with_escalations = self._apply_escalations(base_rent)
-
-        # 3. Apply Abatements
-        base_rent_final, abatement_cf = self._apply_abatements(
-            base_rent_with_escalations
-        )
-
-        return {
-            "base_rent": base_rent_final,
-            "abatement_applied": abatement_cf,
-        }
+        raise NotImplementedError
 
     @abstractmethod
-    def project_future_cash_flows(self, context: "AnalysisContext") -> pd.DataFrame:
+    def project_future_cash_flows(self, context: AnalysisContext) -> pd.DataFrame:
         """
-        Projects cash flows for this lease and subsequent rollovers.
+        Projects cash flows for this lease and all subsequent rollover events
+        throughout the analysis period.
+
+        This method must be implemented by subclasses to handle the logic of
+        lease expiration and the creation of new speculative or renewal leases
+        based on the `upon_expiration` setting and rollover profiles.
         """
         pass 

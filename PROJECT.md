@@ -30,27 +30,14 @@ Performa aims to be the open standard for real estate financial modeling, provid
 
 ```sh
 src/performa/
-├── asset/                # Core real estate asset primitives
-│   ├── _analysis.py      # Asset-level financial analysis
-│   ├── _absorption.py    # Space absorption modeling
-│   ├── _calc_utils.py    # Utility functions for asset calculations
-│   ├── _expense.py       # Expense modeling
-│   ├── _growth_rates.py  # Growth rate assumptions and application
-│   ├── _lc.py            # Leasing commission calculations
-│   ├── _lease.py         # Detailed lease modeling
-│   ├── _lease_spec.py    # Lease specification for market and rollover
-│   ├── _losses.py        # Vacancy and credit loss modeling
-│   ├── _misc_income.py   # Miscellaneous income modeling
-│   ├── _property.py      # Property characteristics
-│   ├── _recovery.py      # Expense recovery calculations
-│   ├── _rent_abatement.py # Rent abatement modeling
-│   ├── _rent_escalation.py # Rent escalation modeling
-│   ├── _rent_roll.py     # Rent roll management
-│   ├── _rollover.py      # Lease rollover analysis
-│   ├── _tenant.py        # Tenant data modeling
-│   ├── _ti.py            # Tenant improvement calculations
-│   ├── _types.py         # Type definitions for asset module
-│   └── __init__.py       # Package anitialization
+├── analysis/             # Core analysis engine (orchestrator, context)
+├── asset/                # Asset-type specific models (office, retail, etc.)
+│   ├── commercial/       # Logic shared by all commercial asset types
+│   ├── office/           # Office-specific models and logic
+│   └── ...               # Other asset types (retail, etc.)
+├── common/               # Primitives and base classes shared across all modules
+│   ├── base/             # Abstract base classes for core components (lease, expense, etc.)
+│   └── primitives/       # Core data types (enums, timeline, cashflow model)
 ├── debt/                 # Debt modeling components
 │   ├── _permanent.py     # Permanent debt facilities
 │   ├── _construction.py  # Construction financing

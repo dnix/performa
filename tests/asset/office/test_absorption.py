@@ -339,3 +339,105 @@ def test_custom_schedule_pace_with_subdivision(mixed_suites, analysis_timeline, 
     period2_specs = [s for s in generated_specs if s.start_date == date(2025, 1, 1)]
     assert len(period2_specs) > 0
     assert round(sum(s.area for s in period2_specs)) == 44000
+
+
+# --- Edge Case Tests ---
+
+def test_absorption_target_exceeds_vacant(vacant_suites, analysis_timeline, base_direct_lease_terms):
+    """
+    Tests that if the absorption target (`quantity`) is larger than the total
+    available vacant space, the plan leases everything available and stops
+    gracefully without error.
+
+    Scenario:
+        - Total vacant area is 15,000 SF.
+        - The absorption plan targets 20,000 SF in a single period.
+    Expectation:
+        - The plan should generate specs for all 5 vacant suites, totaling
+          15,000 SF of leased area.
+        - It should not error or create more leases than there is space.
+    """
+    plan = OfficeAbsorptionPlan(
+        name="Test Exceeds Vacant",
+        space_filter=SpaceFilter(),
+        start_date_anchor=date(2024, 1, 1),
+        pace=FixedQuantityPace(quantity=20000, unit="SF", frequency_months=3),
+        leasing_assumptions=base_direct_lease_terms
+    )
+    generated_specs = plan.generate_lease_specs(
+        available_vacant_suites=vacant_suites,
+        analysis_start_date=analysis_timeline.start_date.to_timestamp().date(),
+        analysis_end_date=analysis_timeline.end_date.to_timestamp().date(),
+    )
+    
+    total_vacant_area = sum(s.area for s in vacant_suites)
+    total_leased_area = sum(s.area for s in generated_specs)
+
+    # Should lease all available space, but no more
+    assert total_leased_area == total_vacant_area
+    assert len(generated_specs) == len(vacant_suites)
+
+
+def test_absorption_schedule_exceeds_analysis(vacant_suites, analysis_timeline, base_direct_lease_terms):
+    """
+    Tests that a CustomSchedulePace only generates leases for dates that
+    fall within the analysis timeline.
+
+    Scenario:
+        - Analysis timeline ends on Dec 31, 2028.
+        - The absorption schedule includes a date after the end (Jan 1, 2029).
+    Expectation:
+        - Leases should be generated for the date within the timeline.
+        - The lease scheduled for after the analysis end date should be ignored.
+    """
+    schedule = {
+        date(2025, 1, 1): 5000,  # This one should be created
+        date(2029, 1, 1): 4000,  # This one should be ignored
+    }
+    plan = OfficeAbsorptionPlan(
+        name="Test Schedule Exceeds Analysis",
+        space_filter=SpaceFilter(),
+        start_date_anchor=date(2024, 1, 1),
+        pace=CustomSchedulePace(schedule=schedule),
+        leasing_assumptions=base_direct_lease_terms
+    )
+    generated_specs = plan.generate_lease_specs(
+        available_vacant_suites=vacant_suites,
+        analysis_start_date=analysis_timeline.start_date.to_timestamp().date(),
+        analysis_end_date=analysis_timeline.end_date.to_timestamp().date(),
+    )
+    
+    # Only one lease spec should have been generated
+    assert len(generated_specs) == 1
+    assert generated_specs[0].area == 5000
+    assert generated_specs[0].start_date == date(2025, 1, 1)
+
+
+def test_absorption_indivisible_suite_too_large(vacant_suites, analysis_timeline, base_direct_lease_terms):
+    """
+    Tests that if the target area for an EqualSpreadPace deal is smaller
+    than the smallest available non-divisible suite, the plan does not
+    lease anything in that period and moves on.
+
+    Scenario:
+        - Total vacant area is 15,000 SF.
+        - Smallest suite is 1,000 SF.
+        - Plan is for 20 deals, making the target per deal 750 SF.
+    Expectation:
+        - Since 750 SF is smaller than any available suite and there are
+          no divisible suites, no leases should be generated at all.
+    """
+    plan = OfficeAbsorptionPlan(
+        name="Test Indivisible Too Large",
+        space_filter=SpaceFilter(),
+        start_date_anchor=date(2024, 1, 1),
+        pace=EqualSpreadPace(total_deals=20, frequency_months=1),
+        leasing_assumptions=base_direct_lease_terms
+    )
+    generated_specs = plan.generate_lease_specs(
+        available_vacant_suites=vacant_suites,
+        analysis_start_date=analysis_timeline.start_date.to_timestamp().date(),
+        analysis_end_date=analysis_timeline.end_date.to_timestamp().date(),
+    )
+    
+    assert len(generated_specs) == 0

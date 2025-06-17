@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class CommercialRecoveryMethodBase(RecoveryMethodBase):
 
-    def compute_cf(self, context: "AnalysisContext", lease: "LeaseBase") -> pd.Series:
+    def compute_cf(self, context: AnalysisContext, lease: "LeaseBase") -> pd.Series:
         total_recoveries = pd.Series(0.0, index=context.timeline.period_index)
         logger.debug(f"Calculating recoveries for method '{self.name}' on lease '{lease.name}'")
 
@@ -26,9 +26,9 @@ class CommercialRecoveryMethodBase(RecoveryMethodBase):
         for recovery_item in self.recoveries:
             logger.debug(f"Processing recovery for expense pool: {recovery_item.expense_pool.name}, Structure: {recovery_item.structure}")
 
-            current_recovery_state = context.recovery_states.get(recovery_item.model_id)
+            current_recovery_state = context.recovery_states.get(recovery_item.uid)
             if current_recovery_state is None:
-                logger.warning(f"No recovery state found for recovery model ID {recovery_item.model_id}. Skipping.")
+                logger.warning(f"No recovery state found for recovery model ID {recovery_item.uid}. Skipping.")
                 continue
 
             expense_pool = recovery_item.expense_pool
@@ -40,13 +40,13 @@ class CommercialRecoveryMethodBase(RecoveryMethodBase):
                 variable_ratio = item.variable_ratio if is_opex_item and item.variable_ratio is not None else 0.0
 
                 try:
-                    raw_item_cf = context.resolved_lookups[item.model_id]
+                    raw_item_cf = context.resolved_lookups[item.uid]
                     if not isinstance(raw_item_cf, pd.Series):
                         raise TypeError(f"Resolved lookup for {item.name} is not a Series.")
                 except (KeyError, TypeError) as e:
-                    logger.error(f"Failed to resolve cash flow for expense item {item.name} ({item.model_id}). Error: {e}")
+                    logger.error(f"Failed to resolve cash flow for expense item {item.name} ({item.uid}). Error: {e}")
                     continue
-
+                
                 item_cf_to_add = raw_item_cf
                 if self.gross_up and is_opex_item and item.is_recoverable and variable_ratio > 0:
                     if context.occupancy_rate_series is not None:

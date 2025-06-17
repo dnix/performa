@@ -182,6 +182,7 @@ class OfficeLease(CommercialLeaseBase):
                 timeline=timeline,
                 value=ti_value,
                 unit_of_measure=ti_config.unit_of_measure,
+                payment_timing=ti_config.payment_timing,
             )
 
         leasing_commission = None

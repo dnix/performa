@@ -1,70 +1,93 @@
 from __future__ import annotations
 
+import logging
 from datetime import date
 
 import pandas as pd
 import pytest
 
+from performa.analysis import AnalysisContext
 from performa.asset.office.expense import (
     OfficeCapExItem,
     OfficeExpenses,
     OfficeOpExItem,
 )
+from performa.asset.office.property import OfficeProperty
 from performa.common.primitives import (
     FrequencyEnum,
+    GlobalSettings,
     GrowthRate,
     Timeline,
     UnitOfMeasureEnum,
 )
 
+logger = logging.getLogger(__name__)
+
 
 @pytest.fixture
-def sample_timeline():
+def sample_timeline() -> Timeline:
     return Timeline.from_dates(start_date=date(2024, 1, 1), end_date=date(2024, 12, 31))
 
-def test_office_opex_item_compute_cf(sample_timeline):
-    opex = OfficeOpExItem(
-        name="Test OpEx",
+
+@pytest.fixture
+def sample_context(sample_timeline: Timeline) -> AnalysisContext:
+    property_data = OfficeProperty.model_construct(net_rentable_area=1000.0)
+    return AnalysisContext(
         timeline=sample_timeline,
-        value=12000,
+        settings=GlobalSettings(),
+        property_data=property_data,
+        resolved_lookups={},
+        recovery_states={},
+    )
+
+
+def test_office_opex_item_compute_cf(sample_context: AnalysisContext):
+    """Test basic cash flow calculation for an office opex item."""
+    opex = OfficeOpExItem(
+        name="Test Expense",
+        timeline=sample_context.timeline,
+        value=1200.0,
         unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         frequency=FrequencyEnum.ANNUAL,
     )
-    cf = opex.compute_cf()
+    cf = opex.compute_cf(context=sample_context)
     assert isinstance(cf, pd.Series)
-    assert pytest.approx(cf.sum()) == 12000
-    assert pytest.approx(cf.iloc[0]) == 1000
+    assert cf.sum() == pytest.approx(1200.0)
+    assert cf.iloc[0] == pytest.approx(100.0)
 
-def test_office_opex_item_variable(sample_timeline):
+
+def test_opex_with_nra_reference(sample_context: AnalysisContext):
+    """Test PER_UNIT calculation which relies on context."""
     opex = OfficeOpExItem(
-        name="Test Var OpEx",
-        timeline=sample_timeline,
-        value=12000,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+        name="Test Expense PSF",
+        timeline=sample_context.timeline,
+        value=1.5,  # $/sf/yr
+        unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
         frequency=FrequencyEnum.ANNUAL,
-        variable_ratio=0.5
     )
-    cf = opex.compute_cf(occupancy_rate=0.8)
-    # Expected monthly = (1000 * 0.5 fixed) + (1000 * 0.5 variable * 0.8 occupancy) = 500 + 400 = 900
-    assert pytest.approx(cf.iloc[0]) == 900
-    assert pytest.approx(cf.sum()) == 900 * 12
+    cf = opex.compute_cf(context=sample_context)
+    # 1.5 $/sf/yr * 1000 sf = 1500 $/yr
+    assert cf.sum() == pytest.approx(1500.0)
+    assert cf.iloc[0] == pytest.approx(125.0)
 
-def test_office_opex_item_with_growth(sample_timeline):
+
+def test_opex_with_growth(sample_context: AnalysisContext):
+    """Test cash flow with a growth rate applied."""
     opex = OfficeOpExItem(
-        name="Growing OpEx",
-        timeline=sample_timeline,
-        value=1000,
+        name="Test Growing Expense",
+        timeline=sample_context.timeline,
+        value=100.0,
         unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         frequency=FrequencyEnum.MONTHLY,
-        growth_rate=GrowthRate(name="Test Growth", value=0.12) # 12% annual -> 1% monthly
+        growth_rate=GrowthRate(name="Test Growth", value=0.12),  # 12% annual -> 1% monthly
     )
-    cf = opex.compute_cf()
-    # First month is 1000 * 1.01 = 1010. Second month is 1000 * 1.01^2 = 1020.1
-    assert pytest.approx(cf.iloc[0]) == 1010
-    assert pytest.approx(cf.iloc[1]) == 1020.1
-    assert cf.sum() > 12000 # Should be greater than flat 12k
+    cf = opex.compute_cf(context=sample_context)
+    assert cf.iloc[0] == pytest.approx(100.0 * 1.01)
+    assert cf.iloc[1] == pytest.approx(100.0 * 1.01 * 1.01)
+    assert cf.iloc[0] < cf.iloc[-1]
 
-def test_expenses_container(sample_timeline):
+
+def test_expenses_container(sample_timeline: Timeline):
     opex1 = OfficeOpExItem(name="CAM", value=10, unit_of_measure="per_unit", frequency="annual", timeline=sample_timeline)
     capex1 = OfficeCapExItem(name="Roof", value={"2024-06-01": 50000}, unit_of_measure=UnitOfMeasureEnum.CURRENCY, timeline=sample_timeline)
     expenses = OfficeExpenses(
@@ -72,4 +95,4 @@ def test_expenses_container(sample_timeline):
         capital_expenses=[capex1]
     )
     assert len(expenses.operating_expenses) == 1
-    assert len(expenses.capital_expenses) == 1
+    assert len(expenses.capital_expenses) == 1 

@@ -14,13 +14,23 @@ from .settings import GlobalSettings
 from .timeline import Timeline
 from .types import PositiveFloat
 
+if TYPE_CHECKING:
+    from performa.analysis import AnalysisContext
 
-class CashFlowModel(Model, ABC):
+
+class CashFlowModel(Model):
     """
-    Base Abstract class for any cash flow description.
-    
-    Subclasses must implement the compute_cf method. This base class is not
-    intended for direct instantiation.
+    Base class for any cash flow description.
+
+    Provides a concrete base implementation for cash flow calculation,
+    including unit-based resolution and growth application. This class is
+    intended to be subclassed for specific cash flow types (e.g., OpExItem,
+    Lease, etc.).
+
+    The core calculation logic resides in the `compute_cf` method, which can be
+    called by subclasses via `super().compute_cf(context)` to get a base,
+    grown cash flow series. Subclasses can then apply their own specific
+    adjustments (like occupancy).
     """
 
     uid: UUID = Field(
@@ -36,22 +46,9 @@ class CashFlowModel(Model, ABC):
     value: Union[PositiveFloat, pd.Series, Dict, List]
     unit_of_measure: UnitOfMeasureEnum
     frequency: FrequencyEnum = FrequencyEnum.MONTHLY
-    reference: Optional[Union[float, pd.Series, str, UUID]] = None
+    reference: Optional[UUID] = None
     settings: GlobalSettings = Field(default_factory=GlobalSettings)
-
-    def resolve_reference(
-        self,
-        lookup_fn: Optional[Callable[[Union[str, UUID]], Union[float, pd.Series, Dict, None]]] = None
-    ) -> Optional[Union[float, pd.Series, Dict]]:
-        if isinstance(self.reference, (int, float, pd.Series, Dict)):
-            return self.reference
-        elif isinstance(self.reference, (str, UUID)):
-            if lookup_fn is None:
-                raise ValueError(
-                    "A lookup function is required to resolve string or UUID references."
-                )
-            return lookup_fn(self.reference)
-        return None
+    growth_rate: Optional[GrowthRate] = None
 
     def _convert_frequency(
         self, value: Union[float, pd.Series]
@@ -84,11 +81,7 @@ class CashFlowModel(Model, ABC):
             raise ValueError("Unsupported value type for casting to flow.")
 
     def _align_flow_series(self, flow: pd.Series) -> pd.Series:
-        """
-        Align the provided flow series to the model's timeline.
-        """
         if not isinstance(flow.index, pd.PeriodIndex) or flow.index.freq != 'M':
-             # Attempt to convert DatetimeIndex or other PeriodIndex to monthly PeriodIndex
             try:
                 flow.index = flow.index.to_period('M')
             except AttributeError:
@@ -100,25 +93,16 @@ class CashFlowModel(Model, ABC):
         base_series: pd.Series,
         growth_rate: "GrowthRate",
     ) -> pd.Series:
-        """
-        Apply compounding growth to a base cash flow series.
-        Growth is applied period-over-period. The value in each period is
-        the value of the prior period multiplied by (1 + growth_rate).
-        """
         if not isinstance(base_series.index, pd.PeriodIndex):
             raise ValueError("Base series index must be a monthly PeriodIndex.")
-
         growth_value = growth_rate.value
         periods = base_series.index
-
         if isinstance(growth_value, (float, int)):
             monthly_rate = float(growth_value) / 12.0
             period_rates = pd.Series(monthly_rate, index=periods)
-        
         elif isinstance(growth_value, pd.Series):
             aligned_rates = growth_value.reindex(periods, method="ffill").fillna(0)
             period_rates = aligned_rates
-        
         elif isinstance(growth_value, dict):
             dict_series = pd.Series(growth_value)
             if not isinstance(dict_series.index, pd.PeriodIndex):
@@ -127,30 +111,50 @@ class CashFlowModel(Model, ABC):
             period_rates = aligned_rates
         else:
             raise TypeError(f"Unsupported type for GrowthRate value: {type(growth_value)}")
-
-        # Create compounding factors. The value at period `t` is the cumulative
-        # product of (1 + rate) up to `t`.
         compounding_factors = (1 + period_rates).cumprod()
-
-        # Apply the compounding factors to the base series.
-        # This assumes the base_series contains the starting values for each period
-        # before any growth is applied.
         return base_series * compounding_factors
 
     def compute_cf(
-        self,
-        lookup_fn: Optional[Callable[[Union[str, UUID]], Any]] = None,
-        **kwargs: Any,
+        self, context: AnalysisContext
     ) -> Union[pd.Series, Dict[str, pd.Series]]:
         """
-        Compute the cash flow for this model instance.
+        Computes the cash flow for this model instance.
+
+        This base implementation serves as the primary engine for most cash flow
+        calculations. It performs the following steps:
+        1.  Determines the base value of the cash flow, resolving dependencies
+            if necessary (`PER_UNIT` or `BY_PERCENT`).
+        2.  Converts the value to a monthly frequency.
+        3.  Casts the value into a pandas Series spanning the item's timeline.
+        4.  Applies compounding growth if a `growth_rate` is present.
+
+        Subclasses can call this method via `super().compute_cf(context)` to
+        get a fully calculated and grown base cash flow series, upon which they
+        can apply their own specific modifications (e.g., occupancy adjustments).
         """
-        resolved_value = self.value
-        if self.reference and lookup_fn:
-            resolved_reference = self.resolve_reference(lookup_fn)
-            if self.unit_of_measure == UnitOfMeasureEnum.PER_UNIT and isinstance(resolved_reference, (int,float)):
-                 resolved_value = self.value * resolved_reference
-            # Other reference-based calculations would go here
+        base_value = self.value
+
+        if self.unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
+            # Property-level reference for PER_UNIT is NRA
+            nra = context.property_data.net_rentable_area
+            if nra > 0:
+                base_value = self.value * nra
+            else:
+                base_value = 0.0
+        elif self.unit_of_measure == UnitOfMeasureEnum.BY_PERCENT and self.reference:
+            # Dependency is on another cash flow, which must have been pre-computed
+            # by the orchestrator and stored in the context.
+            dependency_cf = context.resolved_lookups.get(self.reference)
+            if dependency_cf is None:
+                raise ValueError(f"Unresolved dependency for '{self.name}': {self.reference}")
+            base_value = dependency_cf * self.value
         
-        monthly_value = self._convert_frequency(resolved_value)
-        return self._cast_to_flow(monthly_value) 
+        monthly_value = self._convert_frequency(base_value)
+        base_series = self._cast_to_flow(monthly_value)
+
+        if self.growth_rate:
+            base_series = self._apply_compounding_growth(
+                base_series=base_series, growth_rate=self.growth_rate
+            )
+        
+        return base_series 

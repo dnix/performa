@@ -51,7 +51,7 @@ class ExpensePool(CommonExpensePoolBase):
         return pool_cf
 
 
-class Recovery(Model):
+class Recovery(RecoveryBase):
     uid: UUID = Field(default_factory=uuid4)
     expenses: Union[ExpensePool, OpExItemBase]
     structure: Literal[

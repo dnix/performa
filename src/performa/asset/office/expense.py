@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
 from uuid import UUID
 
 import pandas as pd
 
 from ...common.base import CapExItemBase, OpExItemBase
 from ...common.primitives import GrowthRate, Model, Timeline, UnitOfMeasureEnum
+
+if TYPE_CHECKING:
+    from performa.analysis import AnalysisContext
 
 logger = logging.getLogger(__name__)
 
@@ -16,40 +19,36 @@ class OfficeOpExItem(OpExItemBase):
     Office-specific operating expense.
     """
 
-    def compute_cf(
-        self,
-        occupancy_rate: Optional[Union[float, pd.Series]] = None,
-        lookup_fn: Optional[Callable[[Union[str, UUID]], Any]] = None,
-        **kwargs,
-    ) -> pd.Series:
+    def compute_cf(self, context: AnalysisContext) -> pd.Series:
         """
         Compute office operating expense cash flow.
+
+        This method follows a clean two-step process:
+        1. It calls `super().compute_cf(context)` to get the fully calculated,
+           growth-adjusted base cash flow series from `OpExItemBase`.
+        2. It then applies office-specific adjustments for occupancy if the
+           expense is defined as variable.
         """
-        # Let the base class handle the initial calculation including frequency conversion
-        calculated_flow = super().compute_cf(lookup_fn=lookup_fn, **kwargs)
+        # Get the base cash flow (already includes growth, etc.)
+        base_cf = super().compute_cf(context=context)
 
-        if self.growth_rate:
-            if hasattr(self, "_apply_compounding_growth"):
-                calculated_flow = self._apply_compounding_growth(
-                    base_series=calculated_flow,
-                    growth_rate=self.growth_rate,
-                )
-
-        if occupancy_rate is not None and self.is_variable:
+        # Apply occupancy adjustment if this expense is variable
+        if self.is_variable and context.occupancy_rate_series is not None:
             fixed_ratio = 1.0 - (self.variable_ratio or 0.0)
             variable_part = self.variable_ratio or 0.0
             
+            occupancy_rate = context.occupancy_rate_series
             if isinstance(occupancy_rate, pd.Series):
                 aligned_occupancy = occupancy_rate.reindex(
-                    calculated_flow.index, method="ffill"
+                    base_cf.index, method="ffill"
                 ).fillna(1.0)
                 adjustment_ratio = fixed_ratio + (variable_part * aligned_occupancy)
-            else:
+            else: # float
                 adjustment_ratio = fixed_ratio + (variable_part * float(occupancy_rate))
 
-            calculated_flow *= adjustment_ratio
+            base_cf *= adjustment_ratio
             
-        return calculated_flow
+        return base_cf
 
 class OfficeCapExItem(CapExItemBase):
     """
