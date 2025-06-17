@@ -2,6 +2,7 @@ from .cash_flow import CashFlowModel
 from .enums import (
     AggregateLineKey,
     AssetTypeEnum,
+    CalculationPass,
     CashFlowCategoryEnum,
     ExpenseSubcategoryEnum,
     FrequencyEnum,
@@ -34,6 +35,7 @@ __all__ = [
     "InflationTimingEnum",
     "ReportingSettings",
     "AssetTypeEnum",
+    "CalculationPass",
     "CashFlowCategoryEnum",
     "ExpenseSubcategoryEnum",
     "FrequencyEnum",

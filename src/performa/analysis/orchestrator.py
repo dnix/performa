@@ -9,7 +9,7 @@ from uuid import UUID
 
 import pandas as pd
 
-from performa.common.primitives import AggregateLineKey
+from performa.common.primitives import AggregateLineKey, CalculationPass
 
 if TYPE_CHECKING:
     from performa.common.base import (
@@ -71,19 +71,37 @@ class CashFlowOrchestrator:
     def execute(self) -> None:
         """Runs the full, phased calculation and aggregation process."""
         logger.info("Orchestrator execution started.")
-        
-        # PHASE 1: DERIVED STATE CALCULATION
-        logger.info("Phase 1: Calculating derived state (e.g., occupancy).")
+
+        # Pre-Phase: Calculate derived system-wide state like occupancy.
+        # This can be done first as it only depends on static model attributes (area, timeline),
+        # not on calculated cash flows.
+        logger.info("Executing Pre-Phase: Calculating Derived State (Occupancy).")
         self.context.occupancy_rate_series = self._calculate_occupancy_series()
-        
-        # PHASE 2: DEPENDENT CASH FLOW CALCULATION
-        logger.info("Phase 2: Executing dependent cash flow calculations.")
-        self._compute_all_models()
-        
-        # PHASE 3: AGGREGATION
-        logger.info("Phase 3: Aggregating cash flows.")
+
+        # Phase 1: Calculate all independent base values (e.g., base expenses).
+        # These may depend on occupancy, but not on other calculated cash flows.
+        logger.info("Executing Pass: INDEPENDENT_VALUES")
+        independent_models = [
+            m
+            for m in self.models
+            if m.calculation_pass == CalculationPass.INDEPENDENT_VALUES
+        ]
+        self._compute_model_subset(independent_models)
+
+        # Phase 2: Calculate all dependent values (e.g., leases with recoveries).
+        # These depend on the results of the INDEPENDENT_VALUES pass.
+        logger.info("Executing Pass: DEPENDENT_VALUES")
+        dependent_models = [
+            m
+            for m in self.models
+            if m.calculation_pass == CalculationPass.DEPENDENT_VALUES
+        ]
+        self._compute_model_subset(dependent_models)
+
+        # Final Phase: Aggregate all results into summary views.
+        logger.info("Final Phase: Aggregating all cash flows.")
         self._aggregate_flows()
-        
+
         logger.info("Orchestrator execution finished.")
 
     # --- CRITICAL METHOD 2: _calculate_occupancy_series() ---
@@ -103,25 +121,36 @@ class CashFlowOrchestrator:
         else:
             return pd.Series(0.0, index=self.context.timeline.period_index)
 
-    # --- CRITICAL METHOD 3: _compute_all_models() ---
-    def _compute_all_models(self) -> None:
-        """Builds dependency graph and computes all models in order."""
-        graph = {m.uid: {m.reference} for m in self.models if isinstance(m.reference, UUID) and m.reference in self.model_map}
-        # Add models with no dependencies
-        for m in self.models:
-            if m.uid not in graph:
-                graph[m.uid] = set()
+    def _compute_model_subset(self, model_subset: List["CashFlowModel"]) -> None:
+        """Builds dependency graph and computes a subset of models in order."""
+        if not model_subset:
+            logger.info("No models to compute in this subset, skipping.")
+            return
+
+        subset_uids = {m.uid for m in model_subset}
+        graph = {}
+        for m in model_subset:
+            deps = set()
+            # A model's dependency is only relevant for sorting if it's within the same phase.
+            # Dependencies on models from prior phases are already resolved in the context.
+            if isinstance(m.reference, UUID) and m.reference in subset_uids:
+                deps.add(m.reference)
+            graph[m.uid] = deps
 
         try:
             ts = TopologicalSorter(graph)
             sorted_uids = list(ts.static_order())
         except CycleError as e:
-            logger.error(f"Circular dependency detected in cash flow models: {e}")
+            # Add more context to the error
+            cycle_nodes = e.args[1]
+            cycle_names = [self.model_map[uid].name for uid in cycle_nodes]
+            logger.error(
+                f"Circular dependency detected in model subset: {' -> '.join(cycle_names)}"
+            )
             raise
 
         for model_uid in sorted_uids:
             model = self.model_map[model_uid]
-            # The context is now complete with all derived state
             result = model.compute_cf(context=self.context)
             self.context.resolved_lookups[model.uid] = result
 

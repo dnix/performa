@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 from uuid import UUID, uuid4
 
 import pandas as pd
-from pydantic import Field
+from pydantic import Field, computed_field
 
-from .enums import FrequencyEnum, UnitOfMeasureEnum
+from .enums import CalculationPass, FrequencyEnum, UnitOfMeasureEnum
 from .growth_rates import GrowthRate
 from .model import Model
 from .settings import GlobalSettings
@@ -49,6 +49,12 @@ class CashFlowModel(Model):
     reference: Optional[UUID] = None
     settings: GlobalSettings = Field(default_factory=GlobalSettings)
     growth_rate: Optional[GrowthRate] = None
+
+    @computed_field
+    @property
+    def calculation_pass(self) -> CalculationPass:
+        """Defines the calculation phase for this model. Defaults to independent."""
+        return CalculationPass.INDEPENDENT_VALUES
 
     def _convert_frequency(
         self, value: Union[float, pd.Series]

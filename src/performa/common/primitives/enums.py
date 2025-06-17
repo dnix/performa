@@ -4,6 +4,16 @@ from enum import Enum
 from typing import List, Optional
 
 
+class CalculationPass(Enum):
+    """
+    Defines the explicit waterfall of calculation passes for the analysis engine.
+    This ensures that prerequisite calculations (like base expenses) are completed
+    before dependent calculations (like recoveries) begin.
+    """
+    INDEPENDENT_VALUES = 1
+    DEPENDENT_VALUES = 2
+
+
 class CashFlowCategoryEnum(str, Enum):
     """
     Enum for CashFlow categories.

@@ -11,6 +11,7 @@ from pydantic import computed_field, model_validator
 
 from ..primitives.cash_flow import CashFlowModel
 from ..primitives.enums import (
+    CalculationPass,
     FrequencyEnum,
     LeaseStatusEnum,
     ProgramUseEnum,
@@ -125,6 +126,12 @@ class LeaseBase(CashFlowModel):
     upon_expiration: UponExpirationEnum
     rent_escalation: Optional[RentEscalationBase] = None
     rent_abatement: Optional[RentAbatementBase] = None
+
+    @computed_field
+    @property
+    def calculation_pass(self) -> CalculationPass:
+        """Overrides the default pass. Leases are dependent calculations."""
+        return CalculationPass.DEPENDENT_VALUES
 
     @abstractmethod
     def compute_cf(self, context: AnalysisContext) -> Dict[str, pd.Series]:
