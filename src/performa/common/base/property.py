@@ -39,5 +39,6 @@ class PropertyBaseModel(Model):
     gross_area: PositiveFloat
     net_rentable_area: PositiveFloat
 
-    # Mixed-Use Support
-    program_components: Optional[List[ProgramComponentSpec]] = None 
+    # Program mix (for mixed-use properties)
+    # FIXME: address this
+    program_components: Optional[List[ProgramComponentSpec]] = None

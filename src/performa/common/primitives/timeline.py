@@ -130,4 +130,4 @@ class Timeline(Model):
             reference_index = reference_index.to_period(freq="M")
 
         new_start_date = reference_index[0] + self.start_offset_months
-        return Timeline(start_date=new_start_date, duration_months=self.duration_months) 
+        return Timeline(start_date=new_start_date, duration_months=self.duration_months)
