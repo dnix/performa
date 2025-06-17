@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Union
 from uuid import UUID
 
 from performa.analysis import register_scenario
-from performa.common.base import LeaseSpecBase, RecoveryCalculationState
+from performa.common.base import LeaseSpecBase
 from performa.common.primitives import CashFlowModel
 
 from ..commercial.analysis import CommercialAnalysisScenarioBase
@@ -12,6 +12,7 @@ from .expense import OfficeCapExItem, OfficeOpExItem
 from .lease import OfficeLease
 from .misc_income import OfficeMiscIncome
 from .property import OfficeProperty
+from .recovery import RecoveryCalculationState
 
 
 @register_scenario(OfficeProperty)
@@ -21,13 +22,25 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
     def _pre_calculate_recoveries(self) -> Dict[UUID, RecoveryCalculationState]:
         """
         Pre-calculates base year stops for all recovery methods in the model.
-        This is an office-specific implementation detail.
+        Creates recovery states for all recovery items found in lease specs.
         """
-        # This is a placeholder for the complex logic of calculating base year stops.
-        # In a real implementation, this would iterate through all recovery methods,
-        # find the ones with a 'base_year' structure, calculate the expenses for that
-        # specific year, and store the result in a state object.
-        return {}
+        recovery_states = {}
+        
+        # Iterate through all lease specs to find recovery methods
+        if hasattr(self.model, "rent_roll") and self.model.rent_roll:
+            for lease_spec in self.model.rent_roll.leases:
+                if lease_spec.recovery_method:
+                    # Iterate through all recovery items in this recovery method
+                    for recovery_item in lease_spec.recovery_method.recoveries:
+                        if recovery_item.uid not in recovery_states:
+                            # Create a basic recovery state for this recovery item
+                            recovery_states[recovery_item.uid] = RecoveryCalculationState(
+                                recovery_uid=recovery_item.uid,
+                                calculated_annual_base_year_stop=None,  # For base year structures
+                                frozen_base_year_pro_rata=None,         # For base year structures
+                            )
+        
+        return recovery_states
 
     def _create_lease_from_spec(self, spec: LeaseSpecBase) -> CashFlowModel:
         # Create OfficeLease directly from spec using attached objects
