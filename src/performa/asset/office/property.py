@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
+from pydantic import computed_field
+
 from ...common.base import PropertyBaseModel, VacantSuiteBase
 from ...common.primitives import Model
 from .absorption import OfficeAbsorptionPlan
@@ -89,20 +91,24 @@ class OfficeProperty(PropertyBaseModel):
             for floor_num, tenants in floor_tenants.items()
         ]
 
+    @computed_field
     @property
     def occupied_area(self) -> float:
         """Calculate total occupied area from the rent roll."""
         return self.rent_roll.total_occupied_area
 
+    @computed_field
     @property
     def vacant_area(self) -> float:
         """Calculate total vacant area."""
+        # FIXME: review this calculation
         total_vacant_area = sum(suite.area for suite in self.rent_roll.vacant_suites)
         # As a sanity check, can also be calculated against NRA
         calculated_vacant = self.net_rentable_area - self.occupied_area
         # In a real model, you might log a warning if these don't match
         return calculated_vacant
 
+    @computed_field
     @property
     def occupancy_rate(self) -> float:
         """Calculate current occupancy rate."""

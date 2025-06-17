@@ -4,7 +4,7 @@ from datetime import date
 from typing import Any, Optional, Union
 
 import pandas as pd
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, computed_field, field_validator, model_validator
 
 from .model import Model
 from .types import PositiveInt
@@ -64,10 +64,15 @@ class Timeline(Model):
             raise ValueError("Cannot get a start date from a relative timeline. It must be shifted first.")
         return self.start_date
 
+    @computed_field
     @property
     def end_date(self) -> pd.Period:
         """Calculate the end date based on duration (only for absolute timelines)."""
-        return self._get_absolute_start() + (self.duration_months - 1)
+        # FIXME: review this calculation
+        start = self._get_absolute_start()
+        if start is None:
+            return None
+        return start + (self.duration_months - 1)
 
     @property
     def period_index(self) -> pd.PeriodIndex:
