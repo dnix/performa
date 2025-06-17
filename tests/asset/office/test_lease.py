@@ -248,7 +248,11 @@ class TestOfficeLease(unittest.TestCase):
         
         # Check they occur at the right time
         new_lease_start = pd.Period('2024-04', 'M')
-        self.assertGreater(future_df.loc[new_lease_start, 'ti_allowance'], 0)
+        # TI is paid at commencement, which is defined as the 2nd month of the lease
+        self.assertEqual(future_df.loc[new_lease_start, 'ti_allowance'], 0)
+        self.assertGreater(future_df.loc[new_lease_start + 1, 'ti_allowance'], 0)
+
+        # LC is paid at signing (month 1)
         self.assertGreater(future_df.loc[new_lease_start, 'leasing_commission'], 0)
         
         # Check that they are zero before the new lease starts

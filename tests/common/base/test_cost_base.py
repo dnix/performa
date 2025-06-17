@@ -2,14 +2,26 @@ from __future__ import annotations
 
 from datetime import date
 
+import pandas as pd
 import pytest
+from pydantic import ValidationError
 
+from performa.analysis import AnalysisContext
 from performa.common.base import (
     CommissionTier,
     LeasingCommissionBase,
     TenantImprovementAllowanceBase,
 )
-from performa.common.primitives import Timeline, UnitOfMeasureEnum
+from performa.common.base.cost import (
+    CommissionTier,
+    LeasingCommissionBase,
+    TenantImprovementAllowanceBase,
+)
+from performa.common.primitives import (
+    GlobalSettings,
+    Timeline,
+    UnitOfMeasureEnum,
+)
 
 
 @pytest.fixture
@@ -36,3 +48,60 @@ def test_tenant_improvement_allowance_base_instantiation(sample_timeline: Timeli
         unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
     )
     assert item.name == "Standard TI"
+
+def test_payment_timing(sample_context):
+    """
+    Tests that the payment_timing field correctly places the cash flow
+    at signing (month 0) or commencement (month 1) for base cost models.
+    """
+    context = sample_context(timeline_duration=24)
+
+    # Test 1: TI at Signing
+    ti_signing = TenantImprovementAllowanceBase(
+        name="Test TI Signing",
+        timeline=context.timeline,
+        value=10000.0,
+        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+        payment_timing="signing",
+    )
+    cf_signing = ti_signing.compute_cf(context=context)
+    assert cf_signing.iloc[0] == 10000.0
+    assert cf_signing.iloc[1] == 0.0
+    assert cf_signing.sum() == 10000.0
+
+    # Test 2: TI at Commencement
+    ti_commencement = TenantImprovementAllowanceBase(
+        name="Test TI Commencement",
+        timeline=context.timeline,
+        value=20000.0,
+        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+        payment_timing="commencement",
+    )
+    cf_commencement = ti_commencement.compute_cf(context=context)
+    assert cf_commencement.iloc[0] == 0.0
+    assert cf_commencement.iloc[1] == 20000.0
+    assert cf_commencement.sum() == 20000.0
+
+    # Test 3: LC at Signing
+    lc_signing = LeasingCommissionBase(
+        name="Test LC Signing",
+        timeline=context.timeline,
+        value=5000.0,
+        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+        payment_timing="signing",
+    )
+    cf_lc_signing = lc_signing.compute_cf(context=context)
+    assert cf_lc_signing.iloc[0] == 5000.0
+    assert cf_lc_signing.sum() == 5000.0
+    
+    # Test 4: LC at Commencement (should still be month 0 as per base logic)
+    lc_commencement = LeasingCommissionBase(
+        name="Test LC Commencement",
+        timeline=context.timeline,
+        value=6000.0,
+        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+        payment_timing="commencement",
+    )
+    cf_lc_commencement = lc_commencement.compute_cf(context=context)
+    assert cf_lc_commencement.iloc[0] == 6000.0
+    assert cf_lc_commencement.sum() == 6000.0

@@ -45,6 +45,8 @@ class LeasingCommissionBase(CashFlowModel):
 
         lc_cf = pd.Series(0.0, index=self.timeline.period_index)
         if total_commission > 0 and not self.timeline.period_index.empty:
+            # For upfront payments, 'signing' and 'commencement' are treated as the
+            # first period of the timeline. A more complex model could separate these.
             payment_period = self.timeline.period_index[0]
             if payment_period in lc_cf.index:
                 lc_cf[payment_period] = total_commission
@@ -54,6 +56,13 @@ class LeasingCommissionBase(CashFlowModel):
 class TenantImprovementAllowanceBase(CashFlowModel):
     """
     Base class for tenant improvement allowance.
+
+    The `payment_timing` field determines when the cash flow occurs:
+    - `signing`: The payment occurs in the first period (index 0) of the
+      model's timeline. This represents the date the lease is executed.
+    - `commencement`: The payment occurs in the second period (index 1) of
+      the model's timeline. This represents the date the tenant takes
+      possession and the lease term officially begins.
     """
     category: str = "Expense"
     subcategory: str = "TI Allowance"
@@ -81,7 +90,12 @@ class TenantImprovementAllowanceBase(CashFlowModel):
 
         ti_cf = pd.Series(0.0, index=self.timeline.period_index)
         if total_amount > 0 and not self.timeline.period_index.empty:
-             payment_period = self.timeline.period_index[0]
-             if payment_period in ti_cf.index:
+             payment_index = 0
+             # FIXME: signing vs commencement, or splits? what about timing!!! this is roo rigid
+             if self.payment_timing == "commencement":
+                 payment_index = 1
+             
+             if payment_index < len(self.timeline.period_index):
+                payment_period = self.timeline.period_index[payment_index]
                 ti_cf[payment_period] = total_amount
         return ti_cf 
