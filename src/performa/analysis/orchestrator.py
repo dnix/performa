@@ -45,7 +45,7 @@ class AnalysisContext:
     occupancy_rate_series: Optional[pd.Series] = None
 
     # --- The Calculation Cache (Managed by Orchestrator) ---
-    resolved_lookups: Dict[UUID, Union[pd.Series, Dict[str, pd.Series]]] = field(default_factory=dict)
+    resolved_lookups: Dict[Union[UUID, str], Union[pd.Series, Dict[str, pd.Series]]] = field(default_factory=dict)
 
 
 logger = logging.getLogger(__name__)
@@ -131,10 +131,20 @@ class CashFlowOrchestrator:
         graph = {}
         for m in model_subset:
             deps = set()
-            # A model's dependency is only relevant for sorting if it's within the same phase.
-            # Dependencies on models from prior phases are already resolved in the context.
-            if isinstance(m.reference, UUID) and m.reference in subset_uids:
-                deps.add(m.reference)
+            # Handle different reference types for dependency resolution
+            if m.reference is not None:
+                if isinstance(m.reference, AggregateLineKey):
+                    # AggregateLineKey references are resolved from previous phases
+                    # No intra-phase dependency needed since aggregates are computed after phases
+                    pass
+                elif hasattr(m.reference, 'uid'):  # CashFlowModel reference
+                    # A model's dependency is only relevant for sorting if it's within the same phase.
+                    # Dependencies on models from prior phases are already resolved in the context.
+                    if m.reference.uid in subset_uids:
+                        deps.add(m.reference.uid)
+                elif isinstance(m.reference, UUID):  # Backward compatibility
+                    if m.reference in subset_uids:
+                        deps.add(m.reference)
             graph[m.uid] = deps
 
         try:
@@ -151,7 +161,25 @@ class CashFlowOrchestrator:
 
         for model_uid in sorted_uids:
             model = self.model_map[model_uid]
-            result = model.compute_cf(context=self.context)
+            
+            # For leases with rollover profiles, use project_future_cash_flows to handle renewals
+            from performa.common.base import LeaseBase
+            if (isinstance(model, LeaseBase) and 
+                hasattr(model, 'rollover_profile') and 
+                model.rollover_profile and 
+                str(model.upon_expiration).upper() in ['RENEW', 'MARKET', 'VACATE', 'OPTION', 'REABSORB']):
+                
+                logger.debug(f"Using project_future_cash_flows for lease {model.name} with rollover profile")
+                future_df = model.project_future_cash_flows(context=self.context)
+                
+                # Convert DataFrame back to the dict format expected by aggregation
+                result = {}
+                for column in future_df.columns:
+                    result[column] = future_df[column]
+                    
+            else:
+                result = model.compute_cf(context=self.context)
+                
             self.context.resolved_lookups[model.uid] = result
 
     # --- CRITICAL METHOD 4: _aggregate_flows() ---
@@ -170,28 +198,34 @@ class CashFlowOrchestrator:
         detailed_flows_list = []
 
         # 2. Iterate through resolved lookups to populate raw aggregates
-        for uid, result in self.context.resolved_lookups.items():
-            model = self.model_map[uid]
-            if isinstance(result, dict): # E.g., a lease with multiple components
-                for component, series in result.items():
-                    # Detailed logging
-                    detailed_flows_list.append({"name": model.name, "uid": uid, "category": model.category, "subcategory": model.subcategory, "component": component, "series": series})
-                    # Aggregation
-                    target_key = self._get_aggregate_key(model.category, model.subcategory, component)
+        for lookup_key, result in self.context.resolved_lookups.items():
+            # Handle both UUID and string keys in resolved_lookups
+            if isinstance(lookup_key, UUID):
+                model = self.model_map[lookup_key]
+                if isinstance(result, dict): # E.g., a lease with multiple components
+                    for component, series in result.items():
+                        # Detailed logging
+                        detailed_flows_list.append({"name": model.name, "uid": lookup_key, "category": model.category, "subcategory": model.subcategory, "component": component, "series": series})
+                        # Aggregation
+                        target_key = self._get_aggregate_key(model.category, model.subcategory, component)
+                        if target_key:
+                            agg_flows[target_key] = agg_flows[target_key].add(series.reindex(analysis_periods, fill_value=0.0), fill_value=0.0)
+                elif isinstance(result, pd.Series): # A simple cash flow
+                    detailed_flows_list.append({"name": model.name, "uid": lookup_key, "category": model.category, "subcategory": model.subcategory, "component": "value", "series": result})
+                    target_key = self._get_aggregate_key(model.category, model.subcategory)
                     if target_key:
-                        agg_flows[target_key] = agg_flows[target_key].add(series.reindex(analysis_periods, fill_value=0.0), fill_value=0.0)
-            elif isinstance(result, pd.Series): # A simple cash flow
-                detailed_flows_list.append({"name": model.name, "uid": uid, "category": model.category, "subcategory": model.subcategory, "component": "value", "series": result})
-                target_key = self._get_aggregate_key(model.category, model.subcategory)
-                if target_key:
-                    agg_flows[target_key] = agg_flows[target_key].add(result.reindex(analysis_periods, fill_value=0.0), fill_value=0.0)
+                        agg_flows[target_key] = agg_flows[target_key].add(result.reindex(analysis_periods, fill_value=0.0), fill_value=0.0)
 
         # 3. Calculate derived summary lines (NOI, UCF, etc.)
         agg_flows[AggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME] = agg_flows[AggregateLineKey.POTENTIAL_GROSS_REVENUE] - agg_flows[AggregateLineKey.RENTAL_ABATEMENT] + agg_flows[AggregateLineKey.MISCELLANEOUS_INCOME] + agg_flows[AggregateLineKey.EXPENSE_REIMBURSEMENTS]
         agg_flows[AggregateLineKey.NET_OPERATING_INCOME] = agg_flows[AggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME] - agg_flows[AggregateLineKey.TOTAL_OPERATING_EXPENSES]
         agg_flows[AggregateLineKey.UNLEVERED_CASH_FLOW] = agg_flows[AggregateLineKey.NET_OPERATING_INCOME] - agg_flows[AggregateLineKey.TOTAL_CAPITAL_EXPENDITURES] - agg_flows[AggregateLineKey.TOTAL_TENANT_IMPROVEMENTS] - agg_flows[AggregateLineKey.TOTAL_LEASING_COMMISSIONS]
         
-        # 4. Store final DataFrames
+        # 4. Store aggregate results in resolved_lookups for cross-reference
+        for key, series in agg_flows.items():
+            self.context.resolved_lookups[key.value] = series
+        
+        # 5. Store final DataFrames
         self.summary_df = pd.DataFrame(agg_flows)
         # self.detailed_df = ... (logic to create detailed dataframe from detailed_flows_list)
     
