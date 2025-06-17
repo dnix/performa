@@ -2,18 +2,23 @@
 from . import (
     analysis,
 )
-from .absorption import DirectLeaseTerms, OfficeAbsorptionPlan
+from .absorption import (
+    DirectLeaseTerms,
+    FixedQuantityPace,
+    OfficeAbsorptionPlan,
+    SpaceFilter,
+)
 from .expense import OfficeCapExItem, OfficeExpenses, OfficeOpExItem
 from .lc import OfficeLeasingCommission
 from .lease import OfficeLease
 from .lease_spec import OfficeLeaseSpec
-from .losses import OfficeLosses
+from .losses import OfficeCollectionLoss, OfficeGeneralVacancyLoss, OfficeLosses
 from .misc_income import OfficeMiscIncome
 from .property import OfficeProperty
-from .recovery import OfficeRecoveryMethod
+from .recovery import ExpensePool, OfficeRecoveryMethod, Recovery
 from .rent_abatement import OfficeRentAbatement
 from .rent_escalation import OfficeRentEscalation
-from .rent_roll import OfficeRentRoll
+from .rent_roll import OfficeRentRoll, OfficeVacantSuite
 from .rollover import OfficeRolloverLeaseTerms, OfficeRolloverProfile
 from .tenant import OfficeTenant
 from .ti import OfficeTenantImprovement
@@ -30,6 +35,8 @@ __all__ = [
     "OfficeLeaseSpec",
     "OfficeProperty",
     "OfficeRecoveryMethod",
+    "Recovery",
+    "ExpensePool",
     "OfficeRolloverProfile",
     "OfficeRolloverLeaseTerms",
     "OfficeTenantImprovement",
@@ -39,10 +46,15 @@ __all__ = [
     "OfficeRentAbatement",
     "OfficeRentRoll",
     "OfficeLosses",
+    "OfficeGeneralVacancyLoss",
+    "OfficeCollectionLoss",
     "OfficeMiscIncome",
     "OfficeExpenses",
     "OfficeOpExItem",
     "OfficeCapExItem",
     "OfficeAbsorptionPlan",
     "DirectLeaseTerms",
+    "FixedQuantityPace",
+    "SpaceFilter",
+    "OfficeVacantSuite",
 ]
