@@ -8,6 +8,7 @@ from .absorption import (
     OfficeAbsorptionPlan,
     SpaceFilter,
 )
+from .analysis import OfficeAnalysisScenario
 from .expense import OfficeCapExItem, OfficeExpenses, OfficeOpExItem
 from .lc import OfficeLeasingCommission
 from .lease import OfficeLease
@@ -34,6 +35,7 @@ __all__ = [
     "OfficeLease",
     "OfficeLeaseSpec",
     "OfficeProperty",
+    "OfficeAnalysisScenario",
     "OfficeRecoveryMethod",
     "Recovery",
     "ExpensePool",

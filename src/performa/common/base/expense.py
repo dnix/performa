@@ -4,6 +4,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import pandas as pd
+from pydantic import computed_field
 
 from ..primitives.cash_flow import CashFlowModel
 from ..primitives.enums import ExpenseSubcategoryEnum, UnitOfMeasureEnum
@@ -36,18 +37,51 @@ class OpExItemBase(ExpenseItemBase):
     dependency resolution via `reference`, and growth rate application.
     Subclasses like `OfficeOpExItem` can then call `super().compute_cf()` and
     apply their own specific adjustments (e.g., for occupancy).
+    
+    Recovery Design Pattern:
+    ========================
+    The recoverability of expenses follows a clear computed property pattern:
+    
+    - Set `recoverable_ratio` field (0.0 to 1.0) to control what percentage is recoverable
+    - Use `is_recoverable` property (computed from recoverable_ratio > 0) for boolean checks
+    - DO NOT set `is_recoverable` directly - it's computed automatically
+    
+    Examples:
+        # Fully recoverable expense
+        expense = OfficeOpExItem(name="CAM", value=5.0, recoverable_ratio=1.0)
+        assert expense.is_recoverable == True
+        
+        # Partially recoverable expense  
+        expense = OfficeOpExItem(name="Utilities", value=3.0, recoverable_ratio=0.8)
+        assert expense.is_recoverable == True
+        
+        # Non-recoverable expense
+        expense = OfficeOpExItem(name="Management", value=2.0, recoverable_ratio=0.0)
+        assert expense.is_recoverable == False
     """
 
     subcategory: ExpenseSubcategoryEnum = ExpenseSubcategoryEnum.OPEX
     variable_ratio: Optional[FloatBetween0And1] = None
-    recoverable_ratio: Optional[FloatBetween0And1] = 0.0
+    recoverable_ratio: Optional[FloatBetween0And1] = 0.0  # Default: not recoverable
 
+    @computed_field
     @property
     def is_variable(self) -> bool:
+        """True if this expense varies with occupancy (has variable_ratio)."""
         return self.variable_ratio is not None
 
+    @computed_field
     @property
     def is_recoverable(self) -> bool:
+        """
+        True if any portion of this expense is recoverable from tenants.
+        
+        This is a computed property based on recoverable_ratio.
+        DO NOT set this directly - set recoverable_ratio instead.
+        
+        Returns:
+            True if recoverable_ratio is set and > 0, False otherwise
+        """
         return self.recoverable_ratio is not None and self.recoverable_ratio > 0
 
 
