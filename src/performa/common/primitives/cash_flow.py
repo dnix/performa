@@ -53,7 +53,42 @@ class CashFlowModel(Model):
     @computed_field
     @property
     def calculation_pass(self) -> CalculationPass:
-        """Defines the calculation phase for this model."""
+        """
+        Determines the calculation phase for this model based on its dependencies.
+        
+        This computed property categorizes models into calculation phases for the
+        two-phase execution system:
+        
+        - INDEPENDENT_VALUES: Models that can be calculated first (Phase 1)
+          - No aggregate references (self.reference is None)
+          - Examples: Base rent, base operating expenses, property taxes
+          
+        - DEPENDENT_VALUES: Models requiring aggregated results (Phase 2)  
+          - Has aggregate reference (self.reference is not None)
+          - Examples: Admin fees (% of Total OpEx), management fees (% of NOI)
+        
+        This classification enables:
+        1. Topological execution ordering to resolve dependencies
+        2. Defensive validation of dependency complexity limits
+        3. Proper aggregate calculation between phases
+        4. Prevention of circular dependency issues
+        
+        Returns:
+            CalculationPass enum indicating when this model should be executed
+            
+        Note:
+            This is a computed field that automatically updates if the reference
+            property changes, ensuring models are always correctly classified.
+        
+        Examples:
+            # Independent model - calculated in Phase 1
+            base_opex = OpExItem(name="Utilities", value=5000, reference=None)
+            assert base_opex.calculation_pass == CalculationPass.INDEPENDENT_VALUES
+            
+            # Dependent model - calculated in Phase 2 after aggregation
+            admin_fee = OpExItem(name="Admin Fee", value=0.05, reference=AggregateLineKey.TOTAL_OPERATING_EXPENSES)
+            assert admin_fee.calculation_pass == CalculationPass.DEPENDENT_VALUES
+        """
         if self.reference is not None:
             # Models with AggregateLineKey references depend on aggregated values
             return CalculationPass.DEPENDENT_VALUES

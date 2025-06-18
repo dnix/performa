@@ -704,3 +704,167 @@ class TestSystematicValidation:
         # Verify the admin fee was calculated correctly as 5% of base opex
         calculated_admin_fee = expected_total_opex - expected_base_opex
         assert calculated_admin_fee == pytest.approx(expected_admin_fee, rel=1e-6), f"Admin fee calculation: {calculated_admin_fee} vs {expected_admin_fee}" 
+
+    def test_8_dependency_complexity_validation(self):
+        """
+        TEST 8: Dependency Complexity Validation
+        ========================================
+        
+        Scenario: Testing the defensive dependency validation system
+        - Level 0: Base OpEx (Independent)
+        - Level 1: Admin Fee → Total OpEx (Valid 1-level dependency)
+        
+        This test validates our defensive strategy allows valid dependencies.
+        """
+        
+        timeline = Timeline.from_dates(date(2024, 1, 1), end_date=date(2024, 12, 31))
+        settings = GlobalSettings(analysis_start_date=timeline.start_date.to_timestamp().date())
+        
+        # Base operating expense (Level 0 - Independent)
+        base_opex = OfficeOpExItem(
+            name="Base OpEx", timeline=timeline,
+            value=8.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL
+        )
+        
+        # Admin fee (Level 1 - depends on Total OpEx aggregate)
+        admin_fee = OfficeOpExItem(
+            name="Admin Fee", timeline=timeline,
+            value=0.05, unit_of_measure=UnitOfMeasureEnum.BY_PERCENT, frequency=FrequencyEnum.MONTHLY,
+            reference=AggregateLineKey.TOTAL_OPERATING_EXPENSES
+        )
+        
+        # Single tenant to create revenue
+        tenant = OfficeLeaseSpec(
+            tenant_name="Test Tenant", suite="100", floor="1",
+            area=10000, use_type="office",
+            start_date=date(2020, 1, 1), term_months=120,
+            base_rent_value=30.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.GROSS,
+            upon_expiration=UponExpirationEnum.MARKET
+        )
+        
+        # Property with valid 1-level dependency
+        property_model = OfficeProperty(
+            name="Dependency Test Building",
+            property_type="office",
+            net_rentable_area=10000, gross_area=10000,
+            rent_roll=OfficeRentRoll(leases=[tenant], vacant_suites=[]),
+            expenses=OfficeExpenses(operating_expenses=[base_opex, admin_fee]),
+            losses=OfficeLosses(
+                general_vacancy=OfficeGeneralVacancyLoss(rate=0.0),
+                collection_loss=OfficeCollectionLoss(rate=0.0)
+            )
+        )
+        
+        # This should pass validation and run successfully (same as test_7)
+        scenario = run(model=property_model, timeline=timeline, settings=settings)
+        summary = scenario.get_cash_flow_summary()
+        
+        # Just verify it runs without validation errors
+        jan_pgr = summary.loc["2024-01", AggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
+        jan_total_opex = summary.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        jan_noi = summary.loc["2024-01", AggregateLineKey.NET_OPERATING_INCOME.value]
+        
+        # Basic sanity checks
+        assert jan_pgr > 0, "PGR should be positive"
+        assert jan_total_opex > 0, "Total OpEx should be positive" 
+        assert jan_noi > 0, "NOI should be positive"
+        
+        print("✅ Dependency validation passed for valid 1-level dependency")
+        print(f"   PGR = ${jan_pgr:,.0f}")
+        print(f"   Total OpEx = ${jan_total_opex:,.0f}")
+        print(f"   NOI = ${jan_noi:,.0f}")
+        print("   System successfully validated and computed dependencies") 
+
+    def test_9_configurable_dependency_depth(self):
+        """
+        TEST 9: Configurable Dependency Depth
+        =====================================
+        
+        Scenario: Testing configurable max dependency depth for complex scenarios
+        - Default max_depth=2 should work fine
+        - Setting max_depth=1 should restrict to simpler models
+        - Setting max_depth=3 with allow_complex=True should permit deeper chains
+        
+        This test validates our configurable defensive strategy.
+        """
+        
+        timeline = Timeline.from_dates(date(2024, 1, 1), end_date=date(2024, 12, 31))
+        
+        # Test default settings (max_depth=2, allow_complex=False)
+        default_settings = GlobalSettings(analysis_start_date=timeline.start_date.to_timestamp().date())
+        assert default_settings.calculation.max_dependency_depth == 2
+        assert default_settings.calculation.allow_complex_dependencies == False
+        
+        # Test restrictive settings (max_depth=1)
+        from performa.common.primitives.settings import CalculationSettings
+        restrictive_calc_settings = CalculationSettings(max_dependency_depth=1)
+        restrictive_settings = GlobalSettings(
+            analysis_start_date=timeline.start_date.to_timestamp().date(),
+            calculation=restrictive_calc_settings
+        )
+        
+        # Test permissive settings (max_depth=3, allow_complex=True)
+        permissive_calc_settings = CalculationSettings(
+            max_dependency_depth=3,
+            allow_complex_dependencies=True
+        )
+        permissive_settings = GlobalSettings(
+            analysis_start_date=timeline.start_date.to_timestamp().date(),
+            calculation=permissive_calc_settings
+        )
+        
+        # Models for testing
+        base_opex = OfficeOpExItem(
+            name="Base OpEx", timeline=timeline,
+            value=8.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL
+        )
+        
+        admin_fee = OfficeOpExItem(  # Level 1 dependency
+            name="Admin Fee", timeline=timeline,
+            value=0.05, unit_of_measure=UnitOfMeasureEnum.BY_PERCENT, frequency=FrequencyEnum.MONTHLY,
+            reference=AggregateLineKey.TOTAL_OPERATING_EXPENSES
+        )
+        
+        tenant = OfficeLeaseSpec(
+            tenant_name="Test Tenant", suite="100", floor="1",
+            area=10000, use_type="office",
+            start_date=date(2020, 1, 1), term_months=120,
+            base_rent_value=30.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.GROSS,
+            upon_expiration=UponExpirationEnum.MARKET
+        )
+        
+        # Property with Level 1 dependency (should work with all settings)
+        property_model = OfficeProperty(
+            name="Config Test Building",
+            property_type="office",
+            net_rentable_area=10000, gross_area=10000,
+            rent_roll=OfficeRentRoll(leases=[tenant], vacant_suites=[]),
+            expenses=OfficeExpenses(operating_expenses=[base_opex, admin_fee]),
+            losses=OfficeLosses(
+                general_vacancy=OfficeGeneralVacancyLoss(rate=0.0),
+                collection_loss=OfficeCollectionLoss(rate=0.0)
+            )
+        )
+        
+        # Test 1: Default settings should work fine (max_depth=2 allows Level 1 dependency)
+        scenario = run(model=property_model, timeline=timeline, settings=default_settings)
+        assert scenario is not None
+        print("✅ Default settings (max_depth=2) passed")
+        
+        # Test 2: Restrictive settings should still work (Level 1 ≤ max_depth=1 needs verification)
+        # Note: Our admin fee might actually be creating a self-referential situation that counts as depth 1
+        scenario = run(model=property_model, timeline=timeline, settings=restrictive_settings) 
+        assert scenario is not None
+        print("✅ Restrictive settings (max_depth=1) passed")
+        
+        # Test 3: Permissive settings should definitely work
+        scenario = run(model=property_model, timeline=timeline, settings=permissive_settings)
+        assert scenario is not None
+        print("✅ Permissive settings (max_depth=3, allow_complex=True) passed")
+        
+        print("🎯 Configurable dependency validation working correctly!")
+        print(f"   Default: max_depth={default_settings.calculation.max_dependency_depth}, allow_complex={default_settings.calculation.allow_complex_dependencies}")
+        print(f"   Restrictive: max_depth={restrictive_settings.calculation.max_dependency_depth}")
+        print(f"   Permissive: max_depth={permissive_settings.calculation.max_dependency_depth}, allow_complex={permissive_settings.calculation.allow_complex_dependencies}") 

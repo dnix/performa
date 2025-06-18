@@ -70,7 +70,35 @@ class ReportingSettings(Model):
 
 
 class CalculationSettings(Model):
-    """Settings influencing core calculation engine behavior."""
+    """
+    Configuration settings for the calculation engine behavior.
+    
+    These settings control how the property analysis calculation engine processes
+    models, validates dependencies, and handles complex scenarios. They provide
+    fine-grained control over calculation behavior without affecting the core
+    business logic.
+    
+    Key Features:
+    - Dependency complexity validation for defensive programming
+    - Configurable limits for institutional vs. standard properties
+    - Safety overrides to prevent accidental complex configurations
+    
+    Usage Examples:
+        # Standard property analysis (default settings)
+        calc_settings = CalculationSettings()
+        
+        # Institutional deal with complex dependencies  
+        calc_settings = CalculationSettings(
+            max_dependency_depth=3,
+            allow_complex_dependencies=True
+        )
+        
+        # Conservative settings for high-volume batch processing
+        calc_settings = CalculationSettings(
+            max_dependency_depth=1,
+            allow_complex_dependencies=False
+        )
+    """
 
     calculation_frequency: FrequencyEnum = Field(
         default=FrequencyEnum.MONTHLY,
@@ -83,6 +111,24 @@ class CalculationSettings(Model):
     fail_on_error: bool = Field(
         default=False,
         description="If True, raise calculation errors; otherwise, log and attempt to continue.",
+    )
+    max_dependency_depth: PositiveInt = Field(
+        default=2,
+        description=(
+            "Maximum allowed depth of dependency chains between cash flow models. "
+            "Controls complexity validation to prevent performance issues and hard-to-debug scenarios. "
+            "Examples: 1=simple dependencies only, 2=standard (admin fees on totals), "
+            "3+=complex institutional structures. Values >2 require allow_complex_dependencies=True."
+        )
+    )
+    allow_complex_dependencies: bool = Field(
+        default=False,
+        description=(
+            "Safety flag that must be explicitly set to True for dependency depths >2. "
+            "Prevents accidental complex configurations that could impact performance "
+            "or create difficult debugging scenarios. Required for institutional deals "
+            "with tiered fees, complex waterfalls, or nested percentage calculations."
+        )
     )
 
 
