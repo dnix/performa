@@ -137,23 +137,40 @@ class OfficeRecoveryMethod(CommercialRecoveryMethodBase):
             raw_item_cf = lookup_fn(item.uid)
             item_cf_to_add = raw_item_cf
 
-            if isinstance(item, OpExItemBase) and item.variable_ratio and self.gross_up and occupancy_rate is not None:
+            if isinstance(item, OpExItemBase) and item.is_recoverable and self.gross_up and occupancy_rate is not None:
                 variable_ratio = item.variable_ratio or 0.0
                 target_occupancy = self.gross_up_percent or 0.95
-                
-                fixed_part = raw_item_cf * (1.0 - variable_ratio)
-                variable_part = raw_item_cf * variable_ratio
                 
                 if isinstance(occupancy_rate, pd.Series):
                     aligned_occupancy = occupancy_rate.reindex(timeline, method="ffill").fillna(1.0)
                     needs_gross_up = aligned_occupancy < target_occupancy
-                    safe_occupancy = aligned_occupancy.where(aligned_occupancy > 0, 0.0001)
-                    grossed_up_variable = variable_part / safe_occupancy
-                    item_cf_to_add = fixed_part + variable_part.where(~needs_gross_up, grossed_up_variable)
+                    # Only apply gross-up when occupancy is below target
+                    if needs_gross_up.any():
+                        safe_occupancy = aligned_occupancy.where(aligned_occupancy > 0, 0.0001)
+                        
+                        if variable_ratio > 0:
+                            # For expenses with explicit variable_ratio, use traditional logic
+                            fixed_part = raw_item_cf * (1.0 - variable_ratio)
+                            variable_part = raw_item_cf * variable_ratio
+                            grossed_up_variable = variable_part / safe_occupancy
+                            item_cf_to_add = fixed_part + variable_part.where(~needs_gross_up, grossed_up_variable)
+                        else:
+                            # For recoverable expenses without explicit variable_ratio,
+                            # apply gross-up to entire expense when occupancy < target
+                            grossed_up_amount = raw_item_cf / safe_occupancy * target_occupancy
+                            item_cf_to_add = raw_item_cf.where(~needs_gross_up, grossed_up_amount)
                 elif occupancy_rate < target_occupancy:
                     safe_occupancy = occupancy_rate if occupancy_rate > 0 else 0.0001
-                    grossed_up_variable = variable_part / safe_occupancy
-                    item_cf_to_add = fixed_part + grossed_up_variable
+                    
+                    if variable_ratio > 0:
+                        # Traditional variable/fixed split logic
+                        fixed_part = raw_item_cf * (1.0 - variable_ratio)
+                        variable_part = raw_item_cf * variable_ratio
+                        grossed_up_variable = variable_part / safe_occupancy
+                        item_cf_to_add = fixed_part + grossed_up_variable
+                    else:
+                        # Gross-up entire recoverable expense
+                        item_cf_to_add = raw_item_cf / safe_occupancy * target_occupancy
 
             pool_expense_cf += item_cf_to_add.reindex(timeline, fill_value=0.0)
         return pool_expense_cf 
