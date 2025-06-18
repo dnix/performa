@@ -27,6 +27,7 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
         recovery_states = {}
         
         # Iterate through all lease specs to find recovery methods
+        # FIXME: this is incomplete, we need to handle the recovery methods in the rent roll and the absorption plan
         if hasattr(self.model, "rent_roll") and self.model.rent_roll:
             for lease_spec in self.model.rent_roll.leases:
                 if lease_spec.recovery_method:
