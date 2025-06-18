@@ -1,9 +1,10 @@
 # src/performa/asset/office/property.py 
 from __future__ import annotations
 
+import logging
 from typing import Dict, List, Optional
 
-from pydantic import computed_field
+from pydantic import computed_field, model_validator
 
 from ...common.base import PropertyBaseModel, VacantSuiteBase
 from ...common.primitives import Model
@@ -14,6 +15,8 @@ from .losses import OfficeLosses
 from .misc_income import OfficeMiscIncome
 from .rent_roll import OfficeRentRoll
 from .tenant import OfficeTenant
+
+logger = logging.getLogger(__name__)
 
 
 class RentRoll(Model):
@@ -100,13 +103,8 @@ class OfficeProperty(PropertyBaseModel):
     @computed_field
     @property
     def vacant_area(self) -> float:
-        """Calculate total vacant area."""
-        # FIXME: review this calculation
-        total_vacant_area = sum(suite.area for suite in self.rent_roll.vacant_suites)
-        # As a sanity check, can also be calculated against NRA
-        calculated_vacant = self.net_rentable_area - self.occupied_area
-        # In a real model, you might log a warning if these don't match
-        return calculated_vacant
+        """Calculate total vacant area from explicit vacant suites."""
+        return self.rent_roll.total_vacant_area
 
     @computed_field
     @property
@@ -114,4 +112,30 @@ class OfficeProperty(PropertyBaseModel):
         """Calculate current occupancy rate."""
         if self.net_rentable_area == 0:
             return 0.0
-        return self.occupied_area / self.net_rentable_area 
+        return self.occupied_area / self.net_rentable_area
+
+    @model_validator(mode='after')
+    def _validate_area_consistency(self) -> "OfficeProperty":
+        """
+        Validate that rent roll total area matches net rentable area.
+        
+        Logs a warning if there's a meaningful discrepancy, which could indicate:
+        - Missing vacant suites in the rent roll
+        - Incorrect NRA specification  
+        - Area calculation errors
+        """
+        rent_roll_total = self.rent_roll.total_area
+        nra = self.net_rentable_area
+        
+        # Allow small rounding differences (0.1% tolerance)
+        tolerance = 0.001
+        if abs(rent_roll_total - nra) / nra > tolerance:
+            percentage_diff = abs(rent_roll_total - nra) / nra * 100
+            logger.warning(
+                f"Area inconsistency detected in property '{self.name}': "
+                f"Rent roll total area ({rent_roll_total:,.0f} SF) differs from "
+                f"Net Rentable Area ({nra:,.0f} SF) by {percentage_diff:.1f}%. "
+                f"This may indicate missing vacant suites or incorrect NRA specification."
+            )
+        
+        return self 

@@ -59,7 +59,9 @@ def test_office_rent_roll_properties():
 
 def test_office_property_properties():
     lease = OfficeLeaseSpec(tenant_name="T1", suite="101", floor="1", area=8000, use_type="office", start_date=date(2024,1,1), end_date=date(2025,1,1), base_rent_value=10, base_rent_unit_of_measure="per_unit", lease_type="net", upon_expiration="market")
-    rent_roll = OfficeRentRoll(leases=[lease], vacant_suites=[])
+    # Add explicit vacant suite to represent the 2,000 SF vacancy 
+    vacant_suite = OfficeVacantSuite(suite="102", floor="1", area=2000, use_type="office")
+    rent_roll = OfficeRentRoll(leases=[lease], vacant_suites=[vacant_suite])
     losses = OfficeLosses(
         general_vacancy=OfficeGeneralVacancyLoss(rate=0.05),
         collection_loss=OfficeCollectionLoss(rate=0.01),
