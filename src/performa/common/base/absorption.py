@@ -31,7 +31,8 @@ from ..primitives.settings import GlobalSettings
 from ..primitives.timeline import Timeline
 from ..primitives.types import PositiveFloat, PositiveInt
 from .cost import LeasingCommissionBase, TenantImprovementAllowanceBase
-from .lease import LeaseSpecBase, RentAbatementBase, RentEscalationBase
+from .lease import LeaseSpecBase
+from .lease_components import RentAbatementBase, RentEscalationBase
 from .recovery import RecoveryMethodBase
 from .rent_roll import VacantSuiteBase
 from .rollover import RolloverLeaseTermsBase

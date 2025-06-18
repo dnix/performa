@@ -21,46 +21,15 @@ from ..primitives.enums import (
 from ..primitives.model import Model
 from ..primitives.timeline import Timeline
 from ..primitives.types import FloatBetween0And1, PositiveFloat, PositiveInt
-
-# FIXME: --- Placeholder Base Classes to avoid circular imports ---
-# These will be replaced with actual imports from other .base modules once they are created.
+from .lease_components import RentAbatementBase, RentEscalationBase, TenantBase
 
 if TYPE_CHECKING:
     from performa.analysis import AnalysisContext
 
-class RentEscalationBase(Model):
-    type: Literal["fixed", "percentage", "cpi"]
-    amount: PositiveFloat
-    unit_of_measure: UnitOfMeasureEnum
-    is_relative: bool
-    start_date: date
-    recurring: bool = False
-    frequency_months: Optional[int] = None
-
-
-class RentAbatementBase(Model):
-    months: int
-    includes_recoveries: bool = False
-    start_month: int = 1
-    abated_ratio: FloatBetween0And1 = 1.0
-
-
-class RecoveryMethodBase(Model):
-    pass
-
-class TenantImprovementAllowanceBase(CashFlowModel):
-    def compute_cf(self, **kwargs: Any) -> Union[pd.Series, Dict[str, pd.Series]]:
-        return super().compute_cf(**kwargs)
-
-class LeasingCommissionBase(CashFlowModel):
-    def compute_cf(self, **kwargs: Any) -> Union[pd.Series, Dict[str, pd.Series]]:
-        return super().compute_cf(**kwargs)
-
-class RolloverProfileBase(Model):
-    pass
-
-class TenantBase(Model):
-    pass
+# Now we can import these directly since there's no circular dependency
+from .cost import LeasingCommissionBase, TenantImprovementAllowanceBase
+from .recovery import RecoveryMethodBase
+from .rollover import RolloverProfileBase
 
 # --- Main Base Models ---
 
@@ -132,7 +101,7 @@ class LeaseBase(CashFlowModel):
         return CalculationPass.DEPENDENT_VALUES
 
     @abstractmethod
-    def compute_cf(self, context: AnalysisContext) -> Dict[str, pd.Series]:
+    def compute_cf(self, context: "AnalysisContext") -> Dict[str, pd.Series]:
         """
         Computes all cash flows related to the lease for its initial term.
 
@@ -143,7 +112,7 @@ class LeaseBase(CashFlowModel):
         raise NotImplementedError
 
     @abstractmethod
-    def project_future_cash_flows(self, context: AnalysisContext) -> pd.DataFrame:
+    def project_future_cash_flows(self, context: "AnalysisContext") -> pd.DataFrame:
         """
         Projects cash flows for this lease and all subsequent rollover events
         throughout the analysis period.

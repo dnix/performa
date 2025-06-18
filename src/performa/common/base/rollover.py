@@ -9,7 +9,7 @@ from ..primitives.growth_rates import GrowthRate
 from ..primitives.model import Model
 from ..primitives.types import FloatBetween0And1, PositiveFloat, PositiveInt
 from .cost import LeasingCommissionBase, TenantImprovementAllowanceBase
-from .lease import RentAbatementBase, RentEscalationBase
+from .lease_components import RentAbatementBase, RentEscalationBase
 from .recovery import RecoveryMethodBase
 
 
