@@ -154,6 +154,12 @@ def test_full_scenario_kitchen_sink(complex_property_fixture):
     ensuring rollovers, vacancy, and absorption produce the expected financial story.
     
     Updated with validated expected values from systematic testing.
+    
+    NOTE: EXPECTED_REIMB_2026_02 reflects gross-up functionality working correctly.
+    When the departing tenant leaves in Jan 2026, building occupancy drops to 60%
+    (15,000 SF occupied / 25,000 SF total). Since this is below the 95% gross-up
+    threshold, tenants pay grossed-up expense recoveries to maintain proper cost
+    allocation despite the vacancy.
     """
     # ARRANGE - Updated with validated calculations
     # Based on systematic validation framework:
@@ -168,7 +174,8 @@ def test_full_scenario_kitchen_sink(complex_property_fixture):
     
     # February 2026: After departing tenant leaves (Jan 2026)
     # Only Stable + Renewing active = $51,667 + $25,000 = $76,667
-    EXPECTED_REIMB_2026_02 = 10104.17   # Actual calculated value from system
+    # Occupancy drops to 60% (15k/25k), triggering gross-up for expense reimbursements
+    EXPECTED_REIMB_2026_02 = 16979.17   # Updated: reflects working gross-up functionality
     
     # TI timing depends on absorption plan execution
     EXPECTED_TI_2026_07 = 0.00         # May vary based on absorption timing

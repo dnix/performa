@@ -176,7 +176,8 @@ class InflationSettings(Model):
 class RecoverySettings(Model):
     """Settings for expense recovery calculations, including gross-up."""
 
-    # Note: 'gross_up_by_downtime' functionality is handled by these settings based on occupancy.
+    # Gross-up settings (existing, working)
+    # FIXME: confirm 'gross_up_by_downtime' functionality is handled by these settings based on occupancy.
     gross_up_enabled: bool = Field(
         default=True,
         description="Enable grossing up of variable expenses for recovery calculations based on occupancy.",
@@ -189,7 +190,19 @@ class RecoverySettings(Model):
         default=False,
         description="If True, gross up to 100% occupancy always; if False, gross up to the threshold occupancy level (e.g., 95%).",
     )
-    # default_recovery_method: Optional[RecoveryMethodEnum] = None # Often expense-specific
+    
+    # FIXME: add support for expense recovery method functionality
+    default_recovery_method: Optional[RecoveryMethodEnum] = None # Often expense-specific
+
+    # FIXME: add support for expense cap functionality here in settings
+
+    # TODO: Future expense cap functionality integration
+    # The cap functionality is currently implemented at the Recovery model level
+    # Future enhancement could include:
+    # - default_cap_rate: Optional[PositiveFloat] for portfolio-wide defaults
+    # - cap_methodology: Literal["compound", "simple"] for calculation method  
+    # - portfolio_cap_policies: Dict for property-type specific defaults
+    # - cap_validation_rules: For business logic enforcement
 
 
 # FIXME: Market Leasing Assumptions are complex. Deferring a dedicated 'MarketLeasingSettings' sub-model.

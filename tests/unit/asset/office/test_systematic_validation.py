@@ -2099,31 +2099,14 @@ class TestSystematicValidation:
         
         timeline = Timeline.from_dates(date(2024, 1, 1), end_date=date(2024, 12, 31))
         
-        # DEMO: Enhanced GlobalSettings with professional cap management
-        # (This shows how it WOULD work with full integration)
+        # Use standard GlobalSettings (cap functionality currently at Recovery level)
         from performa.common.primitives.settings import GlobalSettings
         
-        enhanced_settings = GlobalSettings(
-            analysis_start_date=timeline.start_date.to_timestamp().date(),
-            # The enhanced RecoverySettings are now available:
-            # recoveries=RecoverySettings(
-            #     caps_enabled=True,
-            #     default_cap_rate=0.05,  # 5% portfolio standard
-            #     conservative_cap_rate=0.03,  # 3% for tenant-favorable deals
-            #     liberal_cap_rate=0.07,  # 7% for landlord-favorable deals
-            #     cap_compound_method="compound",  # Standard CRE practice
-            #     portfolio_wide_caps=True,  # Enable portfolio policies
-            #     portfolio_default_lease_type_caps={
-            #         "office": 0.05,    # 5% office standard
-            #         "retail": 0.04,    # 4% retail (more restrictive)
-            #         "industrial": 0.06  # 6% industrial (higher inflation)
-            #     },
-            #     warn_on_high_cap_savings=True,  # Risk management
-            #     validate_cap_business_logic=True  # Prevent unrealistic caps
-            # )
+        settings = GlobalSettings(
+            analysis_start_date=timeline.start_date.to_timestamp().date()
         )
         
-        # For now, manually demonstrate the cap functionality we've implemented
+        # Demonstrate the cap functionality we've actually implemented
         realistic_opex = OfficeOpExItem(
             name="Portfolio Standard OpEx", timeline=timeline,
             value=8.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL,
@@ -2137,21 +2120,21 @@ class TestSystematicValidation:
         conservative_recovery = Recovery(
             expenses=ExpensePool(name="Conservative Portfolio Cap", expenses=[realistic_opex]),
             structure="base_year", base_year=2022,
-            yoy_max_growth=0.03  # Would inherit from enhanced_settings.recoveries.conservative_cap_rate
+            yoy_max_growth=0.03  # 3% cap
         )
         
         # Scenario 2: Standard cap for portfolio default
         standard_recovery = Recovery(
             expenses=ExpensePool(name="Standard Portfolio Cap", expenses=[realistic_opex]),
             structure="base_year", base_year=2022,
-            yoy_max_growth=0.05  # Would inherit from enhanced_settings.recoveries.default_cap_rate
+            yoy_max_growth=0.05  # 5% cap
         )
         
         # Scenario 3: Liberal cap for landlord-favorable lease
         liberal_recovery = Recovery(
             expenses=ExpensePool(name="Liberal Portfolio Cap", expenses=[realistic_opex]),
             structure="base_year", base_year=2022,
-            yoy_max_growth=0.07  # Would inherit from enhanced_settings.recoveries.liberal_cap_rate
+            yoy_max_growth=0.07  # 7% cap
         )
         
         # Create recovery methods
@@ -2205,7 +2188,7 @@ class TestSystematicValidation:
                 )
             )
             
-            scenario = run(model=property_model, timeline=timeline, settings=enhanced_settings)
+            scenario = run(model=property_model, timeline=timeline, settings=settings)
             summary = scenario.get_cash_flow_summary()
             
             recovery_amount = summary.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
@@ -2249,12 +2232,7 @@ class TestSystematicValidation:
         print(f"   Standard (5%):    ${standard_effective:.2f}/SF") 
         print(f"   Liberal (7%):     ${liberal_effective:.2f}/SF")
         print()
-        print("   🎯 VISION: Full GlobalSettings integration would enable:")
-        print("   • Automatic cap inheritance from portfolio policies")
-        print("   • Property-type specific defaults (office 5%, retail 4%, industrial 6%)")
-        print("   • Cap validation and business logic enforcement")
-        print("   • Standardized cap methodologies across entire portfolio")
-        print("   • Risk management warnings for unusual cap savings")
-        print("   • Audit trails for cap policy compliance")
+        print("   ✅ Portfolio Cap Policy Hierarchy Demonstration Complete")
+        print("   Different cap rates successfully create expected tenant savings hierarchy")
 
  

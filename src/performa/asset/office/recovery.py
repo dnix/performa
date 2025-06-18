@@ -79,6 +79,14 @@ class OfficeRecoveryMethod(CommercialRecoveryMethodBase):
     """
     Office-specific recovery method. Inherits core calculation logic 
     from CommercialRecoveryMethodBase.
+    
+    TODO: Future GlobalSettings integration for cap functionality
+    Currently caps are implemented at the Recovery level via yoy_max_growth.
+    Future enhancement could integrate with GlobalSettings.recoveries for:
+    - Portfolio-wide default cap rates
+    - Property-type specific cap policies  
+    - Cap validation and business logic enforcement
+    - Standardized cap methodologies across portfolio
     """
     recoveries: List[RecoveryBase]
 
