@@ -107,6 +107,34 @@ class CommercialRecoveryMethodBase(RecoveryMethodBase):
                     monthly_stop = annual_base_year_stop / 12.0
                     share_to_use = current_recovery_state.frozen_base_year_pro_rata or pro_rata
                     monthly_recoverable = (pool_expense_cf - monthly_stop).clip(lower=0)
+                    
+                    # Apply year-over-year cap if specified
+                    if recovery_item.yoy_max_growth is not None and recovery_item.yoy_max_growth > 0:
+                        # Calculate years from base year to current analysis period
+                        base_year = recovery_item.base_year
+                        if base_year:
+                            current_year = context.timeline.start_date.year
+                            years_from_base = current_year - base_year
+                            
+                            if years_from_base > 0:
+                                # Calculate maximum allowable annual expense under cap
+                                # Formula: base_year × (1 + cap)^years
+                                max_annual_under_cap = annual_base_year_stop * ((1 + recovery_item.yoy_max_growth) ** years_from_base)
+                                max_monthly_under_cap = max_annual_under_cap / 12.0
+                                
+                                # Cap the pool expense to prevent excessive increases
+                                # Cap applies to total pool expense, not just the recoverable portion
+                                current_monthly_expense = pool_expense_cf
+                                capped_monthly_expense = pd.Series(max_monthly_under_cap, index=context.timeline.period_index)
+                                
+                                # Use the lesser of actual expense or capped expense
+                                pool_expense_cf_capped = pd.Series(index=context.timeline.period_index, dtype=float)
+                                for period in context.timeline.period_index:
+                                    pool_expense_cf_capped[period] = min(current_monthly_expense[period], capped_monthly_expense[period])
+                                
+                                # Recalculate recoverable with capped expenses
+                                monthly_recoverable = (pool_expense_cf_capped - monthly_stop).clip(lower=0)
+                    
                     recovery_cf = monthly_recoverable * share_to_use
             elif recovery_item.structure == "fixed":
                 recovery_cf = pd.Series(recovery_item.base_amount / 12.0, index=context.timeline.period_index)

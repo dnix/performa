@@ -1842,4 +1842,419 @@ class TestSystematicValidation:
         print(f"   Cap savings: ${cap_savings:,.0f} monthly ({cap_savings_percent:.1%})")
         print(f"   Capital expenses excluded: ${(jan_opex - jan_opex_no_capital) * 12:,.0f} annually")
 
+    def test_17_real_world_multi_year_expense_caps(self):
+        """
+        TEST 17: Real-World Multi-Year Expense Caps (Professional Validation)
+        =====================================================================
+        
+        Scenario: Multi-year cap validation with realistic CRE conditions
+        - Property: 50,000 SF Class B office building  
+        - Analysis: 2021 base year through 2024 (3 years of cap application)
+        - Realistic growth: 6% annual expense inflation (market conditions)
+        - Multiple tenants with different cap structures:
+          * Tenant A: 3% annual cap (conservative)
+          * Tenant B: 5% annual cap (standard) 
+          * Tenant C: No cap (market rate)
+        
+        Real Estate Context:
+        - Base Year 2021: $6.50/SF operating expenses
+        - Market Growth: 6% annually = $6.50 → $6.89 → $7.30 → $7.74/SF
+        - Tenant A Cap: $6.50 → $6.70 → $6.90 → $7.11/SF (saves money)
+        - Tenant B Cap: $6.50 → $6.83 → $7.17 → $7.53/SF (saves money)
+        - Tenant C No Cap: Pays full market rates
+        
+        Expected Results:
+        - Multi-year compound cap effects working correctly
+        - Different cap rates producing different tenant recoveries
+        - Realistic expense growth patterns vs artificial test scenarios
+        - Portfolio-level cap management validation
+        """
+        
+        timeline = Timeline.from_dates(date(2024, 1, 1), end_date=date(2024, 12, 31))
+        settings = GlobalSettings(analysis_start_date=timeline.start_date.to_timestamp().date())
+        
+        # Realistic operating expenses with market-rate growth
+        realistic_opex = OfficeOpExItem(
+            name="Building Operating Expenses", timeline=timeline,
+            value=7.74, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL,
+            recoverable_ratio=1.0,
+            # Back-calculate to get $6.50/SF in 2021: $7.74 / (1.06^3) = $6.50
+            growth_rate=GrowthRate(name="Market Inflation", value=0.06)  # 6% annual market inflation
+        )
+        
+        # Recovery methods with different cap structures (real-world scenarios)
+        
+        # Conservative tenant with 3% cap
+        recovery_3pct_cap = Recovery(
+            expenses=ExpensePool(name="3% Capped Expenses", expenses=[realistic_opex]),
+            structure="base_year",
+            base_year=2021,
+            yoy_max_growth=0.03  # 3% annual cap (conservative)
+        )
+        
+        method_3pct_cap = OfficeRecoveryMethod(
+            name="3% Annual Cap", gross_up=False,
+            recoveries=[recovery_3pct_cap]
+        )
+        
+        # Standard tenant with 5% cap
+        recovery_5pct_cap = Recovery(
+            expenses=ExpensePool(name="5% Capped Expenses", expenses=[realistic_opex]),
+            structure="base_year", 
+            base_year=2021,
+            yoy_max_growth=0.05  # 5% annual cap (standard)
+        )
+        
+        method_5pct_cap = OfficeRecoveryMethod(
+            name="5% Annual Cap", gross_up=False,
+            recoveries=[recovery_5pct_cap]
+        )
+        
+        # Market-rate tenant with no cap
+        recovery_no_cap = Recovery(
+            expenses=ExpensePool(name="Uncapped Expenses", expenses=[realistic_opex]),
+            structure="base_year",
+            base_year=2021
+            # No yoy_max_growth = no cap protection
+        )
+        
+        method_no_cap = OfficeRecoveryMethod(
+            name="No Cap (Market Rate)", gross_up=False,
+            recoveries=[recovery_no_cap]
+        )
+        
+        # Realistic tenant mix
+        tenant_conservative = OfficeLeaseSpec(
+            tenant_name="Conservative Corp (3% Cap)", suite="100-200", floor="1-2",
+            area=15000, use_type="office",
+            start_date=date(2019, 1, 1), term_months=120,  # Signed before inflation surge
+            base_rent_value=28.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
+            recovery_method=method_3pct_cap,
+            upon_expiration=UponExpirationEnum.MARKET
+        )
+        
+        tenant_standard = OfficeLeaseSpec(
+            tenant_name="Standard LLC (5% Cap)", suite="300-400", floor="3-4", 
+            area=20000, use_type="office",
+            start_date=date(2020, 1, 1), term_months=120,
+            base_rent_value=30.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
+            recovery_method=method_5pct_cap,
+            upon_expiration=UponExpirationEnum.MARKET
+        )
+        
+        tenant_market = OfficeLeaseSpec(
+            tenant_name="Market Tenant (No Cap)", suite="500", floor="5",
+            area=15000, use_type="office",
+            start_date=date(2022, 1, 1), term_months=60,  # Recent lease, no cap protection
+            base_rent_value=35.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
+            recovery_method=method_no_cap,
+            upon_expiration=UponExpirationEnum.MARKET
+        )
+        
+        # Create individual property scenarios to test each tenant type
+        
+        # Conservative tenant scenario (3% cap)
+        property_conservative = OfficeProperty(
+            name="Conservative Cap Building", property_type="office",
+            net_rentable_area=15000, gross_area=15000,
+            rent_roll=OfficeRentRoll(leases=[tenant_conservative], vacant_suites=[]),
+            expenses=OfficeExpenses(operating_expenses=[realistic_opex]),
+            losses=OfficeLosses(
+                general_vacancy=OfficeGeneralVacancyLoss(rate=0.0),
+                collection_loss=OfficeCollectionLoss(rate=0.0)
+            )
+        )
+        
+        # Standard tenant scenario (5% cap)
+        property_standard = OfficeProperty(
+            name="Standard Cap Building", property_type="office",
+            net_rentable_area=20000, gross_area=20000,
+            rent_roll=OfficeRentRoll(leases=[tenant_standard], vacant_suites=[]),
+            expenses=OfficeExpenses(operating_expenses=[realistic_opex]),
+            losses=OfficeLosses(
+                general_vacancy=OfficeGeneralVacancyLoss(rate=0.0),
+                collection_loss=OfficeCollectionLoss(rate=0.0)
+            )
+        )
+        
+        # Market tenant scenario (no cap)
+        property_market = OfficeProperty(
+            name="No Cap Building", property_type="office",
+            net_rentable_area=15000, gross_area=15000,
+            rent_roll=OfficeRentRoll(leases=[tenant_market], vacant_suites=[]),
+            expenses=OfficeExpenses(operating_expenses=[realistic_opex]),
+            losses=OfficeLosses(
+                general_vacancy=OfficeGeneralVacancyLoss(rate=0.0),
+                collection_loss=OfficeCollectionLoss(rate=0.0)
+            )
+        )
+        
+        # Run scenarios
+        scenario_conservative = run(model=property_conservative, timeline=timeline, settings=settings)
+        scenario_standard = run(model=property_standard, timeline=timeline, settings=settings)
+        scenario_market = run(model=property_market, timeline=timeline, settings=settings)
+        
+        # Get results
+        summary_conservative = scenario_conservative.get_cash_flow_summary()
+        summary_standard = scenario_standard.get_cash_flow_summary()
+        summary_market = scenario_market.get_cash_flow_summary()
+        
+        recovery_conservative = summary_conservative.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        recovery_standard = summary_standard.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        recovery_market = summary_market.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        
+        opex_conservative = summary_conservative.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        opex_standard = summary_standard.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        opex_market = summary_market.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        
+        # Get base year calculations
+        states_conservative = scenario_conservative._pre_calculate_recoveries()
+        states_standard = scenario_standard._pre_calculate_recoveries()
+        states_market = scenario_market._pre_calculate_recoveries()
+        
+        base_year_conservative = states_conservative[recovery_3pct_cap.uid].calculated_annual_base_year_stop
+        base_year_standard = states_standard[recovery_5pct_cap.uid].calculated_annual_base_year_stop
+        base_year_market = states_market[recovery_no_cap.uid].calculated_annual_base_year_stop
+        
+        # REAL ESTATE PROFESSIONAL VALIDATION:
+        
+        # 1. Base year calculations should be consistent per SF (same base year, same expense item)
+        base_year_conservative_psf = base_year_conservative / 15000  # Per SF
+        base_year_standard_psf = base_year_standard / 20000        # Per SF  
+        base_year_market_psf = base_year_market / 15000             # Per SF
+        
+        assert abs(base_year_conservative_psf - base_year_standard_psf) < 0.50, "Base years per SF should be similar (same 2021 base)"
+        assert abs(base_year_conservative_psf - base_year_market_psf) < 0.50, "Base years per SF should be similar (same 2021 base)"
+        
+        # 2. Base year should reflect 2021 levels (~$6.50/SF)
+        expected_2021_base_psf = 6.50  # Per SF
+        assert abs(base_year_conservative_psf - expected_2021_base_psf) / expected_2021_base_psf < 0.10, f"Base year ${base_year_conservative_psf:.2f}/SF should be close to ${expected_2021_base_psf:.2f}/SF"
+        
+        # 3. Current expenses should reflect 2024 market levels (~$7.74/SF)
+        expected_2024_market = 15000 * 7.74 / 12  # Monthly for 15k SF
+        assert abs(opex_conservative - expected_2024_market) / expected_2024_market < 0.10, f"Current OpEx ${opex_conservative:,.0f} should be close to ${expected_2024_market:,.0f}"
+        
+        # 4. Multi-year cap effects: Lower caps should create more savings
+        # After 3 years from 2021 to 2024:
+        # - 3% cap: $6.50 × 1.03³ = $7.11/SF maximum  
+        # - 5% cap: $6.50 × 1.05³ = $7.53/SF maximum
+        # - No cap: $7.74/SF (full market)
+        
+        recovery_conservative_psf = recovery_conservative * 12 / 15000  # Annual per SF
+        recovery_standard_psf = recovery_standard * 12 / 20000       # Annual per SF  
+        recovery_market_psf = recovery_market * 12 / 15000           # Annual per SF
+        
+        assert recovery_conservative_psf < recovery_standard_psf, f"3% cap (${recovery_conservative_psf:.2f}/SF) should be less than 5% cap (${recovery_standard_psf:.2f}/SF)"
+        assert recovery_standard_psf < recovery_market_psf, f"5% cap (${recovery_standard_psf:.2f}/SF) should be less than no cap (${recovery_market_psf:.2f}/SF)"
+        
+        # 5. Savings calculations for real estate analysis
+        market_baseline = recovery_market_psf
+        conservative_savings = (market_baseline - recovery_conservative_psf) / market_baseline
+        standard_savings = (market_baseline - recovery_standard_psf) / market_baseline
+        
+        assert conservative_savings > standard_savings, f"3% cap should create more savings ({conservative_savings:.1%}) than 5% cap ({standard_savings:.1%})"
+        assert conservative_savings > 0.05, f"3% cap should create meaningful savings: {conservative_savings:.1%}"
+        assert standard_savings > 0.02, f"5% cap should create some savings: {standard_savings:.1%}"
+        
+        # 6. Multi-year compound effect validation
+        # Expected capped amounts for 2024 (3 years from 2021 base):
+        expected_3pct_cap_2024 = base_year_conservative_psf * (1.03 ** 3)  # $6.50 × 1.03³ = $7.11/SF
+        expected_5pct_cap_2024 = base_year_standard_psf * (1.05 ** 3)  # $6.50 × 1.05³ = $7.53/SF
+        
+        # Recovery should reflect these caps (approximately, since recovery = current - base_year)
+        conservative_effective_rate = (recovery_conservative * 12 / 15000) + base_year_conservative_psf
+        standard_effective_rate = (recovery_standard * 12 / 20000) + base_year_standard_psf
+        
+        assert abs(conservative_effective_rate - expected_3pct_cap_2024) < 0.20, f"3% cap effective rate ${conservative_effective_rate:.2f}/SF should be near ${expected_3pct_cap_2024:.2f}/SF"
+        
+        print("✅ Real-world multi-year cap validation:")
+        print(f"   2021 Base Year: ${base_year_conservative_psf:.2f}/SF")
+        print(f"   2024 Market Rate: ${recovery_market_psf + base_year_market_psf:.2f}/SF")
+        print(f"   3% Cap Effective: ${recovery_conservative_psf + base_year_conservative_psf:.2f}/SF (saves {conservative_savings:.1%})")
+        print(f"   5% Cap Effective: ${recovery_standard_psf + base_year_standard_psf:.2f}/SF (saves {standard_savings:.1%})")
+        print(f"   Conservative tenant saves: ${(market_baseline - recovery_conservative_psf) * 15000:.0f} annually")
+        print(f"   Standard tenant saves: ${(market_baseline - recovery_standard_psf) * 20000:.0f} annually")
+        print("   Multi-year compound caps working correctly over 3-year period")
+
+    def test_18_global_settings_cap_integration_demo(self):
+        """
+        TEST 18: GlobalSettings Cap Integration Demo (Future Enhancement)
+        =================================================================
+        
+        Demonstration of how enhanced GlobalSettings would enable professional-grade
+        cap management for institutional real estate operators.
+        
+        This test shows the vision for portfolio-wide cap policies, but currently
+        uses manual settings since the integration isn't fully implemented yet.
+        
+        Professional Features Demonstrated:
+        - Portfolio-wide cap policies by property type
+        - Conservative/liberal cap rate presets  
+        - Cap enforcement and validation
+        - Standardized cap methodologies across portfolio
+        """
+        
+        timeline = Timeline.from_dates(date(2024, 1, 1), end_date=date(2024, 12, 31))
+        
+        # DEMO: Enhanced GlobalSettings with professional cap management
+        # (This shows how it WOULD work with full integration)
+        from performa.common.primitives.settings import GlobalSettings
+        
+        enhanced_settings = GlobalSettings(
+            analysis_start_date=timeline.start_date.to_timestamp().date(),
+            # The enhanced RecoverySettings are now available:
+            # recoveries=RecoverySettings(
+            #     caps_enabled=True,
+            #     default_cap_rate=0.05,  # 5% portfolio standard
+            #     conservative_cap_rate=0.03,  # 3% for tenant-favorable deals
+            #     liberal_cap_rate=0.07,  # 7% for landlord-favorable deals
+            #     cap_compound_method="compound",  # Standard CRE practice
+            #     portfolio_wide_caps=True,  # Enable portfolio policies
+            #     portfolio_default_lease_type_caps={
+            #         "office": 0.05,    # 5% office standard
+            #         "retail": 0.04,    # 4% retail (more restrictive)
+            #         "industrial": 0.06  # 6% industrial (higher inflation)
+            #     },
+            #     warn_on_high_cap_savings=True,  # Risk management
+            #     validate_cap_business_logic=True  # Prevent unrealistic caps
+            # )
+        )
+        
+        # For now, manually demonstrate the cap functionality we've implemented
+        realistic_opex = OfficeOpExItem(
+            name="Portfolio Standard OpEx", timeline=timeline,
+            value=8.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL,
+            recoverable_ratio=1.0,
+            growth_rate=GrowthRate(name="Market Growth", value=0.06)  # 6% market growth
+        )
+        
+        # Demo different cap scenarios a portfolio manager would use:
+        
+        # Scenario 1: Conservative cap for tenant-favorable lease
+        conservative_recovery = Recovery(
+            expenses=ExpensePool(name="Conservative Portfolio Cap", expenses=[realistic_opex]),
+            structure="base_year", base_year=2022,
+            yoy_max_growth=0.03  # Would inherit from enhanced_settings.recoveries.conservative_cap_rate
+        )
+        
+        # Scenario 2: Standard cap for portfolio default
+        standard_recovery = Recovery(
+            expenses=ExpensePool(name="Standard Portfolio Cap", expenses=[realistic_opex]),
+            structure="base_year", base_year=2022,
+            yoy_max_growth=0.05  # Would inherit from enhanced_settings.recoveries.default_cap_rate
+        )
+        
+        # Scenario 3: Liberal cap for landlord-favorable lease
+        liberal_recovery = Recovery(
+            expenses=ExpensePool(name="Liberal Portfolio Cap", expenses=[realistic_opex]),
+            structure="base_year", base_year=2022,
+            yoy_max_growth=0.07  # Would inherit from enhanced_settings.recoveries.liberal_cap_rate
+        )
+        
+        # Create recovery methods
+        method_conservative = OfficeRecoveryMethod(name="Conservative Cap", gross_up=False, recoveries=[conservative_recovery])
+        method_standard = OfficeRecoveryMethod(name="Standard Cap", gross_up=False, recoveries=[standard_recovery])
+        method_liberal = OfficeRecoveryMethod(name="Liberal Cap", gross_up=False, recoveries=[liberal_recovery])
+        
+        # Portfolio properties with different cap policies
+        tenant_conservative = OfficeLeaseSpec(
+            tenant_name="Conservative Tenant", suite="100", floor="1", area=10000, use_type="office",
+            start_date=date(2020, 1, 1), term_months=120,
+            base_rent_value=30.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
+            recovery_method=method_conservative, upon_expiration=UponExpirationEnum.MARKET
+        )
+        
+        tenant_standard = OfficeLeaseSpec(
+            tenant_name="Standard Tenant", suite="200", floor="2", area=10000, use_type="office",
+            start_date=date(2020, 1, 1), term_months=120,
+            base_rent_value=32.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
+            recovery_method=method_standard, upon_expiration=UponExpirationEnum.MARKET
+        )
+        
+        tenant_liberal = OfficeLeaseSpec(
+            tenant_name="Liberal Tenant", suite="300", floor="3", area=10000, use_type="office",
+            start_date=date(2020, 1, 1), term_months=120,
+            base_rent_value=28.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
+            recovery_method=method_liberal, upon_expiration=UponExpirationEnum.MARKET
+        )
+        
+        # Test each scenario
+        scenarios = [
+            ("Conservative (3% Cap)", tenant_conservative, conservative_recovery),
+            ("Standard (5% Cap)", tenant_standard, standard_recovery),
+            ("Liberal (7% Cap)", tenant_liberal, liberal_recovery)
+        ]
+        
+        results = []
+        
+        for name, tenant, recovery in scenarios:
+            property_model = OfficeProperty(
+                name=f"{name} Building", property_type="office",
+                net_rentable_area=10000, gross_area=10000,
+                rent_roll=OfficeRentRoll(leases=[tenant], vacant_suites=[]),
+                expenses=OfficeExpenses(operating_expenses=[realistic_opex]),
+                losses=OfficeLosses(
+                    general_vacancy=OfficeGeneralVacancyLoss(rate=0.0),
+                    collection_loss=OfficeCollectionLoss(rate=0.0)
+                )
+            )
+            
+            scenario = run(model=property_model, timeline=timeline, settings=enhanced_settings)
+            summary = scenario.get_cash_flow_summary()
+            
+            recovery_amount = summary.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+            opex_amount = summary.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+            
+            # Get base year for context
+            states = scenario._pre_calculate_recoveries()
+            base_year = states[recovery.uid].calculated_annual_base_year_stop
+            
+            results.append({
+                'name': name,
+                'cap_rate': recovery.yoy_max_growth,
+                'base_year': base_year,
+                'recovery_monthly': recovery_amount,
+                'recovery_psf': recovery_amount * 12 / 10000,
+                'base_year_psf': base_year / 10000
+            })
+        
+        # Portfolio Management Validation
+        print("✅ GlobalSettings Cap Integration Demo:")
+        print("   Portfolio-Wide Cap Management Demonstration")
+        print(f"   Base Year 2022: ~${results[0]['base_year_psf']:.2f}/SF")
+        print(f"   Current Market: ~${results[0]['recovery_psf'] + results[0]['base_year_psf']:.2f}/SF")
+        print()
+        
+        for result in results:
+            effective_rate = result['recovery_psf'] + result['base_year_psf']
+            print(f"   {result['name']}: ${effective_rate:.2f}/SF (Recovery: ${result['recovery_psf']:.2f}/SF)")
+        
+        # Validate cap hierarchy works correctly
+        conservative_effective = results[0]['recovery_psf'] + results[0]['base_year_psf']
+        standard_effective = results[1]['recovery_psf'] + results[1]['base_year_psf']
+        liberal_effective = results[2]['recovery_psf'] + results[2]['base_year_psf']
+        
+        assert conservative_effective < standard_effective, "Conservative cap should be lower than standard"
+        assert standard_effective < liberal_effective, "Standard cap should be lower than liberal"
+        
+        print()
+        print("   📊 Portfolio Cap Policy Hierarchy Working Correctly:")
+        print(f"   Conservative (3%): ${conservative_effective:.2f}/SF")
+        print(f"   Standard (5%):    ${standard_effective:.2f}/SF") 
+        print(f"   Liberal (7%):     ${liberal_effective:.2f}/SF")
+        print()
+        print("   🎯 VISION: Full GlobalSettings integration would enable:")
+        print("   • Automatic cap inheritance from portfolio policies")
+        print("   • Property-type specific defaults (office 5%, retail 4%, industrial 6%)")
+        print("   • Cap validation and business logic enforcement")
+        print("   • Standardized cap methodologies across entire portfolio")
+        print("   • Risk management warnings for unusual cap savings")
+        print("   • Audit trails for cap policy compliance")
+
  
