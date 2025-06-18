@@ -216,19 +216,70 @@ class CashFlowOrchestrator:
                     if target_key:
                         agg_flows[target_key] = agg_flows[target_key].add(result.reindex(analysis_periods, fill_value=0.0), fill_value=0.0)
 
-        # 3. Calculate derived summary lines (NOI, UCF, etc.)
-        agg_flows[AggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME] = agg_flows[AggregateLineKey.POTENTIAL_GROSS_REVENUE] - agg_flows[AggregateLineKey.RENTAL_ABATEMENT] + agg_flows[AggregateLineKey.MISCELLANEOUS_INCOME] + agg_flows[AggregateLineKey.EXPENSE_REIMBURSEMENTS]
+        # 3. Apply property-level losses
+        self._apply_property_losses(agg_flows)
+
+        # 4. Calculate derived summary lines (NOI, UCF, etc.)
+        agg_flows[AggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME] = (
+            agg_flows[AggregateLineKey.POTENTIAL_GROSS_REVENUE] 
+            - agg_flows[AggregateLineKey.RENTAL_ABATEMENT] 
+            - agg_flows[AggregateLineKey.GENERAL_VACANCY_LOSS]
+            - agg_flows[AggregateLineKey.COLLECTION_LOSS]
+            + agg_flows[AggregateLineKey.MISCELLANEOUS_INCOME] 
+            + agg_flows[AggregateLineKey.EXPENSE_REIMBURSEMENTS]
+        )
         agg_flows[AggregateLineKey.NET_OPERATING_INCOME] = agg_flows[AggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME] - agg_flows[AggregateLineKey.TOTAL_OPERATING_EXPENSES]
         agg_flows[AggregateLineKey.UNLEVERED_CASH_FLOW] = agg_flows[AggregateLineKey.NET_OPERATING_INCOME] - agg_flows[AggregateLineKey.TOTAL_CAPITAL_EXPENDITURES] - agg_flows[AggregateLineKey.TOTAL_TENANT_IMPROVEMENTS] - agg_flows[AggregateLineKey.TOTAL_LEASING_COMMISSIONS]
         
-        # 4. Store aggregate results in resolved_lookups for cross-reference
+        # 5. Store aggregate results in resolved_lookups for cross-reference
         for key, series in agg_flows.items():
             self.context.resolved_lookups[key.value] = series
         
-        # 5. Store final DataFrames
+        # 6. Store final DataFrames
         self.summary_df = pd.DataFrame(agg_flows)
         # self.detailed_df = ... (logic to create detailed dataframe from detailed_flows_list)
     
+    def _apply_property_losses(self, agg_flows: Dict[AggregateLineKey, pd.Series]) -> None:
+        """Apply property-level vacancy and collection losses."""
+        if not hasattr(self.context.property_data, 'losses') or not self.context.property_data.losses:
+            return
+        
+        losses = self.context.property_data.losses
+        
+        # Calculate General Vacancy Loss
+        if losses.general_vacancy and losses.general_vacancy.rate > 0:
+            vacancy_rate = losses.general_vacancy.rate
+            
+            # Apply vacancy loss to the appropriate basis
+            if losses.general_vacancy.method.value == "Potential Gross Revenue":
+                basis = agg_flows[AggregateLineKey.POTENTIAL_GROSS_REVENUE]
+            else:  # Effective Gross Revenue method
+                basis = (agg_flows[AggregateLineKey.POTENTIAL_GROSS_REVENUE] 
+                        + agg_flows[AggregateLineKey.MISCELLANEOUS_INCOME] 
+                        - agg_flows[AggregateLineKey.RENTAL_ABATEMENT])
+            
+            vacancy_loss = basis * vacancy_rate
+            agg_flows[AggregateLineKey.GENERAL_VACANCY_LOSS] = vacancy_loss
+        
+        # Calculate Collection Loss
+        if losses.collection_loss and losses.collection_loss.rate > 0:
+            collection_rate = losses.collection_loss.rate
+            
+            # Apply collection loss to the appropriate basis
+            if losses.collection_loss.basis == "pgr":
+                basis = agg_flows[AggregateLineKey.POTENTIAL_GROSS_REVENUE]
+            elif losses.collection_loss.basis == "scheduled_income":
+                basis = (agg_flows[AggregateLineKey.POTENTIAL_GROSS_REVENUE] 
+                        - agg_flows[AggregateLineKey.RENTAL_ABATEMENT])
+            else:  # "egi" - Effective Gross Income
+                basis = (agg_flows[AggregateLineKey.POTENTIAL_GROSS_REVENUE] 
+                        - agg_flows[AggregateLineKey.RENTAL_ABATEMENT]
+                        - agg_flows[AggregateLineKey.GENERAL_VACANCY_LOSS]
+                        + agg_flows[AggregateLineKey.MISCELLANEOUS_INCOME])
+            
+            collection_loss = basis * collection_rate
+            agg_flows[AggregateLineKey.COLLECTION_LOSS] = collection_loss
+
     def _get_aggregate_key(self, category: str, subcategory: str, component: str = 'value') -> Optional[AggregateLineKey]:
         # Mapping logic from raw categories to summary lines
         from performa.common.primitives import (
