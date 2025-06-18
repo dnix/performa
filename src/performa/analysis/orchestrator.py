@@ -9,7 +9,11 @@ from uuid import UUID
 
 import pandas as pd
 
-from performa.common.primitives import AggregateLineKey, CalculationPass
+from performa.common.primitives import (
+    AggregateLineKey,
+    CalculationPass,
+    UponExpirationEnum,
+)
 
 if TYPE_CHECKING:
     from performa.common.base import (
@@ -88,6 +92,11 @@ class CashFlowOrchestrator:
         ]
         self._compute_model_subset(independent_models)
 
+        # Intermediate Phase: Compute aggregate values from independent models
+        # These aggregates will be needed by dependent models
+        logger.info("Intermediate Phase: Computing aggregate values for dependent models")
+        self._compute_intermediate_aggregates()
+
         # Phase 2: Calculate all dependent values (e.g., leases with recoveries).
         # These depend on the results of the INDEPENDENT_VALUES pass.
         logger.info("Executing Pass: DEPENDENT_VALUES")
@@ -131,20 +140,15 @@ class CashFlowOrchestrator:
         graph = {}
         for m in model_subset:
             deps = set()
-            # Handle different reference types for dependency resolution
+            # Handle AggregateLineKey references for dependency resolution
             if m.reference is not None:
                 if isinstance(m.reference, AggregateLineKey):
                     # AggregateLineKey references are resolved from previous phases
                     # No intra-phase dependency needed since aggregates are computed after phases
                     pass
-                elif hasattr(m.reference, 'uid'):  # CashFlowModel reference
-                    # A model's dependency is only relevant for sorting if it's within the same phase.
-                    # Dependencies on models from prior phases are already resolved in the context.
-                    if m.reference.uid in subset_uids:
-                        deps.add(m.reference.uid)
-                elif isinstance(m.reference, UUID):  # Backward compatibility
-                    if m.reference in subset_uids:
-                        deps.add(m.reference)
+                else:
+                    # Unsupported reference type - should not happen with Pydantic validator
+                    raise ValueError(f"Unsupported reference type in model '{m.name}': {type(m.reference)}. Expected AggregateLineKey.")
             graph[m.uid] = deps
 
         try:
@@ -167,7 +171,14 @@ class CashFlowOrchestrator:
             if (isinstance(model, LeaseBase) and 
                 hasattr(model, 'rollover_profile') and 
                 model.rollover_profile and 
-                str(model.upon_expiration).upper() in ['RENEW', 'MARKET', 'VACATE', 'OPTION', 'REABSORB']):
+                model.upon_expiration in [
+                    UponExpirationEnum.RENEW,
+                    UponExpirationEnum.MARKET,
+                    UponExpirationEnum.VACATE,
+                    UponExpirationEnum.OPTION,
+                    UponExpirationEnum.REABSORB,
+                ]
+            ):
                 
                 logger.debug(f"Using project_future_cash_flows for lease {model.name} with rollover profile")
                 future_df = model.project_future_cash_flows(context=self.context)
@@ -300,3 +311,43 @@ class CashFlowOrchestrator:
             if subcategory == "Lease" and component == "ti_allowance": return AggregateLineKey.TOTAL_TENANT_IMPROVEMENTS
             if subcategory == "Lease" and component == "leasing_commission": return AggregateLineKey.TOTAL_LEASING_COMMISSIONS
         return None
+
+    def _compute_intermediate_aggregates(self) -> None:
+        """Compute aggregate values from independent models for use by dependent models."""
+        analysis_periods = self.context.timeline.period_index
+        
+        # Initialize aggregate flows for intermediate computation
+        intermediate_agg_flows: Dict[AggregateLineKey, pd.Series] = {
+            key: pd.Series(0.0, index=analysis_periods, name=key.value)
+            for key in AggregateLineKey if not key.value.startswith("_")
+        }
+        
+        # Only process independent models that have already been computed
+        independent_models = [
+            m for m in self.models 
+            if m.calculation_pass == CalculationPass.INDEPENDENT_VALUES
+        ]
+        
+        for model in independent_models:
+            if model.uid not in self.context.resolved_lookups:
+                continue  # Skip if not computed yet
+                
+            result = self.context.resolved_lookups[model.uid]
+            
+            if isinstance(result, dict):  # E.g., a lease with multiple components
+                for component, series in result.items():
+                    target_key = self._get_aggregate_key(model.category, model.subcategory, component)
+                    if target_key:
+                        intermediate_agg_flows[target_key] = intermediate_agg_flows[target_key].add(
+                            series.reindex(analysis_periods, fill_value=0.0), fill_value=0.0
+                        )
+            elif isinstance(result, pd.Series):  # A simple cash flow
+                target_key = self._get_aggregate_key(model.category, model.subcategory)
+                if target_key:
+                    intermediate_agg_flows[target_key] = intermediate_agg_flows[target_key].add(
+                        result.reindex(analysis_periods, fill_value=0.0), fill_value=0.0
+                    )
+        
+        # Store intermediate aggregate results in resolved_lookups for dependent models
+        for key, series in intermediate_agg_flows.items():
+            self.context.resolved_lookups[key.value] = series

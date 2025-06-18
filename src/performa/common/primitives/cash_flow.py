@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 import pandas as pd
 from pydantic import Field, computed_field
 
-from .enums import CalculationPass, FrequencyEnum, UnitOfMeasureEnum
+from .enums import AggregateLineKey, CalculationPass, FrequencyEnum, UnitOfMeasureEnum
 from .growth_rates import GrowthRate
 from .model import Model
 from .settings import GlobalSettings
@@ -46,14 +46,17 @@ class CashFlowModel(Model):
     value: Union[PositiveFloat, pd.Series, Dict, List]
     unit_of_measure: UnitOfMeasureEnum
     frequency: FrequencyEnum = FrequencyEnum.MONTHLY
-    reference: Optional[UUID] = None
+    reference: Optional[AggregateLineKey] = None
     settings: GlobalSettings = Field(default_factory=GlobalSettings)
     growth_rate: Optional[GrowthRate] = None
 
     @computed_field
     @property
     def calculation_pass(self) -> CalculationPass:
-        """Defines the calculation phase for this model. Defaults to independent."""
+        """Defines the calculation phase for this model."""
+        if self.reference is not None:
+            # Models with AggregateLineKey references depend on aggregated values
+            return CalculationPass.DEPENDENT_VALUES
         return CalculationPass.INDEPENDENT_VALUES
 
     def _convert_frequency(
@@ -148,11 +151,10 @@ class CashFlowModel(Model):
             else:
                 base_value = 0.0
         elif self.unit_of_measure == UnitOfMeasureEnum.BY_PERCENT and self.reference:
-            # Dependency is on another cash flow, which must have been pre-computed
-            # by the orchestrator and stored in the context.
-            dependency_cf = context.resolved_lookups.get(self.reference)
+            # Reference to an aggregate line (e.g., "5% of Total OpEx")
+            dependency_cf = context.resolved_lookups.get(self.reference.value)
             if dependency_cf is None:
-                raise ValueError(f"Unresolved dependency for '{self.name}': {self.reference}")
+                raise ValueError(f"Unresolved aggregate dependency for '{self.name}': {self.reference.value}")
             base_value = dependency_cf * self.value
         
         monthly_value = self._convert_frequency(base_value)

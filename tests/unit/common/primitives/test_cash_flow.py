@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from performa.analysis import AnalysisContext
 from performa.common.primitives import (
+    AggregateLineKey,
     CashFlowModel,
     FrequencyEnum,
     GlobalSettings,
@@ -47,19 +48,18 @@ def test_instantiation_with_series_value(sample_timeline: Timeline):
     )
     pd.testing.assert_series_equal(model.value, series_val)
 
-def test_reference_is_uuid(sample_timeline: Timeline):
-    """Test that the reference field must be a UUID."""
-    test_uuid = uuid4()
+def test_reference_is_aggregate_line_key(sample_timeline: Timeline):
+    """Test that the reference field accepts AggregateLineKey enum values."""
     model = MinimalConcreteCashFlowModel(
         name="Test", category="cat", subcategory="sub",
         timeline=sample_timeline, value=1, unit_of_measure=UnitOfMeasureEnum.CURRENCY,
-        reference=test_uuid
+        reference=AggregateLineKey.TOTAL_OPERATING_EXPENSES
     )
-    assert model.reference == test_uuid
+    assert model.reference == AggregateLineKey.TOTAL_OPERATING_EXPENSES
 
     with pytest.raises(ValidationError):
         MinimalConcreteCashFlowModel(
             name="Test", category="cat", subcategory="sub",
             timeline=sample_timeline, value=1, unit_of_measure=UnitOfMeasureEnum.CURRENCY,
-            reference="not-a-uuid"
+            reference="invalid-aggregate-key"
         )

@@ -32,8 +32,11 @@ from performa.asset.office import (
 )
 from performa.common.primitives import (
     AggregateLineKey,
+    FrequencyEnum,
     GlobalSettings,
+    LeaseTypeEnum,
     Timeline,
+    UnitOfMeasureEnum,
     UponExpirationEnum,
 )
 
@@ -69,7 +72,7 @@ class TestSystematicValidation:
         # Simple operating expense
         opex = OfficeOpExItem(
             name="Building OpEx", timeline=timeline,
-            value=8.0, unit_of_measure="per_unit", frequency="annual"
+            value=8.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL
         )
         
         # Single tenant - perfect baseline
@@ -77,8 +80,8 @@ class TestSystematicValidation:
             tenant_name="Single Tenant", suite="100", floor="1",
             area=10000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=30.0, base_rent_unit_of_measure="per_unit",
-            base_rent_frequency="annual", lease_type="gross",
+            base_rent_value=30.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.GROSS,
             upon_expiration=UponExpirationEnum.MARKET
         )
         
@@ -138,11 +141,11 @@ class TestSystematicValidation:
         # Operating expenses
         cam = OfficeOpExItem(
             name="CAM", timeline=timeline,
-            value=6.0, unit_of_measure="per_unit", frequency="annual"
+            value=6.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL
         )
         taxes = OfficeOpExItem(
             name="Taxes", timeline=timeline,
-            value=4.0, unit_of_measure="per_unit", frequency="annual"
+            value=4.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL
         )
         
         # Recovery method (net = tenant pays all expenses)
@@ -161,8 +164,8 @@ class TestSystematicValidation:
             tenant_name="Recovering Tenant", suite="100", floor="1",
             area=10000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=25.0, base_rent_unit_of_measure="per_unit",
-            base_rent_frequency="annual", lease_type="net",
+            base_rent_value=25.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=recovery_method,
             upon_expiration=UponExpirationEnum.MARKET
         )
@@ -228,7 +231,7 @@ class TestSystematicValidation:
         # Operating expenses
         opex = OfficeOpExItem(
             name="Building OpEx", timeline=timeline,
-            value=8.0, unit_of_measure="per_unit", frequency="annual"
+            value=8.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL
         )
         
         # Recovery method for Tenant B
@@ -247,8 +250,8 @@ class TestSystematicValidation:
             tenant_name="Tenant A", suite="100", floor="1",
             area=10000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=30.0, base_rent_unit_of_measure="per_unit",
-            base_rent_frequency="annual", lease_type="gross",
+            base_rent_value=30.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.GROSS,
             upon_expiration=UponExpirationEnum.MARKET
         )
         
@@ -257,8 +260,8 @@ class TestSystematicValidation:
             tenant_name="Tenant B", suite="200", floor="2",
             area=8000, use_type="office", 
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=28.0, base_rent_unit_of_measure="per_unit",
-            base_rent_frequency="annual", lease_type="net",
+            base_rent_value=28.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=recovery_method,
             upon_expiration=UponExpirationEnum.MARKET
         )
@@ -328,7 +331,7 @@ class TestSystematicValidation:
         # Operating expenses
         opex = OfficeOpExItem(
             name="Building OpEx", timeline=timeline,
-            value=8.0, unit_of_measure="per_unit", frequency="annual"
+            value=8.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL
         )
         
         # Recovery method for Tenant B
@@ -347,8 +350,8 @@ class TestSystematicValidation:
             tenant_name="Tenant A", suite="100", floor="1",
             area=10000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=30.0, base_rent_unit_of_measure="per_unit",
-            base_rent_frequency="annual", lease_type="gross",
+            base_rent_value=30.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.GROSS,
             upon_expiration=UponExpirationEnum.MARKET
         )
         
@@ -357,8 +360,8 @@ class TestSystematicValidation:
             tenant_name="Tenant B", suite="200", floor="2",
             area=8000, use_type="office", 
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=28.0, base_rent_unit_of_measure="per_unit",
-            base_rent_frequency="annual", lease_type="net",
+            base_rent_value=28.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=recovery_method,
             upon_expiration=UponExpirationEnum.MARKET
         )
@@ -444,8 +447,8 @@ class TestSystematicValidation:
             tenant_name="Renewing Tenant", suite="100", floor="1",
             area=10000, use_type="office",
             start_date=date(2020, 1, 1), term_months=60,  # Expires Dec 2024
-            base_rent_value=25.0, base_rent_unit_of_measure="per_unit",
-            base_rent_frequency="annual", lease_type="gross",
+            base_rent_value=25.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.GROSS,
             upon_expiration=UponExpirationEnum.RENEW,
             rollover_profile=rollover_profile
         )
@@ -500,16 +503,16 @@ class TestSystematicValidation:
         # Realistic operating expenses
         cam_expense = OfficeOpExItem(
             name="CAM", timeline=timeline,
-            value=6.50, unit_of_measure="per_unit", frequency="annual",
+            value=6.50, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL,
             variable_ratio=0.3  # 30% variable with occupancy
         )
         tax_expense = OfficeOpExItem(
             name="Real Estate Taxes", timeline=timeline,
-            value=275000, unit_of_measure="currency", frequency="annual"
+            value=275000, unit_of_measure=UnitOfMeasureEnum.CURRENCY, frequency=FrequencyEnum.ANNUAL
         )
         insurance = OfficeOpExItem(
             name="Insurance", timeline=timeline,
-            value=1.25, unit_of_measure="per_unit", frequency="annual"
+            value=1.25, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL
         )
         
         # Recovery methods with gross-up
@@ -531,8 +534,8 @@ class TestSystematicValidation:
                 tenant_name="ABC Corp", suite="200-300", floor="2-3",
                 area=20000, use_type="office",
                 start_date=date(2022, 3, 1), term_months=84,  # 7-year lease
-                base_rent_value=32.00, base_rent_unit_of_measure="per_unit",
-                base_rent_frequency="annual", lease_type="net",
+                base_rent_value=32.00, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
                 recovery_method=full_recovery,
                 upon_expiration=UponExpirationEnum.MARKET
             ),
@@ -542,8 +545,8 @@ class TestSystematicValidation:
                 tenant_name="XYZ Law Firm", suite="400-450", floor="4",
                 area=15000, use_type="office",
                 start_date=date(2019, 1, 1), term_months=72,
-                base_rent_value=28.50, base_rent_unit_of_measure="per_unit",
-                base_rent_frequency="annual", lease_type="net",
+                base_rent_value=28.50, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
                 recovery_method=full_recovery,
                 upon_expiration=UponExpirationEnum.MARKET
             ),
@@ -553,8 +556,8 @@ class TestSystematicValidation:
                 tenant_name="Tech Startup", suite="500", floor="5",
                 area=8000, use_type="office",
                 start_date=date(2023, 6, 1), term_months=36,
-                base_rent_value=38.00, base_rent_unit_of_measure="per_unit",
-                base_rent_frequency="annual", lease_type="gross",  # No recovery
+                base_rent_value=38.00, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.GROSS,  # No recovery
                 upon_expiration=UponExpirationEnum.MARKET
             )
         ]
@@ -615,4 +618,89 @@ class TestSystematicValidation:
         expected_collection_loss = (jan_pgr - jan_vacancy_loss) * 0.005
         
         assert jan_vacancy_loss == pytest.approx(expected_vacancy_loss, rel=1e-6), "Vacancy loss calculation must be exact"
-        assert jan_collection_loss == pytest.approx(expected_collection_loss, rel=1e-6), "Collection loss calculation must be exact" 
+        assert jan_collection_loss == pytest.approx(expected_collection_loss, rel=1e-6), "Collection loss calculation must be exact"
+
+    def test_7_aggregate_line_key_references(self):
+        """
+        TEST 7: AggregateLineKey Reference Functionality
+        ===============================================
+        
+        Scenario: Testing the new AggregateLineKey reference system
+        - Property: 10,000 SF office building
+        - Tenant: 10,000 SF @ $30/SF/year (gross lease)
+        - Base OpEx: $8/SF/year
+        - Admin Fee: 5% of Total Operating Expenses (using AggregateLineKey reference)
+        
+        Expected Results:
+        - Monthly Base Rent: 10,000 × $30 ÷ 12 = $25,000
+        - Monthly Base OpEx: 10,000 × $8 ÷ 12 = $6,667
+        - Monthly Admin Fee: $6,667 × 5% = $333
+        - Total OpEx: $6,667 + $333 = $7,000
+        - Monthly NOI: $25,000 - $7,000 = $18,000
+        
+        This test validates the core "Great Simplification" reference architecture.
+        """
+        
+        timeline = Timeline.from_dates(date(2024, 1, 1), end_date=date(2024, 12, 31))
+        settings = GlobalSettings(analysis_start_date=timeline.start_date.to_timestamp().date())
+        
+        # Base operating expense
+        base_opex = OfficeOpExItem(
+            name="Base OpEx", timeline=timeline,
+            value=8.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL
+        )
+        
+        # Admin fee as percentage of Total Operating Expenses
+        admin_fee = OfficeOpExItem(
+            name="Admin Fee", timeline=timeline,
+            value=0.05, unit_of_measure=UnitOfMeasureEnum.BY_PERCENT, frequency=FrequencyEnum.MONTHLY,
+            reference=AggregateLineKey.TOTAL_OPERATING_EXPENSES
+        )
+        
+        # Single tenant
+        tenant = OfficeLeaseSpec(
+            tenant_name="Test Tenant", suite="100", floor="1",
+            area=10000, use_type="office",
+            start_date=date(2020, 1, 1), term_months=120,
+            base_rent_value=30.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.GROSS,
+            upon_expiration=UponExpirationEnum.MARKET
+        )
+        
+        # Property
+        property_model = OfficeProperty(
+            name="Reference Test Building",
+            property_type="office", 
+            net_rentable_area=10000, gross_area=10000,
+            rent_roll=OfficeRentRoll(leases=[tenant], vacant_suites=[]),
+            expenses=OfficeExpenses(operating_expenses=[base_opex, admin_fee]),
+            losses=OfficeLosses(
+                general_vacancy=OfficeGeneralVacancyLoss(rate=0.0),
+                collection_loss=OfficeCollectionLoss(rate=0.0)
+            )
+        )
+        
+        # Run analysis
+        scenario = run(model=property_model, timeline=timeline, settings=settings)
+        summary = scenario.get_cash_flow_summary()
+        
+        # Get January results
+        jan_pgr = summary.loc["2024-01", AggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
+        jan_total_opex = summary.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        jan_noi = summary.loc["2024-01", AggregateLineKey.NET_OPERATING_INCOME.value]
+        
+        # Manual calculation
+        expected_rent = 10000 * 30 / 12      # $25,000
+        expected_base_opex = 10000 * 8 / 12  # $6,667
+        expected_admin_fee = expected_base_opex * 0.05  # $333
+        expected_total_opex = expected_base_opex + expected_admin_fee  # $7,000
+        expected_noi = expected_rent - expected_total_opex  # $18,000
+        
+        # Validate with perfect precision
+        assert jan_pgr == pytest.approx(expected_rent, rel=1e-6), f"PGR: {jan_pgr} vs {expected_rent}"
+        assert jan_total_opex == pytest.approx(expected_total_opex, rel=1e-6), f"Total OpEx: {jan_total_opex} vs {expected_total_opex}"
+        assert jan_noi == pytest.approx(expected_noi, rel=1e-6), f"NOI: {jan_noi} vs {expected_noi}"
+        
+        # Verify the admin fee was calculated correctly as 5% of base opex
+        calculated_admin_fee = expected_total_opex - expected_base_opex
+        assert calculated_admin_fee == pytest.approx(expected_admin_fee, rel=1e-6), f"Admin fee calculation: {calculated_admin_fee} vs {expected_admin_fee}" 
