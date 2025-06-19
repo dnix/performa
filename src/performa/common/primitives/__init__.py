@@ -15,7 +15,7 @@ from .enums import (
     UponExpirationEnum,
     VacancyLossMethodEnum,
 )
-from .growth_rates import GrowthRate, GrowthRatesBase
+from .growth_rates import GrowthRate, GrowthRates
 from .model import Model
 from .settings import (
     GlobalSettings,
@@ -48,7 +48,7 @@ __all__ = [
     "UponExpirationEnum",
     "VacancyLossMethodEnum",
     "GrowthRate",
-    "GrowthRatesBase",
+    "GrowthRates",
     "FloatBetween0And1",
     "PositiveFloat",
     "PositiveInt",

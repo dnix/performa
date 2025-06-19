@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from performa.common.primitives import GrowthRate, GrowthRatesBase
+from performa.common.primitives import GrowthRate, GrowthRates
 
 
 # GrowthRate Tests
@@ -36,11 +36,11 @@ def test_growth_rate_validation_fails():
     with pytest.raises(ValidationError):
         GrowthRate(name="Bad Dict", value=bad_dict)
 
-# GrowthRatesBase Tests
+# GrowthRates Tests
 def test_growth_rates_base_with_default_rate():
     """Test the with_default_rate classmethod."""
     default_rate = 0.03
-    growth_rates = GrowthRatesBase.with_default_rate(default_rate)
+    growth_rates = GrowthRates.with_default_rate(default_rate)
     
     assert growth_rates.default_rate == default_rate
     assert growth_rates.general_growth.value == default_rate
@@ -49,7 +49,7 @@ def test_growth_rates_base_with_default_rate():
 
 def test_growth_rates_base_with_custom_rates():
     """Test the with_custom_rates classmethod for extending the model."""
-    custom_rates = GrowthRatesBase.with_custom_rates(
+    custom_rates = GrowthRates.with_custom_rates(
         default_rate=0.02,
         extra_rates={
             "inflation_rate": GrowthRate(name="Inflation", value=0.025)
@@ -65,6 +65,6 @@ def test_growth_rates_base_with_custom_rates():
 
     # Test that it fails if no default is provided and a field is missing
     with pytest.raises(ValueError, match="must be provided if not all standard"):
-        GrowthRatesBase.with_custom_rates(
+        GrowthRates.with_custom_rates(
              extra_rates={"inflation_rate": GrowthRate(name="Inflation", value=0.025)}
         )

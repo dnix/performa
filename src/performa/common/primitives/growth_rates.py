@@ -59,7 +59,7 @@ class GrowthRate(Model):
         return v
 
 
-class GrowthRatesBase(Model):
+class GrowthRates(Model):
     """Base collection of growth rate profiles for different aspects of an asset"""
 
     default_rate: Optional[FloatBetween0And1] = None
@@ -72,7 +72,7 @@ class GrowthRatesBase(Model):
     # FIXME: add support for inflation rate, here and in settings and analysis
 
     @classmethod
-    def with_default_rate(cls, default_rate: FloatBetween0And1) -> "GrowthRatesBase":
+    def with_default_rate(cls, default_rate: FloatBetween0And1) -> "GrowthRates":
         """
         Create growth rates initialized with default values.
 
@@ -80,7 +80,7 @@ class GrowthRatesBase(Model):
             default_rate: Default growth rate to use
 
         Returns:
-            GrowthRatesBase instance with default values
+            GrowthRates instance with default values
         """
 
         return cls(
@@ -96,9 +96,9 @@ class GrowthRatesBase(Model):
     @classmethod
     def with_custom_rates(
         cls, extra_rates: Optional[Dict[str, GrowthRate]] = None, **kwargs
-    ) -> "GrowthRatesBase":
+    ) -> "GrowthRates":
         """
-        Create a dynamic GrowthRatesBase instance supporting arbitrary growth rate fields.
+        Create a dynamic GrowthRates instance supporting arbitrary growth rate fields.
         Any standard fields not provided in kwargs will be populated using the default_rate,
         which must be provided if not all standard fields are specified.
         """
