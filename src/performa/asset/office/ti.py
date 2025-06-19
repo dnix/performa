@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Optional, Union
+from typing import TYPE_CHECKING, Callable, Optional, Union
 
 import pandas as pd
 
 from ...analysis import AnalysisContext
 from ...common.base import TenantImprovementAllowanceBase
+from ...common.primitives import UnitOfMeasureEnum
+
+if TYPE_CHECKING:
+    from .lease import OfficeLease
 
 logger = logging.getLogger(__name__)
 
@@ -20,51 +24,63 @@ class OfficeTenantImprovement(TenantImprovementAllowanceBase):
         """
         Compute TI cash flow series, handling both upfront and amortized payments,
         and respecting the payment_timing field.
+        
+        Args:
+            context: Analysis context containing timeline, settings, and current lease info
+              
+        Returns:
+            Cash flow series for TI payments
         """
-        total_amount = 0.0
-        if isinstance(self.value, (int, float)):
-            total_amount = self.value
-        else:
-            raise ValueError(f"TI 'value' must be a scalar. Got {type(self.value)}")
+        total_amount = self.value * self.area if self.unit_of_measure == UnitOfMeasureEnum.PER_UNIT else self.value
 
         if self.payment_method == "upfront":
             ti_cf = pd.Series(0.0, index=self.timeline.period_index)
             if total_amount > 0 and not self.timeline.period_index.empty:
-                # 'signing' is assumed to be the very first period of the item's timeline.
-                # 'commencement' is the second period (1 month after signing).
-                payment_index = 0
-                if self.payment_timing == "commencement":
-                    payment_index = 1
                 
-                if payment_index < len(self.timeline.period_index):
-                    payment_period = self.timeline.period_index[payment_index]
-                    ti_cf[payment_period] = total_amount
-            return ti_cf
+                # Use date-based logic if lease context is available, otherwise fall back to timeline index
+                if context.current_lease and hasattr(context.current_lease, 'signing_date'):
+                    # New date-based logic
+                    payment_date = None
+                    if self.payment_timing == "signing":
+                        if context.current_lease.signing_date:
+                            payment_date = context.current_lease.signing_date
+                        else:
+                            raise ValueError(
+                                "TI payment_timing is 'signing' but no signing_date provided. "
+                                "Either provide signing_date on the lease or use 'commencement' timing."
+                            )
+                    elif self.payment_timing == "commencement":
+                        payment_date = context.current_lease.timeline.start_date.to_timestamp().date()
+                    
+                    if payment_date:
+                        payment_period = pd.Period(payment_date, freq="M")
+                        if payment_period in ti_cf.index:
+                            ti_cf[payment_period] = total_amount
+                else:
+                    # Fallback to old timeline index logic for backward compatibility
+                    payment_period = self.timeline.period_index[0]
+                    if self.payment_timing == "commencement":
+                        # This is a simplification; in reality this might differ from timeline start
+                        payment_period = self.timeline.period_index[1] if len(self.timeline.period_index) > 1 else self.timeline.period_index[0]
+                    
+                    if payment_period in ti_cf.index:
+                        ti_cf[payment_period] = total_amount
 
+            return ti_cf
+        
         elif self.payment_method == "amortized":
-            assert self.interest_rate is not None
-            assert self.amortization_term_months is not None
-
-            monthly_rate = self.interest_rate / 12
-            if monthly_rate > 0 and total_amount > 0:
-                monthly_payment = (
-                    total_amount
-                    * (monthly_rate * (1 + monthly_rate) ** self.amortization_term_months)
-                    / ((1 + monthly_rate) ** self.amortization_term_months - 1)
-                )
-            elif total_amount > 0: # No interest
-                monthly_payment = total_amount / self.amortization_term_months
-            else:
-                monthly_payment = 0
-
-            amort_end = self.timeline.start_date + self.amortization_term_months - 1
-            amort_periods = pd.period_range(
-                start=self.timeline.start_date,
-                end=min(amort_end, self.timeline.end_date),
-                freq="M",
-            )
+            # For amortized TI, spread the cost over the amortization term
+            if self.amortization_term_months is None:
+                raise ValueError("amortization_term_months is required for amortized TI")
+            
+            monthly_amount = total_amount / self.amortization_term_months
             ti_cf = pd.Series(0.0, index=self.timeline.period_index)
-            ti_cf.loc[amort_periods] = monthly_payment
+            
+            # Pay over the amortization term starting from timeline start
+            for i in range(min(self.amortization_term_months, len(self.timeline.period_index))):
+                ti_cf.iloc[i] = monthly_amount
+            
             return ti_cf
-
-        return pd.Series(0.0, index=self.timeline.period_index)
+        
+        else:
+            raise ValueError(f"Unknown payment_method: {self.payment_method}")

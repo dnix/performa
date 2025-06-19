@@ -43,6 +43,7 @@ class LeaseSpecBase(Model):
     floor: str
     area: PositiveFloat
     use_type: ProgramUseEnum
+    signing_date: Optional[date] = None
     start_date: date
     end_date: Optional[date] = None
     term_months: Optional[PositiveInt] = None
@@ -61,6 +62,8 @@ class LeaseSpecBase(Model):
             raise ValueError("Either end_date or term_months must be provided")
         if self.end_date and self.end_date <= self.start_date:
             raise ValueError("end_date must be after start_date")
+        if self.signing_date and self.signing_date > self.start_date:
+            raise ValueError("signing_date must be on or before start_date")
         return self
 
     @computed_field

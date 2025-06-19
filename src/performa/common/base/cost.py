@@ -8,8 +8,9 @@ import pandas as pd
 from pydantic import model_validator
 
 from ..primitives.cash_flow import CashFlowModel
+from ..primitives.enums import UnitOfMeasureEnum
 from ..primitives.model import Model
-from ..primitives.types import FloatBetween0And1, PositiveInt
+from ..primitives.types import FloatBetween0And1, PositiveFloat, PositiveInt
 
 if TYPE_CHECKING:
     from performa.analysis import AnalysisContext
@@ -31,71 +32,74 @@ class LeasingCommissionBase(CashFlowModel):
     Base class for leasing commissions.
     """
     category: str = "Expense"
-    subcategory: str = "Leasing Commission"
-    payment_timing: Literal["signing", "commencement"] = "signing"
+    subcategory: str = "Lease"  # Special subcategory for lease-related costs
+    payment_timing: Literal["signing", "commencement"] = "signing"  # When the LC is paid
     renewal_rate: Optional[FloatBetween0And1] = None
 
-    def compute_cf(self, context: "AnalysisContext") -> pd.Series:
-        # This is a simplified base implementation.
-        # Concrete implementations should calculate the total commission
-        # and place it in the correct period on the timeline.
-        total_commission = 0.0
-        if isinstance(self.value, (int, float)):
-            total_commission = self.value # Assume value is pre-calculated total
-
+    def compute_cf(self, context: AnalysisContext) -> pd.Series:
+        """
+        Base LC calculation. Subclasses should override this method.
+        
+        Default implementation: Simple upfront payment at timeline start.
+        """
+        commission_amount = self.value
+        
         lc_cf = pd.Series(0.0, index=self.timeline.period_index)
-        if total_commission > 0 and not self.timeline.period_index.empty:
-            # For upfront payments, 'signing' and 'commencement' are treated as the
-            # first period of the timeline. A more complex model could separate these.
+        if commission_amount > 0 and not self.timeline.period_index.empty:
+            # For LC, both signing and commencement typically occur at timeline start
+            # This is different from TI where commencement might be delayed
             payment_period = self.timeline.period_index[0]
+            
             if payment_period in lc_cf.index:
-                lc_cf[payment_period] = total_commission
+                lc_cf[payment_period] = commission_amount
+        
         return lc_cf
 
 
 class TenantImprovementAllowanceBase(CashFlowModel):
     """
-    Base class for tenant improvement allowance.
-
-    The `payment_timing` field determines when the cash flow occurs:
-    - `signing`: The payment occurs in the first period (index 0) of the
-      model's timeline. This represents the date the lease is executed.
-    - `commencement`: The payment occurs in the second period (index 1) of
-      the model's timeline. This represents the date the tenant takes
-      possession and the lease term officially begins.
+    Base class for tenant improvement allowances (TI).
     """
+    area: Optional[PositiveFloat] = None  # Optional - can get from lease context
     category: str = "Expense"
-    subcategory: str = "TI Allowance"
-    payment_timing: Literal["signing", "commencement"] = "commencement"
+    subcategory: str = "Lease"  # Special subcategory for lease-related costs
     payment_method: Literal["upfront", "amortized"] = "upfront"
-    payment_date: Optional[date] = None
-    interest_rate: Optional[FloatBetween0And1] = None
-    amortization_term_months: Optional[PositiveInt] = None
+    payment_timing: Literal["signing", "commencement"] = "commencement"  # When the TI is paid
+    interest_rate: Optional[FloatBetween0And1] = None  # For amortized TI
+    amortization_term_months: Optional[PositiveInt] = None  # For amortized TI
 
-    @model_validator(mode="after")
-    def validate_amortization(self) -> "TenantImprovementAllowanceBase":
-        if self.payment_method == "amortized":
-            if self.interest_rate is None:
-                raise ValueError("interest_rate is required for amortized TI")
-            if self.amortization_term_months is None:
-                raise ValueError("amortization_term_months is required for amortized TI")
-        return self
-
-    def compute_cf(self, context: "AnalysisContext") -> pd.Series:
-        # This is a simplified base implementation.
-        # Concrete implementations should handle different payment methods.
-        total_amount = 0.0
-        if isinstance(self.value, (int, float)):
-            total_amount = self.value
-
-        ti_cf = pd.Series(0.0, index=self.timeline.period_index)
-        if total_amount > 0 and not self.timeline.period_index.empty:
-             payment_index = 0
-             # FIXME: signing vs commencement, or splits? what about timing!!! this is roo rigid
-             if self.payment_timing == "commencement":
-                 payment_index = 1
-             
-             if payment_index < len(self.timeline.period_index):
-                payment_period = self.timeline.period_index[payment_index]
-                ti_cf[payment_period] = total_amount
-        return ti_cf 
+    def compute_cf(self, context: AnalysisContext) -> pd.Series:
+        """
+        Base TI calculation. Subclasses should override this method.
+        
+        Default implementation: Simple upfront payment at timeline start.
+        """
+        total_amount = self.value
+        if self.unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
+            # Get area from lease context if available, otherwise use area field
+            area = self.area
+            if context.current_lease and hasattr(context.current_lease, 'area'):
+                area = context.current_lease.area
+            
+            if area:
+                total_amount = self.value * area
+            else:
+                raise ValueError("Area required for PER_UNIT TI but not available from lease context or TI model")
+        
+        if self.payment_method == "upfront":
+            ti_cf = pd.Series(0.0, index=self.timeline.period_index)
+            if total_amount > 0 and not self.timeline.period_index.empty:
+                # FIXME: signing vs commencement, or splits? what about timing!!! this is too rigid
+                payment_period = self.timeline.period_index[0]
+                if self.payment_timing == "commencement":
+                    payment_period = self.timeline.period_index[1] if len(self.timeline.period_index) > 1 else self.timeline.period_index[0]
+                
+                if payment_period in ti_cf.index:
+                    ti_cf[payment_period] = total_amount
+            return ti_cf
+        elif self.payment_method == "amortized":
+            # For amortized, spread evenly across timeline (simplified)
+            monthly_amount = total_amount / len(self.timeline.period_index) if not self.timeline.period_index.empty else 0
+            return pd.Series(monthly_amount, index=self.timeline.period_index)
+        
+        return pd.Series(0.0, index=self.timeline.period_index) 

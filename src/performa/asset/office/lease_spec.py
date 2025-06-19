@@ -32,6 +32,10 @@ class OfficeLeaseSpec(LeaseSpecBase):
 
     @model_validator(mode="after")
     def check_term(self) -> "OfficeLeaseSpec":
+        # Call parent validator first to ensure signing_date validation happens
+        super().check_term()
+        
+        # Additional OfficeLeaseSpec-specific validation
         if self.end_date is None and self.term_months is None:
             raise ValueError("Either end_date or term_months must be provided")
         if self.end_date and self.end_date <= self.start_date:

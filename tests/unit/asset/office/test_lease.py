@@ -245,11 +245,9 @@ class TestOfficeLease(unittest.TestCase):
         
         # Check they occur at the right time
         new_lease_start = pd.Period('2024-04', 'M')
-        # TI is paid at commencement, which is defined as the 2nd month of the lease
-        self.assertEqual(future_df.loc[new_lease_start, 'ti_allowance'], 0)
-        self.assertGreater(future_df.loc[new_lease_start + 1, 'ti_allowance'], 0)
-
-        # LC is paid at signing (month 1)
+        # With our new date-based logic, both TI (commencement) and LC (signing)
+        # are paid in the first month since signing_date = start_date for speculative leases
+        self.assertGreater(future_df.loc[new_lease_start, 'ti_allowance'], 0)
         self.assertGreater(future_df.loc[new_lease_start, 'leasing_commission'], 0)
         
         # Check that they are zero before the new lease starts
@@ -357,6 +355,131 @@ class TestOfficeLease(unittest.TestCase):
         # 2. No cash flows should be projected after expiration
         post_expiration_df = future_df.loc[pd.Period('2024-01', 'M'):]
         self.assertTrue((post_expiration_df == 0).all().all())
+
+    def test_signing_date_payment_timing(self):
+        """
+        Test that the new signing_date functionality works correctly for TI and LC timing.
+        """
+        # Test 1: With signing_date provided
+        spec_with_signing = OfficeLeaseSpec(
+            tenant_name="Test Tenant with Signing Date",
+            suite="500",
+            floor="5",
+            area=1000.0,
+            use_type=ProgramUseEnum.OFFICE,
+            lease_type="net",
+            signing_date=date(2023, 11, 15),  # 2 weeks before start
+            start_date=date(2023, 12, 1),
+            term_months=12,
+            base_rent_value=50.0,
+            base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_frequency=FrequencyEnum.ANNUAL,
+            upon_expiration=UponExpirationEnum.MARKET,
+        )
+        
+        lease_with_signing = OfficeLease.from_spec(
+            spec_with_signing,
+            analysis_start_date=date(2023, 1, 1),
+            timeline=Timeline(start_date=date(2023, 12, 1), duration_months=12),
+            settings=self.settings,
+        )
+        
+        # Verify the signing_date was correctly set
+        self.assertEqual(lease_with_signing.signing_date, date(2023, 11, 15))
+        
+        # Test 2: Without signing_date (should be None)
+        spec_without_signing = OfficeLeaseSpec(
+            tenant_name="Test Tenant without Signing Date",
+            suite="600",
+            floor="6",
+            area=1000.0,
+            use_type=ProgramUseEnum.OFFICE,
+            lease_type="net",
+            # signing_date not provided
+            start_date=date(2023, 12, 1),
+            term_months=12,
+            base_rent_value=50.0,
+            base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_frequency=FrequencyEnum.ANNUAL,
+            upon_expiration=UponExpirationEnum.MARKET,
+        )
+        
+        lease_without_signing = OfficeLease.from_spec(
+            spec_without_signing,
+            analysis_start_date=date(2023, 1, 1),
+            timeline=Timeline(start_date=date(2023, 12, 1), duration_months=12),
+            settings=self.settings,
+        )
+        
+        # Verify the signing_date is None when not provided
+        self.assertIsNone(lease_without_signing.signing_date)
+        
+        # Test 3: Validate the validation logic works
+        with self.assertRaisesRegex(ValueError, "signing_date must be on or before start_date"):
+            OfficeLeaseSpec(
+                tenant_name="Invalid Lease",
+                suite="700",
+                floor="7",
+                area=1000.0,
+                use_type=ProgramUseEnum.OFFICE,
+                lease_type="net",
+                signing_date=date(2023, 12, 15),  # After start_date
+                start_date=date(2023, 12, 1),    # Before signing_date - should fail validation
+                term_months=12,
+                base_rent_value=50.0,
+                base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                upon_expiration=UponExpirationEnum.MARKET,
+            )
+        
+        # Test 4: Test error handling when TI tries to use signing timing without signing_date
+        ti_at_signing = OfficeTenantImprovement(
+            name="TI at Signing",
+            timeline=Timeline(start_date=date(2023, 12, 1), duration_months=12),
+            value=5000.0,
+            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+            payment_timing="signing",
+        )
+        
+        context = AnalysisContext(
+            timeline=Timeline(start_date=date(2023, 12, 1), duration_months=12),
+            settings=self.settings,
+            property_data=None,
+        )
+        
+        # Should raise error when trying to use signing timing without signing_date
+        context.current_lease = lease_without_signing
+        with self.assertRaisesRegex(ValueError, "TI payment_timing is 'signing' but no signing_date provided"):
+            ti_at_signing.compute_cf(context=context)
+        
+        # Should work fine when lease has signing_date
+        context.current_lease = lease_with_signing
+        try:
+            ti_cf = ti_at_signing.compute_cf(context=context)
+            # TI payment should be 0 because Nov 15 is outside the Dec-Nov timeline
+            # This demonstrates the payment date logic is working
+            self.assertEqual(ti_cf.sum(), 0.0)  # Outside timeline = no payment recorded
+        except Exception as e:
+            self.fail(f"TI compute_cf should not raise exception when lease has signing_date: {e}")
+        
+        # Test 5: Test that commencement timing works for both cases
+        ti_at_commencement = OfficeTenantImprovement(
+            name="TI at Commencement", 
+            timeline=Timeline(start_date=date(2023, 12, 1), duration_months=12),
+            value=3000.0,
+            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+            payment_timing="commencement",
+        )
+        
+        # Should work for both leases (commencement uses start_date, not signing_date)
+        context.current_lease = lease_with_signing
+        ti_cf_with_signing = ti_at_commencement.compute_cf(context=context)
+        context.current_lease = lease_without_signing
+        ti_cf_without_signing = ti_at_commencement.compute_cf(context=context)
+        
+        # Both should have same result since commencement timing is based on start_date
+        self.assertEqual(ti_cf_with_signing.sum(), 3000.0)
+        self.assertEqual(ti_cf_without_signing.sum(), 3000.0)
+        self.assertTrue(ti_cf_with_signing.equals(ti_cf_without_signing))
 
 if __name__ == '__main__':
     unittest.main()

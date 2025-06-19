@@ -48,6 +48,7 @@ class AnalysisContext:
 
     # --- Dynamic Per-Period State (Calculated and managed by Orchestrator) ---
     occupancy_rate_series: Optional[pd.Series] = None
+    current_lease: Optional["LeaseBase"] = None  # Current lease context for TI/LC calculations
 
     # --- The Calculation Cache (Managed by Orchestrator) ---
     resolved_lookups: Dict[Union[UUID, str], Union[pd.Series, Dict[str, pd.Series]]] = field(default_factory=dict)

@@ -41,6 +41,7 @@ class OfficeLease(CommercialLeaseBase):
     """
     Office-specific lease model. Inherits core calculation logic from CommercialLeaseBase.
     """
+    signing_date: Optional[date] = None
     rollover_profile: Optional[OfficeRolloverProfile] = None
     recovery_method: Optional[OfficeRecoveryMethod] = None
     ti_allowance: Optional[OfficeTenantImprovement] = None
@@ -96,6 +97,7 @@ class OfficeLease(CommercialLeaseBase):
             floor=spec.floor,
             status=status,
             area=spec.area,
+            signing_date=spec.signing_date,
             upon_expiration=spec.upon_expiration,
             value=spec.base_rent_value,
             unit_of_measure=spec.base_rent_unit_of_measure,
@@ -134,6 +136,11 @@ class OfficeLease(CommercialLeaseBase):
 
         lease_name = f"{tenant_name}{name_suffix}"
 
+        # For speculative leases, set signing_date to the lease start_date to ensure
+        # TI/LC payments fall within the lease timeline
+        # TODO: make sure we are ok with this assumption
+        speculative_signing_date = start_date
+
         return OfficeLease(
             name=lease_name,
             status=LeaseStatusEnum.SPECULATIVE,
@@ -141,6 +148,7 @@ class OfficeLease(CommercialLeaseBase):
             suite=self.suite,
             floor=self.floor,
             timeline=new_timeline,
+            signing_date=speculative_signing_date,
             value=rent_rate,
             unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
             frequency=FrequencyEnum.MONTHLY,
@@ -172,6 +180,7 @@ class OfficeLease(CommercialLeaseBase):
             ti_allowance = OfficeTenantImprovement(
                 name=f"TI for {timeline.start_date}",
                 timeline=timeline,
+                area=area,
                 value=ti_value,
                 unit_of_measure=ti_config.unit_of_measure,
                 payment_timing=ti_config.payment_timing,

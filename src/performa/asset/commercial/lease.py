@@ -163,12 +163,18 @@ class CommercialLeaseBase(LeaseBase, ABC):
         # --- TI/LC Calculation ---
         ti_cf = pd.Series(0.0, index=self.timeline.period_index)
         if self.ti_allowance:
-            allowance_cf = self.ti_allowance.compute_cf(context=context)
+            # Set lease context for TI calculation
+            context_with_lease = context
+            context_with_lease.current_lease = self
+            allowance_cf = self.ti_allowance.compute_cf(context=context_with_lease)
             ti_cf = allowance_cf.reindex(self.timeline.period_index, fill_value=0.0)
 
         lc_cf = pd.Series(0.0, index=self.timeline.period_index)
         if self.leasing_commission:
-            commission_cf = self.leasing_commission.compute_cf(context=context)
+            # Set lease context for LC calculation
+            context_with_lease = context
+            context_with_lease.current_lease = self
+            commission_cf = self.leasing_commission.compute_cf(context=context_with_lease)
             lc_cf = commission_cf.reindex(self.timeline.period_index, fill_value=0.0)
 
         result = {
