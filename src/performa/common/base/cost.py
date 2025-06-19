@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from datetime import date
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
 
@@ -20,11 +21,44 @@ logger = logging.getLogger(__name__)
 
 class CommissionTier(Model):
     """
-    Represents a tier in the leasing commission structure.
+    Represents a tier in the leasing commission structure with flexible payment timing.
+    
+    Supports split payments across signing and commencement milestones, enabling
+    real-world scenarios like "50% at signing, 50% at commencement".
+    
+    Examples:
+        # Traditional: 100% at signing
+        CommissionTier(year_start=1, year_end=5, rate=0.06)
+        
+        # Split payment: 50% at signing, 50% at commencement  
+        CommissionTier(
+            year_start=1, year_end=5, rate=0.06,
+            signing_percentage=0.5, commencement_percentage=0.5
+        )
+        
+        # Multi-tier with different payment schedules:
+        [
+            CommissionTier(year_start=1, year_end=3, rate=0.06, signing_percentage=0.5, commencement_percentage=0.5),
+            CommissionTier(year_start=4, year_end=5, rate=0.03, signing_percentage=1.0, commencement_percentage=0.0)
+        ]
     """
     year_start: PositiveInt = 1
     year_end: Optional[PositiveInt] = None
     rate: FloatBetween0And1
+    
+    # Payment timing splits (defaults maintain backward compatibility)
+    signing_percentage: FloatBetween0And1 = 1.0      # Default: 100% at signing
+    commencement_percentage: FloatBetween0And1 = 0.0  # Default: 0% at commencement
+    
+    @model_validator(mode="after")
+    def validate_payment_percentages(self) -> "CommissionTier":
+        """Ensure payment percentages sum to 1.0"""
+        if not math.isclose(self.signing_percentage + self.commencement_percentage, 1.0):
+            raise ValueError(
+                f"Payment percentages must sum to 1.0. Got signing={self.signing_percentage}, "
+                f"commencement={self.commencement_percentage}, sum={self.signing_percentage + self.commencement_percentage}"
+            )
+        return self
 
 
 class LeasingCommissionBase(CashFlowModel):
@@ -89,7 +123,7 @@ class TenantImprovementAllowanceBase(CashFlowModel):
         if self.payment_method == "upfront":
             ti_cf = pd.Series(0.0, index=self.timeline.period_index)
             if total_amount > 0 and not self.timeline.period_index.empty:
-                # FIXME: signing vs commencement, or splits? what about timing!!! this is too rigid
+                # Default implementation: simple timeline-based payment
                 payment_period = self.timeline.period_index[0]
                 if self.payment_timing == "commencement":
                     payment_period = self.timeline.period_index[1] if len(self.timeline.period_index) > 1 else self.timeline.period_index[0]
