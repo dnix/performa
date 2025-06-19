@@ -40,7 +40,8 @@ class CommercialLeaseBase(LeaseBase, ABC):
                 if self.rent_escalation.recurring:
                     freq = self.rent_escalation.frequency_months or 12
                     months_elapsed = np.array([(p - start_period).n for p in periods])
-                    cycles = np.floor(months_elapsed / freq)
+                    # For recurring escalations, the first escalation applies immediately at start_date
+                    cycles = np.floor(months_elapsed / freq) + 1
                     cycles[~mask] = 0
                     if self.rent_escalation.is_relative:
                         growth_factor = np.power(
@@ -62,15 +63,17 @@ class CommercialLeaseBase(LeaseBase, ABC):
                     escalation_series[mask] = base_flow[mask] * growth_factor
                     rent_with_escalations += escalation_series
             elif self.rent_escalation.type == "fixed":
-                monthly_amount = (
-                    self.rent_escalation.amount / 12
-                    if self.rent_escalation.unit_of_measure == UnitOfMeasureEnum.CURRENCY
-                    else self.rent_escalation.amount
-                )
+                if self.rent_escalation.unit_of_measure == UnitOfMeasureEnum.CURRENCY:
+                    monthly_amount = self.rent_escalation.amount / 12
+                elif self.rent_escalation.unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
+                    monthly_amount = (self.rent_escalation.amount * self.area) / 12
+                else:
+                    raise NotImplementedError(f"Escalation unit {self.rent_escalation.unit_of_measure} not implemented")
                 if self.rent_escalation.recurring:
                     freq = self.rent_escalation.frequency_months or 12
                     months_elapsed = np.array([(p - start_period).n for p in periods])
-                    cycles = np.floor(months_elapsed / freq)
+                    # For recurring escalations, the first escalation applies immediately at start_date
+                    cycles = np.floor(months_elapsed / freq) + 1
                     cycles[~mask] = 0
                     cumulative_increases = cycles * monthly_amount
                     escalation_series = pd.Series(cumulative_increases, index=periods)
@@ -91,7 +94,7 @@ class CommercialLeaseBase(LeaseBase, ABC):
         abated_rent_flow = rent_flow.copy()
         abatement_amount_series = pd.Series(0.0, index=rent_flow.index)
         periods = self.timeline.period_index
-        lease_start_period = pd.Period(self.lease_start, freq="M")
+        lease_start_period = self.timeline.start_date
         abatement_start_month = self.rent_abatement.start_month - 1
         abatement_start_period = lease_start_period + abatement_start_month
         abatement_end_period = abatement_start_period + self.rent_abatement.months
@@ -153,7 +156,7 @@ class CommercialLeaseBase(LeaseBase, ABC):
             recoveries_cf = self.recovery_method.compute_cf(context=context, lease=self)
 
             if self.rent_abatement and self.rent_abatement.includes_recoveries:
-                lease_start_period = pd.Period(self.lease_start, freq="M")
+                lease_start_period = self.timeline.start_date
                 abatement_start_month = self.rent_abatement.start_month - 1
                 abatement_start_period = lease_start_period + abatement_start_month
                 abatement_end_period = (abatement_start_period + self.rent_abatement.months)
