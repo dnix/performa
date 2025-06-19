@@ -62,7 +62,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         """
         escalation = OfficeRentEscalation(
             type="fixed",
-            amount=2.0,  # $2/SF/year increase
+            rate=2.0,  # $2/SF/year increase
             unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
             is_relative=False,
             start_date=date(2025, 1, 1),  # Year 2
@@ -111,7 +111,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         """
         escalation = OfficeRentEscalation(
             type="fixed",
-            amount=1.0,  # $1/SF/year increase
+            rate=1.0,  # $1/SF/year increase
             unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
             is_relative=False,
             start_date=date(2025, 1, 1),  # Year 2
@@ -167,7 +167,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         """
         escalation = OfficeRentEscalation(
             type="percentage",
-            amount=10.0,  # 10% increase
+            rate=0.10,  # 10% increase (0.10 for 10%)
             unit_of_measure=UnitOfMeasureEnum.CURRENCY,  # Not used for percentage
             is_relative=True,  # Multiplicative
             start_date=date(2025, 1, 1),  # Year 2
@@ -216,7 +216,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         """
         escalation = OfficeRentEscalation(
             type="percentage",
-            amount=10.0,  # 10% increase
+            rate=0.10,  # 10% increase (0.10 for 10%)
             unit_of_measure=UnitOfMeasureEnum.CURRENCY,  # Not used for percentage
             is_relative=False,  # Additive
             start_date=date(2025, 1, 1),  # Year 2
@@ -265,7 +265,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         """
         escalation = OfficeRentEscalation(
             type="percentage",
-            amount=3.0,  # 3% increase
+            rate=0.03,  # 3% increase (0.03 for 3%)
             unit_of_measure=UnitOfMeasureEnum.CURRENCY,  # Not used for percentage
             is_relative=True,  # Compound growth
             start_date=date(2025, 1, 1),  # Year 2
@@ -321,7 +321,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         """
         escalation = OfficeRentEscalation(
             type="fixed",
-            amount=12000.0,  # $12,000/year = $1,000/month
+            rate=12000.0,  # $12,000/year = $1,000/month
             unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             is_relative=False,
             start_date=date(2025, 1, 1),  # Year 2
@@ -370,7 +370,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         """
         escalation = OfficeRentEscalation(
             type="percentage",
-            amount=5.0,  # 5% increase
+            rate=0.05,  # 5% increase (0.05 for 5%)
             unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             is_relative=True,
             start_date=date(2024, 7, 1),  # July Year 1
@@ -447,7 +447,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         """
         escalation = OfficeRentEscalation(
             type="fixed",
-            amount=0.25,  # $0.25/SF/quarter
+            rate=0.25,  # $0.25/SF/quarter
             unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
             is_relative=False,
             start_date=date(2025, 1, 1),  # Year 2
@@ -501,21 +501,26 @@ class TestOfficeRentEscalation(unittest.TestCase):
             self.assertAlmostEqual(cash_flows["base_rent"][period], q3_2025_rent, places=2,
                                  msg=f"Q3 2025 rent should include 3 escalations in {period}")
 
-    def test_cpi_escalation_not_implemented(self):
+    def test_growth_rate_constant_percentage_escalation(self):
         """
-        Test that CPI escalations raise NotImplementedError.
+        Test percentage escalation using constant growth rate.
         
-        Scenario: CPI escalation defined
-        Expected: NotImplementedError raised during cash flow calculation
+        Scenario: 3% growth rate applied as percentage escalation 
+        Expected: 3% compound growth from Year 2 onwards
         """
+        from performa.common.primitives.growth_rates import PercentageGrowthRate
+        
+        # Create a constant 3% growth rate
+        growth_rate = PercentageGrowthRate(name="Market Growth", value=0.03)
+        
         escalation = OfficeRentEscalation(
-            type="cpi",
-            amount=2.5,  # 2.5% CPI cap
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
-            is_relative=True,
-            start_date=date(2025, 1, 1),
+            type="percentage",
+            rate=growth_rate,
+            unit_of_measure=UnitOfMeasureEnum.CURRENCY,  # Not used for percentage
+            is_relative=True,  # Compound growth
+            start_date=date(2025, 1, 1),  # Year 2
             recurring=True,
-            frequency_months=12
+            frequency_months=12  # Annual escalation
         )
 
         lease_spec = self.base_lease_spec.model_copy(
@@ -532,11 +537,247 @@ class TestOfficeRentEscalation(unittest.TestCase):
             property_data=None,
         )
 
-        # Should raise NotImplementedError
-        with self.assertRaises(NotImplementedError) as cm:
-            lease.compute_cf(context)
+        cash_flows = lease.compute_cf(context)
 
-        self.assertIn("CPI-based escalations are not yet implemented", str(cm.exception))
+        # Expected values (compound growth)
+        year1_rent = (30.0 * 10000) / 12              # $25,000/month
+        year2_rent = (30.0 * 1.03 * 10000) / 12      # $25,750/month  
+        year3_rent = (30.0 * 1.03 * 1.03 * 10000) / 12  # $26,523/month
+
+        # Year 1: Base rent
+        year1_periods = self.timeline.period_index[:12]
+        for period in year1_periods:
+            self.assertAlmostEqual(cash_flows["base_rent"][period], year1_rent, places=2,
+                                 msg=f"Year 1 rent should be base amount in {period}")
+
+        # Year 2: First escalation (103% of base)
+        year2_periods = self.timeline.period_index[12:24]
+        for period in year2_periods:
+            self.assertAlmostEqual(cash_flows["base_rent"][period], year2_rent, places=2,
+                                 msg=f"Year 2 rent should be 103% of base in {period}")
+
+        # Year 3: Second escalation (103% of Year 2)
+        year3_periods = self.timeline.period_index[24:]
+        for period in year3_periods:
+            self.assertAlmostEqual(cash_flows["base_rent"][period], year3_rent, places=2,
+                                 msg=f"Year 3 rent should be 103% of Year 2 in {period}")
+
+    def test_escalation_rate_fixed_escalation(self):
+        """
+        Test fixed escalation using escalation rate for dollar amounts.
+        
+        Scenario: Escalation rate defining $1.50/SF increase annually
+        Expected: Cumulative $1.50/SF increases each year
+        """
+        from performa.common.primitives.growth_rates import FixedGrowthRate
+        
+        # Create fixed escalation rate representing $1.50/SF/year increase
+        escalation_rate = FixedGrowthRate(name="Fixed Growth", value=1.50)
+        
+        escalation = OfficeRentEscalation(
+            type="fixed",
+            rate=escalation_rate,
+            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            is_relative=False,
+            start_date=date(2025, 1, 1),  # Year 2
+            recurring=True,
+            frequency_months=12  # Annual escalation
+        )
+
+        lease_spec = self.base_lease_spec.model_copy(
+            update={"rent_escalation": escalation}
+        )
+
+        lease = OfficeLease.from_spec(
+            lease_spec, self.analysis_start_date, self.timeline, self.settings
+        )
+
+        context = AnalysisContext(
+            timeline=self.timeline,
+            settings=self.settings,
+            property_data=None,
+        )
+
+        cash_flows = lease.compute_cf(context)
+
+        # Expected values (cumulative fixed increases)
+        year1_rent = (30.0 * 10000) / 12              # $25,000/month
+        year2_rent = (31.5 * 10000) / 12              # $26,250/month (+$1.50/SF)
+        year3_rent = (33.0 * 10000) / 12              # $27,500/month (+$3.00/SF total)
+
+        # Year 1: Base rent
+        year1_periods = self.timeline.period_index[:12]
+        for period in year1_periods:
+            self.assertAlmostEqual(cash_flows["base_rent"][period], year1_rent, places=2,
+                                 msg=f"Year 1 rent should be base amount in {period}")
+
+        # Year 2: First escalation (+$1.50/SF)
+        year2_periods = self.timeline.period_index[12:24]
+        for period in year2_periods:
+            self.assertAlmostEqual(cash_flows["base_rent"][period], year2_rent, places=2,
+                                 msg=f"Year 2 rent should be base + $1.50/SF in {period}")
+
+        # Year 3: Second escalation (+$3.00/SF total)
+        year3_periods = self.timeline.period_index[24:]
+        for period in year3_periods:
+            self.assertAlmostEqual(cash_flows["base_rent"][period], year3_rent, places=2,
+                                 msg=f"Year 3 rent should be base + $3.00/SF in {period}")
+
+    def test_growth_rate_time_series(self):
+        """
+        Test growth rate using pandas Series with time-based rates.
+        
+        Scenario: Different growth rates by period (2% Year 2, 4% Year 3)
+        Expected: Variable percentage increases based on period
+        """
+        from performa.common.primitives.growth_rates import PercentageGrowthRate
+        
+        # Create time-based growth rates
+        growth_series = pd.Series({
+            pd.Period("2025-01", freq="M"): 0.02,  # 2% for Year 2
+            pd.Period("2025-02", freq="M"): 0.02,
+            pd.Period("2025-03", freq="M"): 0.02,
+            pd.Period("2025-04", freq="M"): 0.02,
+            pd.Period("2025-05", freq="M"): 0.02,
+            pd.Period("2025-06", freq="M"): 0.02,
+            pd.Period("2025-07", freq="M"): 0.02,
+            pd.Period("2025-08", freq="M"): 0.02,
+            pd.Period("2025-09", freq="M"): 0.02,
+            pd.Period("2025-10", freq="M"): 0.02,
+            pd.Period("2025-11", freq="M"): 0.02,
+            pd.Period("2025-12", freq="M"): 0.02,
+            pd.Period("2026-01", freq="M"): 0.04,  # 4% for Year 3
+            pd.Period("2026-02", freq="M"): 0.04,
+            pd.Period("2026-03", freq="M"): 0.04,
+            pd.Period("2026-04", freq="M"): 0.04,
+            pd.Period("2026-05", freq="M"): 0.04,
+            pd.Period("2026-06", freq="M"): 0.04,
+            pd.Period("2026-07", freq="M"): 0.04,
+            pd.Period("2026-08", freq="M"): 0.04,
+            pd.Period("2026-09", freq="M"): 0.04,
+            pd.Period("2026-10", freq="M"): 0.04,
+            pd.Period("2026-11", freq="M"): 0.04,
+            pd.Period("2026-12", freq="M"): 0.04,
+        })
+        
+        growth_rate = PercentageGrowthRate(name="Variable Growth", value=growth_series)
+        
+        escalation = OfficeRentEscalation(
+            type="percentage",
+            rate=growth_rate,
+            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+            is_relative=True,  # Compound growth
+            start_date=date(2025, 1, 1),  # Year 2
+            recurring=True,
+            frequency_months=12  # Annual escalation
+        )
+
+        lease_spec = self.base_lease_spec.model_copy(
+            update={"rent_escalation": escalation}
+        )
+
+        lease = OfficeLease.from_spec(
+            lease_spec, self.analysis_start_date, self.timeline, self.settings
+        )
+
+        context = AnalysisContext(
+            timeline=self.timeline,
+            settings=self.settings,
+            property_data=None,
+        )
+
+        cash_flows = lease.compute_cf(context)
+
+        # Expected values (compound growth with variable rates)
+        year1_rent = (30.0 * 10000) / 12              # $25,000/month
+        year2_rent = (30.0 * 1.02 * 10000) / 12      # $25,500/month (2% growth)
+        year3_rent = (30.0 * 1.02 * 1.04 * 10000) / 12  # $26,520/month (2% then 4%)
+
+        # Year 1: Base rent
+        year1_periods = self.timeline.period_index[:12]
+        for period in year1_periods:
+            self.assertAlmostEqual(cash_flows["base_rent"][period], year1_rent, places=2,
+                                 msg=f"Year 1 rent should be base amount in {period}")
+
+        # Year 2: 2% escalation
+        year2_periods = self.timeline.period_index[12:24]
+        for period in year2_periods:
+            self.assertAlmostEqual(cash_flows["base_rent"][period], year2_rent, places=2,
+                                 msg=f"Year 2 rent should be 102% of base in {period}")
+
+        # Year 3: 4% escalation on Year 2 rent
+        year3_periods = self.timeline.period_index[24:]
+        for period in year3_periods:
+            self.assertAlmostEqual(cash_flows["base_rent"][period], year3_rent, places=2,
+                                 msg=f"Year 3 rent should be 104% of Year 2 in {period}")
+
+    def test_growth_rate_dict_based(self):
+        """
+        Test growth rate using dictionary with date keys.
+        
+        Scenario: Growth rates defined for specific dates
+        Expected: Rates applied based on date mapping
+        """
+        from datetime import date
+
+        from performa.common.primitives.growth_rates import PercentageGrowthRate
+        
+        # Create date-based growth rates
+        growth_dict = {
+            date(2025, 1, 1): 0.025,  # 2.5% for Year 2
+            date(2026, 1, 1): 0.035,  # 3.5% for Year 3
+        }
+        
+        growth_rate = PercentageGrowthRate(name="Date-based Growth", value=growth_dict)
+        
+        escalation = OfficeRentEscalation(
+            type="percentage",
+            rate=growth_rate,
+            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+            is_relative=True,  # Compound growth
+            start_date=date(2025, 1, 1),  # Year 2
+            recurring=True,
+            frequency_months=12  # Annual escalation
+        )
+
+        lease_spec = self.base_lease_spec.model_copy(
+            update={"rent_escalation": escalation}
+        )
+
+        lease = OfficeLease.from_spec(
+            lease_spec, self.analysis_start_date, self.timeline, self.settings
+        )
+
+        context = AnalysisContext(
+            timeline=self.timeline,
+            settings=self.settings,
+            property_data=None,
+        )
+
+        cash_flows = lease.compute_cf(context)
+
+        # Expected values (compound growth with date-based rates)
+        year1_rent = (30.0 * 10000) / 12                 # $25,000/month
+        year2_rent = (30.0 * 1.025 * 10000) / 12        # $25,625/month (2.5% growth)
+        year3_rent = (30.0 * 1.025 * 1.035 * 10000) / 12  # $26,521/month (2.5% then 3.5%)
+
+        # Year 1: Base rent
+        year1_periods = self.timeline.period_index[:12]
+        for period in year1_periods:
+            self.assertAlmostEqual(cash_flows["base_rent"][period], year1_rent, places=2,
+                                 msg=f"Year 1 rent should be base amount in {period}")
+
+        # Year 2: 2.5% escalation
+        year2_periods = self.timeline.period_index[12:24]
+        for period in year2_periods:
+            self.assertAlmostEqual(cash_flows["base_rent"][period], year2_rent, places=2,
+                                 msg=f"Year 2 rent should be 102.5% of base in {period}")
+
+        # Year 3: 3.5% escalation on Year 2 rent
+        year3_periods = self.timeline.period_index[24:]
+        for period in year3_periods:
+            self.assertAlmostEqual(cash_flows["base_rent"][period], year3_rent, places=2,
+                                 msg=f"Year 3 rent should be 103.5% of Year 2 in {period}")
 
     def test_escalation_starts_before_lease(self):
         """
@@ -547,7 +788,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         """
         escalation = OfficeRentEscalation(
             type="fixed",
-            amount=2.0,  # $2/SF increase
+            rate=2.0,  # $2/SF increase
             unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
             is_relative=False,
             start_date=date(2023, 1, 1),  # Before lease start
@@ -591,7 +832,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         
         escalation = OfficeRentEscalation(
             type="fixed",
-            amount=5.0,  # $5/SF increase
+            rate=5.0,  # $5/SF increase
             unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
             is_relative=False,
             start_date=date(2026, 1, 1),  # After lease ends

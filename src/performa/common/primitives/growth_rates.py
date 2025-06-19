@@ -7,26 +7,33 @@ import pandas as pd
 from pydantic import field_validator
 
 from .model import Model
-from .types import FloatBetween0And1
+from .types import FloatBetween0And1, PositiveFloat
 
 
-class GrowthRate(Model):
+class GrowthRateBase(Model):
     """
-    Individual growth rate profile with flexible value representation
+    Base class for all growth/escalation rate types.
+    
+    Provides common interface for rate objects that can represent
+    time-varying values for financial modeling.
+    """
+    name: str
 
+
+class PercentageGrowthRate(GrowthRateBase):
+    """
+    Growth rate for percentage-based escalations (0-1 constraint).
+    
+    Used for percentage escalations where rates represent proportional changes
+    (e.g., 0.03 for 3% annual growth).
+    
     Attributes:
         name: Name of the growth rate (e.g., "Market Rent Growth")
         value: The growth rate value(s), which can be:
-            - A single float value (constant **annual** rate, e.g., 0.02 for 2%)
-            - A pandas Series (time-based rates). The rates are assumed to be at the
-              frequency implied by the Series index (e.g., provide monthly rates if the index
-              is monthly). Index should be convertible to `pd.PeriodIndex`.
-            - A dictionary with date keys and rate values. Rates are assumed to be
-              effective for the period containing the date key (typically monthly).
-              Keys should be convertible to `pd.PeriodIndex`.
+            - A single float value (constant rate, e.g., 0.02 for 2%)
+            - A pandas Series (time-based rates) with period index
+            - A dictionary with date keys and rate values
     """
-
-    name: str
     value: Union[FloatBetween0And1, pd.Series, Dict[date, FloatBetween0And1]]
 
     @field_validator("value")
@@ -54,7 +61,53 @@ class GrowthRate(Model):
             if (v < 0).any() or (v > 1).any():
                 raise ValueError("Growth rates in Series must be between 0 and 1")
         elif not isinstance(v, (int, float)):
-            raise TypeError(f"Unsupported type for GrowthRate value: {type(v)}")
+            raise TypeError(f"Unsupported type for PercentageGrowthRate value: {type(v)}")
+
+        return v
+
+
+class FixedGrowthRate(GrowthRateBase):
+    """
+    Growth rate for fixed dollar amount escalations (positive constraint only).
+    
+    Used for fixed dollar escalations where rates represent absolute amounts
+    (e.g., 1.50 for $1.50/SF annual increase).
+    
+    Attributes:
+        name: Name of the growth rate (e.g., "Fixed Escalation")
+        value: The growth rate value(s), which can be:
+            - A single positive float (constant amount)
+            - A pandas Series (time-based amounts) with period index
+            - A dictionary with date keys and amount values
+    """
+    value: Union[PositiveFloat, pd.Series, Dict[date, PositiveFloat]]
+
+    @field_validator("value")
+    @classmethod
+    def validate_value(
+        cls,
+        v: Union[PositiveFloat, pd.Series, Dict],
+    ) -> Union[PositiveFloat, pd.Series, Dict]:
+        """Validate that value has the correct format and constraints"""
+        if isinstance(v, dict):
+            # Ensure all dict values are positive
+            for key, rate in v.items():
+                if not isinstance(key, date):
+                    raise ValueError(
+                        f"Fixed growth rate dictionary keys must be dates, got {type(key)}"
+                    )
+                if not isinstance(rate, (int, float)) or rate < 0:
+                    raise ValueError(
+                        f"Fixed growth rate for {key} must be non-negative, got {rate}"
+                    )
+        elif isinstance(v, pd.Series):
+            # Ensure all series values are positive
+            if not pd.api.types.is_numeric_dtype(v.dtype):
+                raise ValueError("Fixed growth rate Series must have numeric values")
+            if (v < 0).any():
+                raise ValueError("Fixed growth rates in Series must be non-negative")
+        elif not isinstance(v, (int, float)) or v < 0:
+            raise ValueError(f"Fixed growth rate must be non-negative, got {v}")
 
         return v
 
@@ -63,12 +116,12 @@ class GrowthRates(Model):
     """Base collection of growth rate profiles for different aspects of an asset"""
 
     default_rate: Optional[FloatBetween0And1] = None
-    general_growth: GrowthRate
-    market_rent_growth: GrowthRate
-    misc_income_growth: GrowthRate
-    operating_expense_growth: GrowthRate
-    leasing_costs_growth: GrowthRate
-    capital_expense_growth: GrowthRate
+    general_growth: PercentageGrowthRate
+    market_rent_growth: PercentageGrowthRate
+    misc_income_growth: PercentageGrowthRate
+    operating_expense_growth: PercentageGrowthRate
+    leasing_costs_growth: PercentageGrowthRate
+    capital_expense_growth: PercentageGrowthRate
     # FIXME: add support for inflation rate, here and in settings and analysis
 
     @classmethod
@@ -85,17 +138,17 @@ class GrowthRates(Model):
 
         return cls(
             default_rate=default_rate,
-            general_growth=GrowthRate(name="General", value=default_rate),
-            market_rent_growth=GrowthRate(name="Market Rent", value=default_rate),
-            misc_income_growth=GrowthRate(name="Misc Income", value=default_rate),
-            operating_expense_growth=GrowthRate(name="Operating Expenses", value=default_rate),
-            leasing_costs_growth=GrowthRate(name="Leasing Costs", value=default_rate),
-            capital_expense_growth=GrowthRate(name="Capital Expenses", value=default_rate),
+            general_growth=PercentageGrowthRate(name="General", value=default_rate),
+            market_rent_growth=PercentageGrowthRate(name="Market Rent", value=default_rate),
+            misc_income_growth=PercentageGrowthRate(name="Misc Income", value=default_rate),
+            operating_expense_growth=PercentageGrowthRate(name="Operating Expenses", value=default_rate),
+            leasing_costs_growth=PercentageGrowthRate(name="Leasing Costs", value=default_rate),
+            capital_expense_growth=PercentageGrowthRate(name="Capital Expenses", value=default_rate),
         )
 
     @classmethod
     def with_custom_rates(
-        cls, extra_rates: Optional[Dict[str, GrowthRate]] = None, **kwargs
+        cls, extra_rates: Optional[Dict[str, PercentageGrowthRate]] = None, **kwargs
     ) -> "GrowthRates":
         """
         Create a dynamic GrowthRates instance supporting arbitrary growth rate fields.
@@ -121,18 +174,23 @@ class GrowthRates(Model):
         base_data = {}
         if default_rate is not None:
             base_data = {
-                "general_growth": GrowthRate(name="General", value=default_rate),
-                "market_rent_growth": GrowthRate(name="Market Rent", value=default_rate),
-                "misc_income_growth": GrowthRate(name="Misc Income", value=default_rate),
-                "operating_expense_growth": GrowthRate(name="Operating Expenses", value=default_rate),
-                "leasing_costs_growth": GrowthRate(name="Leasing Costs", value=default_rate),
-                "capital_expense_growth": GrowthRate(name="Capital Expenses", value=default_rate),
+                "general_growth": PercentageGrowthRate(name="General", value=default_rate),
+                "market_rent_growth": PercentageGrowthRate(name="Market Rent", value=default_rate),
+                "misc_income_growth": PercentageGrowthRate(name="Misc Income", value=default_rate),
+                "operating_expense_growth": PercentageGrowthRate(name="Operating Expenses", value=default_rate),
+                "leasing_costs_growth": PercentageGrowthRate(name="Leasing Costs", value=default_rate),
+                "capital_expense_growth": PercentageGrowthRate(name="Capital Expenses", value=default_rate),
             }
         
         # Combine base data with user-provided kwargs, kwargs take precedence
         instance_data = {**base_data, **kwargs, **extra_rates}
         
-        dynamic_fields = {name: (GrowthRate, ...) for name in extra_rates.keys()}
+        dynamic_fields = {name: (PercentageGrowthRate, ...) for name in extra_rates.keys()}
         DynamicGrowthRates = create_model("DynamicGrowthRates", __base__=cls, **dynamic_fields)
 
-        return DynamicGrowthRates.model_validate(instance_data) 
+        return DynamicGrowthRates.model_validate(instance_data)
+
+
+# Legacy aliases for backward compatibility
+GrowthRate = PercentageGrowthRate
+GrowthRates = GrowthRates 

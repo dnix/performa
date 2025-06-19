@@ -21,9 +21,47 @@ from performa.common.primitives import (
 
 if TYPE_CHECKING:
     from performa.analysis import AnalysisContext
+    from performa.common.primitives.growth_rates import (
+        GrowthRateBase,
+    )
 
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_rate_value(rate_object: GrowthRateBase, period: pd.Period) -> float:
+    """
+    Extract the appropriate rate value for a given period from a rate object.
+    
+    Args:
+        rate_object: PercentageGrowthRate or FixedGrowthRate object with value as float, pd.Series, or Dict[date, float]
+        period: The period for which to extract the rate
+        
+    Returns:
+        The rate value for the specified period
+    """
+    if isinstance(rate_object.value, (int, float)):
+        # Simple constant rate
+        return rate_object.value
+    
+    elif isinstance(rate_object.value, pd.Series):
+        # Time-based series - no interpolation, use as-is (assume monthly)
+        try:
+            return rate_object.value.loc[period]
+        except KeyError:
+            # If period not found, use the last available rate
+            return rate_object.value.iloc[-1]
+    
+    elif isinstance(rate_object.value, dict):
+        # Date-based dict - map to period (assume monthly keys)
+        for date_key, rate in rate_object.value.items():
+            if pd.Period(date_key, freq='M') == period:
+                return rate
+        # If not found, use the last available rate
+        return list(rate_object.value.values())[-1]
+    
+    else:
+        raise ValueError(f"Unsupported rate value type: {type(rate_object.value)}")
 
 
 class CommercialLeaseBase(LeaseBase, ABC):
@@ -36,6 +74,7 @@ class CommercialLeaseBase(LeaseBase, ABC):
         if self.rent_escalation:
             start_period = pd.Period(self.rent_escalation.start_date, freq="M")
             mask = periods >= start_period
+            
             if self.rent_escalation.type == "percentage":
                 if self.rent_escalation.recurring:
                     freq = self.rent_escalation.frequency_months or 12
@@ -43,32 +82,81 @@ class CommercialLeaseBase(LeaseBase, ABC):
                     # For recurring escalations, the first escalation applies immediately at start_date
                     cycles = np.floor(months_elapsed / freq) + 1
                     cycles[~mask] = 0
-                    if self.rent_escalation.is_relative:
-                        growth_factor = np.power(
-                            1 + (self.rent_escalation.amount / 100), cycles
-                        )
-                        rent_with_escalations = rent_with_escalations * growth_factor
+                    
+                    if self.rent_escalation.uses_rate_object:
+                        # For time-varying rates, handle each escalation cycle separately
+                        current_rent = rent_with_escalations.copy()
+                        
+                        # Calculate escalation dates
+                        escalation_dates = []
+                        current_date = start_period
+                        while current_date <= periods[-1]:
+                            escalation_dates.append(current_date)
+                            current_date = current_date + freq
+                        
+                        # Apply each escalation using the rate for that period
+                        for i, escalation_date in enumerate(escalation_dates):
+                            period_mask = periods >= escalation_date
+                            if period_mask.any():
+                                rate = _extract_rate_value(self.rent_escalation.rate, escalation_date)
+                                if self.rent_escalation.is_relative:
+                                    current_rent[period_mask] *= (1 + rate)
+                                else:
+                                    escalation_amount = base_flow[period_mask] * rate
+                                    current_rent[period_mask] += escalation_amount
+                        
+                        rent_with_escalations = current_rent
                     else:
-                        growth_factor = np.power(
-                            1 + (self.rent_escalation.amount / 100), cycles
-                        )
-                        escalation_series = base_flow * (growth_factor - 1)
-                        rent_with_escalations += escalation_series
+                        # Use fixed rate value (existing logic)
+                        rate = self.rent_escalation.rate
+                        if self.rent_escalation.is_relative:
+                            growth_factor = np.power(1 + rate, cycles)
+                        else:
+                            growth_factor = np.power(1 + rate, cycles)
+                            escalation_series = base_flow * (growth_factor - 1)
+                            rent_with_escalations += escalation_series
+                            return rent_with_escalations
+                        rent_with_escalations = rent_with_escalations * growth_factor
+                        
                 elif self.rent_escalation.is_relative:
-                    growth_factor = 1 + (self.rent_escalation.amount / 100)
-                    rent_with_escalations[mask] *= growth_factor
+                    if self.rent_escalation.uses_rate_object:
+                        # Extract rate for start period and apply to all masked periods
+                        rate = _extract_rate_value(self.rent_escalation.rate, start_period)
+                        growth_factor = np.ones(len(periods))
+                        growth_factor[mask] = 1 + rate
+                    else:
+                        growth_factor = np.ones(len(periods))
+                        growth_factor[mask] = 1 + self.rent_escalation.rate
+                    rent_with_escalations *= growth_factor
                 else:
-                    growth_factor = self.rent_escalation.amount / 100
-                    escalation_series = pd.Series(0.0, index=periods)
-                    escalation_series[mask] = base_flow[mask] * growth_factor
+                    if self.rent_escalation.uses_rate_object:
+                        rate = _extract_rate_value(self.rent_escalation.rate, start_period)
+                        escalation_series = pd.Series(0.0, index=periods)
+                        escalation_series[mask] = base_flow[mask] * rate
+                    else:
+                        escalation_series = pd.Series(0.0, index=periods)
+                        escalation_series[mask] = base_flow[mask] * self.rent_escalation.rate
                     rent_with_escalations += escalation_series
+                    
             elif self.rent_escalation.type == "fixed":
-                if self.rent_escalation.unit_of_measure == UnitOfMeasureEnum.CURRENCY:
-                    monthly_amount = self.rent_escalation.amount / 12
-                elif self.rent_escalation.unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
-                    monthly_amount = (self.rent_escalation.amount * self.area) / 12
+                if self.rent_escalation.uses_rate_object:
+                    # For fixed escalations with rate objects, treat as dollar amounts
+                    rate = _extract_rate_value(self.rent_escalation.rate, start_period)
+                    if self.rent_escalation.unit_of_measure == UnitOfMeasureEnum.CURRENCY:
+                        monthly_amount = rate / 12
+                    elif self.rent_escalation.unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
+                        monthly_amount = (rate * self.area) / 12
+                    else:
+                        raise NotImplementedError(f"Escalation unit {self.rent_escalation.unit_of_measure} not implemented")
                 else:
-                    raise NotImplementedError(f"Escalation unit {self.rent_escalation.unit_of_measure} not implemented")
+                    rate = self.rent_escalation.rate
+                    if self.rent_escalation.unit_of_measure == UnitOfMeasureEnum.CURRENCY:
+                        monthly_amount = rate / 12
+                    elif self.rent_escalation.unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
+                        monthly_amount = (rate * self.area) / 12
+                    else:
+                        raise NotImplementedError(f"Escalation unit {self.rent_escalation.unit_of_measure} not implemented")
+                
                 if self.rent_escalation.recurring:
                     freq = self.rent_escalation.frequency_months or 12
                     months_elapsed = np.array([(p - start_period).n for p in periods])
@@ -82,10 +170,7 @@ class CommercialLeaseBase(LeaseBase, ABC):
                     escalation_series = pd.Series(0.0, index=periods)
                     escalation_series[mask] = monthly_amount
                     rent_with_escalations += escalation_series
-            elif self.rent_escalation.type == "cpi":
-                raise NotImplementedError(
-                    "CPI-based escalations are not yet implemented"
-                )
+                    
         return rent_with_escalations
 
     def _apply_abatements(self, rent_flow: pd.Series) -> tuple[pd.Series, pd.Series]:
