@@ -11,12 +11,12 @@ from datetime import date
 from typing import TYPE_CHECKING, Dict, Literal, Optional, Union
 
 import pandas as pd
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 
 from ..primitives.enums import UnitOfMeasureEnum
 from ..primitives.growth_rates import FixedGrowthRate, PercentageGrowthRate
 from ..primitives.model import Model
-from ..primitives.types import FloatBetween0And1, PositiveFloat
+from ..primitives.types import FloatBetween0And1, PositiveFloat, PositiveInt
 
 if TYPE_CHECKING:
     pass
@@ -30,6 +30,10 @@ class RentEscalationBase(Model):
     - Fixed amount increases 
     - Percentage-based increases
     
+    Timing can be specified as either:
+    - Absolute: start_date (specific date)
+    - Relative: start_month (months from lease start, consistent with RentAbatement)
+    
     The rate field can be:
     - A simple float value for basic cases
     - A PercentageGrowthRate object for complex percentage scenarios  
@@ -39,9 +43,27 @@ class RentEscalationBase(Model):
     rate: Union[PositiveFloat, PercentageGrowthRate, FixedGrowthRate]
     unit_of_measure: UnitOfMeasureEnum
     is_relative: bool
-    start_date: date
+    
+    # Timing: exactly one must be provided
+    start_date: Optional[date] = None
+    start_month: Optional[PositiveInt] = None
+    
     recurring: bool = False
-    frequency_months: Optional[int] = None
+    frequency_months: Optional[PositiveInt] = None
+
+    @model_validator(mode='after')
+    def validate_timing(self) -> 'RentEscalationBase':
+        """Ensure exactly one timing method is provided"""
+        # FIXME: consider using reusable validator?
+        has_date = self.start_date is not None
+        has_month = self.start_month is not None
+        
+        if not (has_date or has_month):
+            raise ValueError("Either start_date or start_month must be provided")
+        if has_date and has_month:
+            raise ValueError("Cannot provide both start_date and start_month")
+            
+        return self
 
     @field_validator('rate')
     @classmethod
@@ -77,7 +99,7 @@ class RentEscalationBase(Model):
         return not isinstance(self.rate, (int, float))
 
     @property 
-    def rate_object(self) -> Union[PercentageGrowthRate, FixedGrowthRate, None]:
+    def rate_object(self) -> Optional[Union[PercentageGrowthRate, FixedGrowthRate]]:
         """Get the rate object if one is used"""
         if self.uses_rate_object:
             return self.rate
@@ -90,6 +112,24 @@ class RentEscalationBase(Model):
             return self.rate
         else:
             raise ValueError("Cannot get simple rate value from rate object - use rate_object property")
+
+    def get_start_period(self, lease_start_period: pd.Period) -> pd.Period:
+        """
+        Get the escalation start period for a given lease start.
+        
+        Args:
+            lease_start_period: The lease start period (pd.Period)
+            
+        Returns:
+            The period when this escalation should begin
+        """
+        if self.start_date is not None:
+            return pd.Period(self.start_date, freq="M")
+        elif self.start_month is not None:
+            # start_month is 1-indexed (1 = first month of lease)
+            return lease_start_period + (self.start_month - 1)
+        else:
+            raise ValueError("No start timing defined")
 
 
 class RentAbatementBase(Model):

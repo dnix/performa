@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from datetime import date
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
 from uuid import UUID
 
 import numpy as np
 import pandas as pd
-from pydantic import computed_field, model_validator
+from pydantic import computed_field, field_validator, model_validator
 
 from ..primitives.cash_flow import CashFlowModel
 from ..primitives.enums import (
@@ -19,8 +19,10 @@ from ..primitives.enums import (
     UponExpirationEnum,
 )
 from ..primitives.model import Model
+from ..primitives.settings import GlobalSettings
 from ..primitives.timeline import Timeline
 from ..primitives.types import FloatBetween0And1, PositiveFloat, PositiveInt
+from ..primitives.validation import validate_term_specification
 from .lease_components import RentAbatementBase, RentEscalationBase, TenantBase
 
 if TYPE_CHECKING:
@@ -33,38 +35,39 @@ from .rollover import RolloverProfileBase
 
 # --- Main Base Models ---
 
-class LeaseSpecBase(Model):
+class LeaseSpecBase(Model, ABC):
     """
-    Base definition for a lease term's parameters.
+    Abstract base class for lease specifications - defining the terms
+    and parameters of a lease before it becomes an active LeaseBase instance.
     """
-
     tenant_name: str
-    suite: str
-    floor: str
-    area: PositiveFloat
-    use_type: ProgramUseEnum
-    signing_date: Optional[date] = None
     start_date: date
     end_date: Optional[date] = None
-    term_months: Optional[PositiveInt] = None
-    base_rent_value: PositiveFloat
+    term_months: Optional[int] = None
+    signing_date: Optional[date] = None
+    suite: str
+    floor: str
+    area: float
+
+    # Base rent terms
+    base_rent_value: float
     base_rent_unit_of_measure: UnitOfMeasureEnum
     base_rent_frequency: FrequencyEnum = FrequencyEnum.MONTHLY
-    rent_escalation: Optional[RentEscalationBase] = None
-    rent_abatement: Optional[RentAbatementBase] = None
-    recovery_method: Optional[RecoveryMethodBase] = None
-    rollover_profile: Optional[RolloverProfileBase] = None
-    upon_expiration: UponExpirationEnum
+
+    @field_validator("signing_date")
+    @classmethod
+    def validate_signing_date(cls, v, info):
+        if v is not None:
+            start_date = info.data.get("start_date")
+            if start_date and v > start_date:
+                raise ValueError("signing_date must be on or before start_date")
+        return v
 
     @model_validator(mode="after")
-    def check_term(self) -> "LeaseSpecBase":
-        if self.end_date is None and self.term_months is None:
-            raise ValueError("Either end_date or term_months must be provided")
-        if self.end_date and self.end_date <= self.start_date:
-            raise ValueError("end_date must be after start_date")
-        if self.signing_date and self.signing_date > self.start_date:
-            raise ValueError("signing_date must be on or before start_date")
-        return self
+    @classmethod
+    def check_term(cls, data) -> "LeaseSpecBase":
+        """Validate term specification using reusable validator."""
+        return validate_term_specification(cls, data)
 
     @computed_field
     @property
@@ -78,25 +81,29 @@ class LeaseSpecBase(Model):
         raise ValueError("Cannot compute end_date without end_date or term_months")
 
 
-class LeaseBase(CashFlowModel):
+class LeaseBase(CashFlowModel, ABC):
     """
-    Base abstract model for a lease.
-
-    This class serves as the foundation for all lease types. It is abstract
-    and requires concrete subclasses (e.g., `CommercialLeaseBase`) to implement
-    the detailed cash flow calculation logic in `compute_cf` and the rollover
-    projection logic in `project_future_cash_flows`.
+    Abstract base class for all lease types.
+    
+    Provides core lease functionality including:
+    - Basic lease terms and timing
+    - Timeline management
+    - Abstract compute_cf method for cash flow calculations
+    - Common properties for rent calculations
     """
     category: str = "Revenue"
     subcategory: str = "Lease" # Simplified from enum for base class
     status: LeaseStatusEnum
-    area: PositiveFloat
+    area: float
     suite: str
     floor: str
     upon_expiration: UponExpirationEnum
-    rent_escalation: Optional[RentEscalationBase] = None
+    signing_date: Optional[date] = None
+    settings: GlobalSettings = GlobalSettings()
+    
+    # Rent-related fields
     rent_abatement: Optional[RentAbatementBase] = None
-
+    
     @computed_field
     @property
     def calculation_pass(self) -> CalculationPass:
@@ -106,11 +113,10 @@ class LeaseBase(CashFlowModel):
     @abstractmethod
     def compute_cf(self, context: "AnalysisContext") -> Dict[str, pd.Series]:
         """
-        Computes all cash flows related to the lease for its initial term.
-
-        This method must be implemented by subclasses to calculate all relevant
-        cash flow components (e.g., base rent, escalations, abatements, recoveries,
-        TI, LC) and return them as a dictionary of pandas Series.
+        Compute cash flows for this lease.
+        
+        All concrete lease implementations must define how they calculate
+        their cash flows given an analysis context.
         """
         raise NotImplementedError
 
@@ -125,3 +131,33 @@ class LeaseBase(CashFlowModel):
         based on the `upon_expiration` setting and rollover profiles.
         """
         pass 
+
+
+class RolloverLeaseTermsBase(Model, ABC):
+    """
+    Abstract base class for lease terms used in rollover scenarios.
+    
+    These define the parameters for speculative future leases when
+    current leases expire and need to be renewed or replaced.
+    """
+    term_months: Optional[int] = None
+    unit_of_measure: UnitOfMeasureEnum = UnitOfMeasureEnum.PER_UNIT
+    frequency: FrequencyEnum = FrequencyEnum.MONTHLY
+
+
+class RolloverProfileBase(Model, ABC):
+    """
+    Abstract base class for rollover profiles that define how leases
+    transition when they expire.
+    
+    Contains probability-based logic for renewals vs. new leases,
+    downtime periods, and associated costs.
+    """
+    renewal_probability: float = 0.0
+    downtime_months: int = 0
+    term_months: int = 60
+    upon_expiration: UponExpirationEnum = UponExpirationEnum.MARKET
+
+    # Options for flexibility
+    allow_renewals: bool = True
+    allow_options: bool = False 

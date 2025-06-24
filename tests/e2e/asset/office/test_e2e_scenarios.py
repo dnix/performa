@@ -20,7 +20,9 @@ from performa.asset.office import (
     OfficeRecoveryMethod,
     OfficeRentRoll,
     OfficeRolloverLeaseTerms,
+    OfficeRolloverLeasingCommission,
     OfficeRolloverProfile,
+    OfficeRolloverTenantImprovement,
     OfficeTenantImprovement,
     OfficeVacantSuite,
     Recovery,
@@ -54,17 +56,17 @@ def complex_property_fixture() -> dict:
         term_months=60, renewal_probability=0.75, downtime_months=3,
         market_terms=OfficeRolloverLeaseTerms(
             market_rent=65.0, term_months=60,
-            ti_allowance=OfficeTenantImprovement(
-                name="Market TI", timeline=analysis_timeline, value=25.0, unit_of_measure="per_unit"
+            ti_allowance=OfficeRolloverTenantImprovement(
+                value=25.0, unit_of_measure="per_unit"
             ),
-            leasing_commission=OfficeLeasingCommission(
-                name="Market LC", timeline=analysis_timeline, tiers=[CommissionTier(year_start=1, rate=0.04)], value=0, unit_of_measure="currency"
+            leasing_commission=OfficeRolloverLeasingCommission(
+                tiers=[0.04]  # 4% commission rate
             )
         ),
         renewal_terms=OfficeRolloverLeaseTerms(
             market_rent=60.0, term_months=60,
-            ti_allowance=OfficeTenantImprovement(
-                name="Renewal TI", timeline=analysis_timeline, value=10.0, unit_of_measure="per_unit"
+            ti_allowance=OfficeRolloverTenantImprovement(
+                value=10.0, unit_of_measure="per_unit"
             ),
         )
     )

@@ -71,7 +71,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         )
 
         lease_spec = self.base_lease_spec.model_copy(
-            update={"rent_escalation": escalation}
+            update={"rent_escalations": escalation}
         )
 
         lease = OfficeLease.from_spec(
@@ -120,7 +120,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         )
 
         lease_spec = self.base_lease_spec.model_copy(
-            update={"rent_escalation": escalation}
+            update={"rent_escalations": escalation}
         )
 
         lease = OfficeLease.from_spec(
@@ -176,7 +176,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         )
 
         lease_spec = self.base_lease_spec.model_copy(
-            update={"rent_escalation": escalation}
+            update={"rent_escalations": escalation}
         )
 
         lease = OfficeLease.from_spec(
@@ -225,7 +225,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         )
 
         lease_spec = self.base_lease_spec.model_copy(
-            update={"rent_escalation": escalation}
+            update={"rent_escalations": escalation}
         )
 
         lease = OfficeLease.from_spec(
@@ -274,7 +274,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         )
 
         lease_spec = self.base_lease_spec.model_copy(
-            update={"rent_escalation": escalation}
+            update={"rent_escalations": escalation}
         )
 
         lease = OfficeLease.from_spec(
@@ -330,7 +330,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         )
 
         lease_spec = self.base_lease_spec.model_copy(
-            update={"rent_escalation": escalation}
+            update={"rent_escalations": escalation}
         )
 
         lease = OfficeLease.from_spec(
@@ -379,7 +379,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         )
 
         lease_spec = self.base_lease_spec.model_copy(
-            update={"rent_escalation": escalation}
+            update={"rent_escalations": escalation}
         )
 
         lease = OfficeLease.from_spec(
@@ -456,7 +456,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         )
 
         lease_spec = self.base_lease_spec.model_copy(
-            update={"rent_escalation": escalation}
+            update={"rent_escalations": escalation}
         )
 
         lease = OfficeLease.from_spec(
@@ -524,7 +524,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         )
 
         lease_spec = self.base_lease_spec.model_copy(
-            update={"rent_escalation": escalation}
+            update={"rent_escalations": escalation}
         )
 
         lease = OfficeLease.from_spec(
@@ -585,7 +585,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         )
 
         lease_spec = self.base_lease_spec.model_copy(
-            update={"rent_escalation": escalation}
+            update={"rent_escalations": escalation}
         )
 
         lease = OfficeLease.from_spec(
@@ -673,7 +673,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         )
 
         lease_spec = self.base_lease_spec.model_copy(
-            update={"rent_escalation": escalation}
+            update={"rent_escalations": escalation}
         )
 
         lease = OfficeLease.from_spec(
@@ -741,7 +741,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         )
 
         lease_spec = self.base_lease_spec.model_copy(
-            update={"rent_escalation": escalation}
+            update={"rent_escalations": escalation}
         )
 
         lease = OfficeLease.from_spec(
@@ -797,7 +797,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         )
 
         lease_spec = self.base_lease_spec.model_copy(
-            update={"rent_escalation": escalation}
+            update={"rent_escalations": escalation}
         )
 
         lease = OfficeLease.from_spec(
@@ -841,7 +841,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         )
 
         lease_spec = self.base_lease_spec.model_copy(
-            update={"rent_escalation": escalation, "term_months": 12}
+            update={"rent_escalations": escalation, "term_months": 12}
         )
 
         lease = OfficeLease.from_spec(

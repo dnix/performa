@@ -8,8 +8,8 @@ import pytest
 from performa.asset.office.rollover import (
     OfficeRolloverLeaseTerms,
     OfficeRolloverProfile,
+    OfficeRolloverTenantImprovement,
 )
-from performa.asset.office.ti import OfficeTenantImprovement
 from performa.common.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -50,20 +50,16 @@ def test_calculate_rent_with_growth(sample_global_settings):
 def test_blend_lease_terms(sample_timeline):
     market_terms = OfficeRolloverLeaseTerms(
         market_rent=60.0,
-        ti_allowance=OfficeTenantImprovement(
-            name="Market TI",
-            timeline=sample_timeline,
+        ti_allowance=OfficeRolloverTenantImprovement(
             value=20.0, 
-            unit_of_measure="per_unit"
+            unit_of_measure=UnitOfMeasureEnum.PER_UNIT
         )
     )
     renewal_terms = OfficeRolloverLeaseTerms(
         market_rent=50.0,
-        ti_allowance=OfficeTenantImprovement(
-            name="Renewal TI",
-            timeline=sample_timeline,
+        ti_allowance=OfficeRolloverTenantImprovement(
             value=10.0, 
-            unit_of_measure="per_unit"
+            unit_of_measure=UnitOfMeasureEnum.PER_UNIT
         )
     )
     profile = OfficeRolloverProfile(

@@ -24,34 +24,26 @@ def test_lease_spec_base_valid_instantiation():
     """Test successful instantiation of LeaseSpecBase with valid data."""
     spec = LeaseSpecBase(
         tenant_name="Test Tenant",
-        suite="101",
+        suite="101", 
         floor="1",
         area=1000,
-        use_type=ProgramUseEnum.OFFICE,
         start_date=date(2024, 1, 1),
         end_date=date(2024, 12, 31),
         base_rent_value=50.0,
         base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
-        upon_expiration=UponExpirationEnum.MARKET,
     )
     assert spec.tenant_name == "Test Tenant"
 
 def test_lease_spec_base_term_validation():
-    """Test validation logic for term (end_date vs term_months)."""
-    # Fails if neither end_date nor term_months is provided
-    with pytest.raises(ValueError, match="Either end_date or term_months must be provided"):
+    """Test validation logic for signing_date validation."""
+    # Fails if signing_date is after start_date
+    with pytest.raises(ValueError, match="signing_date must be on or before start_date"):
         LeaseSpecBase(
-            tenant_name="Test", suite="1", floor="1", area=1, use_type="office",
-            start_date=date(2024, 1, 1), base_rent_value=1, base_rent_unit_of_measure="currency",
-            upon_expiration="market"
-        )
-    
-    # Fails if end_date is before start_date
-    with pytest.raises(ValueError, match="end_date must be after start_date"):
-        LeaseSpecBase(
-            tenant_name="Test", suite="1", floor="1", area=1, use_type="office",
-            start_date=date(2024, 1, 1), end_date=date(2023, 12, 31),
-            base_rent_value=1, base_rent_unit_of_measure="currency", upon_expiration="market"
+            tenant_name="Test", suite="1", floor="1", area=1,
+            start_date=date(2024, 1, 1), 
+            signing_date=date(2024, 2, 1),  # After start_date
+            end_date=date(2024, 12, 31),
+            base_rent_value=1, base_rent_unit_of_measure="currency"
         )
 
 def test_lease_spec_computed_end_date():
@@ -59,16 +51,16 @@ def test_lease_spec_computed_end_date():
     # From end_date
     spec1 = LeaseSpecBase(
         start_date=date(2024, 1, 1), end_date=date(2024, 12, 31),
-        tenant_name="T", suite="s", floor="f", area=1, use_type="office", base_rent_value=1,
-        base_rent_unit_of_measure="currency", upon_expiration="market"
+        tenant_name="T", suite="s", floor="f", area=1, base_rent_value=1,
+        base_rent_unit_of_measure="currency"
     )
     assert spec1.computed_end_date == date(2024, 12, 31)
 
     # From term_months
     spec2 = LeaseSpecBase(
         start_date=date(2024, 1, 1), term_months=12,
-        tenant_name="T", suite="s", floor="f", area=1, use_type="office", base_rent_value=1,
-        base_rent_unit_of_measure="currency", upon_expiration="market"
+        tenant_name="T", suite="s", floor="f", area=1, base_rent_value=1,
+        base_rent_unit_of_measure="currency"
     )
     assert spec2.computed_end_date == date(2024, 12, 31)
 

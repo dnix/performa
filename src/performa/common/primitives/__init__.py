@@ -25,6 +25,12 @@ from .settings import (
 )
 from .timeline import Timeline
 from .types import FloatBetween0And1, PositiveFloat, PositiveInt
+from .validation import (
+    ValidationMixin,
+    validate_conditional_requirement_decorator,
+    validate_mutual_exclusivity,
+    validate_term_specification,
+)
 
 __all__ = [
     "CashFlowModel",
@@ -53,4 +59,8 @@ __all__ = [
     "PositiveFloat",
     "PositiveInt",
     "AggregateLineKey",
+    "ValidationMixin",
+    "validate_term_specification",
+    "validate_mutual_exclusivity",
+    "validate_conditional_requirement_decorator",
 ]

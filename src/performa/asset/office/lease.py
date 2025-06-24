@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from pydantic import Field
 
-from ...common.base import LeaseBase
+from ...common.base import CommissionTier, LeaseBase
 from ...common.primitives import (
     CashFlowModel,
     FrequencyEnum,
@@ -69,7 +69,6 @@ class OfficeLease(CommercialLeaseBase):
 
         # Direct object association
         rollover_profile_instance = spec.rollover_profile
-
         recovery_method_instance = spec.recovery_method
 
         ti_instance = None
@@ -102,7 +101,7 @@ class OfficeLease(CommercialLeaseBase):
             value=spec.base_rent_value,
             unit_of_measure=spec.base_rent_unit_of_measure,
             frequency=spec.base_rent_frequency,
-            rent_escalation=spec.rent_escalation,
+            rent_escalations=spec.rent_escalations,
             rent_abatement=spec.rent_abatement,
             rollover_profile=rollover_profile_instance,
             source_spec=spec,
@@ -152,7 +151,7 @@ class OfficeLease(CommercialLeaseBase):
             value=rent_rate,
             unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
             frequency=FrequencyEnum.MONTHLY,
-            rent_escalation=lease_terms.rent_escalation,
+            rent_escalations=lease_terms.rent_escalations,
             rent_abatement=lease_terms.rent_abatement,
             upon_expiration=profile.upon_expiration,
             rollover_profile=profile,
@@ -191,12 +190,18 @@ class OfficeLease(CommercialLeaseBase):
             lc_config = lease_terms.leasing_commission
             annual_rent = rent_rate * area * 12
             
+            # Convert float list to CommissionTier objects
+            commission_tiers = [
+                CommissionTier(year_start=i+1, rate=rate) 
+                for i, rate in enumerate(lc_config.tiers)
+            ]
+            
             leasing_commission = OfficeLeasingCommission(
                 name=f"LC for {timeline.start_date}",
                 timeline=timeline,
                 value=annual_rent,
                 unit_of_measure=UnitOfMeasureEnum.CURRENCY,
-                tiers=lc_config.tiers
+                tiers=commission_tiers
             )
 
         return ti_allowance, leasing_commission 

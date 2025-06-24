@@ -11,7 +11,9 @@ from performa.asset.office.lease import OfficeLease
 from performa.asset.office.lease_spec import OfficeLeaseSpec
 from performa.asset.office.rollover import (
     OfficeRolloverLeaseTerms,
+    OfficeRolloverLeasingCommission,
     OfficeRolloverProfile,
+    OfficeRolloverTenantImprovement,
 )
 from performa.asset.office.ti import OfficeTenantImprovement
 from performa.common.base import CommissionTier
@@ -32,18 +34,12 @@ class TestOfficeLease(unittest.TestCase):
         self.timeline = Timeline(start_date=date(2023, 1, 1), duration_months=120)
         self.settings = GlobalSettings(analysis_start_date=self.analysis_start_date)
         # Mock lookup function
-        self.ti = OfficeTenantImprovement(
-            name="Market TI",
-            timeline=self.timeline,
+        self.ti = OfficeRolloverTenantImprovement(
             value=10.0,
             unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
         )
-        self.lc = OfficeLeasingCommission(
-            name="Market LC",
-            timeline=self.timeline,
-            value=100000,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
-            tiers=[CommissionTier(year_start=1, rate=0.03)],
+        self.lc = OfficeRolloverLeasingCommission(
+            tiers=[0.03],  # Commission tiers as percentages
         )
         self.rollover_profile = OfficeRolloverProfile(
             name="Test Profile",

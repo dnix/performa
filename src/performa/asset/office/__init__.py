@@ -20,7 +20,12 @@ from .recovery import ExpensePool, OfficeRecoveryMethod, Recovery
 from .rent_abatement import OfficeRentAbatement
 from .rent_escalation import OfficeRentEscalation
 from .rent_roll import OfficeRentRoll, OfficeVacantSuite
-from .rollover import OfficeRolloverLeaseTerms, OfficeRolloverProfile
+from .rollover import (
+    OfficeRolloverLeaseTerms,
+    OfficeRolloverLeasingCommission,
+    OfficeRolloverProfile,
+    OfficeRolloverTenantImprovement,
+)
 from .tenant import OfficeTenant
 from .ti import OfficeTenantImprovement
 
@@ -41,6 +46,8 @@ __all__ = [
     "ExpensePool",
     "OfficeRolloverProfile",
     "OfficeRolloverLeaseTerms",
+    "OfficeRolloverLeasingCommission",
+    "OfficeRolloverTenantImprovement",
     "OfficeTenantImprovement",
     "OfficeLeasingCommission",
     "OfficeTenant",

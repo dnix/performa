@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Optional
+from typing import List, Optional, Union
 
 import pandas as pd
 from pydantic import computed_field, model_validator
@@ -22,7 +22,10 @@ class OfficeLeaseSpec(LeaseSpecBase):
     Office-specific lease terms specification.
     """
     lease_type: LeaseTypeEnum
-    rent_escalation: Optional[OfficeRentEscalation] = None
+    
+    # Multiple escalations support
+    rent_escalations: Optional[Union[OfficeRentEscalation, List[OfficeRentEscalation]]] = None
+    
     rent_abatement: Optional[OfficeRentAbatement] = None
     recovery_method: Optional[OfficeRecoveryMethod] = None
     ti_allowance: Optional[OfficeTenantImprovement] = None
@@ -30,17 +33,7 @@ class OfficeLeaseSpec(LeaseSpecBase):
     rollover_profile: Optional[OfficeRolloverProfile] = None
     upon_expiration: UponExpirationEnum
 
-    @model_validator(mode="after")
-    def check_term(self) -> "OfficeLeaseSpec":
-        # Call parent validator first to ensure signing_date validation happens
-        super().check_term()
-        
-        # Additional OfficeLeaseSpec-specific validation
-        if self.end_date is None and self.term_months is None:
-            raise ValueError("Either end_date or term_months must be provided")
-        if self.end_date and self.end_date <= self.start_date:
-            raise ValueError("end_date must be after start_date")
-        return self
+    # Term validation is now handled by LeaseSpecBase
 
     @computed_field
     @property

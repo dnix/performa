@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
 import pandas as pd
 
@@ -11,6 +11,9 @@ from ...common.primitives import (
     FrequencyEnum,
     GlobalSettings,
     GrowthRate,
+    Model,
+    PositiveFloat,
+    PositiveInt,
     UnitOfMeasureEnum,
 )
 from .lc import OfficeLeasingCommission
@@ -22,17 +25,36 @@ from .ti import OfficeTenantImprovement
 logger = logging.getLogger(__name__)
 
 
+class OfficeRolloverTenantImprovement(Model):
+    """
+    Configuration for tenant improvements in rollover scenarios.
+    """
+    value: PositiveFloat
+    unit_of_measure: UnitOfMeasureEnum
+    payment_timing: Literal["signing", "commencement"] = "commencement"
+
+
+class OfficeRolloverLeasingCommission(Model):
+    """
+    Configuration for leasing commissions in rollover scenarios.
+    """
+    tiers: List[float]  # Commission tiers as percentages
+
+
 class OfficeRolloverLeaseTerms(RolloverLeaseTermsBase):
     """
     Office-specific lease terms for rollover scenarios.
     """
     market_rent: Optional[Union[float, pd.Series, Dict, List]] = None
     growth_rate: Optional[GrowthRate] = None
-    rent_escalation: Optional[OfficeRentEscalation] = None
+    
+    # Multiple escalations support (new)
+    rent_escalations: Optional[Union[OfficeRentEscalation, List[OfficeRentEscalation]]] = None
+    
     rent_abatement: Optional[OfficeRentAbatement] = None
     recovery_method: Optional[OfficeRecoveryMethod] = None
-    ti_allowance: Optional[OfficeTenantImprovement] = None
-    leasing_commission: Optional[OfficeLeasingCommission] = None
+    ti_allowance: Optional[OfficeRolloverTenantImprovement] = None
+    leasing_commission: Optional[OfficeRolloverLeasingCommission] = None
 
 
 class OfficeRolloverProfile(RolloverProfileBase):
@@ -153,6 +175,15 @@ class OfficeRolloverProfile(RolloverProfileBase):
         else:
             blended_abatement = market_terms.rent_abatement
 
+        # Handle escalations blending - use renewal terms if probability > 0.5, otherwise market terms
+        blended_escalations = None
+        if renewal_prob > 0.5:
+            # Prefer renewal escalations
+            blended_escalations = renewal_terms.rent_escalations
+        else:
+            # Prefer market escalations
+            blended_escalations = market_terms.rent_escalations
+
         # Blend TI Allowance
         blended_ti = None
         market_ti_val = market_terms.ti_allowance.value if market_terms.ti_allowance and isinstance(market_terms.ti_allowance.value, (int, float)) else 0.0
@@ -176,20 +207,18 @@ class OfficeRolloverProfile(RolloverProfileBase):
             else:
                 blended_lc = market_lc or renewal_lc
         
-        blended_escalation = renewal_terms.rent_escalation if renewal_prob > 0.5 else market_terms.rent_escalation
         blended_recovery = renewal_terms.recovery_method if renewal_prob > 0.5 else market_terms.recovery_method
         
         blended_term_months = market_terms.term_months
         if renewal_terms.term_months and market_terms.term_months:
             blended_term_months = round((renewal_terms.term_months * renewal_prob) + (market_terms.term_months * market_prob))
 
-
         return OfficeRolloverLeaseTerms(
             market_rent=blended_rent,
             unit_of_measure=market_terms.unit_of_measure,
             frequency=market_terms.frequency,
             growth_rate=blended_growth,
-            rent_escalation=blended_escalation,
+            rent_escalations=blended_escalations,
             rent_abatement=blended_abatement,
             recovery_method=blended_recovery,
             ti_allowance=blended_ti,
