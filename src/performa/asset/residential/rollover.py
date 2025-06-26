@@ -4,6 +4,8 @@ import logging
 from datetime import date
 from typing import Optional
 
+from pydantic import Field, computed_field
+
 from ...common.base import RolloverLeaseTermsBase, RolloverProfileBase
 from ...common.primitives import (
     FrequencyEnum,
@@ -19,28 +21,58 @@ logger = logging.getLogger(__name__)
 
 class ResidentialRolloverLeaseTerms(RolloverLeaseTermsBase):
     """
-    Residential-specific lease terms for rollover scenarios.
+    Simplified rollover lease terms for residential properties.
     
-    Multifamily properties have simplified rollover logic compared to commercial:
-    - Simple percentage increases for renewals vs. complex negotiated rents
-    - Per-unit turnover costs vs. complex TI/LC structures
-    - Concessions measured in months vs. complex abatement schedules
+    Key Simplifications vs. Commercial:
+    - No TI/LC per square foot (use fixed per-unit costs instead)
+    - No complex recovery methods (residents don't pay building expenses)
+    - No rent escalations during term (typically flat rent)
+    - Optional post-renovation rent premiums for value-add scenarios
     """
     
-    # Core rent assumptions
+    # === RENT TERMS ===
+    market_rent: PositiveFloat  # Current market rent for this unit type
     market_rent_growth: Optional[GrowthRate] = None
     renewal_rent_increase_percent: PositiveFloat = 0.04  # 4% typical renewal increase
     
-    # Simple concessions (free rent months)
-    concessions_months: PositiveInt = 0
+    # === CONCESSIONS ===
+    concessions_months: PositiveInt = 0  # Free rent months
     
-    # Per-unit turnover costs (much simpler than commercial TI/LC)
-    turnover_make_ready_cost_per_unit: PositiveFloat = 1500.0
-    turnover_leasing_fee_per_unit: PositiveFloat = 500.0
+    # === TURNOVER COSTS (Per Unit) ===
+    make_ready_cost_per_unit: PositiveFloat = 1500.0  # Unit preparation costs
+    leasing_fee_per_unit: PositiveFloat = 500.0  # Leasing commission costs
+    
+    # === VALUE-ADD CAPABILITIES ===
+    post_renovation_rent_premium: PositiveFloat = Field(
+        default=0.0,
+        description="Rent premium percentage (as decimal) to apply after renovation (e.g., 0.15 for 15% increase)"
+    )
+    post_renovation_market_rent: Optional[PositiveFloat] = Field(
+        default=None,
+        description="Absolute market rent override after renovation (takes precedence over percentage premium)"
+    )
     
     # Override base class defaults for residential
     unit_of_measure: UnitOfMeasureEnum = UnitOfMeasureEnum.CURRENCY  # Monthly rent is currency
     frequency: FrequencyEnum = FrequencyEnum.MONTHLY  # Residential rent is monthly
+    
+    @computed_field
+    @property
+    def effective_market_rent(self) -> float:
+        """
+        Calculate the effective market rent accounting for renovations.
+        
+        Priority order:
+        1. post_renovation_market_rent (absolute override)
+        2. market_rent + post_renovation_rent_premium (percentage increase)
+        3. market_rent (base case)
+        """
+        if self.post_renovation_market_rent is not None:
+            return self.post_renovation_market_rent
+        elif self.post_renovation_rent_premium > 0:
+            return self.market_rent * (1 + self.post_renovation_rent_premium)
+        else:
+            return self.market_rent
 
 
 class ResidentialRolloverProfile(RolloverProfileBase):
@@ -149,8 +181,8 @@ class ResidentialRolloverProfile(RolloverProfileBase):
         blended_concessions = round((renewal_terms.concessions_months * renewal_prob) + (market_terms.concessions_months * market_prob))
         
         # Blend turnover costs
-        blended_make_ready = (renewal_terms.turnover_make_ready_cost_per_unit * renewal_prob) + (market_terms.turnover_make_ready_cost_per_unit * market_prob)
-        blended_leasing_fee = (renewal_terms.turnover_leasing_fee_per_unit * renewal_prob) + (market_terms.turnover_leasing_fee_per_unit * market_prob)
+        blended_make_ready = (renewal_terms.make_ready_cost_per_unit * renewal_prob) + (market_terms.make_ready_cost_per_unit * market_prob)
+        blended_leasing_fee = (renewal_terms.leasing_fee_per_unit * renewal_prob) + (market_terms.leasing_fee_per_unit * market_prob)
         
         # Blend term length
         blended_term_months = market_terms.term_months
@@ -164,7 +196,7 @@ class ResidentialRolloverProfile(RolloverProfileBase):
             market_rent_growth=blended_growth,
             renewal_rent_increase_percent=blended_renewal_increase,
             concessions_months=blended_concessions,
-            turnover_make_ready_cost_per_unit=blended_make_ready,
-            turnover_leasing_fee_per_unit=blended_leasing_fee,
+            make_ready_cost_per_unit=blended_make_ready,
+            leasing_fee_per_unit=blended_leasing_fee,
             term_months=blended_term_months
         ) 

@@ -22,6 +22,7 @@ class ResidentialUnitSpec(Model):
     - avg_area_sf: Average square footage per unit
     - current_avg_monthly_rent: Current average rent per unit per month
     - rollover_profile: Assumptions for turnover, rent growth, costs
+    - renovation_plan_name: Optional link to renovation project for value-add scenarios
     
     The analysis engine will "unroll" this specification into individual
     ResidentialLease instances - one for each physical unit.
@@ -32,9 +33,10 @@ class ResidentialUnitSpec(Model):
     avg_area_sf: PositiveFloat
     current_avg_monthly_rent: PositiveFloat
     rollover_profile: ResidentialRolloverProfile
-    
-    # Future Phase 2 field for value-add scenarios
-    # renovation_plan_name: Optional[str] = None
+    renovation_plan_name: Optional[str] = Field(
+        default=None,
+        description="Name of the CapitalPlan to execute when units of this type turn over"
+    )
     
     @computed_field
     @property

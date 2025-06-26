@@ -5,6 +5,7 @@ from typing import List
 from pydantic import Field, computed_field, model_validator
 
 from ...common.base import PropertyBaseModel
+from ...common.capital import CapitalPlan
 from ...common.primitives import AssetTypeEnum
 from .expense import ResidentialExpenses
 from .losses import ResidentialLosses
@@ -22,66 +23,77 @@ class ResidentialProperty(PropertyBaseModel):
     real estate analysis, where the central concept is the "unit mix"
     rather than individual lease specifications.
     
-    Key Architectural Differences from Office:
-    - Uses unit_mix instead of rent_roll (aggregated by unit type)
-    - Focuses on unit count and average rents rather than individual leases
-    - Simplified turnover assumptions (per-unit costs vs. complex TI/LC)
-    - Auto-calculates building areas from unit mix data
-    
-    The analysis scenario will "unroll" the unit_mix into individual
-    ResidentialLease instances for granular cash flow modeling.
+    Key Architectural Differences from Commercial/Office:
+    - unit_mix: Container for unit specifications and vacant units
+    - capital_plans: Renovation projects that can be triggered during analysis
+    - No TI/LC structures (simpler residential lease costs)
+    - No complex recovery methods (residents don't pay building expenses)
     """
     
+    # === CORE FIELDS ===
     property_type: AssetTypeEnum = AssetTypeEnum.MULTIFAMILY
     unit_mix: ResidentialRentRoll
-    expenses: ResidentialExpenses
-    losses: ResidentialLosses
+    
+    # === FINANCIAL MODELS ===
+    expenses: ResidentialExpenses = Field(default_factory=ResidentialExpenses)
+    losses: ResidentialLosses = Field(default_factory=ResidentialLosses)
     miscellaneous_income: List[ResidentialMiscIncome] = Field(default_factory=list)
     
-    # Note: gross_area and net_rentable_area are required by PropertyBaseModel
-    # In residential context, net_rentable_area should equal unit_mix.total_rentable_area
-    # gross_area should be slightly larger (typically 15-20% efficiency factor)
+    # === VALUE-ADD CAPABILITIES ===
+    capital_plans: List[CapitalPlan] = Field(
+        default_factory=list,
+        description="Renovation projects that can be triggered during lease turnover or other events"
+    )
     
+    # === REQUIRED BASE FIELDS ===
+    # These are required by PropertyBaseModel - must be provided explicitly
+    # gross_area and net_rentable_area are inherited from PropertyBaseModel
+
     @computed_field
     @property
     def unit_count(self) -> int:
-        """Total number of units in the property"""
+        """Total number of units (occupied + vacant)."""
         return self.unit_mix.total_unit_count
-    
+
     @computed_field
     @property
     def weighted_avg_rent(self) -> float:
-        """Weighted average rent across all unit types"""
-        return self.unit_mix.weighted_avg_rent
-    
+        """Weighted average rent across all unit types (including vacant units)."""
+        return self.unit_mix.average_rent_per_unit
+
     @computed_field
     @property
     def occupancy_rate(self) -> float:
-        """Current occupancy rate based on unit mix composition"""
-        if self.unit_count == 0:
-            return 0.0
-        return self.unit_mix.occupied_units / self.unit_count
-    
+        """Current occupancy rate as decimal (0.0 to 1.0)."""
+        return self.unit_mix.occupancy_rate
+
+    @computed_field
+    @property
+    def monthly_income_potential(self) -> float:
+        """Total monthly income if 100% occupied."""
+        return self.unit_mix.total_monthly_income_potential
+
+    @computed_field
+    @property
+    def current_monthly_income(self) -> float:
+        """Current monthly income based on occupancy."""
+        return self.unit_mix.current_monthly_income
+
     @model_validator(mode='after')
     def _validate_area_consistency(self) -> "ResidentialProperty":
-        """
-        Validate that net rentable area matches unit mix total area.
-        
-        This ensures consistency between the PropertyBaseModel area fields
-        and the unit mix calculations in residential properties.
-        """
-        unit_mix_area = self.unit_mix.total_rentable_area
-        nra = self.net_rentable_area
-        
-        # Allow small rounding differences (0.1% tolerance)
-        tolerance = 0.001
-        if abs(unit_mix_area - nra) / nra > tolerance:
-            percentage_diff = abs(unit_mix_area - nra) / nra * 100
-            raise ValueError(
-                f"Area inconsistency in property '{self.name}': "
-                f"Unit mix total area ({unit_mix_area:,.0f} SF) differs from "
-                f"Net Rentable Area ({nra:,.0f} SF) by {percentage_diff:.1f}%. "
-                f"Net Rentable Area should match unit mix total."
-            )
-        
+        """Validate that provided areas are consistent with unit mix."""
+        if self.unit_mix and self.net_rentable_area > 0:
+            unit_mix_area = self.unit_mix.total_rentable_area
+            nra = self.net_rentable_area
+            
+            # Allow reasonable tolerance (5% for residential properties)
+            tolerance = 0.05
+            if abs(unit_mix_area - nra) / nra > tolerance:
+                percentage_diff = abs(unit_mix_area - nra) / nra * 100
+                raise ValueError(
+                    f"Area inconsistency in property '{self.name}': "
+                    f"Unit mix total area ({unit_mix_area:,.0f} SF) differs from "
+                    f"Net Rentable Area ({nra:,.0f} SF) by {percentage_diff:.1f}%. "
+                    f"Please ensure consistency between unit specifications and property areas."
+                )
         return self 

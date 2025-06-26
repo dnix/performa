@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import pandas as pd
 from pydantic import Field
@@ -21,6 +21,7 @@ from .rollover import ResidentialRolloverProfile
 if TYPE_CHECKING:
     from performa.analysis import AnalysisContext
 
+    from ...common.capital import CapitalPlan
     from .rollover import ResidentialRolloverLeaseTerms
 
 
@@ -36,16 +37,21 @@ class ResidentialLease(LeaseBase):
     - No recovery methods (residents don't reimburse expenses)
     - Simple turnover costs (per-unit make-ready and leasing fees)
     - Straightforward rollover logic (renewal % vs market rate)
+    - Value-add renovation capabilities during turnover
     
     This model represents a single apartment unit lease and knows how to:
     1. Calculate its own cash flows during the lease term
     2. Handle its own expiration and rollover to the next lease
     3. Create turnover cost models when units turn over
+    4. Execute renovation projects during vacancy periods
+    5. Apply rent premiums after renovation completion
     """
     
     # Residential-specific fields
     rollover_profile: Optional[ResidentialRolloverProfile] = None
     source_spec: Optional[ResidentialUnitSpec] = Field(default=None, exclude=True)
+    capital_plans: List["CapitalPlan"] = Field(default_factory=list, exclude=True)
+    renovation_status: Optional[str] = Field(default=None, exclude=True)  # Track renovation state
     
     # Simplified defaults for residential
     unit_of_measure: UnitOfMeasureEnum = UnitOfMeasureEnum.CURRENCY  # Monthly rent
@@ -109,11 +115,13 @@ class ResidentialLease(LeaseBase):
         """
         Project cash flows for this lease and all subsequent rollovers.
         
-        Handles the full lifecycle:
+        Enhanced to handle value-add renovation triggers:
         1. Current lease cash flows 
         2. Turnover costs and downtime when lease expires
-        3. Next lease creation based on renewal probability
-        4. Recursive projection of future leases
+        3. **NEW: Renovation execution during vacancy periods**
+        4. **NEW: Rent premium application after renovation**
+        5. Next lease creation based on renewal probability
+        6. Recursive projection of future leases
         """
         # Get current lease cash flows
         current_cf_dict = self.compute_cf(context)
@@ -128,23 +136,39 @@ class ResidentialLease(LeaseBase):
             action = self.upon_expiration
             
             logger.debug(f"Residential lease '{self.name}' expires {lease_end_period}. "
-                        f"Action: {action}. Projecting rollover...")
+                        f"Action: {action}. Checking for renovation triggers...")
+            
+            # === NEW: RENOVATION TRIGGER LOGIC ===
+            renovation_plan = self._get_linked_renovation_plan()
+            should_renovate = (
+                renovation_plan is not None and 
+                self.renovation_status != "completed" and
+                action in [UponExpirationEnum.MARKET, UponExpirationEnum.VACATE]  # Only renovate during turnover
+            )
             
             # Calculate downtime and next lease start
-            downtime_months = profile.downtime_months if action in [
+            base_downtime_months = profile.downtime_months if action in [
                 UponExpirationEnum.MARKET, UponExpirationEnum.VACATE
             ] else 0
             
+            # Extend downtime for renovation if needed
+            renovation_months = 0
+            if should_renovate:
+                renovation_months = renovation_plan.duration_months or 0
+                logger.info(f"Unit {self.suite} triggering renovation '{renovation_plan.name}' "
+                           f"requiring {renovation_months} months")
+            
+            total_downtime_months = base_downtime_months + renovation_months
             next_lease_start_date = (
-                lease_end_period.to_timestamp() + pd.DateOffset(months=downtime_months + 1)
+                lease_end_period.to_timestamp() + pd.DateOffset(months=total_downtime_months + 1)
             ).date()
             
-            # Handle downtime period (vacancy loss)
-            if downtime_months > 0:
+            # Handle vacancy period (traditional downtime + renovation)
+            if total_downtime_months > 0:
                 downtime_start_date = (lease_end_period + 1).start_time.date()
                 downtime_timeline = Timeline(
                     start_date=downtime_start_date, 
-                    duration_months=downtime_months
+                    duration_months=total_downtime_months
                 )
                 
                 # Calculate market rent for vacancy loss
@@ -162,6 +186,19 @@ class ResidentialLease(LeaseBase):
                 )
                 all_cfs.append(vacancy_loss_series.to_frame())
             
+            # === NEW: EXECUTE RENOVATION CASH FLOWS ===
+            if should_renovate:
+                renovation_cf = self._execute_renovation(
+                    renovation_plan=renovation_plan,
+                    vacancy_start_date=(lease_end_period + 1).start_time.date(),
+                    renovation_months=renovation_months
+                )
+                if not renovation_cf.empty:
+                    all_cfs.append(renovation_cf.to_frame("renovation_costs"))
+                
+                # Note: renovation_status will be propagated to next lease instance
+                # (we can't modify this frozen instance directly)
+            
             # Determine next lease terms based on action
             next_lease_terms = None
             tenant_name = self.name.split(' - ')[0]  # Extract tenant name
@@ -173,6 +210,13 @@ class ResidentialLease(LeaseBase):
             elif action in [UponExpirationEnum.MARKET, UponExpirationEnum.VACATE]:
                 # Use blended terms (combines renewal and market based on probability)
                 next_lease_terms = profile.blend_lease_terms()
+                
+                # === NEW: APPLY RENOVATION RENT PREMIUMS ===
+                if should_renovate:
+                    next_lease_terms = self._apply_renovation_rent_premium(next_lease_terms)
+                    logger.info(f"Applied renovation rent premium to unit {self.suite}. "
+                               f"New rent: ${next_lease_terms.effective_market_rent:.0f}/month")
+                
                 tenant_name = f"Resident {self.suite}"  # New tenant
                 name_suffix = f" (Rollover {recursion_depth + 1})"
             elif action == UponExpirationEnum.REABSORB:
@@ -204,7 +248,12 @@ class ResidentialLease(LeaseBase):
                     rent_rate=new_rent_rate,
                     tenant_name=tenant_name,
                     name_suffix=name_suffix,
+                    renovation_status="completed" if should_renovate else self.renovation_status,
                 )
+                
+                # === NEW: PROPAGATE CAPITAL PLANS ===
+                # Note: renovation_status is set during creation above
+                next_lease = next_lease.model_copy(update={'capital_plans': self.capital_plans})
                 
                 logger.debug(f"Created next residential lease '{next_lease.name}' "
                            f"starting {next_lease_start_date} at ${new_rent_rate:.0f}/month")
@@ -229,12 +278,102 @@ class ResidentialLease(LeaseBase):
                 final_df[col] = 0.0
         
         # Add optional columns if present
-        if 'vacancy_loss' not in final_df.columns:
-            final_df['vacancy_loss'] = 0.0
-        if 'turnover_costs' not in final_df.columns:
-            final_df['turnover_costs'] = 0.0
+        for optional_col in ['vacancy_loss', 'turnover_costs', 'renovation_costs']:
+            if optional_col not in final_df.columns:
+                final_df[optional_col] = 0.0
         
         return final_df.reindex(context.timeline.period_index, fill_value=0.0)
+    
+    def _get_linked_renovation_plan(self) -> Optional["CapitalPlan"]:
+        """
+        Find the renovation plan linked to this unit's specification.
+        
+        Returns:
+            CapitalPlan if found, None otherwise
+        """
+        if not self.source_spec or not self.source_spec.renovation_plan_name:
+            return None
+            
+        if not self.capital_plans:
+            return None
+            
+        # Find the capital plan by name
+        for capital_plan in self.capital_plans:
+            if capital_plan.name == self.source_spec.renovation_plan_name:
+                return capital_plan
+                
+        logger.warning(f"Renovation plan '{self.source_spec.renovation_plan_name}' "
+                      f"not found for unit {self.suite}")
+        return None
+
+    def _execute_renovation(
+        self, 
+        renovation_plan: "CapitalPlan",
+        vacancy_start_date: date,
+        renovation_months: int
+    ) -> pd.Series:
+        """
+        Execute renovation cash flows during vacancy period.
+        
+        Args:
+            renovation_plan: The CapitalPlan to execute
+            vacancy_start_date: When the renovation can begin
+            renovation_months: Duration of renovation
+            
+        Returns:
+            Series of renovation costs by period
+        """
+        if renovation_months <= 0:
+            return pd.Series(dtype=float)
+            
+        # Create renovation timeline starting with vacancy
+        renovation_timeline = Timeline(
+            start_date=vacancy_start_date,
+            duration_months=renovation_months
+        )
+        
+        # Get total renovation cost
+        total_cost = renovation_plan.total_cost
+        
+        if total_cost <= 0:
+            return pd.Series(dtype=float)
+        
+        # Distribute costs based on renovation plan pattern
+        # For simplicity, spread costs evenly across renovation months
+        # Future enhancement: use actual CapitalItem cash flow patterns
+        monthly_cost = total_cost / renovation_months
+        
+        renovation_costs = pd.Series(
+            [-monthly_cost] * renovation_months,  # Negative for expenses
+            index=renovation_timeline.period_index,
+            name="renovation_costs"
+        )
+        
+        logger.debug(f"Executing renovation '{renovation_plan.name}' for unit {self.suite}: "
+                    f"${total_cost:,.0f} over {renovation_months} months")
+        
+        return renovation_costs
+
+    def _apply_renovation_rent_premium(
+        self, 
+        base_terms: "ResidentialRolloverLeaseTerms"
+    ) -> "ResidentialRolloverLeaseTerms":
+        """
+        Apply renovation rent premium to lease terms.
+        
+        The premium is already configured in the rollover terms:
+        - post_renovation_rent_premium: percentage increase
+        - post_renovation_market_rent: absolute rent override
+        
+        Args:
+            base_terms: Original lease terms
+            
+        Returns:
+            Modified lease terms with renovation premium applied
+        """
+        # The effective_market_rent property already handles renovation premiums
+        # We just need to return the terms as-is - the premium is automatically applied
+        return base_terms
     
     def _create_turnover_costs(
         self, 
@@ -251,8 +390,8 @@ class ResidentialLease(LeaseBase):
         Both are typically paid in the month before the new lease starts.
         """
         # Calculate total turnover costs
-        make_ready_cost = getattr(lease_terms, 'turnover_make_ready_cost_per_unit', 0.0)
-        leasing_fee = getattr(lease_terms, 'turnover_leasing_fee_per_unit', 0.0)
+        make_ready_cost = getattr(lease_terms, 'make_ready_cost_per_unit', 0.0)
+        leasing_fee = getattr(lease_terms, 'leasing_fee_per_unit', 0.0)
         total_turnover_cost = make_ready_cost + leasing_fee
         
         if total_turnover_cost <= 0:
@@ -276,6 +415,7 @@ class ResidentialLease(LeaseBase):
         rent_rate: float,
         tenant_name: str,
         name_suffix: str,
+        renovation_status: Optional[str] = None,
     ) -> "ResidentialLease":
         """
         Create the next lease instance after turnover.
@@ -318,4 +458,5 @@ class ResidentialLease(LeaseBase):
             rollover_profile=self.rollover_profile,
             source_spec=self.source_spec,
             settings=self.settings,
+            renovation_status=renovation_status,
         ) 

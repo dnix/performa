@@ -179,16 +179,16 @@ def test_residential_rollover_lease_terms():
         market_rent_growth=market_growth,
         renewal_rent_increase_percent=0.035,  # 3.5% renewal increase
         concessions_months=1,  # 1 month free
-        turnover_make_ready_cost_per_unit=1200.0,
-        turnover_leasing_fee_per_unit=400.0
+        make_ready_cost_per_unit=1200.0,
+        leasing_fee_per_unit=400.0
     )
-    
+
     assert terms.market_rent == 2500.0
     assert terms.market_rent_growth == market_growth
     assert terms.renewal_rent_increase_percent == 0.035
     assert terms.concessions_months == 1
-    assert terms.turnover_make_ready_cost_per_unit == 1200.0
-    assert terms.turnover_leasing_fee_per_unit == 400.0
+    assert terms.make_ready_cost_per_unit == 1200.0
+    assert terms.leasing_fee_per_unit == 400.0
 
 
 def test_residential_rollover_profile_blending():
@@ -198,15 +198,15 @@ def test_residential_rollover_profile_blending():
     market_terms = ResidentialRolloverLeaseTerms(
         market_rent=2600.0,  # Higher market rent
         market_rent_growth=market_growth,
-        turnover_make_ready_cost_per_unit=1500.0,
-        turnover_leasing_fee_per_unit=500.0
+        make_ready_cost_per_unit=1500.0,
+        leasing_fee_per_unit=500.0
     )
     
     renewal_terms = ResidentialRolloverLeaseTerms(
         market_rent=2400.0,  # Lower renewal rent (current + increase)
         renewal_rent_increase_percent=0.04,
-        turnover_make_ready_cost_per_unit=0.0,  # No costs for renewals
-        turnover_leasing_fee_per_unit=0.0
+        make_ready_cost_per_unit=0.0,  # No costs for renewals
+        leasing_fee_per_unit=0.0
     )
     
     profile = ResidentialRolloverProfile(
@@ -227,7 +227,7 @@ def test_residential_rollover_profile_blending():
     
     # Expected turnover costs: (0 * 0.65) + (1500 * 0.35) = 525
     expected_make_ready = (0.0 * 0.65) + (1500.0 * 0.35)
-    assert blended_terms.turnover_make_ready_cost_per_unit == pytest.approx(expected_make_ready, rel=1e-2)
+    assert blended_terms.make_ready_cost_per_unit == pytest.approx(expected_make_ready, rel=1e-2)
 
 
 # Integration test: All components working together
@@ -240,15 +240,15 @@ def test_complete_residential_property_creation():
     market_terms = ResidentialRolloverLeaseTerms(
         market_rent=2500.0,
         market_rent_growth=market_growth,
-        turnover_make_ready_cost_per_unit=1500.0,
-        turnover_leasing_fee_per_unit=500.0
+        make_ready_cost_per_unit=1500.0,
+        leasing_fee_per_unit=500.0
     )
     
     renewal_terms = ResidentialRolloverLeaseTerms(
         market_rent=2400.0,
         renewal_rent_increase_percent=0.04,
-        turnover_make_ready_cost_per_unit=0.0,
-        turnover_leasing_fee_per_unit=0.0
+        make_ready_cost_per_unit=0.0,
+        leasing_fee_per_unit=0.0
     )
     
     rollover_profile = ResidentialRolloverProfile(

@@ -18,6 +18,9 @@ The architecture mirrors the office module's explicit vacancy pattern,
 where occupancy emerges from the composition of occupied vs vacant units.
 """
 
+# Import order matters for forward references
+# Import CapitalPlan to resolve forward references
+from ...common.capital import CapitalPlan
 from .analysis import ResidentialAnalysisScenario
 from .expense import ResidentialCapExItem, ResidentialExpenses, ResidentialOpExItem
 from .lease import ResidentialLease
@@ -30,6 +33,10 @@ from .misc_income import ResidentialMiscIncome
 from .property import ResidentialProperty
 from .rent_roll import ResidentialRentRoll, ResidentialUnitSpec, ResidentialVacantUnit
 from .rollover import ResidentialRolloverLeaseTerms, ResidentialRolloverProfile
+
+# Resolve forward references for CapitalPlan
+# This ensures CapitalPlan is properly recognized in ResidentialLease
+ResidentialLease.model_rebuild()
 
 __all__ = [
     # Core property model

@@ -120,6 +120,7 @@ class ResidentialAnalysisScenario(AnalysisScenarioBase):
         - Standard 12-month lease terms (typical residential)
         - Sequential suite numbering for identification
         - Links back to source spec for rollover logic
+        - Access to property capital plans for renovation triggers
         
         Args:
             unit_spec: The unit type specification
@@ -154,11 +155,12 @@ class ResidentialAnalysisScenario(AnalysisScenarioBase):
             frequency=FrequencyEnum.MONTHLY,
             rollover_profile=unit_spec.rollover_profile,
             source_spec=unit_spec,  # Critical link for rollover logic
+            capital_plans=self.model.capital_plans,  # Enable renovation triggers
             settings=self.settings,
         )
         
         logger.debug(f"Created lease for {suite_id}: ${unit_spec.current_avg_monthly_rent}/month, "
-                    f"{unit_spec.avg_area_sf} SF")
+                    f"{unit_spec.avg_area_sf} SF, renovation_plan: {unit_spec.renovation_plan_name}")
         
         return lease
     
