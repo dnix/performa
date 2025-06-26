@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import Field, computed_field
+from pydantic import Field, computed_field, model_validator
 
 from ...common.primitives import Model, PositiveFloat, PositiveInt
 from .rollover import ResidentialRolloverProfile
@@ -104,8 +104,24 @@ class ResidentialRentRoll(Model):
     rather than being a hardcoded percentage.
     """
     
-    unit_specs: List[ResidentialUnitSpec]  # TODO: should we have a default factory list for this
+    # DESIGN DECISION: unit_specs is REQUIRED (core property definition)
+    # A multifamily property without unit specifications doesn't make business sense
+    unit_specs: List[ResidentialUnitSpec]
+    
+    # vacant_units is OPTIONAL with default_factory - properties can start fully occupied
     vacant_units: List[ResidentialVacantUnit] = Field(default_factory=list)
+    
+    @model_validator(mode='after')
+    def _validate_business_rules(self) -> "ResidentialRentRoll":
+        """Validate critical business rules for residential properties."""
+        # A property must have either occupied units OR vacant units (or both)
+        # Empty unit_specs is allowed if there are vacant_units (e.g., lease-up phase)
+        if not self.unit_specs and not self.vacant_units:
+            raise ValueError(
+                "Residential property must have at least one unit specification or vacant unit. "
+                "Empty unit_specs and vacant_units lists are not valid for multifamily analysis."
+            )
+        return self
     
     @computed_field
     @property

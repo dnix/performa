@@ -615,18 +615,13 @@ def test_edge_cases_with_vacant_units():
     assert all_occupied_roll.current_monthly_income == 20000.0
     assert all_occupied_roll.total_monthly_income_potential == 20000.0
     
-    # Test empty property
-    empty_roll = ResidentialRentRoll(
-        unit_specs=[],
-        vacant_units=[]
-    )
-    
-    assert empty_roll.occupied_units == 0
-    assert empty_roll.vacant_unit_count == 0
-    assert empty_roll.total_unit_count == 0
-    assert empty_roll.occupancy_rate == 0.0  # Should handle division by zero
-    assert empty_roll.current_monthly_income == 0.0
-    assert empty_roll.total_monthly_income_potential == 0.0
+    # Test that attempting to create a completely empty property fails with good error message
+    # This is correct business behavior - properties must have at least some units defined
+    with pytest.raises(ValueError, match="must have at least one unit specification or vacant unit"):
+        empty_roll = ResidentialRentRoll(
+            unit_specs=[],
+            vacant_units=[]
+        )
 
 
 if __name__ == "__main__":
