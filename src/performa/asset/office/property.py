@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, List, Optional
 
-from pydantic import computed_field, model_validator
+from pydantic import Field, computed_field, model_validator
 
 from ...common.base import PropertyBaseModel, VacantSuiteBase
 from ...common.primitives import Model
@@ -25,8 +25,8 @@ class RentRoll(Model):
     in-place lease specifications and vacant suites.
     """
 
-    leases: List[OfficeLeaseSpec] = []
-    vacant_suites: List[VacantSuiteBase] = []
+    leases: List[OfficeLeaseSpec] = Field(default_factory=list)
+    vacant_suites: List[VacantSuiteBase] = Field(default_factory=list)
 
     @property
     def total_occupied_area(self) -> float:
@@ -52,9 +52,9 @@ class OfficeProperty(PropertyBaseModel):
 
     rent_roll: OfficeRentRoll
     losses: OfficeLosses
-    miscellaneous_income: List[OfficeMiscIncome] = []
+    miscellaneous_income: List[OfficeMiscIncome] = Field(default_factory=list)
     expenses: OfficeExpenses
-    absorption_plans: List[OfficeAbsorptionPlan] = []
+    absorption_plans: List[OfficeAbsorptionPlan] = Field(default_factory=list)
 
     @property
     def suites(self) -> List[PropertySuite]:

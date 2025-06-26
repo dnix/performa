@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
 from uuid import UUID
 
 import pandas as pd
+from pydantic import Field
 
 from ...common.base import CapExItemBase, OpExItemBase
 from ...common.primitives import GrowthRate, Model, Timeline, UnitOfMeasureEnum
@@ -60,5 +61,5 @@ class OfficeExpenses(Model):
     """
     Container for all office-related expenses.
     """
-    operating_expenses: List[OfficeOpExItem] = []
-    capital_expenses: List[OfficeCapExItem] = [] 
+    operating_expenses: List[OfficeOpExItem] = Field(default_factory=list)
+    capital_expenses: List[OfficeCapExItem] = Field(default_factory=list) 
