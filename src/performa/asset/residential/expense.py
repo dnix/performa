@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import List
+from uuid import UUID, uuid4
 
 from pydantic import Field
 
@@ -34,5 +35,6 @@ class ResidentialExpenses(Model):
     """
     Container for all residential property expenses.
     """
+    uid: UUID = Field(default_factory=uuid4, description="Unique identifier for this expense container")
     operating_expenses: List[ResidentialOpExItem] = Field(default_factory=list)
     capital_expenses: List[ResidentialCapExItem] = Field(default_factory=list) 

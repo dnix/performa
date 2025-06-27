@@ -68,6 +68,7 @@ class SpaceFilter(Model):
 
 
 class BasePace(Model, ABC):
+    # FIXME: add a discriminator field to the model on `type`?
     pass
 
 

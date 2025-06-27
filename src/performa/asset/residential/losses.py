@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from uuid import UUID, uuid4
+
+from pydantic import Field
+
 from ...common.base import (
     CollectionLossConfigBase,
     GeneralVacancyLossConfigBase,
@@ -32,5 +36,6 @@ class ResidentialLosses(LossesBase):
     """
     Container for residential property-level loss configurations.
     """
+    uid: UUID = Field(default_factory=uuid4, description="Unique identifier for this losses container")
     general_vacancy: ResidentialGeneralVacancyLoss
     collection_loss: ResidentialCollectionLoss 

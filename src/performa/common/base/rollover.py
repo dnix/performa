@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from uuid import UUID, uuid4
 
 import pandas as pd
+from pydantic import Field
 
 from ..primitives.enums import FrequencyEnum, UnitOfMeasureEnum, UponExpirationEnum
 from ..primitives.growth_rates import GrowthRate
@@ -33,6 +35,7 @@ class RolloverProfileBase(Model):
     """
     Base class for a comprehensive profile for lease rollovers and renewals.
     """
+    uid: UUID = Field(default_factory=uuid4, description="Unique identifier for this rollover profile")
     name: str
     term_months: PositiveInt
     renewal_probability: FloatBetween0And1

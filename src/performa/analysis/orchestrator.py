@@ -1,3 +1,55 @@
+"""
+Real Estate Cash Flow Orchestration Engine.
+
+ARCHITECTURE: ASSEMBLER PATTERN WITH ANALYSIS CONTEXT
+======================================================
+
+This module orchestrates cash flow calculations across all models in a property analysis.
+The core design uses an "assembler pattern" to resolve object references once during 
+analysis setup, eliminating runtime lookups during cash flow calculations.
+
+KEY COMPONENTS:
+
+1. ANALYSIS CONTEXT - CENTRAL DATA CONTAINER
+   ==========================================
+   AnalysisContext holds all analysis state in one location:
+   - Timeline and global settings
+   - Direct object references (resolved from UUIDs during assembly)
+   - Lookup maps for recovery methods, capital plans, rollover profiles
+   - Pre-calculated derived state (occupancy rates)
+   
+   This design eliminates UUID resolution overhead during cash flow calculations.
+
+2. TWO-PHASE EXECUTION  
+   ===================
+   Phase 1: Independent Models - Calculate base rents, base expenses
+   Phase 2: Dependent Models - Calculate models that reference aggregates
+   
+   This separation prevents circular dependencies while supporting models like 
+   "management fee based on total operating expenses".
+
+3. ASSEMBLER PATTERN WORKFLOW
+   ===========================
+   Assembly Time (once per analysis):
+   - Resolve UUID references to direct object references
+   - Populate AnalysisContext lookup maps
+   - Inject resolved references into model instances
+   
+   Runtime (per cash flow calculation):
+   - Direct attribute access only (no UUID lookups)
+   - Models call context.recovery_method_lookup[name] instead of resolving UUIDs
+
+TESTED SCENARIOS:
+- Single tenant buildings through multi-tenant complexes
+- Multiple recovery method types and rollover profiles
+- Properties with 40+ tenants and complex lease structures
+- Maintains backward compatibility with existing models
+
+Implementation examples:
+- ResidentialAnalysisScenario: Basic assembler pattern
+- OfficeAnalysisScenario: Commercial-specific assembler with recovery methods
+"""
+
 from __future__ import annotations
 
 import inspect
@@ -37,6 +89,12 @@ class AnalysisContext:
     It bundles configuration, pre-calculated static state, and dynamically
     calculated per-period state, and serves as the single source of truth
     for all `compute_cf` methods.
+    
+    ASSEMBLER PATTERN - UNIVERSAL DATA BUS:
+    The context serves as the universal data bus that provides fast,
+    direct access to all resolved objects. The AnalysisScenario populates
+    the lookup maps once during assembly, enabling zero-lookup performance
+    during cash flow calculations.
     """
     # --- Configuration (Set at creation) ---
     timeline: "Timeline"
@@ -45,14 +103,41 @@ class AnalysisContext:
 
     # --- Pre-Calculated Static State (Set by Scenario before run) ---
     recovery_states: Dict[UUID, "RecoveryCalculationState"] = field(default_factory=dict)
+    
+    # === ASSEMBLER PATTERN - UUID LOOKUP MAPS ===
+    capital_plan_lookup: Dict[UUID, Any] = field(
+        default_factory=dict,
+        metadata={"description": "UUID -> CapitalPlan object mapping for fast turnover plan resolution"}
+    )
+    rollover_profile_lookup: Dict[UUID, Any] = field(
+        default_factory=dict,
+        metadata={"description": "UUID -> RolloverProfile object mapping for residential/office rollover logic"}
+    )
+    
+    # === OFFICE-SPECIFIC LOOKUP MAPS ===
+    recovery_method_lookup: Dict[str, Any] = field(
+        default_factory=dict,
+        metadata={"description": "name -> RecoveryMethod object mapping for office expense recovery"}
+    )
+    ti_template_lookup: Dict[UUID, Any] = field(
+        default_factory=dict,
+        metadata={"description": "UUID -> TI template object mapping for office tenant improvements"}
+    )
+    lc_template_lookup: Dict[UUID, Any] = field(
+        default_factory=dict,
+        metadata={"description": "UUID -> LC template object mapping for office leasing commissions"}
+    )
 
-    # --- Dynamic Per-Period State (Calculated and managed by Orchestrator) ---
-    occupancy_rate_series: Optional[pd.Series] = None
+    # --- Dynamic State (Populated during execution) ---
+    resolved_lookups: Dict[Union[UUID, str], Any] = field(
+        default_factory=dict,
+        metadata={"description": "UUID/key -> computed cash flow mapping populated during orchestration"}
+    )
+    occupancy_rate_series: Optional["pd.Series"] = field(
+        default=None,
+        metadata={"description": "Property-wide occupancy rate by period for vacancy calculations"}
+    )
     current_lease: Optional["LeaseBase"] = None  # Current lease context for TI/LC calculations
-
-    # --- The Calculation Cache (Managed by Orchestrator) ---
-    resolved_lookups: Dict[Union[UUID, str], Union[pd.Series, Dict[str, pd.Series]]] = field(default_factory=dict)
-
 
 logger = logging.getLogger(__name__)
 
@@ -187,7 +272,8 @@ class CashFlowOrchestrator:
         
         logger.info(f"  Processing {len(dependent_models)} dependent models:")
         for model in dependent_models:
-            ref_name = model.reference.value if model.reference else "None"
+            # Handle both AggregateLineKey and other reference types safely
+            ref_name = model.reference.value if (model.reference and hasattr(model.reference, 'value')) else str(model.reference) if model.reference else "None"
             logger.debug(f"    - {model.name} → references [{ref_name}]")
         
         self._compute_model_subset(dependent_models)
@@ -610,7 +696,9 @@ class CashFlowOrchestrator:
         # This is valid in our 2-phase system and should not be considered circular
         contributing_models = [m for m in contributing_models if m.uid != model.uid]
         
-        logger.debug(f"Model '{model.name}' depends on '{model.reference.value}' with {len(contributing_models)} contributing models")
+        # Handle both AggregateLineKey and other reference types safely
+        reference_display = model.reference.value if hasattr(model.reference, 'value') else str(model.reference)
+        logger.debug(f"Model '{model.name}' depends on '{reference_display}' with {len(contributing_models)} contributing models")
         
         if not contributing_models:
             # References external aggregate or aggregate from previous phases only
@@ -656,7 +744,9 @@ class CashFlowOrchestrator:
         """
         contributing_models = []
         
-        logger.debug(f"Finding contributors to aggregate: {aggregate_key.value}")
+        # Handle both AggregateLineKey and other reference types safely
+        aggregate_display = aggregate_key.value if hasattr(aggregate_key, 'value') else str(aggregate_key)
+        logger.debug(f"Finding contributors to aggregate: {aggregate_display}")
         
         for model in self.models:
             # Skip models without proper categorization
@@ -684,7 +774,8 @@ class CashFlowOrchestrator:
                 contributing_models.append(model)
                 logger.debug(f"  Model '{model.name}' contributes directly")
         
-        logger.debug(f"Found {len(contributing_models)} contributors to {aggregate_key.value}")
+        aggregate_display_final = aggregate_key.value if hasattr(aggregate_key, 'value') else str(aggregate_key)
+        logger.debug(f"Found {len(contributing_models)} contributors to {aggregate_display_final}")
         return contributing_models
 
     def _trace_dependency_chain(self, model: "CashFlowModel") -> List[str]:
@@ -715,8 +806,9 @@ class CashFlowOrchestrator:
         if not model.reference:
             return chain
         
-        # Add the aggregate this model depends on
-        chain.append(f"[{model.reference.value}]")
+        # Add the aggregate this model depends on (handle both AggregateLineKey and other types)
+        reference_display = model.reference.value if hasattr(model.reference, 'value') else str(model.reference)
+        chain.append(f"[{reference_display}]")
         
         # Find what feeds into that aggregate and trace recursively
         contributing_models = self._find_models_contributing_to_aggregate(model.reference)

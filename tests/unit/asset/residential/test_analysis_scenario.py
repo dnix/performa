@@ -53,8 +53,8 @@ def sample_rollover_profile():
         market_rent_growth=PercentageGrowthRate(name="Market Growth", value=0.03),
         renewal_rent_increase_percent=0.025,
         concessions_months=0,
-        turnover_make_ready_cost_per_unit=1000.0,
-        turnover_leasing_fee_per_unit=500.0,
+        # Note: capital_plan_id is None for basic testing
+        capital_plan_id=None,
         term_months=12,
     )
     
@@ -159,8 +159,8 @@ def test_unit_mix_unrolling(sample_residential_property, analysis_timeline, glob
     assert len(expense_models) > 0, "Should have expense models"
     
     # Check that leases have the correct unit mix linkages
-    unit_1br_count = sum(1 for lease in lease_models if '1BR1BA' in lease.suite)
-    unit_2br_count = sum(1 for lease in lease_models if '2BR2BA' in lease.suite)
+    unit_1br_count = sum(1 for lease in lease_models if '1BR/1BA' in lease.suite)
+    unit_2br_count = sum(1 for lease in lease_models if '2BR/2BA' in lease.suite)
     
     assert unit_1br_count == 12, f"Expected 12 1BR units, got {unit_1br_count}"
     assert unit_2br_count == 8, f"Expected 8 2BR units, got {unit_2br_count}"
@@ -202,15 +202,27 @@ def test_analysis_scenario_properties(sample_residential_property, analysis_time
         settings=global_settings,
     )
     
-    # Test prepare_models method
-    models = scenario.prepare_models()
+    # Create mock context (similar to what run() creates)
+    from performa.analysis.orchestrator import AnalysisContext
+    context = AnalysisContext(
+        timeline=analysis_timeline,
+        settings=global_settings,
+        property_data=sample_residential_property,
+        capital_plan_lookup={},
+        rollover_profile_lookup={},
+    )
+    
+    # Test prepare_models method with context
+    models = scenario.prepare_models(context)
     
     # Should return a list of CashFlowModel instances
     assert isinstance(models, list)
     assert len(models) > 0
     
     # Should have the expected number of total models
-    expected_total = sample_residential_property.unit_count + 1  # leases + 1 expense
+    expected_lease_count = sample_residential_property.unit_count  # 20 leases
+    expected_expense_count = 1  # 1 operating expense item
+    expected_total = expected_lease_count + expected_expense_count
     assert len(models) == expected_total, \
         f"Expected {expected_total} total models, got {len(models)}"
     

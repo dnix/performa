@@ -65,8 +65,7 @@ class TestLargeScaleProperties:
             market_rent_growth=PercentageGrowthRate(name="Market Growth", value=0.035),  # 3.5% annual
             renewal_rent_increase_percent=0.028,  # 2.8% renewal increases
             concessions_months=1,  # 1 month free for new leases
-            turnover_make_ready_cost_per_unit=2200.0,  # Higher-end property
-            turnover_leasing_fee_per_unit=1200.0,
+            capital_plan_id=None,  # No capital plan for basic rollover (UUID-based architecture)
             term_months=12,
         )
         
@@ -75,8 +74,7 @@ class TestLargeScaleProperties:
             market_rent_growth=PercentageGrowthRate(name="Renewal Growth", value=0.025),  # 2.5% for renewals
             renewal_rent_increase_percent=0.028,
             concessions_months=0,  # No concessions for renewals
-            turnover_make_ready_cost_per_unit=0.0,  # No costs for renewals
-            turnover_leasing_fee_per_unit=0.0,
+            capital_plan_id=None,  # No costs for renewals (UUID-based architecture)
             term_months=12,
         )
         
@@ -309,6 +307,7 @@ class TestLargeScaleProperties:
         # Simple rollover profile for performance test
         rollover_terms = ResidentialRolloverLeaseTerms(
             market_rent=2200.0,
+            capital_plan_id=None,  # No capital plan for simple test (UUID-based architecture)
             term_months=12,
         )
         
@@ -445,8 +444,7 @@ class TestComplexScenarios:
             market_rent_growth=PercentageGrowthRate(name="Premium Growth", value=0.045),  # 4.5% annual
             renewal_rent_increase_percent=0.035,
             concessions_months=0,  # No concessions needed
-            turnover_make_ready_cost_per_unit=1500.0,
-            turnover_leasing_fee_per_unit=800.0,
+            capital_plan_id=None,  # No capital plan for premium units (UUID-based architecture)
             term_months=12,
         )
         
@@ -465,8 +463,7 @@ class TestComplexScenarios:
             market_rent_growth=PercentageGrowthRate(name="Standard Growth", value=0.025),  # 2.5% annual
             renewal_rent_increase_percent=0.020,
             concessions_months=1,  # Some concessions needed
-            turnover_make_ready_cost_per_unit=2200.0,  # Higher costs due to age
-            turnover_leasing_fee_per_unit=600.0,
+            capital_plan_id=None,  # No capital plan for standard units (UUID-based architecture)
             term_months=12,
         )
         

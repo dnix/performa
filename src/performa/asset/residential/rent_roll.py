@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import List, Optional
+from uuid import UUID
 
 from pydantic import Field, computed_field, model_validator
 
@@ -16,13 +17,18 @@ class ResidentialUnitSpec(Model):
     Instead of defining individual leases (as in office), we define groups
     of identical units with their shared characteristics.
     
+    ASSEMBLER PATTERN - BLUEPRINT COMPONENT:
+    This model stores only lightweight UUID references to capital plans.
+    The AnalysisScenario acts as the "Assembler" that resolves these UUIDs
+    into direct object references when creating runtime lease instances.
+    
     Key Architectural Concept:
     - unit_type_name: Human-readable identifier (e.g., "1BR/1BA - Garden")
     - unit_count: Number of identical units of this type
     - avg_area_sf: Average square footage per unit
     - current_avg_monthly_rent: Current average rent per unit per month
     - rollover_profile: Assumptions for turnover, rent growth, costs
-    - renovation_plan_name: Optional link to renovation project for value-add scenarios
+    - capital_plan_id: UUID reference to renovation project for value-add scenarios
     
     The analysis engine will "unroll" this specification into individual
     ResidentialLease instances - one for each physical unit.
@@ -33,9 +39,9 @@ class ResidentialUnitSpec(Model):
     avg_area_sf: PositiveFloat
     current_avg_monthly_rent: PositiveFloat
     rollover_profile: ResidentialRolloverProfile
-    renovation_plan_name: Optional[str] = Field(
+    capital_plan_id: Optional[UUID] = Field(
         default=None,
-        description="Name of the CapitalPlan to execute when units of this type turn over"
+        description="UUID reference to CapitalPlan for value-add renovations when units turn over"
     )
     
     @computed_field

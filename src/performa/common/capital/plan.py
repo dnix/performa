@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Dict, List, Optional, Union
+from uuid import UUID, uuid4
 
 from pydantic import Field, computed_field
 
@@ -56,6 +57,7 @@ class CapitalPlan(Model):
     name: str
     description: Optional[str] = None
     capital_items: List[CapitalItem] = Field(default_factory=list)
+    uid: UUID = Field(default_factory=uuid4)
     
     @computed_field
     @property

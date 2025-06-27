@@ -45,103 +45,117 @@ class ResidentialAnalysisScenario(AnalysisScenarioBase):
     
     model: ResidentialProperty
     
-    def prepare_models(self) -> List[CashFlowModel]:
+    def run(self) -> None:
         """
-        Prepares all cash flow models for residential analysis.
+        ASSEMBLER PATTERN - ENHANCED RUN METHOD
         
-        This method performs the critical "unrolling" operation:
-        1. Loop through each unit type specification
-        2. Create individual ResidentialLease instances for each physical unit
-        3. Add property-level expense and income models
-        4. Return complete list for the CashFlowOrchestrator
-        
-        Returns:
-            List of CashFlowModel instances ready for analysis
+        This override implements the user's architectural guidance:
+        1. Capital plans live on ResidentialProperty (Single Source of Truth)
+        2. AnalysisContext serves as the universal data bus
+        3. One-time UUID resolution during assembly
+        4. Leases get direct object references (no runtime lookups)
         """
-        all_models: List[CashFlowModel] = []
+        from performa.analysis.orchestrator import AnalysisContext, CashFlowOrchestrator
         
-        logger.info(f"Preparing models for residential property '{self.model.name}' "
-                   f"with {self.model.unit_count} total units")
+        # === 1. CREATE UUID LOOKUP MAPS ===
+        # This is the "hydration" step that happens once per analysis
+        capital_plan_lookup = {plan.uid: plan for plan in self.model.capital_plans}
         
-        # 1. UNROLL UNIT MIX: Convert unit specifications to individual lease instances
-        all_models.extend(self._create_lease_models_from_unit_mix())
+        # Collect all available rollover profiles (from unit specs and property)
+        rollover_profile_lookup = {}
+        if self.model.unit_mix:
+            for unit_spec in self.model.unit_mix.unit_specs:
+                profile = unit_spec.rollover_profile
+                rollover_profile_lookup[profile.uid] = profile
+                
+                # Also collect any next_rollover_profiles that might be referenced
+                if profile.next_rollover_profile_id and profile.next_rollover_profile_id not in rollover_profile_lookup:
+                    # This would typically be resolved from a property-level rollover profile library
+                    # For now, we assume all needed profiles are referenced via unit specs
+                    pass
         
-        # 2. PROPERTY EXPENSES: Add operating and capital expense models
-        all_models.extend(self._create_expense_models())
+        # === 2. CREATE ENHANCED CONTEXT ===
+        # The context becomes the universal data bus
+        context = AnalysisContext(
+            timeline=self.timeline,
+            settings=self.settings,
+            property_data=self.model,
+            capital_plan_lookup=capital_plan_lookup,
+            rollover_profile_lookup=rollover_profile_lookup,
+        )
+
+        # === 3. ASSEMBLE MODELS WITH DIRECT OBJECT INJECTION ===
+        all_models = self.prepare_models(context)
+
+        # === 4. RUN ORCHESTRATOR ===
+        orchestrator = CashFlowOrchestrator(models=all_models, context=context)
+        orchestrator.execute()
+        self._orchestrator = orchestrator
+
+    def prepare_models(self, context: AnalysisContext) -> List[CashFlowModel]:
+        """
+        ASSEMBLER LOGIC - UUID RESOLUTION AND OBJECT INJECTION
         
-        # 3. MISCELLANEOUS INCOME: Add additional income streams
-        all_models.extend(self._create_misc_income_models())
+        This method now receives the fully-prepared context and performs
+        the critical "assembly" step: resolving UUID references into
+        direct object references for maximum runtime performance.
+        """
+        all_models = []
+        prop: ResidentialProperty = self.model
         
-        logger.info(f"Prepared {len(all_models)} total cash flow models for analysis")
+        # Add individual expense items (not containers)
+        # Only individual CashFlowModel instances should go to orchestrator
+        if prop.expenses.operating_expenses:
+            all_models.extend(prop.expenses.operating_expenses)
+        if prop.expenses.capital_expenses:
+            all_models.extend(prop.expenses.capital_expenses)
         
+        # Add miscellaneous income items (these inherit from CashFlowModel)
+        all_models.extend(prop.miscellaneous_income)
+        
+        # Note: Losses are handled differently by the orchestrator and don't go in all_models
+
+        # === ASSEMBLE LEASES BY UNROLLING UNIT MIX ===
+        if prop.unit_mix:
+            for unit_spec in prop.unit_mix.unit_specs:
+                for unit_index in range(unit_spec.unit_count):
+                    lease_instance = self._create_lease_from_unit_spec(unit_spec, unit_index, context)
+                    all_models.append(lease_instance)
+
         return all_models
-    
-    def _create_lease_models_from_unit_mix(self) -> List[ResidentialLease]:
-        """
-        The heart of residential analysis: convert unit mix to individual leases.
-        
-        This method embodies the paradigm shift from office to residential:
-        - Office: rent_roll.leases (already individual)
-        - Residential: unit_mix.unit_specs (aggregate -> needs unrolling)
-        
-        For each unit spec (e.g., "1BR/1BA - Garden Level", count=25):
-        1. Loop 25 times to create 25 individual ResidentialLease instances
-        2. Each lease represents one physical apartment unit
-        3. Set reasonable defaults for lease timing and terms
-        4. Link each lease to its source unit spec for rollover logic
-        
-        Returns:
-            List of ResidentialLease instances (one per physical unit)
-        """
-        lease_models = []
-        
-        for unit_spec in self.model.unit_mix.unit_specs:
-            logger.debug(f"Unrolling unit spec '{unit_spec.unit_type_name}': "
-                        f"{unit_spec.unit_count} units at ${unit_spec.current_avg_monthly_rent}/month")
-            
-            # Create individual lease instance for each physical unit
-            for unit_number in range(1, unit_spec.unit_count + 1):
-                lease_instance = self._create_lease_from_unit_spec(unit_spec, unit_number)
-                lease_models.append(lease_instance)
-        
-        logger.info(f"Created {len(lease_models)} individual lease instances from unit mix")
-        return lease_models
-    
+
     def _create_lease_from_unit_spec(
-        self, 
-        unit_spec: ResidentialUnitSpec, 
-        unit_number: int
+        self, unit_spec: ResidentialUnitSpec, unit_index: int, context: AnalysisContext
     ) -> ResidentialLease:
         """
-        Create a single ResidentialLease instance from a unit specification.
+        ASSEMBLER CORE LOGIC - RESOLVE UUIDS AND INJECT OBJECT REFERENCES
         
-        This method sets up realistic defaults for a stabilized property analysis:
-        - All leases start at analysis start (stabilized assumption)
-        - Standard 12-month lease terms (typical residential)
-        - Sequential suite numbering for identification
-        - Links back to source spec for rollover logic
-        - Access to property capital plans for renovation triggers
-        
-        Args:
-            unit_spec: The unit type specification
-            unit_number: Sequential number for this unit (1, 2, 3...)
-            
-        Returns:
-            ResidentialLease instance representing one physical unit
+        This is where the "magic" happens: lightweight UUID references
+        get resolved into direct object references for zero-lookup performance.
         """
-        # Generate a unique suite identifier
-        # Format: "{UnitType}-{Number}" (e.g., "1BR1BA-001", "1BR1BA-002")
-        safe_unit_type = unit_spec.unit_type_name.replace("/", "").replace(" ", "").replace("-", "")
-        suite_id = f"{safe_unit_type}-{unit_number:03d}"
+        suite_id = f"{unit_spec.unit_type_name}_{unit_index + 1:03d}"
         
-        # For stabilized properties, assume all leases start at analysis start
-        # Future enhancement: stagger lease start dates for more realistic modeling
+        # === UUID RESOLUTION ===
+        # Resolve capital plan for THIS turnover
+        current_capital_plan = None
+        if unit_spec.capital_plan_id:
+            current_capital_plan = context.capital_plan_lookup.get(unit_spec.capital_plan_id)
+            
+        # Resolve next rollover profile for state transitions
+        next_rollover_profile = None
+        if unit_spec.rollover_profile.next_rollover_profile_id:
+            next_rollover_profile = context.rollover_profile_lookup.get(
+                unit_spec.rollover_profile.next_rollover_profile_id
+            )
+        
+        # Create lease timeline (for stabilized property, all leases start at analysis start)
         lease_timeline = Timeline(
             start_date=self.timeline.start_date.to_timestamp().date(),
             duration_months=12  # Standard residential lease term
         )
         
-        # Create the lease instance
+        # === OBJECT INJECTION ===
+        # Create lease with DIRECT OBJECT REFERENCES (no UUIDs, no lookups)
         lease = ResidentialLease(
             name=f"Resident {suite_id}",
             timeline=lease_timeline,
@@ -150,17 +164,15 @@ class ResidentialAnalysisScenario(AnalysisScenarioBase):
             suite=suite_id,
             floor="1",  # Simplified - future enhancement could vary by unit
             upon_expiration=UponExpirationEnum.MARKET,  # Standard rollover handling
-            value=unit_spec.current_avg_monthly_rent,  # Monthly rent in dollars
+            monthly_rent=unit_spec.current_avg_monthly_rent,  # Monthly rent in dollars
+            value=unit_spec.current_avg_monthly_rent,  # Same as monthly_rent for CashFlowModel
             unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             frequency=FrequencyEnum.MONTHLY,
             rollover_profile=unit_spec.rollover_profile,
-            source_spec=unit_spec,  # Critical link for rollover logic
-            capital_plans=self.model.capital_plans,  # Enable renovation triggers
-            settings=self.settings,
+            # DIRECT OBJECT INJECTION - NO LOOKUPS NEEDED AT RUNTIME
+            turnover_capital_plan=current_capital_plan,
+            next_rollover_profile=next_rollover_profile,
         )
-        
-        logger.debug(f"Created lease for {suite_id}: ${unit_spec.current_avg_monthly_rent}/month, "
-                    f"{unit_spec.avg_area_sf} SF, renovation_plan: {unit_spec.renovation_plan_name}")
         
         return lease
     

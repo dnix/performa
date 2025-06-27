@@ -17,6 +17,7 @@ class GrowthRateBase(Model):
     Provides common interface for rate objects that can represent
     time-varying values for financial modeling.
     """
+    # TODO: add a discriminator field to the model on `kind`?
     name: str
 
 

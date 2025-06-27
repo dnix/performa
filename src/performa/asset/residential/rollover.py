@@ -3,10 +3,12 @@ from __future__ import annotations
 import logging
 from datetime import date
 from typing import Optional
+from uuid import UUID
 
 from pydantic import Field, computed_field
 
 from ...common.base import RolloverLeaseTermsBase, RolloverProfileBase
+from ...common.capital import CapitalPlan
 from ...common.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -24,10 +26,11 @@ class ResidentialRolloverLeaseTerms(RolloverLeaseTermsBase):
     Simplified rollover lease terms for residential properties.
     
     Key Simplifications vs. Commercial:
-    - No TI/LC per square foot (use fixed per-unit costs instead)
+    - No TI/LC per square foot (use CapitalPlan for all costs)
     - No complex recovery methods (residents don't pay building expenses)
     - No rent escalations during term (typically flat rent)
     - Optional post-renovation rent premiums for value-add scenarios
+    - Universal CapitalPlan primitive for all capital outlays
     """
     
     # === RENT TERMS ===
@@ -38,9 +41,12 @@ class ResidentialRolloverLeaseTerms(RolloverLeaseTermsBase):
     # === CONCESSIONS ===
     concessions_months: PositiveInt = 0  # Free rent months
     
-    # === TURNOVER COSTS (Per Unit) ===
-    make_ready_cost_per_unit: PositiveFloat = 1500.0  # Unit preparation costs
-    leasing_fee_per_unit: PositiveFloat = 500.0  # Leasing commission costs
+    # === UUID-BASED CAPITAL PLAN REFERENCE ===
+    # REPLACES: turnover_plan field - now uses lightweight UUID reference
+    capital_plan_id: Optional[UUID] = Field(
+        default=None,
+        description="UUID reference to CapitalPlan for turnover costs (make-ready, leasing, etc.)"
+    )
     
     # === VALUE-ADD CAPABILITIES ===
     post_renovation_rent_premium: PositiveFloat = Field(
@@ -74,15 +80,76 @@ class ResidentialRolloverLeaseTerms(RolloverLeaseTermsBase):
         else:
             return self.market_rent
 
+    @classmethod
+    def with_simple_turnover(
+        cls,
+        market_rent: float,
+        make_ready_cost: float = 1500.0,
+        leasing_fee: float = 500.0,
+        duration_months: int = 1,
+        **kwargs,
+    ) -> "ResidentialRolloverLeaseTerms":
+        """
+        Convenience factory for creating lease terms with simple turnover costs.
+        
+        This method provides backward compatibility and ease of use for common scenarios
+        where turnover costs are simple make-ready and leasing fees.
+        
+        Args:
+            market_rent: Market rent for this unit type
+            make_ready_cost: Unit preparation costs (painting, cleaning, repairs)
+            leasing_fee: Leasing commission and marketing costs
+            duration_months: Timeline for turnover work (default: 1 month)
+            **kwargs: Additional fields for ResidentialRolloverLeaseTerms
+            
+        Returns:
+            ResidentialRolloverLeaseTerms instance with CapitalPlan for turnover costs
+            
+        Example:
+            terms = ResidentialRolloverLeaseTerms.with_simple_turnover(
+                market_rent=2500.0,
+                make_ready_cost=1200.0,
+                leasing_fee=400.0,
+                renewal_rent_increase_percent=0.035
+            )
+        """
+        # Create CapitalPlan for turnover costs using concurrent pattern
+        turnover_plan = None
+        if make_ready_cost > 0 or leasing_fee > 0:
+            costs = {}
+            if make_ready_cost > 0:
+                costs["Make-Ready"] = make_ready_cost
+            if leasing_fee > 0:
+                costs["Leasing Fee"] = leasing_fee
+                
+            turnover_plan = CapitalPlan.create_concurrent_renovation(
+                name="Standard Unit Turnover",
+                start_date=date(2000, 1, 1),  # Placeholder date - will be shifted by lease logic
+                duration_months=duration_months,
+                costs=costs,
+                description=f"Turnover costs: Make-ready ${make_ready_cost:,.0f}, Leasing ${leasing_fee:,.0f}"
+            )
+        
+        return cls(
+            market_rent=market_rent,
+            capital_plan_id=turnover_plan.uid if turnover_plan else None,
+            **kwargs
+        )
+
 
 class ResidentialRolloverProfile(RolloverProfileBase):
     """
     Residential-specific profile for lease rollovers and renewals.
     
+    STATE MACHINE ARCHITECTURE:
+    Each profile represents a state a unit can be in (e.g., "Classic Unit", "Renovated Unit").
+    The next_rollover_profile_id field enables declarative state transitions.
+    
     Captures the typical multifamily leasing patterns:
     - Higher renewal probability than commercial (60-70% typical)
     - Shorter downtime (1-2 months vs. 3-6 for commercial)
     - Simplified cost structures
+    - Declarative state transitions for value-add scenarios
     """
     
     # Residential-specific defaults
@@ -94,6 +161,12 @@ class ResidentialRolloverProfile(RolloverProfileBase):
     market_terms: ResidentialRolloverLeaseTerms
     renewal_terms: ResidentialRolloverLeaseTerms
     option_terms: Optional[ResidentialRolloverLeaseTerms] = None
+    
+    # === STATE MACHINE TRANSITION ===
+    next_rollover_profile_id: Optional[UUID] = Field(
+        default=None,
+        description="UUID of the rollover profile to use for the NEXT turnover (enables state transitions)"
+    )
 
     def _calculate_rent(
         self,
@@ -180,14 +253,30 @@ class ResidentialRolloverProfile(RolloverProfileBase):
         # Blend concessions (round to whole months)
         blended_concessions = round((renewal_terms.concessions_months * renewal_prob) + (market_terms.concessions_months * market_prob))
         
-        # Blend turnover costs
-        blended_make_ready = (renewal_terms.make_ready_cost_per_unit * renewal_prob) + (market_terms.make_ready_cost_per_unit * market_prob)
-        blended_leasing_fee = (renewal_terms.leasing_fee_per_unit * renewal_prob) + (market_terms.leasing_fee_per_unit * market_prob)
+        # Blend turnover costs - use weighted selection approach
+        blended_turnover = None
+        if market_terms.capital_plan_id and renewal_terms.capital_plan_id:
+            # For simplicity, use market terms plan when both exist (market rate turnovers typically more expensive)
+            # Future enhancement: Could implement weighted blending of individual CapitalItems
+            blended_turnover = market_terms.capital_plan_id
+        elif market_terms.capital_plan_id:
+            blended_turnover = market_terms.capital_plan_id
+        elif renewal_terms.capital_plan_id:
+            blended_turnover = renewal_terms.capital_plan_id
+
+        # Blend term length - ensure we always have a valid term_months
+        blended_term_months = self.term_months  # Use profile default as fallback
         
-        # Blend term length
-        blended_term_months = market_terms.term_months
-        if renewal_terms.term_months and market_terms.term_months:
+        if market_terms.term_months and renewal_terms.term_months:
             blended_term_months = round((renewal_terms.term_months * renewal_prob) + (market_terms.term_months * market_prob))
+        elif market_terms.term_months:
+            blended_term_months = market_terms.term_months
+        elif renewal_terms.term_months:
+            blended_term_months = renewal_terms.term_months
+        
+        # Final fallback to ensure we never return None
+        if blended_term_months is None:
+            blended_term_months = 12  # Standard residential lease term
 
         return ResidentialRolloverLeaseTerms(
             market_rent=blended_rent,
@@ -196,7 +285,6 @@ class ResidentialRolloverProfile(RolloverProfileBase):
             market_rent_growth=blended_growth,
             renewal_rent_increase_percent=blended_renewal_increase,
             concessions_months=blended_concessions,
-            make_ready_cost_per_unit=blended_make_ready,
-            leasing_fee_per_unit=blended_leasing_fee,
+            capital_plan_id=blended_turnover,
             term_months=blended_term_months
         ) 
