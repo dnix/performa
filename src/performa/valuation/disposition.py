@@ -1,0 +1,220 @@
+"""
+Universal Disposition Valuation - Exit Strategy Modeling
+
+Universal disposition valuation that works for any property type:
+office, residential, development projects, existing assets, etc.
+"""
+
+from __future__ import annotations
+
+from typing import Dict, Optional
+from uuid import UUID, uuid4
+
+from pydantic import Field, model_validator
+
+from ..common.primitives import Model, PositiveFloat
+
+
+class DispositionValuation(Model):
+    """
+    Universal exit strategy valuation for any property type.
+    
+    Provides flexible disposition modeling using cap rate methodologies
+    that work across all asset classes and scenarios.
+    
+    Attributes:
+        name: Human-readable name for the disposition scenario
+        cap_rate: Cap rate for property valuation at disposition
+        transaction_costs_rate: Transaction costs as percentage of sale price
+        hold_period_months: Holding period to disposition (optional)
+        cap_rates_by_use: Asset-specific cap rates for mixed-use properties
+        uid: Unique identifier
+        
+    Example:
+        ```python
+        # Simple disposition for any property type
+        disposition = DispositionValuation(
+            name="Standard Sale",
+            cap_rate=0.065,
+            transaction_costs_rate=0.025
+        )
+        
+        # Mixed-use with different cap rates
+        disposition = DispositionValuation(
+            name="Mixed-Use Sale",
+            cap_rate=0.06,  # Blended rate
+            cap_rates_by_use={
+                "office": 0.055,
+                "retail": 0.070,
+                "residential": 0.045
+            },
+            transaction_costs_rate=0.030
+        )
+        ```
+    """
+    
+    # === CORE IDENTITY ===
+    name: str = Field(...)
+    uid: UUID = Field(default_factory=uuid4)
+    
+    # === DISPOSITION PARAMETERS ===
+    cap_rate: PositiveFloat = Field(
+        ..., description="Cap rate for property valuation at disposition"
+    )
+    transaction_costs_rate: PositiveFloat = Field(
+        default=0.025, description="Transaction costs as percentage of sale price"
+    )
+    hold_period_months: Optional[int] = Field(
+        default=None, description="Holding period to disposition (optional for modeling)"
+    )
+    
+    # === ADVANCED PARAMETERS ===
+    cap_rates_by_use: Optional[Dict[str, PositiveFloat]] = Field(
+        default=None, description="Asset-specific cap rates for mixed-use properties"
+    )
+    
+    # === VALIDATION ===
+    
+    @model_validator(mode="after")
+    def validate_disposition_parameters(self) -> "DispositionValuation":
+        """Validate disposition parameters are reasonable."""
+        # Validate main cap rate
+        if not (0.01 <= self.cap_rate <= 0.20):
+            raise ValueError(
+                f"Cap rate ({self.cap_rate:.1%}) should be between 1% and 20%"
+            )
+        
+        # Validate transaction costs
+        if not (0.005 <= self.transaction_costs_rate <= 0.10):
+            raise ValueError(
+                f"Transaction costs rate ({self.transaction_costs_rate:.1%}) should be between 0.5% and 10%"
+            )
+        
+        # Validate asset-specific cap rates if provided
+        if self.cap_rates_by_use:
+            for use_type, cap_rate in self.cap_rates_by_use.items():
+                if not (0.01 <= cap_rate <= 0.20):
+                    raise ValueError(
+                        f"Cap rate for {use_type} ({cap_rate:.1%}) should be between 1% and 20%"
+                    )
+        
+        return self
+    
+    # === COMPUTED PROPERTIES ===
+    
+    @property
+    def net_sale_proceeds_rate(self) -> float:
+        """Net proceeds rate after transaction costs."""
+        return 1.0 - self.transaction_costs_rate
+    
+    # === CALCULATION METHODS ===
+    
+    def calculate_gross_value(
+        self, 
+        stabilized_noi: float,
+        noi_by_use: Optional[Dict[str, float]] = None
+    ) -> float:
+        """
+        Calculate gross disposition value based on stabilized NOI.
+        
+        Args:
+            stabilized_noi: Total stabilized NOI
+            noi_by_use: NOI breakdown by use type (for mixed-use properties)
+            
+        Returns:
+            Gross disposition value before transaction costs
+        """
+        if self.cap_rates_by_use and noi_by_use:
+            # Use asset-specific cap rates
+            total_value = 0.0
+            for use_type, noi in noi_by_use.items():
+                if use_type in self.cap_rates_by_use:
+                    cap_rate = self.cap_rates_by_use[use_type]
+                    total_value += noi / cap_rate
+                else:
+                    # Fall back to blended cap rate
+                    total_value += noi / self.cap_rate
+            return total_value
+        else:
+            # Simple cap rate valuation
+            return stabilized_noi / self.cap_rate
+    
+    def calculate_net_proceeds(
+        self,
+        stabilized_noi: float,
+        noi_by_use: Optional[Dict[str, float]] = None
+    ) -> float:
+        """
+        Calculate net disposition proceeds after transaction costs.
+        
+        Args:
+            stabilized_noi: Total stabilized NOI
+            noi_by_use: NOI breakdown by use type (for mixed-use properties)
+            
+        Returns:
+            Net disposition proceeds after transaction costs
+        """
+        gross_value = self.calculate_gross_value(stabilized_noi, noi_by_use)
+        return gross_value * self.net_sale_proceeds_rate
+    
+    def calculate_metrics(
+        self,
+        stabilized_noi: float,
+        total_cost_basis: float,
+        noi_by_use: Optional[Dict[str, float]] = None
+    ) -> Dict[str, float]:
+        """
+        Calculate key disposition metrics.
+        
+        Args:
+            stabilized_noi: Total stabilized NOI
+            total_cost_basis: Total cost basis (acquisition + development + improvements)
+            noi_by_use: NOI breakdown by use type (for mixed-use properties)
+            
+        Returns:
+            Dictionary of disposition metrics
+        """
+        gross_value = self.calculate_gross_value(stabilized_noi, noi_by_use)
+        net_proceeds = self.calculate_net_proceeds(stabilized_noi, noi_by_use)
+        
+        return {
+            "gross_disposition_value": gross_value,
+            "net_disposition_proceeds": net_proceeds,
+            "transaction_costs": gross_value - net_proceeds,
+            "total_profit": net_proceeds - total_cost_basis,
+            "profit_margin": (net_proceeds - total_cost_basis) / total_cost_basis if total_cost_basis > 0 else 0.0,
+            "disposition_cap_rate": self.cap_rate,
+            "stabilized_yield_on_cost": stabilized_noi / total_cost_basis if total_cost_basis > 0 else 0.0,
+        }
+    
+    # === FACTORY METHODS ===
+    
+    @classmethod
+    def conservative(
+        cls,
+        name: str = "Conservative Sale",
+        cap_rate: float = 0.065,
+        **kwargs
+    ) -> "DispositionValuation":
+        """Factory method for conservative disposition assumptions."""
+        return cls(
+            name=name,
+            cap_rate=cap_rate,
+            transaction_costs_rate=0.025,  # 2.5% transaction costs
+            **kwargs
+        )
+    
+    @classmethod
+    def aggressive(
+        cls,
+        name: str = "Aggressive Sale",
+        cap_rate: float = 0.055,
+        **kwargs
+    ) -> "DispositionValuation":
+        """Factory method for aggressive disposition assumptions."""
+        return cls(
+            name=name,
+            cap_rate=cap_rate,
+            transaction_costs_rate=0.020,  # 2.0% transaction costs
+            **kwargs
+        ) 
