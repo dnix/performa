@@ -1,12 +1,11 @@
-"""Interest rate types and calculations"""
+"""Interest rate models for debt facilities"""
 
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import Field, model_validator
 
-from ..core._model import Model
-from ..core._types import FloatBetween0And1
+from ..common.primitives import FloatBetween0And1, Model
 
 
 class InterestRateType(str, Enum):

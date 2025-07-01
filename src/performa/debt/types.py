@@ -5,8 +5,8 @@ from typing import Union
 from pydantic import Field
 from typing_extensions import Annotated
 
-from ._construction import ConstructionFacility
-from ._permanent import PermanentFacility
+from .construction import ConstructionFacility
+from .permanent import PermanentFacility
 
 # Common type definitions
 AnyDebtFacility = Annotated[

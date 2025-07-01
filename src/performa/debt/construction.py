@@ -6,10 +6,9 @@ import numpy as np
 import pandas as pd
 from pydantic import Field, model_validator
 
-from ..core._model import Model
-from ..core._types import FloatBetween0And1, PositiveFloat
-from ._debt_facility import DebtFacility
-from ._rates import InterestRate
+from ..common.primitives import FloatBetween0And1, Model, PositiveFloat
+from .debt_facility import DebtFacility
+from .rates import InterestRate
 
 
 class DebtTranche(Model):
