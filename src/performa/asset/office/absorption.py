@@ -535,6 +535,8 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase):
     ]
     leasing_assumptions: Union[str, DirectLeaseTerms]
 
+    # FIXME: Add stabilized operating assumptions interface? expenses, losses, misc_income, etc.
+
     def generate_lease_specs(
         self,
         available_vacant_suites: List[OfficeVacantSuite],

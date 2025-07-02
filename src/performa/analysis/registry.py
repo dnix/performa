@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, Type
+from typing import TYPE_CHECKING, Callable, Dict, Type
 
 if TYPE_CHECKING:
     from .scenario import AnalysisScenarioBase

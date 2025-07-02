@@ -130,8 +130,8 @@ class ResidentialAnalysisScenario(AnalysisScenarioBase):
         """
         ASSEMBLER CORE LOGIC - RESOLVE UUIDS AND INJECT OBJECT REFERENCES
         
-        This is where the "magic" happens: lightweight UUID references
-        get resolved into direct object references for zero-lookup performance.
+        Critical assembler step: lightweight UUID references are resolved
+        into direct object references for zero-lookup performance.
         """
         suite_id = f"{unit_spec.unit_type_name}_{unit_index + 1:03d}"
         

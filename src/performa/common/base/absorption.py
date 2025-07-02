@@ -26,6 +26,7 @@ from ..primitives.enums import (
     UnitOfMeasureEnum,
     UponExpirationEnum,
 )
+from ..primitives.growth_rates import GrowthRate
 from ..primitives.model import Model
 from ..primitives.settings import GlobalSettings
 from ..primitives.timeline import Timeline
@@ -44,6 +45,20 @@ logger = logging.getLogger(__name__)
 class SuiteAbsorptionState:
     remaining_area: float
     units_created: int = 0
+
+    def absorb_area(self, area: float) -> None:
+        self.remaining_area = max(0, self.remaining_area - area)
+
+    def create_unit(self) -> None:
+        self.units_created += 1
+
+    @property
+    def fully_absorbed(self) -> bool:
+        return self.remaining_area <= 0.01  # Small tolerance for floating point comparison
+
+    @property
+    def has_available_area(self) -> bool:
+        return self.remaining_area > 0.01
 
 
 class SpaceFilter(Model):
@@ -103,7 +118,8 @@ class DirectLeaseTerms(Model):
     recovery_method: Optional["RecoveryMethodBase"] = None
     ti_allowance: Optional["TenantImprovementAllowanceBase"] = None
     leasing_commission: Optional["LeasingCommissionBase"] = None
-
+    market_rent_growth: Optional[GrowthRate] = None  # Allows rents to escalate during multi-year lease-up
+    # FIXME: review this for internal consistency
 
 AnchorLogic = Any
 

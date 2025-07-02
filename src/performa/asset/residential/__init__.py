@@ -13,6 +13,7 @@ Key Components:
 - ResidentialVacantUnit: Specification for groups of vacant units
 - ResidentialLease: Runtime lease model for individual units
 - ResidentialAnalysisScenario: Analysis orchestration
+- ResidentialAbsorptionPlan: Unit-based absorption modeling for developments
 
 The architecture mirrors the office module's explicit vacancy pattern,
 where occupancy emerges from the composition of occupied vs vacant units.
@@ -21,7 +22,9 @@ where occupancy emerges from the composition of occupied vs vacant units.
 # Import order matters for forward references
 # Import CapitalPlan to resolve forward references
 from ...common.capital import CapitalPlan
+from .absorption import ResidentialAbsorptionPlan
 from .analysis import ResidentialAnalysisScenario
+from .blueprint import ResidentialDevelopmentBlueprint
 from .expense import ResidentialCapExItem, ResidentialExpenses, ResidentialOpExItem
 from .lease import ResidentialLease
 from .losses import (
@@ -39,34 +42,28 @@ from .rollover import ResidentialRolloverLeaseTerms, ResidentialRolloverProfile
 ResidentialLease.model_rebuild()
 
 __all__ = [
-    # Core property model
+    # Property and container models
     "ResidentialProperty",
+    "ResidentialRentRoll",
+    "ResidentialUnitSpec", 
+    "ResidentialVacantUnit",
     
-    # Expenses
+    # Analysis and cash flow models
+    "ResidentialAnalysisScenario",
+    "ResidentialLease",
     "ResidentialExpenses",
-    "ResidentialOpExItem", 
+    "ResidentialOpExItem",
     "ResidentialCapExItem",
-    
-    # Losses
     "ResidentialLosses",
     "ResidentialGeneralVacancyLoss",
     "ResidentialCollectionLoss",
-    
-    # Miscellaneous Income
     "ResidentialMiscIncome",
     
-    # Unit Mix & Rent Roll (Step 1.2)
-    "ResidentialRentRoll",
-    "ResidentialUnitSpec", 
-    "ResidentialVacantUnit",  # New vacant unit model
-    
-    # Rollover Logic (Step 1.3)
+    # Rollover and absorption models
     "ResidentialRolloverProfile",
     "ResidentialRolloverLeaseTerms",
+    "ResidentialAbsorptionPlan",
     
-    # Runtime Lease Model (Step 1.4)
-    "ResidentialLease",
-    
-    # Analysis Scenario Plugin (Step 1.5)
-    "ResidentialAnalysisScenario",
+    # Development models
+    "ResidentialDevelopmentBlueprint",
 ] 

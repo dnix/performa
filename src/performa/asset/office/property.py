@@ -129,13 +129,19 @@ class OfficeProperty(PropertyBaseModel):
         
         # Allow small rounding differences (0.1% tolerance)
         tolerance = 0.001
-        if abs(rent_roll_total - nra) / nra > tolerance:
+        if nra > 0 and abs(rent_roll_total - nra) / nra > tolerance:
             percentage_diff = abs(rent_roll_total - nra) / nra * 100
             logger.warning(
                 f"Area inconsistency detected in property '{self.name}': "
                 f"Rent roll total area ({rent_roll_total:,.0f} SF) differs from "
                 f"Net Rentable Area ({nra:,.0f} SF) by {percentage_diff:.1f}%. "
                 f"This may indicate missing vacant suites or incorrect NRA specification."
+            )
+        elif nra == 0 and rent_roll_total > 0:
+            logger.warning(
+                f"Area inconsistency detected in property '{self.name}': "
+                f"Rent roll has {rent_roll_total:,.0f} SF but Net Rentable Area is 0. "
+                f"This may indicate missing NRA specification."
             )
         
         return self 
