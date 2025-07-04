@@ -143,7 +143,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class CashFlowOrchestrator:
-    # --- Configuration (set via __init__) ---
+    # --- Configuration ---
     models: List["CashFlowModel"]
     context: AnalysisContext
     
