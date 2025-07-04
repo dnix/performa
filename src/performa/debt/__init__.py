@@ -6,6 +6,7 @@ from .amortization import LoanAmortization
 from .construction import ConstructionFacility, DebtTranche
 from .debt_facility import DebtFacility
 from .permanent import PermanentFacility
+from .plan import FinancingPlan
 from .rates import InterestRate, InterestRateType
 from .types import AnyDebtFacility
 
@@ -15,6 +16,7 @@ __all__ = [
     "ConstructionFacility",
     "PermanentFacility",
     "DebtTranche",
+    "FinancingPlan",
     "InterestRate",
     "InterestRateType",
     "LoanAmortization",

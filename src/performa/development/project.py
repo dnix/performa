@@ -19,6 +19,7 @@ from ..asset.office import OfficeDevelopmentBlueprint
 from ..asset.residential import ResidentialDevelopmentBlueprint
 from ..common.base import DevelopmentBlueprintBase, PropertyBaseModel
 from ..common.capital import CapitalPlan
+from ..common.primitives import AssetTypeEnum
 from ..debt import ConstructionFacility
 from ..valuation import DispositionValuation
 
@@ -72,6 +73,16 @@ class DevelopmentProject(PropertyBaseModel):
         )
         ```
     """
+    
+    
+    # Development projects must specify what property type they're developing
+    # This is required (in parent class)and should reflect the actual development:
+    # - AssetTypeEnum.OFFICE for office-only developments  
+    # - AssetTypeEnum.MULTIFAMILY for residential-only developments
+    # - AssetTypeEnum.MIXED_USE for true mixed-use developments
+    # - etc.
+    # TODO: review this
+    # property_type: AssetTypeEnum  # Required field inherited from PropertyBaseModel
     
     # Construction & Development
     construction_plan: CapitalPlan

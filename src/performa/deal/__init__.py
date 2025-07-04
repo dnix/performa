@@ -8,7 +8,11 @@ deal-level financial structuring.
 """
 
 from .acquisition import AcquisitionTerms
+from .calculator import analyze_deal
+from .deal import Deal
 
 __all__ = [
     "AcquisitionTerms",
+    "Deal",
+    "analyze_deal",
 ] 

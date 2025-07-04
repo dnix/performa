@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 from pydantic import Field, computed_field, model_validator
 
 from ...common.base import PropertyBaseModel, VacantSuiteBase
-from ...common.primitives import Model
+from ...common.primitives import AssetTypeEnum, Model
 from .absorption import OfficeAbsorptionPlan
 from .expense import OfficeExpenses
 from .lease_spec import OfficeLeaseSpec
@@ -28,6 +28,7 @@ class RentRoll(Model):
     leases: List[OfficeLeaseSpec] = Field(default_factory=list)
     vacant_suites: List[VacantSuiteBase] = Field(default_factory=list)
 
+    @computed_field
     @property
     def total_occupied_area(self) -> float:
         return sum(lease.area for lease in self.leases)
@@ -50,6 +51,9 @@ class OfficeProperty(PropertyBaseModel):
     Represents the full data model for an office property.
     """
 
+    # Real estate classification - this IS a property type (unlike DevelopmentProject)
+    property_type: AssetTypeEnum = AssetTypeEnum.OFFICE
+    
     rent_roll: OfficeRentRoll
     losses: OfficeLosses
     miscellaneous_income: List[OfficeMiscIncome] = Field(default_factory=list)

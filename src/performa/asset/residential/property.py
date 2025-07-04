@@ -31,6 +31,7 @@ class ResidentialProperty(PropertyBaseModel):
     """
     
     # === CORE FIELDS ===
+    # Real estate classification - this IS a property type (unlike DevelopmentProject)
     property_type: AssetTypeEnum = AssetTypeEnum.MULTIFAMILY
     unit_mix: ResidentialRentRoll
     
