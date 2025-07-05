@@ -451,8 +451,8 @@ def test_office_baseline_validation(office_baseline_cash_flows):
     
     # Check expected revenue
     # 50,000 SF * $50/SF = $2,500,000 annual = ~$208,333 monthly
-    if "AggregateLineKey.POTENTIAL_GROSS_REVENUE" in office_baseline_cash_flows.columns:
-        monthly_revenue = office_baseline_cash_flows["AggregateLineKey.POTENTIAL_GROSS_REVENUE"].iloc[0]
+    if "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE" in office_baseline_cash_flows.columns:
+        monthly_revenue = office_baseline_cash_flows["UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"].iloc[0]
         expected_revenue = 208333.33  # $2.5M / 12 months
         assert monthly_revenue == pytest.approx(expected_revenue, rel=0.02)
 
@@ -481,11 +481,11 @@ def test_office_development_matches_baseline(
     development_stabilized = development_cash_flows.loc[stabilized_start:]
     
     # Core validation: revenue flows should match
-    if ("AggregateLineKey.POTENTIAL_GROSS_REVENUE" in office_baseline_cash_flows.columns and 
-        "AggregateLineKey.POTENTIAL_GROSS_REVENUE" in development_stabilized.columns):
+    if ("UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE" in office_baseline_cash_flows.columns and 
+        "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE" in development_stabilized.columns):
         
-        baseline_revenue = office_baseline_cash_flows["AggregateLineKey.POTENTIAL_GROSS_REVENUE"].iloc[0]
-        development_revenue = development_stabilized["AggregateLineKey.POTENTIAL_GROSS_REVENUE"].iloc[0]
+        baseline_revenue = office_baseline_cash_flows["UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"].iloc[0]
+        development_revenue = development_stabilized["UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"].iloc[0]
         
         print(f"Baseline revenue: ${baseline_revenue:,.0f}/month")
         print(f"Development revenue: ${development_revenue:,.0f}/month")
@@ -510,8 +510,8 @@ def test_residential_baseline_validation(residential_baseline_cash_flows):
     
     # Check expected revenue
     # 100 units * $2,800/month = $280,000 monthly
-    if "AggregateLineKey.POTENTIAL_GROSS_REVENUE" in residential_baseline_cash_flows.columns:
-        monthly_revenue = residential_baseline_cash_flows["AggregateLineKey.POTENTIAL_GROSS_REVENUE"].iloc[0]
+    if "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE" in residential_baseline_cash_flows.columns:
+        monthly_revenue = residential_baseline_cash_flows["UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"].iloc[0]
         expected_revenue = 280000.0
         assert monthly_revenue == pytest.approx(expected_revenue, rel=0.02)
 
@@ -539,11 +539,11 @@ def test_residential_development_matches_baseline(
     development_stabilized = development_cash_flows.loc[stabilized_start:]
     
     # Core validation: revenue flows should match
-    if ("AggregateLineKey.POTENTIAL_GROSS_REVENUE" in residential_baseline_cash_flows.columns and 
-        "AggregateLineKey.POTENTIAL_GROSS_REVENUE" in development_stabilized.columns):
+    if ("UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE" in residential_baseline_cash_flows.columns and 
+        "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE" in development_stabilized.columns):
         
-        baseline_revenue = residential_baseline_cash_flows["AggregateLineKey.POTENTIAL_GROSS_REVENUE"].iloc[0]
-        development_revenue = development_stabilized["AggregateLineKey.POTENTIAL_GROSS_REVENUE"].iloc[0]
+        baseline_revenue = residential_baseline_cash_flows["UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"].iloc[0]
+        development_revenue = development_stabilized["UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"].iloc[0]
         
         print(f"Baseline revenue: ${baseline_revenue:,.0f}/month")
         print(f"Development revenue: ${development_revenue:,.0f}/month")

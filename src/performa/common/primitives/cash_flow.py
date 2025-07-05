@@ -7,7 +7,12 @@ from uuid import UUID, uuid4
 import pandas as pd
 from pydantic import Field, computed_field
 
-from .enums import AggregateLineKey, CalculationPass, FrequencyEnum, UnitOfMeasureEnum
+from .enums import (
+    CalculationPass,
+    FrequencyEnum,
+    UnitOfMeasureEnum,
+    UnleveredAggregateLineKey,
+)
 from .growth_rates import GrowthRate
 from .model import Model
 from .settings import GlobalSettings
@@ -46,7 +51,7 @@ class CashFlowModel(Model):
     value: Union[PositiveFloat, pd.Series, Dict, List]
     unit_of_measure: UnitOfMeasureEnum
     frequency: FrequencyEnum = FrequencyEnum.MONTHLY
-    reference: Optional[AggregateLineKey] = None
+    reference: Optional[UnleveredAggregateLineKey] = None
     settings: GlobalSettings = Field(default_factory=GlobalSettings)
     growth_rate: Optional[GrowthRate] = None
 
@@ -86,11 +91,11 @@ class CashFlowModel(Model):
             assert base_opex.calculation_pass == CalculationPass.INDEPENDENT_VALUES
             
             # Dependent model - calculated in Phase 2 after aggregation
-            admin_fee = OpExItem(name="Admin Fee", value=0.05, reference=AggregateLineKey.TOTAL_OPERATING_EXPENSES)
+            admin_fee = OpExItem(name="Admin Fee", value=0.05, reference=UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES)
             assert admin_fee.calculation_pass == CalculationPass.DEPENDENT_VALUES
         """
         if self.reference is not None:
-            # Models with AggregateLineKey references depend on aggregated values
+            # Models with UnleveredAggregateLineKey references depend on aggregated values
             return CalculationPass.DEPENDENT_VALUES
         return CalculationPass.INDEPENDENT_VALUES
 

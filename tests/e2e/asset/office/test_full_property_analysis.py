@@ -17,7 +17,7 @@ from performa.asset.office.losses import (
 from performa.asset.office.property import OfficeProperty
 from performa.asset.office.rent_roll import OfficeRentRoll, OfficeVacantSuite
 from performa.common.primitives import (
-    AggregateLineKey,
+    UnleveredAggregateLineKey,
     FrequencyEnum,
     GlobalSettings,
     LeaseTypeEnum,
@@ -108,10 +108,10 @@ def test_end_to_end_analysis(analysis_timeline: Timeline, global_settings: Globa
     
     # Expected Base Rent: 10000sf * $40/sf/yr / 12 mo = $33,333.33
     expected_rent = (10000 * 40) / 12
-    assert result_df.loc[jan_2024, AggregateLineKey.POTENTIAL_GROSS_REVENUE.value] == pytest.approx(expected_rent)
+    assert result_df.loc[jan_2024, UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value] == pytest.approx(expected_rent)
 
     # Expected Expenses: 120,000 / 12 = 10,000
-    assert result_df.loc[jan_2024, AggregateLineKey.TOTAL_OPERATING_EXPENSES.value] == pytest.approx(10000)
+    assert result_df.loc[jan_2024, UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value] == pytest.approx(10000)
 
     # Expected NOI (simple case)
     # Note: The orchestrator now calculates EGI, vacancy, etc. This is a simplified check.
@@ -121,4 +121,4 @@ def test_end_to_end_analysis(analysis_timeline: Timeline, global_settings: Globa
     expected_vacancy = expected_rent * 0.05 
     expected_noi = expected_egi - expected_vacancy - 10000
     # This is an approximation as collection loss and other items apply
-    assert result_df.loc[jan_2024, AggregateLineKey.NET_OPERATING_INCOME.value] > 0
+    assert result_df.loc[jan_2024, UnleveredAggregateLineKey.NET_OPERATING_INCOME.value] > 0

@@ -356,8 +356,6 @@ def test_orchestrator_basic_structure(
     assert hasattr(scenario, 'prepare_models')
     assert hasattr(scenario, '_get_stabilization_date_for_blueprint')
     assert hasattr(scenario, '_prepare_construction_models')
-    assert hasattr(scenario, '_prepare_financing_models')
-
 
 def test_orchestrator_prepare_models_basic(
     simple_construction_plan,

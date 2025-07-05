@@ -34,7 +34,6 @@ from performa.asset.office import (
 )
 from performa.common.base import Address
 from performa.common.primitives import (
-    AggregateLineKey,
     FrequencyEnum,
     GlobalSettings,
     GrowthRate,
@@ -42,6 +41,7 @@ from performa.common.primitives import (
     ProgramUseEnum,
     Timeline,
     UnitOfMeasureEnum,
+    UnleveredAggregateLineKey,
     UponExpirationEnum,
 )
 
@@ -108,9 +108,9 @@ class TestSystematicValidation:
         summary = scenario.get_cash_flow_summary()
         
         # Get January results
-        jan_pgr = summary.loc["2024-01", AggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-        jan_opex = summary.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]  
-        jan_noi = summary.loc["2024-01", AggregateLineKey.NET_OPERATING_INCOME.value]
+        jan_pgr = summary.loc["2024-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
+        jan_opex = summary.loc["2024-01", UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value]  
+        jan_noi = summary.loc["2024-01", UnleveredAggregateLineKey.NET_OPERATING_INCOME.value]
         
         # Manual calculation - demand perfect precision
         expected_rent = 10000 * 30 / 12  # $25,000
@@ -193,10 +193,10 @@ class TestSystematicValidation:
         summary = scenario.get_cash_flow_summary()
         
         # Get results
-        jan_pgr = summary.loc["2024-01", AggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-        jan_recovery = summary.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
-        jan_opex = summary.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
-        jan_noi = summary.loc["2024-01", AggregateLineKey.NET_OPERATING_INCOME.value]
+        jan_pgr = summary.loc["2024-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
+        jan_recovery = summary.loc["2024-01", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        jan_opex = summary.loc["2024-01", UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        jan_noi = summary.loc["2024-01", UnleveredAggregateLineKey.NET_OPERATING_INCOME.value]
         
         # Manual calculation
         expected_base_rent = 10000 * 25 / 12  # $20,833
@@ -292,10 +292,10 @@ class TestSystematicValidation:
         summary = scenario.get_cash_flow_summary()
         
         # Get results
-        jan_pgr = summary.loc["2024-01", AggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-        jan_recovery = summary.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
-        jan_opex = summary.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
-        jan_noi = summary.loc["2024-01", AggregateLineKey.NET_OPERATING_INCOME.value]
+        jan_pgr = summary.loc["2024-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
+        jan_recovery = summary.loc["2024-01", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        jan_opex = summary.loc["2024-01", UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        jan_noi = summary.loc["2024-01", UnleveredAggregateLineKey.NET_OPERATING_INCOME.value]
         
         # Manual calculation
         tenant_a_rent = 10000 * 30 / 12   # $25,000
@@ -392,12 +392,12 @@ class TestSystematicValidation:
         summary = scenario.get_cash_flow_summary()
         
         # Get results
-        jan_pgr = summary.loc["2024-01", AggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-        jan_vacancy = summary.loc["2024-01", AggregateLineKey.GENERAL_VACANCY_LOSS.value]
-        jan_collection = summary.loc["2024-01", AggregateLineKey.COLLECTION_LOSS.value]
-        jan_recovery = summary.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
-        jan_opex = summary.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
-        jan_noi = summary.loc["2024-01", AggregateLineKey.NET_OPERATING_INCOME.value]
+        jan_pgr = summary.loc["2024-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
+        jan_vacancy = summary.loc["2024-01", UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS.value]
+        jan_collection = summary.loc["2024-01", UnleveredAggregateLineKey.COLLECTION_LOSS.value]
+        jan_recovery = summary.loc["2024-01", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        jan_opex = summary.loc["2024-01", UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        jan_noi = summary.loc["2024-01", UnleveredAggregateLineKey.NET_OPERATING_INCOME.value]
         
         # Manual calculation
         base_pgr = (10000 * 30 + 8000 * 28) / 12  # $43,667
@@ -476,8 +476,8 @@ class TestSystematicValidation:
         summary = scenario.get_cash_flow_summary()
         
         # Get results for before and after renewal
-        dec_2024_pgr = summary.loc["2024-12", AggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-        jan_2025_pgr = summary.loc["2025-01", AggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
+        dec_2024_pgr = summary.loc["2024-12", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
+        jan_2025_pgr = summary.loc["2025-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
         
         # Manual calculation
         old_rent = 10000 * 25 / 12  # $20,833
@@ -590,10 +590,10 @@ class TestSystematicValidation:
         summary = scenario.get_cash_flow_summary()
         
         # Get January 2024 results
-        jan_pgr = summary.loc["2024-01", AggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-        jan_recovery = summary.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
-        jan_opex = summary.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
-        jan_noi = summary.loc["2024-01", AggregateLineKey.NET_OPERATING_INCOME.value]
+        jan_pgr = summary.loc["2024-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
+        jan_recovery = summary.loc["2024-01", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        jan_opex = summary.loc["2024-01", UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        jan_noi = summary.loc["2024-01", UnleveredAggregateLineKey.NET_OPERATING_INCOME.value]
         
         # Manual verification (approximate due to gross-up complexity)
         abc_rent = 20000 * 32.00 / 12      # $53,333
@@ -616,8 +616,8 @@ class TestSystematicValidation:
         assert 25 <= rent_psf_annual <= 45, f"Rent/SF should be realistic: ${rent_psf_annual:.2f}"
         
         # Validate losses are being applied correctly
-        jan_vacancy_loss = summary.loc["2024-01", AggregateLineKey.GENERAL_VACANCY_LOSS.value]
-        jan_collection_loss = summary.loc["2024-01", AggregateLineKey.COLLECTION_LOSS.value]
+        jan_vacancy_loss = summary.loc["2024-01", UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS.value]
+        jan_collection_loss = summary.loc["2024-01", UnleveredAggregateLineKey.COLLECTION_LOSS.value]
         
         expected_vacancy_loss = jan_pgr * 0.03
         expected_collection_loss = (jan_pgr - jan_vacancy_loss) * 0.005
@@ -627,14 +627,14 @@ class TestSystematicValidation:
 
     def test_7_aggregate_line_key_references(self):
         """
-        TEST 7: AggregateLineKey Reference Functionality
+        TEST 7: UnleveredAggregateLineKey Reference Functionality
         ===============================================
         
-        Scenario: Testing the new AggregateLineKey reference system
+        Scenario: Testing the new UnleveredAggregateLineKey reference system
         - Property: 10,000 SF office building
         - Tenant: 10,000 SF @ $30/SF/year (gross lease)
         - Base OpEx: $8/SF/year
-        - Admin Fee: 5% of Total Operating Expenses (using AggregateLineKey reference)
+        - Admin Fee: 5% of Total Operating Expenses (using UnleveredAggregateLineKey reference)
         
         Expected Results:
         - Monthly Base Rent: 10,000 × $30 ÷ 12 = $25,000
@@ -659,7 +659,7 @@ class TestSystematicValidation:
         admin_fee = OfficeOpExItem(
             name="Admin Fee", timeline=timeline,
             value=0.05, unit_of_measure=UnitOfMeasureEnum.BY_PERCENT, frequency=FrequencyEnum.MONTHLY,
-            reference=AggregateLineKey.TOTAL_OPERATING_EXPENSES
+            reference=UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES
         )
         
         # Single tenant
@@ -690,9 +690,9 @@ class TestSystematicValidation:
         summary = scenario.get_cash_flow_summary()
         
         # Get January results
-        jan_pgr = summary.loc["2024-01", AggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-        jan_total_opex = summary.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
-        jan_noi = summary.loc["2024-01", AggregateLineKey.NET_OPERATING_INCOME.value]
+        jan_pgr = summary.loc["2024-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
+        jan_total_opex = summary.loc["2024-01", UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        jan_noi = summary.loc["2024-01", UnleveredAggregateLineKey.NET_OPERATING_INCOME.value]
         
         # Manual calculation
         expected_rent = 10000 * 30 / 12      # $25,000
@@ -735,7 +735,7 @@ class TestSystematicValidation:
         admin_fee = OfficeOpExItem(
             name="Admin Fee", timeline=timeline,
             value=0.05, unit_of_measure=UnitOfMeasureEnum.BY_PERCENT, frequency=FrequencyEnum.MONTHLY,
-            reference=AggregateLineKey.TOTAL_OPERATING_EXPENSES
+            reference=UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES
         )
         
         # Single tenant to create revenue
@@ -766,9 +766,9 @@ class TestSystematicValidation:
         summary = scenario.get_cash_flow_summary()
         
         # Just verify it runs without validation errors
-        jan_pgr = summary.loc["2024-01", AggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-        jan_total_opex = summary.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
-        jan_noi = summary.loc["2024-01", AggregateLineKey.NET_OPERATING_INCOME.value]
+        jan_pgr = summary.loc["2024-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
+        jan_total_opex = summary.loc["2024-01", UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        jan_noi = summary.loc["2024-01", UnleveredAggregateLineKey.NET_OPERATING_INCOME.value]
         
         # Basic sanity checks
         assert jan_pgr > 0, "PGR should be positive"
@@ -828,7 +828,7 @@ class TestSystematicValidation:
         admin_fee = OfficeOpExItem(  # Level 1 dependency
             name="Admin Fee", timeline=timeline,
             value=0.05, unit_of_measure=UnitOfMeasureEnum.BY_PERCENT, frequency=FrequencyEnum.MONTHLY,
-            reference=AggregateLineKey.TOTAL_OPERATING_EXPENSES
+            reference=UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES
         )
         
         tenant = OfficeLeaseSpec(
@@ -1164,10 +1164,10 @@ class TestSystematicValidation:
         summary = scenario.get_cash_flow_summary()
         
         # Get results
-        jan_pgr = summary.loc["2024-01", AggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-        jan_recovery = summary.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
-        jan_opex = summary.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
-        jan_noi = summary.loc["2024-01", AggregateLineKey.NET_OPERATING_INCOME.value]
+        jan_pgr = summary.loc["2024-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
+        jan_recovery = summary.loc["2024-01", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        jan_opex = summary.loc["2024-01", UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        jan_noi = summary.loc["2024-01", UnleveredAggregateLineKey.NET_OPERATING_INCOME.value]
         
         # Validate base year calculation for verification
         recovery_states = scenario._pre_calculate_recoveries()
@@ -1262,10 +1262,10 @@ class TestSystematicValidation:
         summary = scenario.get_cash_flow_summary()
         
         # Get results
-        jan_pgr = summary.loc["2024-01", AggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-        jan_recovery = summary.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
-        jan_opex = summary.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
-        jan_noi = summary.loc["2024-01", AggregateLineKey.NET_OPERATING_INCOME.value]
+        jan_pgr = summary.loc["2024-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
+        jan_recovery = summary.loc["2024-01", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        jan_opex = summary.loc["2024-01", UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        jan_noi = summary.loc["2024-01", UnleveredAggregateLineKey.NET_OPERATING_INCOME.value]
         
         # Validate base year calculation for verification
         recovery_states = scenario._pre_calculate_recoveries()
@@ -1363,8 +1363,8 @@ class TestSystematicValidation:
         summary = scenario.get_cash_flow_summary()
         
         # Get results
-        jan_recovery = summary.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
-        jan_opex = summary.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        jan_recovery = summary.loc["2024-01", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        jan_opex = summary.loc["2024-01", UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
         
         # Manual calculation of gross-up effect
         current_occupancy = 15000 / 20000  # 75%
@@ -1410,7 +1410,7 @@ class TestSystematicValidation:
         
         scenario_no_gross_up = run(model=property_no_gross_up, timeline=timeline, settings=settings)
         summary_no_gross_up = scenario_no_gross_up.get_cash_flow_summary()
-        jan_recovery_no_gross_up = summary_no_gross_up.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        jan_recovery_no_gross_up = summary_no_gross_up.loc["2024-01", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
         
         # REAL ESTATE VALIDATION:
         # 1. Base year should be realistic (lower than current due to inflation)
@@ -1541,10 +1541,10 @@ class TestSystematicValidation:
         summary = scenario.get_cash_flow_summary()
         
         # Get results
-        jan_pgr = summary.loc["2024-01", AggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-        jan_recovery = summary.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
-        jan_opex = summary.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
-        jan_noi = summary.loc["2024-01", AggregateLineKey.NET_OPERATING_INCOME.value]
+        jan_pgr = summary.loc["2024-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
+        jan_recovery = summary.loc["2024-01", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        jan_opex = summary.loc["2024-01", UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        jan_noi = summary.loc["2024-01", UnleveredAggregateLineKey.NET_OPERATING_INCOME.value]
         
         # Manual calculations
         tenant_a_rent = 15000 * 30 / 12  # $37,500
@@ -1575,7 +1575,7 @@ class TestSystematicValidation:
         )
         scenario_a = run(model=property_tenant_a_only, timeline=timeline, settings=settings)
         summary_a = scenario_a.get_cash_flow_summary()
-        recovery_a = summary_a.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        recovery_a = summary_a.loc["2024-01", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
         
         # Tenant B only (2023 base year)
         property_tenant_b_only = OfficeProperty(
@@ -1591,7 +1591,7 @@ class TestSystematicValidation:
         )
         scenario_b = run(model=property_tenant_b_only, timeline=timeline, settings=settings)
         summary_b = scenario_b.get_cash_flow_summary()
-        recovery_b = summary_b.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        recovery_b = summary_b.loc["2024-01", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
         
         # Tenant C only (gross lease - no recovery)
         property_tenant_c_only = OfficeProperty(
@@ -1607,7 +1607,7 @@ class TestSystematicValidation:
         )
         scenario_c = run(model=property_tenant_c_only, timeline=timeline, settings=settings)
         summary_c = scenario_c.get_cash_flow_summary()
-        recovery_c = summary_c.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        recovery_c = summary_c.loc["2024-01", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
         
         # REAL ESTATE VALIDATION:
         # 1. Basic calculations
@@ -1723,8 +1723,8 @@ class TestSystematicValidation:
         summary = scenario.get_cash_flow_summary()
         
         # Get results
-        jan_recovery = summary.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
-        jan_opex = summary.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        jan_recovery = summary.loc["2024-01", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        jan_opex = summary.loc["2024-01", UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
         
         # Get system-calculated base year for verification
         recovery_states = scenario._pre_calculate_recoveries()
@@ -1767,7 +1767,7 @@ class TestSystematicValidation:
         
         scenario_uncapped = run(model=property_uncapped, timeline=timeline, settings=settings)
         summary_uncapped = scenario_uncapped.get_cash_flow_summary()
-        jan_recovery_uncapped = summary_uncapped.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        jan_recovery_uncapped = summary_uncapped.loc["2024-01", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
         
         # Test scenario WITHOUT capital expenses to prove exclusions work
         property_no_capital = OfficeProperty(
@@ -1784,7 +1784,7 @@ class TestSystematicValidation:
         
         scenario_no_capital = run(model=property_no_capital, timeline=timeline, settings=settings)
         summary_no_capital = scenario_no_capital.get_cash_flow_summary()
-        jan_opex_no_capital = summary_no_capital.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        jan_opex_no_capital = summary_no_capital.loc["2024-01", UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
         
         # Get base year calculations for validation
         recovery_states = scenario._pre_calculate_recoveries()
@@ -2002,13 +2002,13 @@ class TestSystematicValidation:
         summary_standard = scenario_standard.get_cash_flow_summary()
         summary_market = scenario_market.get_cash_flow_summary()
         
-        recovery_conservative = summary_conservative.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
-        recovery_standard = summary_standard.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
-        recovery_market = summary_market.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        recovery_conservative = summary_conservative.loc["2024-01", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        recovery_standard = summary_standard.loc["2024-01", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+        recovery_market = summary_market.loc["2024-01", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
         
-        opex_conservative = summary_conservative.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
-        opex_standard = summary_standard.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
-        opex_market = summary_market.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        opex_conservative = summary_conservative.loc["2024-01", UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        opex_standard = summary_standard.loc["2024-01", UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+        opex_market = summary_market.loc["2024-01", UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
         
         # Get base year calculations
         states_conservative = scenario_conservative._pre_calculate_recoveries()
@@ -2191,8 +2191,8 @@ class TestSystematicValidation:
             scenario = run(model=property_model, timeline=timeline, settings=settings)
             summary = scenario.get_cash_flow_summary()
             
-            recovery_amount = summary.loc["2024-01", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
-            opex_amount = summary.loc["2024-01", AggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
+            recovery_amount = summary.loc["2024-01", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+            opex_amount = summary.loc["2024-01", UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
             
             # Get base year for context
             states = scenario._pre_calculate_recoveries()

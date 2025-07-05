@@ -30,7 +30,7 @@ from performa.asset.office import (
 )
 from performa.common.base import CommissionTier, FixedQuantityPace
 from performa.common.primitives import (
-    AggregateLineKey,
+    UnleveredAggregateLineKey,
     GlobalSettings,
     Timeline,
     UponExpirationEnum,
@@ -188,13 +188,13 @@ def test_full_scenario_kitchen_sink(complex_property_fixture):
 
     # ASSERT - Using validated expected values
     # 1. Assert specific line items at specific times with realistic tolerances
-    assert summary_df.loc["2024-06", AggregateLineKey.NET_OPERATING_INCOME.value] == pytest.approx(EXPECTED_NOI_2024_06, rel=0.02)
-    assert summary_df.loc["2025-01", AggregateLineKey.POTENTIAL_GROSS_REVENUE.value] == pytest.approx(EXPECTED_PGR_2025_01, rel=1e-3)
-    assert summary_df.loc["2026-02", AggregateLineKey.EXPENSE_REIMBURSEMENTS.value] == pytest.approx(EXPECTED_REIMB_2026_02, rel=0.05)
+    assert summary_df.loc["2024-06", UnleveredAggregateLineKey.NET_OPERATING_INCOME.value] == pytest.approx(EXPECTED_NOI_2024_06, rel=0.02)
+    assert summary_df.loc["2025-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value] == pytest.approx(EXPECTED_PGR_2025_01, rel=1e-3)
+    assert summary_df.loc["2026-02", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value] == pytest.approx(EXPECTED_REIMB_2026_02, rel=0.05)
     
     # 2. Verify that the absorption plan generates some new lease activity
-    revenue_2026_06 = summary_df.loc["2026-06", AggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-    revenue_2028_06 = summary_df.loc["2028-06", AggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
+    revenue_2026_06 = summary_df.loc["2026-06", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
+    revenue_2028_06 = summary_df.loc["2028-06", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
     
     # After departing tenant leaves, we should have baseline of Stable + Renewing = $76,667
     baseline_after_departure = 51666.67 + 25000.00  # $76,667
@@ -218,7 +218,7 @@ def test_e2e_recovery_gross_up_proves_phased_execution(complex_property_fixture)
     low_occupancy_period = pd.Period("2026-02", "M")
     high_occupancy_period = pd.Period("2025-06", "M")
 
-    reimbursements = summary_df[AggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
+    reimbursements = summary_df[UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
 
     # Validate both periods have positive recoveries
     assert reimbursements.loc[low_occupancy_period] > 0, "Low occupancy period should have positive recoveries"
@@ -246,6 +246,6 @@ def test_pgr_calculation_for_jan_2025(complex_property_fixture):
     summary_df = scenario.get_cash_flow_summary()
 
     # ASSERT - Demand perfect precision for this core calculation
-    actual_pgr = summary_df.loc["2025-01", AggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
+    actual_pgr = summary_df.loc["2025-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
     assert actual_pgr == pytest.approx(EXPECTED_PGR_2025_01, rel=1e-6), \
         f"PGR calculation must be precise: expected {EXPECTED_PGR_2025_01}, got {actual_pgr}"

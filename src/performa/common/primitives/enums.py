@@ -301,8 +301,17 @@ class VacancyLossMethodEnum(str, Enum):
     EFFECTIVE_GROSS_REVENUE = "Effective Gross Revenue" # % of (PGR + Misc Inc - Abatement)
 
 
-class AggregateLineKey(str, Enum):
-    """Defines standard keys for aggregated financial line items."""
+class UnleveredAggregateLineKey(str, Enum):
+    """
+    Asset-level financial line items calculated before financing.
+    
+    These aggregates represent the unlevered performance of the real estate asset,
+    including all revenue, expenses, and capital costs but excluding debt service.
+    Asset-level models (OpEx, leases, etc.) can only reference these keys.
+    
+    ARCHITECTURAL CONSTRAINT: Asset-level CashFlowModel instances can ONLY reference
+    UnleveredAggregateLineKey values to prevent circular dependencies.
+    """
 
     # --- Revenue Side ---
     POTENTIAL_GROSS_REVENUE = "Potential Gross Revenue"           # Sum of potential base rent (often contractual)
@@ -325,16 +334,12 @@ class AggregateLineKey(str, Enum):
     TOTAL_LEASING_COMMISSIONS = "Total Leasing Commissions"  # LCs
     TOTAL_CAPITAL_EXPENDITURES = "Total Capital Expenditures"  # CapEx (incl. reserves maybe)
 
-
-    # --- Cash Flow Metrics ---
+    # --- Unlevered Cash Flow ---
     UNLEVERED_CASH_FLOW = "Unlevered Cash Flow"  # NOI - TIs - LCs - CapEx
-    TOTAL_DEBT_SERVICE = "Total Debt Service"  # Principal + Interest
-    LEVERED_CASH_FLOW = "Levered Cash Flow"  # UCF - Debt Service
 
     # --- Raw Aggregates (Less commonly referenced directly, but needed for calculation) ---
     _RAW_TOTAL_REVENUE = "_RAW Total Revenue"  # Intermediate sum of all revenue components (rent, misc)
     _RAW_TOTAL_RECOVERIES = "_RAW Total Recoveries"  # Intermediate sum of all recovery components
-
     _RAW_TOTAL_OPEX = "_RAW Total OpEx"  # Intermediate sum used above
     _RAW_TOTAL_CAPEX = "_RAW Total CapEx"  # Intermediate sum used above
     _RAW_TOTAL_TI = "_RAW Total TI"  # Intermediate sum used above
@@ -345,7 +350,7 @@ class AggregateLineKey(str, Enum):
     ROLLOVER_VACANCY_LOSS = "Rollover Vacancy Loss"  # Placeholder if aggregated separately
 
     @classmethod
-    def from_value(cls, value: str) -> Optional["AggregateLineKey"]:
+    def from_value(cls, value: str) -> Optional["UnleveredAggregateLineKey"]:
         """Look up enum member by its string value."""
         for member in cls:
             if member.value == value:
@@ -354,15 +359,58 @@ class AggregateLineKey(str, Enum):
 
     # Helper to check if a key is intended for internal calculation steps
     @classmethod
-    def is_internal_key(cls, key: "AggregateLineKey") -> bool:
+    def is_internal_key(cls, key: "UnleveredAggregateLineKey") -> bool:
         """Check if the key is prefixed for internal calculation use."""
         return key.value.startswith("_RAW")
 
     # Helper to get display keys (excluding internal ones)
     @classmethod
-    def get_display_keys(cls) -> List["AggregateLineKey"]:
+    def get_display_keys(cls) -> List["UnleveredAggregateLineKey"]:
         """Return a list of keys suitable for display/reporting."""
         return [k for k in cls if not cls.is_internal_key(k)]
+
+
+class LeveredAggregateLineKey(str, Enum):
+    """
+    Deal-level financial line items calculated after financing.
+    
+    These aggregates represent the levered performance of the investment deal,
+    including debt service and final levered cash flows. Only deal-level
+    calculations can reference or produce these keys.
+    
+    ARCHITECTURAL CONSTRAINT: Deal-level calculations produce these aggregates.
+    Asset-level models CANNOT reference these keys.
+    """
+
+    # --- Financing Components ---
+    TOTAL_DEBT_SERVICE = "Total Debt Service"  # Principal + Interest
+    LEVERED_CASH_FLOW = "Levered Cash Flow"  # UCF - Debt Service
+
+    # --- Raw Aggregates ---
+    _RAW_TOTAL_DEBT_SERVICE = "_RAW Total Debt Service"  # Intermediate sum of all debt service
+
+    @classmethod
+    def from_value(cls, value: str) -> Optional["LeveredAggregateLineKey"]:
+        """Look up enum member by its string value."""
+        for member in cls:
+            if member.value == value:
+                return member
+        return None
+
+    # Helper to check if a key is intended for internal calculation steps
+    @classmethod
+    def is_internal_key(cls, key: "LeveredAggregateLineKey") -> bool:
+        """Check if the key is prefixed for internal calculation use."""
+        return key.value.startswith("_RAW")
+
+    # Helper to get display keys (excluding internal ones)
+    @classmethod
+    def get_display_keys(cls) -> List["LeveredAggregateLineKey"]:
+        """Return a list of keys suitable for display/reporting."""
+        return [k for k in cls if not cls.is_internal_key(k)]
+
+
+
 
 
 class StartDateAnchorEnum(str, Enum):

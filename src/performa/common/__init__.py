@@ -59,7 +59,6 @@ from .capital import (
 # Explicit imports from primitives module  
 from .primitives import (
     # Enums
-    AggregateLineKey,
     AssetTypeEnum,
     CalculationPass,
     CashFlowCategoryEnum,
@@ -166,7 +165,7 @@ __all__ = [
     "ReportingSettings",
     
     # Enums
-    "AggregateLineKey",
+
     "AssetTypeEnum",
     "CalculationPass",
     "CashFlowCategoryEnum",

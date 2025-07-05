@@ -63,8 +63,8 @@ from uuid import UUID
 import pandas as pd
 
 from performa.common.primitives import (
-    AggregateLineKey,
     CalculationPass,
+    UnleveredAggregateLineKey,
     UponExpirationEnum,
 )
 
@@ -272,7 +272,7 @@ class CashFlowOrchestrator:
         
         logger.info(f"  Processing {len(dependent_models)} dependent models:")
         for model in dependent_models:
-            # Handle both AggregateLineKey and other reference types safely
+            # Handle both UnleveredAggregateLineKey and other reference types safely
             ref_name = model.reference.value if (model.reference and hasattr(model.reference, 'value')) else str(model.reference) if model.reference else "None"
             logger.debug(f"    - {model.name} → references [{ref_name}]")
         
@@ -349,15 +349,15 @@ class CashFlowOrchestrator:
         graph = {}
         for m in model_subset:
             deps = set()
-            # Handle AggregateLineKey references for dependency resolution
+            # Handle UnleveredAggregateLineKey references for dependency resolution
             if m.reference is not None:
-                if isinstance(m.reference, AggregateLineKey):
-                    # AggregateLineKey references are resolved from previous phases
+                if isinstance(m.reference, UnleveredAggregateLineKey):
+                    # UnleveredAggregateLineKey references are resolved from previous phases
                     # No intra-phase dependency needed since aggregates are computed after phases
                     pass
                 else:
                     # Unsupported reference type - should not happen with Pydantic validator
-                    raise ValueError(f"Unsupported reference type in model '{m.name}': {type(m.reference)}. Expected AggregateLineKey.")
+                    raise ValueError(f"Unsupported reference type in model '{m.name}': {type(m.reference)}. Expected UnleveredAggregateLineKey.")
             graph[m.uid] = deps
 
         try:
@@ -410,9 +410,9 @@ class CashFlowOrchestrator:
         
         # 1. Initialize summary lines
         analysis_periods = self.context.timeline.period_index
-        agg_flows: Dict[AggregateLineKey, pd.Series] = {
+        agg_flows: Dict[UnleveredAggregateLineKey, pd.Series] = {
             key: pd.Series(0.0, index=analysis_periods, name=key.value)
-            for key in AggregateLineKey if not key.value.startswith("_")
+            for key in UnleveredAggregateLineKey if not key.value.startswith("_")
         }
         
         detailed_flows_list = []
@@ -440,16 +440,16 @@ class CashFlowOrchestrator:
         self._apply_property_losses(agg_flows)
 
         # 4. Calculate derived summary lines (NOI, UCF, etc.)
-        agg_flows[AggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME] = (
-            agg_flows[AggregateLineKey.POTENTIAL_GROSS_REVENUE] 
-            - agg_flows[AggregateLineKey.RENTAL_ABATEMENT] 
-            - agg_flows[AggregateLineKey.GENERAL_VACANCY_LOSS]
-            - agg_flows[AggregateLineKey.COLLECTION_LOSS]
-            + agg_flows[AggregateLineKey.MISCELLANEOUS_INCOME] 
-            + agg_flows[AggregateLineKey.EXPENSE_REIMBURSEMENTS]
+        agg_flows[UnleveredAggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME] = (
+            agg_flows[UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE] 
+            - agg_flows[UnleveredAggregateLineKey.RENTAL_ABATEMENT] 
+            - agg_flows[UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS]
+            - agg_flows[UnleveredAggregateLineKey.COLLECTION_LOSS]
+            + agg_flows[UnleveredAggregateLineKey.MISCELLANEOUS_INCOME] 
+            + agg_flows[UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS]
         )
-        agg_flows[AggregateLineKey.NET_OPERATING_INCOME] = agg_flows[AggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME] - agg_flows[AggregateLineKey.TOTAL_OPERATING_EXPENSES]
-        agg_flows[AggregateLineKey.UNLEVERED_CASH_FLOW] = agg_flows[AggregateLineKey.NET_OPERATING_INCOME] - agg_flows[AggregateLineKey.TOTAL_CAPITAL_EXPENDITURES] - agg_flows[AggregateLineKey.TOTAL_TENANT_IMPROVEMENTS] - agg_flows[AggregateLineKey.TOTAL_LEASING_COMMISSIONS]
+        agg_flows[UnleveredAggregateLineKey.NET_OPERATING_INCOME] = agg_flows[UnleveredAggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME] - agg_flows[UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES]
+        agg_flows[UnleveredAggregateLineKey.UNLEVERED_CASH_FLOW] = agg_flows[UnleveredAggregateLineKey.NET_OPERATING_INCOME] - agg_flows[UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES] - agg_flows[UnleveredAggregateLineKey.TOTAL_TENANT_IMPROVEMENTS] - agg_flows[UnleveredAggregateLineKey.TOTAL_LEASING_COMMISSIONS]
         
         # 5. Store aggregate results in resolved_lookups for cross-reference
         for key, series in agg_flows.items():
@@ -459,7 +459,7 @@ class CashFlowOrchestrator:
         self.summary_df = pd.DataFrame(agg_flows)
         # self.detailed_df = ... (logic to create detailed dataframe from detailed_flows_list)
     
-    def _apply_property_losses(self, agg_flows: Dict[AggregateLineKey, pd.Series]) -> None:
+    def _apply_property_losses(self, agg_flows: Dict[UnleveredAggregateLineKey, pd.Series]) -> None:
         """Apply property-level vacancy and collection losses."""
         if not hasattr(self.context.property_data, 'losses') or not self.context.property_data.losses:
             return
@@ -472,14 +472,14 @@ class CashFlowOrchestrator:
             
             # Apply vacancy loss to the appropriate basis
             if losses.general_vacancy.method.value == "Potential Gross Revenue":
-                basis = agg_flows[AggregateLineKey.POTENTIAL_GROSS_REVENUE]
+                basis = agg_flows[UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE]
             else:  # Effective Gross Revenue method
-                basis = (agg_flows[AggregateLineKey.POTENTIAL_GROSS_REVENUE] 
-                        + agg_flows[AggregateLineKey.MISCELLANEOUS_INCOME] 
-                        - agg_flows[AggregateLineKey.RENTAL_ABATEMENT])
+                basis = (agg_flows[UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE] 
+                        + agg_flows[UnleveredAggregateLineKey.MISCELLANEOUS_INCOME] 
+                        - agg_flows[UnleveredAggregateLineKey.RENTAL_ABATEMENT])
             
             vacancy_loss = basis * vacancy_rate
-            agg_flows[AggregateLineKey.GENERAL_VACANCY_LOSS] = vacancy_loss
+            agg_flows[UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS] = vacancy_loss
         
         # Calculate Collection Loss
         if losses.collection_loss and losses.collection_loss.rate > 0:
@@ -487,20 +487,20 @@ class CashFlowOrchestrator:
             
             # Apply collection loss to the appropriate basis
             if losses.collection_loss.basis == "pgr":
-                basis = agg_flows[AggregateLineKey.POTENTIAL_GROSS_REVENUE]
+                basis = agg_flows[UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE]
             elif losses.collection_loss.basis == "scheduled_income":
-                basis = (agg_flows[AggregateLineKey.POTENTIAL_GROSS_REVENUE] 
-                        - agg_flows[AggregateLineKey.RENTAL_ABATEMENT])
+                basis = (agg_flows[UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE] 
+                        - agg_flows[UnleveredAggregateLineKey.RENTAL_ABATEMENT])
             else:  # "egi" - Effective Gross Income
-                basis = (agg_flows[AggregateLineKey.POTENTIAL_GROSS_REVENUE] 
-                        - agg_flows[AggregateLineKey.RENTAL_ABATEMENT]
-                        - agg_flows[AggregateLineKey.GENERAL_VACANCY_LOSS]
-                        + agg_flows[AggregateLineKey.MISCELLANEOUS_INCOME])
+                basis = (agg_flows[UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE] 
+                        - agg_flows[UnleveredAggregateLineKey.RENTAL_ABATEMENT]
+                        - agg_flows[UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS]
+                        + agg_flows[UnleveredAggregateLineKey.MISCELLANEOUS_INCOME])
             
             collection_loss = basis * collection_rate
-            agg_flows[AggregateLineKey.COLLECTION_LOSS] = collection_loss
+            agg_flows[UnleveredAggregateLineKey.COLLECTION_LOSS] = collection_loss
 
-    def _get_aggregate_key(self, category: str, subcategory: str, component: str = 'value') -> Optional[AggregateLineKey]:
+    def _get_aggregate_key(self, category: str, subcategory: str, component: str = 'value') -> Optional[UnleveredAggregateLineKey]:
         # Mapping logic from raw categories to summary lines
         from performa.common.primitives import (
             ExpenseSubcategoryEnum,
@@ -508,17 +508,17 @@ class CashFlowOrchestrator:
         )
         if category == "Revenue":
             if subcategory == RevenueSubcategoryEnum.LEASE:
-                if component == "base_rent": return AggregateLineKey.POTENTIAL_GROSS_REVENUE
-                if component == "recoveries": return AggregateLineKey.EXPENSE_REIMBURSEMENTS
-                if component == "abatement": return AggregateLineKey.RENTAL_ABATEMENT
+                if component == "base_rent": return UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE
+                if component == "recoveries": return UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS
+                if component == "abatement": return UnleveredAggregateLineKey.RENTAL_ABATEMENT
             elif subcategory == RevenueSubcategoryEnum.MISC:
-                return AggregateLineKey.MISCELLANEOUS_INCOME
+                return UnleveredAggregateLineKey.MISCELLANEOUS_INCOME
         elif category == "Expense":
-            if subcategory == ExpenseSubcategoryEnum.OPEX: return AggregateLineKey.TOTAL_OPERATING_EXPENSES
-            if subcategory == ExpenseSubcategoryEnum.CAPEX: return AggregateLineKey.TOTAL_CAPITAL_EXPENDITURES
+            if subcategory == ExpenseSubcategoryEnum.OPEX: return UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES
+            if subcategory == ExpenseSubcategoryEnum.CAPEX: return UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES
             # Handle special leasing costs from lease object
-            if subcategory == "Lease" and component == "ti_allowance": return AggregateLineKey.TOTAL_TENANT_IMPROVEMENTS
-            if subcategory == "Lease" and component == "leasing_commission": return AggregateLineKey.TOTAL_LEASING_COMMISSIONS
+            if subcategory == "Lease" and component == "ti_allowance": return UnleveredAggregateLineKey.TOTAL_TENANT_IMPROVEMENTS
+            if subcategory == "Lease" and component == "leasing_commission": return UnleveredAggregateLineKey.TOTAL_LEASING_COMMISSIONS
         return None
 
     def _compute_intermediate_aggregates(self) -> None:
@@ -526,9 +526,9 @@ class CashFlowOrchestrator:
         analysis_periods = self.context.timeline.period_index
         
         # Initialize aggregate flows for intermediate computation
-        intermediate_agg_flows: Dict[AggregateLineKey, pd.Series] = {
+        intermediate_agg_flows: Dict[UnleveredAggregateLineKey, pd.Series] = {
             key: pd.Series(0.0, index=analysis_periods, name=key.value)
-            for key in AggregateLineKey if not key.value.startswith("_")
+            for key in UnleveredAggregateLineKey if not key.value.startswith("_")
         }
         
         # Only process independent models that have already been computed
@@ -718,7 +718,7 @@ class CashFlowOrchestrator:
         logger.debug(f"Model '{model.name}' final calculated depth: {result_depth}")
         return result_depth
 
-    def _find_models_contributing_to_aggregate(self, aggregate_key: AggregateLineKey) -> List["CashFlowModel"]:
+    def _find_models_contributing_to_aggregate(self, aggregate_key: UnleveredAggregateLineKey) -> List["CashFlowModel"]:
         """
         Find all models in the current analysis that contribute to a specific aggregate.
         

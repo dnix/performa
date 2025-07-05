@@ -10,12 +10,13 @@ from pydantic import ValidationError
 
 from performa.analysis import AnalysisContext
 from performa.common.primitives import (
-    AggregateLineKey,
     CashFlowModel,
     FrequencyEnum,
     GlobalSettings,
+    LeveredAggregateLineKey,
     Timeline,
     UnitOfMeasureEnum,
+    UnleveredAggregateLineKey,
 )
 
 
@@ -48,18 +49,47 @@ def test_instantiation_with_series_value(sample_timeline: Timeline):
     )
     pd.testing.assert_series_equal(model.value, series_val)
 
-def test_reference_is_aggregate_line_key(sample_timeline: Timeline):
-    """Test that the reference field accepts AggregateLineKey enum values."""
+def test_reference_is_unlevered_aggregate_line_key(sample_timeline: Timeline):
+    """Test that the reference field accepts UnleveredAggregateLineKey enum values."""
     model = MinimalConcreteCashFlowModel(
         name="Test", category="cat", subcategory="sub",
         timeline=sample_timeline, value=1, unit_of_measure=UnitOfMeasureEnum.CURRENCY,
-        reference=AggregateLineKey.TOTAL_OPERATING_EXPENSES
+        reference=UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES
     )
-    assert model.reference == AggregateLineKey.TOTAL_OPERATING_EXPENSES
+    assert model.reference == UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES
 
+    # Test that invalid string values are rejected
     with pytest.raises(ValidationError):
         MinimalConcreteCashFlowModel(
             name="Test", category="cat", subcategory="sub",
             timeline=sample_timeline, value=1, unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             reference="invalid-aggregate-key"
         )
+
+def test_reference_rejects_levered_aggregate_line_key(sample_timeline: Timeline):
+    """Test that the reference field rejects LeveredAggregateLineKey values (architectural constraint)."""
+    # This test validates the type-safe architectural separation
+    # Asset-level models should NOT be able to reference deal-level aggregates
+    with pytest.raises(ValidationError):
+        MinimalConcreteCashFlowModel(
+            name="Test", category="cat", subcategory="sub",
+            timeline=sample_timeline, value=1, unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+            reference=LeveredAggregateLineKey.LEVERED_CASH_FLOW  # Should be rejected!
+        )
+
+def test_enum_removal_complete(sample_timeline: Timeline):
+    """Test that the old AggregateLineKey enum has been completely removed."""
+    # Verify that the old enum is no longer available
+    try:
+        from performa.common.primitives import AggregateLineKey
+        assert False, "AggregateLineKey should have been removed but is still importable"
+    except ImportError:
+        pass  # This is what we expect
+    
+    # Verify that only the new type-safe enums are available
+    model = MinimalConcreteCashFlowModel(
+        name="Test", category="cat", subcategory="sub",
+        timeline=sample_timeline, value=1, unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+        reference=UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES
+    )
+    assert model.reference == UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES
