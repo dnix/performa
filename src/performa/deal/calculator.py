@@ -490,6 +490,7 @@ def _calculate_period_uses(
     uses_df = pd.DataFrame(0.0, index=timeline.period_index, columns=[
         "Acquisition Costs",
         "Construction Costs", 
+        "Developer Fees",
         "Other Project Costs",
         "Total Uses"
     ])
@@ -533,14 +534,87 @@ def _calculate_period_uses(
             # Fallback: Skip construction costs if calculation fails
             print(f"Warning: Construction cost calculation failed: {e}")
     
-    # 3. Extract other project costs from unlevered analysis
-    # TODO: This could include other costs like operating deficits during lease-up
-    # For now, we'll leave this as zero and focus on acquisition + construction
+    # 3. Calculate developer fees
+    if deal.developer_fee:
+        try:
+            # Calculate total project cost (acquisition + construction) for percentage-based fees
+            current_project_cost = (
+                uses_df["Acquisition Costs"].sum() + 
+                uses_df["Construction Costs"].sum()
+            )
+            
+            # Calculate upfront and completion fee amounts
+            upfront_fee = deal.developer_fee.calculate_upfront_fee(current_project_cost)
+            completion_fee = deal.developer_fee.calculate_completion_fee(current_project_cost)
+            
+            # Allocate developer fees based on payment timing
+            if deal.developer_fee.payment_timing == "upfront" and upfront_fee > 0:
+                # Pay upfront fee in first period with acquisition costs
+                first_period_with_acquisition = None
+                for period in timeline.period_index:
+                    if uses_df.loc[period, "Acquisition Costs"] > 0:
+                        first_period_with_acquisition = period
+                        break
+                
+                if first_period_with_acquisition is not None:
+                    uses_df.loc[first_period_with_acquisition, "Developer Fees"] = upfront_fee
+                else:
+                    # Fallback: pay in first period
+                    uses_df.iloc[0, uses_df.columns.get_loc("Developer Fees")] = upfront_fee
+                    
+            elif deal.developer_fee.payment_timing == "completion" and completion_fee > 0:
+                # Pay completion fee in last period with construction costs
+                last_period_with_construction = None
+                for period in reversed(timeline.period_index):
+                    if uses_df.loc[period, "Construction Costs"] > 0:
+                        last_period_with_construction = period
+                        break
+                
+                if last_period_with_construction is not None:
+                    uses_df.loc[last_period_with_construction, "Developer Fees"] = completion_fee
+                else:
+                    # Fallback: pay in last period
+                    uses_df.iloc[-1, uses_df.columns.get_loc("Developer Fees")] = completion_fee
+                    
+            elif deal.developer_fee.payment_timing == "split":
+                # Split payment between upfront and completion
+                if upfront_fee > 0:
+                    first_period_with_acquisition = None
+                    for period in timeline.period_index:
+                        if uses_df.loc[period, "Acquisition Costs"] > 0:
+                            first_period_with_acquisition = period
+                            break
+                    
+                    if first_period_with_acquisition is not None:
+                        uses_df.loc[first_period_with_acquisition, "Developer Fees"] += upfront_fee
+                    else:
+                        uses_df.iloc[0, uses_df.columns.get_loc("Developer Fees")] += upfront_fee
+                
+                if completion_fee > 0:
+                    last_period_with_construction = None
+                    for period in reversed(timeline.period_index):
+                        if uses_df.loc[period, "Construction Costs"] > 0:
+                            last_period_with_construction = period
+                            break
+                    
+                    if last_period_with_construction is not None:
+                        uses_df.loc[last_period_with_construction, "Developer Fees"] += completion_fee
+                    else:
+                        uses_df.iloc[-1, uses_df.columns.get_loc("Developer Fees")] += completion_fee
+                        
+        except Exception as e:
+            # Fallback: Skip developer fees if calculation fails
+            print(f"Warning: Developer fee calculation failed: {e}")
     
-    # 4. Calculate total Uses for each period
+    # 4. Extract other project costs from unlevered analysis
+    # TODO: This could include other costs like operating deficits during lease-up
+    # For now, we'll leave this as zero and focus on acquisition + construction + developer fees
+    
+    # 5. Calculate total Uses for each period
     uses_df["Total Uses"] = (
         uses_df["Acquisition Costs"] + 
         uses_df["Construction Costs"] + 
+        uses_df["Developer Fees"] +
         uses_df["Other Project Costs"]
     )
     
@@ -1091,10 +1165,12 @@ def _calculate_partner_distributions(
     settings: GlobalSettings,
 ) -> Dict[str, Any]:
     """
-    Calculate partner distributions using the equity waterfall.
+    Calculate partner distributions using the equity waterfall with developer fee priority payments.
     
     This integrates the equity waterfall calculations with the levered cash flows
-    to determine how distributions are allocated among equity partners.
+    to determine how distributions are allocated among equity partners. If the deal
+    has a developer fee, it's treated as a priority payment to GP partners before
+    standard waterfall distributions begin.
     
     Args:
         deal: Deal specification
@@ -1103,7 +1179,7 @@ def _calculate_partner_distributions(
         settings: Analysis settings
         
     Returns:
-        Partner distribution results
+        Partner distribution results including developer fee tracking
     """
     import pandas as pd
 
@@ -1151,6 +1227,11 @@ def _calculate_partner_distributions(
                     "single_entity_distributions": cash_flows,
                     "preferred_return": 0.0,
                     "promote_distributions": 0.0,
+                },
+                "developer_fee_details": {
+                    "total_developer_fee": 0.0,
+                    "developer_fee_by_partner": {},
+                    "remaining_cash_flows_after_fee": cash_flows,
                 }
             }
         else:
@@ -1166,13 +1247,31 @@ def _calculate_partner_distributions(
                     "single_entity_distributions": pd.Series(0.0, index=timeline.period_index),
                     "preferred_return": 0.0,
                     "promote_distributions": 0.0,
+                },
+                "developer_fee_details": {
+                    "total_developer_fee": 0.0,
+                    "developer_fee_by_partner": {},
+                    "remaining_cash_flows_after_fee": pd.Series(0.0, index=timeline.period_index),
                 }
             }
     
-    # Deal has equity partners - use the distribution calculator
-    if isinstance(cash_flows, pd.Series):
+    # Deal has equity partners - calculate developer fee priority payments
+    developer_fee_details = _calculate_developer_fee_distributions(deal, levered_cash_flows, timeline)
+    
+    # Get remaining cash flows after developer fee payments
+    remaining_cash_flows = developer_fee_details["remaining_cash_flows_after_fee"]
+    
+    # Calculate standard waterfall distributions on remaining cash flows
+    if isinstance(remaining_cash_flows, pd.Series):
         calculator = DistributionCalculator(deal.equity_partners)
-        return calculator.calculate_distributions(cash_flows, timeline)
+        waterfall_results = calculator.calculate_distributions(remaining_cash_flows, timeline)
+        
+        # Combine developer fee and waterfall results
+        combined_results = _combine_developer_fee_and_waterfall_results(
+            developer_fee_details, waterfall_results, deal
+        )
+        
+        return combined_results
     else:
         # Fallback for invalid cash flows
         return {
@@ -1186,8 +1285,190 @@ def _calculate_partner_distributions(
                 "error": "Invalid cash flow data",
                 "preferred_return": 0.0,
                 "promote_distributions": 0.0,
-            }
+            },
+            "developer_fee_details": developer_fee_details,
         }
+
+
+def _calculate_developer_fee_distributions(
+    deal: Deal,
+    levered_cash_flows: Dict[str, Any],
+    timeline: Timeline,
+) -> Dict[str, Any]:
+    """
+    Calculate developer fee priority payments to GP partners.
+    
+    If the deal has a developer fee, it's treated as a priority payment to GP partners
+    before standard waterfall distributions. The fee is allocated pro-rata among GP partners
+    based on their GP share percentages.
+    
+    Args:
+        deal: Deal specification
+        levered_cash_flows: Levered cash flow results
+        timeline: Analysis timeline
+        
+    Returns:
+        Dictionary containing developer fee details and remaining cash flows
+    """
+    import pandas as pd
+    
+    # Initialize developer fee tracking
+    developer_fee_details = {
+        "total_developer_fee": 0.0,
+        "developer_fee_by_partner": {},
+        "remaining_cash_flows_after_fee": None,
+    }
+    
+    # Get cash flows
+    if isinstance(levered_cash_flows, dict) and "levered_cash_flows" in levered_cash_flows:
+        cash_flows = levered_cash_flows["levered_cash_flows"]
+    else:
+        cash_flows = levered_cash_flows
+    
+    if not isinstance(cash_flows, pd.Series):
+        # Return original cash flows if invalid
+        developer_fee_details["remaining_cash_flows_after_fee"] = pd.Series(0.0, index=timeline.period_index)
+        return developer_fee_details
+    
+    # Start with original cash flows
+    remaining_cash_flows = cash_flows.copy()
+    
+    # Only calculate developer fees if deal has both a fee and equity partners
+    if not deal.developer_fee or not deal.has_equity_partners:
+        developer_fee_details["remaining_cash_flows_after_fee"] = remaining_cash_flows
+        return developer_fee_details
+    
+    # Calculate total developer fee amount
+    # We need the total project cost, which we can estimate from the funding cascade
+    if isinstance(levered_cash_flows, dict) and "funding_cascade_details" in levered_cash_flows:
+        cascade_details = levered_cash_flows["funding_cascade_details"]
+        if "uses_breakdown" in cascade_details:
+            uses_breakdown = cascade_details["uses_breakdown"]
+            if hasattr(uses_breakdown, "columns") and "Total Uses" in uses_breakdown.columns:
+                total_project_cost = uses_breakdown["Total Uses"].sum()
+            else:
+                # Fallback: sum all negative cash flows as project cost estimate
+                total_project_cost = abs(cash_flows[cash_flows < 0].sum())
+        else:
+            total_project_cost = abs(cash_flows[cash_flows < 0].sum())
+    else:
+        total_project_cost = abs(cash_flows[cash_flows < 0].sum())
+    
+    total_developer_fee = deal.developer_fee.calculate_total_fee(total_project_cost)
+    
+    # Get GP partners for fee allocation
+    gp_partners = deal.equity_partners.gp_partners
+    
+    if not gp_partners or total_developer_fee <= 0:
+        # No GP partners or no fee - return original cash flows
+        developer_fee_details["remaining_cash_flows_after_fee"] = remaining_cash_flows
+        return developer_fee_details
+    
+    # Initialize partner fee tracking
+    for partner in deal.equity_partners.partners:
+        developer_fee_details["developer_fee_by_partner"][partner.name] = 0.0
+    
+    # Allocate developer fee among GP partners pro-rata by GP share
+    gp_total_share = deal.equity_partners.gp_total_share
+    
+    if gp_total_share > 0:
+        for gp_partner in gp_partners:
+            # Calculate this GP's share of the total developer fee
+            gp_proportion = gp_partner.share / gp_total_share
+            partner_developer_fee = total_developer_fee * gp_proportion
+            
+            developer_fee_details["developer_fee_by_partner"][gp_partner.name] = partner_developer_fee
+    
+    # Update total developer fee
+    developer_fee_details["total_developer_fee"] = total_developer_fee
+    
+    # For simplicity, reduce the first positive cash flow by the developer fee amount
+    # This represents the priority payment to GP before standard distributions
+    positive_cash_flows = remaining_cash_flows[remaining_cash_flows > 0]
+    
+    if len(positive_cash_flows) > 0 and total_developer_fee > 0:
+        # Find first positive cash flow period
+        first_positive_period = positive_cash_flows.index[0]
+        
+        # Reduce the first positive cash flow by the developer fee
+        # This ensures the fee is paid before standard waterfall distributions
+        remaining_cash_flows[first_positive_period] = max(
+            0, remaining_cash_flows[first_positive_period] - total_developer_fee
+        )
+    
+    developer_fee_details["remaining_cash_flows_after_fee"] = remaining_cash_flows
+    return developer_fee_details
+
+
+def _combine_developer_fee_and_waterfall_results(
+    developer_fee_details: Dict[str, Any],
+    waterfall_results: Dict[str, Any],
+    deal: Deal,
+) -> Dict[str, Any]:
+    """
+    Combine developer fee priority payments with waterfall distribution results.
+    
+    This creates a unified result that shows both developer fee payments
+    and standard waterfall distributions for each partner.
+    
+    Args:
+        developer_fee_details: Developer fee calculation results
+        waterfall_results: Standard waterfall distribution results
+        deal: Deal specification
+        
+    Returns:
+        Combined distribution results
+    """
+    import pandas as pd
+    
+    # Start with waterfall results as base
+    combined_results = waterfall_results.copy()
+    
+    # Add developer fee information
+    combined_results["developer_fee_details"] = developer_fee_details
+    
+    # Update partner-specific results to include developer fees
+    if "partner_results" in waterfall_results and deal.has_equity_partners:
+        updated_partner_results = {}
+        
+        for partner_name, partner_result in waterfall_results["partner_results"].items():
+            updated_result = partner_result.copy()
+            
+            # Add developer fee to this partner's results
+            developer_fee = developer_fee_details["developer_fee_by_partner"].get(partner_name, 0.0)
+            
+            if developer_fee > 0:
+                # Update partner's total distributions and metrics
+                updated_result["total_distributions"] = partner_result.get("total_distributions", 0) + developer_fee
+                updated_result["net_profit"] = partner_result.get("net_profit", 0) + developer_fee
+                updated_result["developer_fee"] = developer_fee
+                
+                # Recalculate equity multiple if investment > 0
+                investment = partner_result.get("total_investment", 0)
+                if investment > 0:
+                    updated_result["equity_multiple"] = updated_result["total_distributions"] / investment
+                else:
+                    updated_result["equity_multiple"] = 0.0
+            else:
+                updated_result["developer_fee"] = 0.0
+            
+            updated_partner_results[partner_name] = updated_result
+        
+        combined_results["partner_results"] = updated_partner_results
+    
+    # Update total deal metrics to include developer fee
+    total_developer_fee = developer_fee_details["total_developer_fee"]
+    
+    if total_developer_fee > 0:
+        combined_results["total_distributions"] = waterfall_results.get("total_distributions", 0) + total_developer_fee
+        combined_results["net_profit"] = waterfall_results.get("net_profit", 0) + total_developer_fee
+        
+        # Recalculate deal-level equity multiple
+        total_investment = waterfall_results.get("total_investment", 0)
+        if total_investment > 0:
+            combined_results["equity_multiple"] = combined_results["total_distributions"] / total_investment
+    
+    return combined_results
 
 
 def _calculate_deal_metrics(

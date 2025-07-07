@@ -19,6 +19,7 @@ from ..debt.plan import FinancingPlan
 from ..development.project import DevelopmentProject
 from ..valuation.disposition import DispositionValuation
 from .acquisition import AcquisitionTerms
+from .fees import DeveloperFee
 from .partners import PartnershipStructure
 
 # Simple union for all asset types that can be in a Deal
@@ -85,6 +86,11 @@ class Deal(Model):
     # Equity Structure - Partnership structure for equity waterfall
     equity_partners: Optional[PartnershipStructure] = Field(
         default=None, description="Partnership structure for equity waterfall and distributions"
+    )
+    
+    # Developer Fee - Optional developer fee structure
+    developer_fee: Optional[DeveloperFee] = Field(
+        default=None, description="Developer fee structure and payment schedule"
     )
     
     @computed_field
