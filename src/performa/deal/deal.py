@@ -19,6 +19,7 @@ from ..debt.plan import FinancingPlan
 from ..development.project import DevelopmentProject
 from ..valuation.disposition import DispositionValuation
 from .acquisition import AcquisitionTerms
+from .partners import PartnershipStructure
 
 # Simple union for all asset types that can be in a Deal
 # Pydantic v2 automatically infers the correct type based on unique fields:
@@ -26,6 +27,7 @@ from .acquisition import AcquisitionTerms
 # - ResidentialProperty: has unique 'unit_mix' field of type ResidentialRentRoll
 # - DevelopmentProject: has unique 'construction_plan' and 'blueprints' fields
 # No artificial discriminator needed - let Pydantic do the smart type inference
+# FIXME; this could be problematic to maintain as we add more use types. can we just use parent classes for typing?
 AnyAsset = Union[OfficeProperty, ResidentialProperty, DevelopmentProject]
 
 
@@ -38,7 +40,7 @@ class Deal(Model):
     allowing the same analyze_deal() function to handle any scenario.
     
     Key Architecture:
-    - asset: The physical real estate (purified, unlevered)
+    - asset: The physical real estate property or development project
     - acquisition: How the asset is purchased (timing, costs)
     - financing: Complete debt structure over asset lifecycle
     - disposition: Exit strategy and assumptions
@@ -80,9 +82,9 @@ class Deal(Model):
         default=None, description="Exit strategy and disposition assumptions"
     )
     
-    # Equity Structure - Simplified for Phase 1, will enhance in Phase 6
-    equity_partners: Optional[List] = Field(
-        default=None, description="Partner structure (simplified for Phase 1)"
+    # Equity Structure - Partnership structure for equity waterfall
+    equity_partners: Optional[PartnershipStructure] = Field(
+        default=None, description="Partnership structure for equity waterfall and distributions"
     )
     
     @computed_field
@@ -94,6 +96,7 @@ class Deal(Model):
         Returns:
             String classification of the deal type
         """
+        # FIXME: this could be problematic to maintain as we add more use types
         # Use duck typing to detect development projects
         if hasattr(self.asset, 'construction_plan'):
             return "development"
@@ -140,7 +143,7 @@ class Deal(Model):
     @property
     def has_equity_partners(self) -> bool:
         """Check if this deal has equity partners."""
-        return self.equity_partners is not None and len(self.equity_partners) > 0
+        return self.equity_partners is not None and self.equity_partners.partner_count > 0
     
     @computed_field
     @property
@@ -155,6 +158,7 @@ class Deal(Model):
         This method performs business logic validation to ensure
         the deal components make sense together.
         """
+        # FIXME: is this necessary? should we be using pydantic validators instead?
         # Validate asset has property_type for business logic
         if not hasattr(self.asset, 'property_type'):
             raise ValueError(f"Asset {type(self.asset)} missing required 'property_type' field")

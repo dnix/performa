@@ -26,7 +26,7 @@ class LoanAmortization(Model):
 
     Example:
         >>> amortization = LoanAmortization(
-        ...     loan_amount=1000000.0,
+        ...     loan_amount=1000000.0,  # Example: $1M loan
         ...     term=30,
         ...     interest_rate=InterestRate(
         ...         rate_type="fixed",

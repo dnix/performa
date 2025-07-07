@@ -1,5 +1,4 @@
 # src/performa/common/base/__init__.py
-# Intentionally blank for now, will be populated in Phase 3 
 
 from .absorption import (
     AbsorptionPlanBase,

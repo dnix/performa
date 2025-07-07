@@ -10,9 +10,32 @@ deal-level financial structuring.
 from .acquisition import AcquisitionTerms
 from .calculator import analyze_deal
 from .deal import Deal
+from .distribution_calculator import (
+    DistributionCalculator,
+    calculate_partner_distributions_with_structure,
+    create_simple_partnership,
+)
+from .partners import (
+    CarryPromote,
+    Partner,
+    PartnershipStructure,
+    PromoteStructure,
+    WaterfallPromote,
+    WaterfallTier,
+)
 
 __all__ = [
     "AcquisitionTerms",
     "Deal",
     "analyze_deal",
+    "Partner",
+    "PartnershipStructure",
+    "WaterfallTier",
+    "WaterfallPromote",
+    "CarryPromote",
+    "PromoteStructure",
+
+    "DistributionCalculator",
+    "calculate_partner_distributions_with_structure",
+    "create_simple_partnership",
 ] 
