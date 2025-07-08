@@ -4,10 +4,11 @@ from datetime import date
 from typing import Dict, Optional, Union
 
 import pandas as pd
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 from .model import Model
 from .types import FloatBetween0And1, PositiveFloat
+from .validation import validate_monthly_period_index
 
 
 class GrowthRateBase(Model):
@@ -32,7 +33,7 @@ class PercentageGrowthRate(GrowthRateBase):
         name: Name of the growth rate (e.g., "Market Rent Growth")
         value: The growth rate value(s), which can be:
             - A single float value (constant rate, e.g., 0.02 for 2%)
-            - A pandas Series (time-based rates) with period index
+            - A pandas Series (time-based rates) with MONTHLY period index
             - A dictionary with date keys and rate values
     """
     value: Union[FloatBetween0And1, pd.Series, Dict[date, FloatBetween0And1]]
@@ -56,6 +57,9 @@ class PercentageGrowthRate(GrowthRateBase):
                         f"Growth rate for {key} must be between 0 and 1, got {rate}"
                     )
         elif isinstance(v, pd.Series):
+            # Validate monthly PeriodIndex
+            validate_monthly_period_index(v, field_name="PercentageGrowthRate value")
+            
             # Ensure all series values are between 0 and 1
             if not pd.api.types.is_numeric_dtype(v.dtype):
                 raise ValueError("Growth rate Series must have numeric values")
@@ -78,7 +82,7 @@ class FixedGrowthRate(GrowthRateBase):
         name: Name of the growth rate (e.g., "Fixed Escalation")
         value: The growth rate value(s), which can be:
             - A single positive float (constant amount)
-            - A pandas Series (time-based amounts) with period index
+            - A pandas Series (time-based amounts) with MONTHLY period index
             - A dictionary with date keys and amount values
     """
     value: Union[PositiveFloat, pd.Series, Dict[date, PositiveFloat]]
@@ -102,6 +106,9 @@ class FixedGrowthRate(GrowthRateBase):
                         f"Fixed growth rate for {key} must be non-negative, got {rate}"
                     )
         elif isinstance(v, pd.Series):
+            # Validate monthly PeriodIndex
+            validate_monthly_period_index(v, field_name="FixedGrowthRate value")
+            
             # Ensure all series values are positive
             if not pd.api.types.is_numeric_dtype(v.dtype):
                 raise ValueError("Fixed growth rate Series must have numeric values")

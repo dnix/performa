@@ -12,6 +12,8 @@ from typing import Dict, Optional, Union
 import pandas as pd
 from pyxirr import xirr
 
+from ..common.primitives.validation import validate_monthly_period_index
+
 
 class PropertyMetrics:
     """
@@ -38,6 +40,12 @@ class PropertyMetrics:
         Returns:
             NOI series or annual NOI
         """
+        # Validate Series inputs have monthly PeriodIndex
+        if isinstance(revenues, pd.Series):
+            validate_monthly_period_index(revenues, field_name="revenues")
+        if isinstance(operating_expenses, pd.Series):
+            validate_monthly_period_index(operating_expenses, field_name="operating_expenses")
+            
         if isinstance(revenues, pd.Series) and isinstance(operating_expenses, pd.Series):
             return revenues - operating_expenses
         elif isinstance(revenues, (int, float)) and isinstance(operating_expenses, (int, float)):
@@ -60,6 +68,12 @@ class PropertyMetrics:
         Returns:
             Annualized stabilized NOI
         """
+        # Validate DataFrame has monthly PeriodIndex
+        if not isinstance(cash_flows.index, pd.PeriodIndex):
+            raise ValueError("cash_flows DataFrame must have a PeriodIndex")
+        if cash_flows.index.freq != 'M':
+            raise ValueError("cash_flows DataFrame must have monthly frequency ('M')")
+            
         # Default to last period if not specified
         if stabilization_period is None:
             stabilization_period = cash_flows.index[-1]
@@ -89,6 +103,10 @@ class PropertyMetrics:
         Returns:
             IRR as decimal (e.g., 0.15 for 15%)
         """
+        # Validate cash_flows Series if it has a PeriodIndex
+        if isinstance(cash_flows.index, pd.PeriodIndex):
+            validate_monthly_period_index(cash_flows, field_name="cash_flows")
+            
         if dates is None:
             # Use cash flow index as dates
             dates = pd.to_datetime(cash_flows.index.to_timestamp())

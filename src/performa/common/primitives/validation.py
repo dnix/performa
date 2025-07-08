@@ -12,6 +12,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Dict, List, Optional, Union
 
+import pandas as pd
 from pydantic import model_validator
 
 
@@ -254,3 +255,57 @@ def validate_conditional_requirement_decorator(
                 
         return data
     return validator 
+
+
+def validate_monthly_period_index(series: pd.Series, field_name: str = "series") -> pd.Series:
+    """
+    Validate that a pandas Series has a monthly PeriodIndex.
+    
+    This is a critical requirement throughout Performa as all calculations
+    assume monthly periodicity. Non-monthly data must be converted before
+    being passed to Performa models.
+    
+    Args:
+        series: The pandas Series to validate
+        field_name: Name of the field for error messages
+        
+    Returns:
+        The validated series (unchanged)
+        
+    Raises:
+        ValueError: If the series doesn't have a monthly PeriodIndex
+        
+    Example:
+        ```python
+        # Valid monthly series
+        monthly_data = pd.Series(
+            [100, 200, 300],
+            index=pd.period_range('2024-01', periods=3, freq='M')
+        )
+        validate_monthly_period_index(monthly_data)  # OK
+        
+        # Invalid quarterly series
+        quarterly_data = pd.Series(
+            [100, 200, 300],
+            index=pd.period_range('2024Q1', periods=3, freq='Q')
+        )
+        validate_monthly_period_index(quarterly_data)  # Raises ValueError
+        ```
+    """
+    if not isinstance(series, pd.Series):
+        raise TypeError(f"{field_name} must be a pandas Series, got {type(series).__name__}")
+    
+    if not isinstance(series.index, pd.PeriodIndex):
+        raise ValueError(
+            f"{field_name} must have a PeriodIndex, got {type(series.index).__name__}. "
+            "Consider using pd.PeriodIndex(dates, freq='M') or series.index = series.index.to_period('M')"
+        )
+    
+    if series.index.freq != 'M':
+        raise ValueError(
+            f"{field_name} must have monthly frequency ('M'), got '{series.index.freq}'. "
+            f"Performa requires all time series data to be monthly. "
+            f"Please resample or convert your data to monthly frequency before passing to Performa."
+        )
+    
+    return series 

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 from uuid import UUID, uuid4
 
 import pandas as pd
-from pydantic import Field, computed_field
+from pydantic import Field, computed_field, field_validator
 
 from .enums import (
     CalculationPass,
@@ -18,6 +18,7 @@ from .model import Model
 from .settings import GlobalSettings
 from .timeline import Timeline
 from .types import PositiveFloat
+from .validation import validate_monthly_period_index
 
 if TYPE_CHECKING:
     from performa.analysis import AnalysisContext
@@ -54,6 +55,41 @@ class CashFlowModel(Model):
     reference: Optional[UnleveredAggregateLineKey] = None
     settings: GlobalSettings = Field(default_factory=GlobalSettings)
     growth_rate: Optional[GrowthRate] = None
+    
+    @field_validator("value")
+    @classmethod
+    def validate_value(cls, v: Union[PositiveFloat, pd.Series, Dict, List]) -> Union[PositiveFloat, pd.Series, Dict, List]:
+        """
+        Validate the value format and constraints.
+        
+        For Series inputs, ensures they have monthly PeriodIndex to prevent
+        data loss during reindexing operations.
+        """
+        if isinstance(v, pd.Series):
+            # Validate monthly PeriodIndex for Series
+            validate_monthly_period_index(v, field_name="CashFlowModel value")
+            # Ensure all values are non-negative
+            if not pd.api.types.is_numeric_dtype(v.dtype):
+                raise ValueError("CashFlowModel value Series must have numeric values")
+            if (v < 0).any():
+                raise ValueError("All values in CashFlowModel Series must be non-negative")
+        elif isinstance(v, dict):
+            # Validate dict values are non-negative
+            for key, val in v.items():
+                if not isinstance(val, (int, float)) or val < 0:
+                    raise ValueError(f"Dict value for {key} must be non-negative, got {val}")
+        elif isinstance(v, list):
+            # Validate list values are non-negative
+            for i, val in enumerate(v):
+                if not isinstance(val, (int, float)) or val < 0:
+                    raise ValueError(f"List value at index {i} must be non-negative, got {val}")
+        elif isinstance(v, (int, float)):
+            # Scalar values are already validated by PositiveFloat type
+            pass
+        else:
+            raise TypeError(f"Unsupported type for CashFlowModel value: {type(v)}")
+        
+        return v
 
     @computed_field
     @property
@@ -130,11 +166,26 @@ class CashFlowModel(Model):
             raise ValueError("Unsupported value type for casting to flow.")
 
     def _align_flow_series(self, flow: pd.Series) -> pd.Series:
-        if not isinstance(flow.index, pd.PeriodIndex) or flow.index.freq != 'M':
-            try:
-                flow.index = flow.index.to_period('M')
-            except AttributeError:
-                 raise ValueError("Flow series index must be a PeriodIndex or DatetimeIndex.")
+        """
+        Align a flow series to the model's timeline.
+        
+        Validates that the input series has a monthly PeriodIndex before aligning.
+        This ensures data integrity and prevents silent data loss from reindexing
+        non-monthly data.
+        
+        Args:
+            flow: Series with monthly PeriodIndex
+            
+        Returns:
+            Series aligned to timeline with 0-filled gaps
+            
+        Raises:
+            ValueError: If series doesn't have monthly PeriodIndex
+        """
+        # Validate that the series has monthly PeriodIndex
+        validate_monthly_period_index(flow, field_name="flow series")
+        
+        # Now we can safely reindex knowing the frequency matches
         return flow.reindex(self.timeline.period_index, fill_value=0.0)
 
     def _apply_compounding_growth(

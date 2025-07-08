@@ -8,6 +8,7 @@ from pydantic import Field, computed_field, field_validator, model_validator
 
 from .model import Model
 from .types import PositiveInt
+from .validation import validate_monthly_period_index
 
 
 class Timeline(Model):
@@ -88,10 +89,31 @@ class Timeline(Model):
         return self.period_index.to_timestamp()
 
     def align_series(self, series: pd.Series) -> pd.Series:
-        """Align a series to this timeline's period index (only for absolute timelines)."""
+        """
+        Align a series to this timeline's period index (only for absolute timelines).
+        
+        Validates that the input series has a monthly PeriodIndex before aligning.
+        For DatetimeIndex, converts to monthly PeriodIndex first.
+        
+        Args:
+            series: Series to align (must have monthly frequency)
+            
+        Returns:
+            Series aligned to timeline's period index
+            
+        Raises:
+            ValueError: If series doesn't have appropriate monthly frequency
+        """
         period_index = self.period_index  # Will raise ValueError if relative
+        
+        # Handle DatetimeIndex by converting to PeriodIndex
         if isinstance(series.index, pd.DatetimeIndex):
+            series = series.copy()
             series.index = series.index.to_period(freq="M")
+        
+        # Validate monthly PeriodIndex
+        validate_monthly_period_index(series, field_name="series to align")
+        
         return series.reindex(period_index)
 
     def resample(self, freq: str) -> pd.PeriodIndex:
