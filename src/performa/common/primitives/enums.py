@@ -410,9 +410,6 @@ class LeveredAggregateLineKey(str, Enum):
         return [k for k in cls if not cls.is_internal_key(k)]
 
 
-
-
-
 class StartDateAnchorEnum(str, Enum):
     """Defines how the absorption start date is determined."""
 
@@ -420,3 +417,24 @@ class StartDateAnchorEnum(str, Enum):
     # RELATIVE_DATE = "RelativeDate" # TODO: Placeholder: Start after a specific offset from analysis start.
     # MILESTONE = "Milestone" # TODO: Placeholder: Start relative to a development milestone.
     # FIXED_DATE = "FixedDate" # TODO: Implicitly handled by passing a date object.
+
+
+class DrawScheduleKindEnum(str, Enum):
+    """
+    Type of draw schedule for capital expenditures.
+    
+    Options:
+        UNIFORM: Evenly distributed draws across the timeline
+        S_CURVE: S-curve distribution following construction spending patterns
+        MANUAL: Custom user-defined draw schedule
+        FIRST_LAST: Split between first and last periods
+        FIRST_ONLY: Single draw in the first period
+        LAST_ONLY: Single draw in the last period
+    """
+    
+    UNIFORM = "uniform"
+    S_CURVE = "s-curve"
+    MANUAL = "manual"
+    FIRST_LAST = "first-last"
+    FIRST_ONLY = "first-only"
+    LAST_ONLY = "last-only"

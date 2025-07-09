@@ -14,7 +14,7 @@ def test_growth_rate_instantiation():
     """Test successful instantiation of GrowthRate with various value types."""
     GrowthRate(name="Constant", value=0.05)
     
-    series_val = pd.Series([0.02, 0.03], index=[date(2024, 1, 1), date(2025, 1, 1)])
+    series_val = pd.Series([0.02, 0.03], index=pd.period_range('2024-01', periods=2, freq='M'))
     GrowthRate(name="Series", value=series_val)
 
     dict_val = {date(2024, 1, 1): 0.01, date(2025, 1, 1): 0.015}
@@ -28,9 +28,13 @@ def test_growth_rate_validation_fails():
     with pytest.raises(ValidationError):
         GrowthRate(name="Too Low", value=-0.1)
 
-    bad_series = pd.Series([0.05, 1.2])
+    bad_series = pd.Series([0.05, 0.1])
+    with pytest.raises(ValueError, match="must have a PeriodIndex"):
+        GrowthRate(name="Bad Index", value=bad_series)
+        
+    bad_values_series = pd.Series([0.05, 1.2], index=pd.period_range('2024-01', periods=2, freq='M'))
     with pytest.raises(ValueError, match="Growth rates in Series must be between 0 and 1"):
-        GrowthRate(name="Bad Series", value=bad_series)
+        GrowthRate(name="Bad Series", value=bad_values_series)
 
     bad_dict = {date(2024, 1, 1): -0.1}
     with pytest.raises(ValidationError):

@@ -12,14 +12,17 @@ from datetime import date, datetime
 from typing import Dict, List, Optional, Union
 from uuid import UUID, uuid4
 
-from pydantic import Field, computed_field
+import pandas as pd
+from pydantic import Field, computed_field, field_validator
 
 from ..primitives import (
+    AnyDrawSchedule,
     CashFlowModel,
     FrequencyEnum,
     Model,
     PositiveFloat,
     Timeline,
+    UniformDrawSchedule,
     UnitOfMeasureEnum,
 )
 
@@ -44,7 +47,71 @@ class CapitalItem(CashFlowModel):
     work_type: Optional[str] = None  # "Demo", "Construction", "Finishes", etc.
     contractor: Optional[str] = None
     permit_required: bool = False
-
+    
+    # Draw schedule for distributing costs over time
+    draw_schedule: Optional[AnyDrawSchedule] = Field(
+        default=None,
+        description="Draw schedule for the capital item. Defaults to UniformDrawSchedule if not specified.",
+    )
+    
+    @field_validator("draw_schedule")
+    @classmethod
+    def validate_draw_schedule(cls, v: Optional[AnyDrawSchedule], info) -> AnyDrawSchedule:
+        """Validate the draw schedule, ensuring it's set."""
+        if v is None:
+            return UniformDrawSchedule()
+        
+        # Note: Period count validation is now handled by the DrawSchedule 
+        # classes themselves when apply_to_amount() is called
+        return v
+    
+    def compute_cf(self, context) -> pd.Series:
+        """
+        Compute capital expenditure cash flow using the draw schedule.
+        
+        This overrides the base CashFlowModel implementation to apply
+        draw schedule distributions instead of uniform spreading.
+        """
+        # Get the base value (handles unit conversions if needed)
+        base_value = self.value
+        
+        if self.unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
+            # Property-level reference for PER_UNIT is NRA
+            nra = context.property_data.net_rentable_area
+            if nra > 0:
+                base_value = self.value * nra
+            else:
+                base_value = 0.0
+        elif self.unit_of_measure == UnitOfMeasureEnum.BY_PERCENT and self.reference:
+            # Reference to an aggregate line
+            dependency_cf = context.resolved_lookups.get(self.reference.value)
+            if dependency_cf is None:
+                raise ValueError(f"Unresolved aggregate dependency for '{self.name}': {self.reference.value}")
+            base_value = dependency_cf * self.value
+            
+        # Convert to scalar for draw schedule calculation
+        if isinstance(base_value, pd.Series):
+            # If base_value is already a series, sum it to get total
+            total_cost = base_value.sum()
+        else:
+            total_cost = float(base_value)
+            
+        # Apply draw schedule - now much simpler with template method pattern!
+        # Defensive check: ensure draw_schedule is not None
+        draw_schedule = self.draw_schedule or UniformDrawSchedule()
+            
+        cf = draw_schedule.apply_to_amount(
+            amount=total_cost,
+            periods=self.timeline.duration_months,
+            index=self.timeline.period_index
+        )
+            
+        # Apply growth if specified (e.g., for inflation)
+        if self.growth_rate:
+            cf = self._apply_compounding_growth(cf, self.growth_rate)
+            
+        return cf
+    
 
 class CapitalPlan(Model):
     """
@@ -93,6 +160,7 @@ class CapitalPlan(Model):
         duration_months: int = 2,
         costs: Optional[Dict[str, float]] = None,
         description: Optional[str] = None,
+        draw_schedule: Optional[AnyDrawSchedule] = None,
     ) -> "CapitalPlan":
         """
         Create a renovation where all work happens simultaneously.
@@ -105,6 +173,7 @@ class CapitalPlan(Model):
             duration_months: How long renovation takes (default: 2 months)
             costs: Dict of work types to costs (e.g., {"Flooring": 3000, "Paint": 1200})
             description: Optional description
+            draw_schedule: Optional draw schedule (defaults to UniformDrawSchedule)
             
         Returns:
             CapitalPlan with all items running concurrently
@@ -113,7 +182,8 @@ class CapitalPlan(Model):
             plan = CapitalPlan.create_concurrent_renovation(
                 name="Unit 201 Renovation",
                 start_date=date(2024, 3, 1),
-                costs={"Flooring": 3000, "Paint": 1200, "Appliances": 2500}
+                costs={"Flooring": 3000, "Paint": 1200, "Appliances": 2500},
+                draw_schedule=SCurveDrawSchedule(sigma=1.0)
             )
         """
         if costs is None:
@@ -134,6 +204,7 @@ class CapitalPlan(Model):
                 value=cost,
                 unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                 description=f"{work_type} work for {name}",
+                draw_schedule=draw_schedule,  # Apply same draw schedule to all items
             )
             capital_items.append(item)
             
@@ -148,7 +219,7 @@ class CapitalPlan(Model):
         cls,
         name: str,
         start_date: Union[date, datetime],
-        work_phases: Optional[List[Dict[str, Union[str, float, int]]]] = None,
+        work_phases: Optional[List[Dict[str, Union[str, float, int, AnyDrawSchedule]]]] = None,
         description: Optional[str] = None,
     ) -> "CapitalPlan":
         """
@@ -159,7 +230,8 @@ class CapitalPlan(Model):
         Args:
             name: Plan name (e.g., "Building Lobby Renovation")
             start_date: When first phase begins
-            work_phases: List of dicts with 'work_type', 'cost', 'duration_months'
+            work_phases: List of dicts with 'work_type', 'cost', 'duration_months', 
+                        and optional 'draw_schedule'
             description: Optional description
             
         Returns:
@@ -168,7 +240,8 @@ class CapitalPlan(Model):
         Example:
             phases = [
                 {"work_type": "Demo", "cost": 5000, "duration_months": 1},
-                {"work_type": "Construction", "cost": 15000, "duration_months": 3},
+                {"work_type": "Construction", "cost": 15000, "duration_months": 3,
+                 "draw_schedule": SCurveDrawSchedule(sigma=1.5)},
                 {"work_type": "Finishes", "cost": 8000, "duration_months": 2}
             ]
             plan = CapitalPlan.create_sequential_renovation(
@@ -195,6 +268,7 @@ class CapitalPlan(Model):
             work_type = phase["work_type"]
             cost = phase["cost"]
             duration = phase.get("duration_months", 1)
+            phase_draw_schedule = phase.get("draw_schedule", None)
             
             timeline = Timeline(start_date=current_start, duration_months=duration)
             
@@ -205,6 +279,7 @@ class CapitalPlan(Model):
                 value=cost,
                 unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                 description=f"{work_type} phase for {name}",
+                draw_schedule=phase_draw_schedule,  # Phase-specific draw schedule
             )
             capital_items.append(item)
             
@@ -235,6 +310,7 @@ class CapitalPlan(Model):
         wave_spacing_months: int = 3,
         unit_duration_months: int = 2,
         description: Optional[str] = None,
+        draw_schedule: Optional[AnyDrawSchedule] = None,
     ) -> "CapitalPlan":
         """
         Create a renovation program with staggered unit waves.
@@ -250,6 +326,7 @@ class CapitalPlan(Model):
             wave_spacing_months: Months between wave starts (default: 3)
             unit_duration_months: How long each unit takes (default: 2)
             description: Optional description
+            draw_schedule: Optional draw schedule for each wave
             
         Returns:
             CapitalPlan with staggered renovation waves
@@ -261,7 +338,8 @@ class CapitalPlan(Model):
                 unit_count=20,
                 cost_per_unit=4500,
                 units_per_wave=4,
-                wave_spacing_months=2
+                wave_spacing_months=2,
+                draw_schedule=ManualDrawSchedule(values=[0.3, 0.7])
             )
         """
         # Ensure start_date is a date object
@@ -287,6 +365,7 @@ class CapitalPlan(Model):
                 value=wave_cost,
                 unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                 description=f"Wave {wave_number}: {units_in_wave} units @ ${cost_per_unit:,.0f}/unit",
+                draw_schedule=draw_schedule,  # Apply draw schedule to each wave
             )
             capital_items.append(item)
             
