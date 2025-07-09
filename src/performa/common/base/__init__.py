@@ -1,5 +1,3 @@
-# src/performa/common/base/__init__.py
-
 from .absorption import (
     AbsorptionPlanBase,
     BasePace,

@@ -1,4 +1,3 @@
-# src/performa/asset/office/lease_spec.py 
 from __future__ import annotations
 
 from datetime import date

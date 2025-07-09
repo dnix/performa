@@ -1,5 +1,3 @@
-# src/performa/asset/residential/__init__.py
-
 """
 Residential asset analysis module for multifamily properties.
 

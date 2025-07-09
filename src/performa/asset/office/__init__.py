@@ -1,4 +1,3 @@
-# src/performa/asset/office/__init__.py
 from . import (
     analysis,
 )
