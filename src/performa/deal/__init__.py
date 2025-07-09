@@ -26,17 +26,23 @@ from .partners import (
 )
 
 __all__ = [
-    "AcquisitionTerms",
+    # Core deal components
     "Deal",
-    "analyze_deal",
+    "AcquisitionTerms",
     "DealFee",
+    
+    # Analysis engine
+    "analyze_deal",
+    
+    # Partnership structures
     "Partner",
     "PartnershipStructure",
     "WaterfallTier",
     "WaterfallPromote",
     "CarryPromote",
     "PromoteStructure",
-
+    
+    # Distribution calculations
     "DistributionCalculator",
     "calculate_partner_distributions_with_structure",
     "create_simple_partnership",

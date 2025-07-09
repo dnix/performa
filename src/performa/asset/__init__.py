@@ -1,6 +1,8 @@
 """
 Performa Asset Models
-Public API for the performa.asset subpackage.
+
+Real estate asset modeling capabilities across all major property types.
+Each asset module implements property-specific modeling logic.
 """
 
 from . import office, residential
@@ -13,6 +15,7 @@ __all__ = [
     "office",
     "residential",
     # "retail",
-    # "industrial",
+    # "industrial", 
     # "hotel",
+    # etc.
 ]

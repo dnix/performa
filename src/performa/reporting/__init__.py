@@ -1,14 +1,8 @@
 """
-Performa Reporting Module - Industry Interface Layer
+Performa Reporting Module
 
-This module serves as the primary industry-facing interface for Performa,
-translating internal architecture into familiar real estate terminology and formats.
-
-Key Principles:
-- Keep internal models clean and focused
-- Present industry-standard terminology to users
-- Generate familiar report formats (Argus-style, etc.)
-- Enable easy export to Excel, PDF, PowerPoint
+Industry-facing interface for Performa, translating internal architecture
+into familiar real estate terminology and report formats.
 """
 
 # FIXME: this whole file needs some deep thinking to be sure it hits all the use cases and also not just development

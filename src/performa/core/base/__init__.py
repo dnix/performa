@@ -1,3 +1,10 @@
+"""
+Performa Base Classes
+
+Foundational base classes that enable all real estate modeling in Performa.
+These abstract and concrete base classes define contracts and common behaviors.
+"""
+
 from .absorption import (
     AbsorptionPlanBase,
     BasePace,

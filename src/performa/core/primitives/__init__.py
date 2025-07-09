@@ -1,3 +1,11 @@
+"""
+Performa Core Primitives
+
+Essential building blocks for all real estate financial modeling in Performa.
+Handles timeline management, cash flow calculations, settings, and validation.
+"""
+
+# Export key primitives for convenient access
 from .cash_flow import CashFlowModel
 from .draw_schedule import (
     AnyDrawSchedule,
@@ -27,9 +35,10 @@ from .enums import (
     UponExpirationEnum,
     VacancyLossMethodEnum,
 )
-from .growth_rates import GrowthRate, GrowthRates
+from .growth_rates import FixedGrowthRate, GrowthRate, GrowthRates, PercentageGrowthRate
 from .model import Model
 from .settings import (
+    CalculationSettings,
     GlobalSettings,
     InflationSettings,
     InflationTimingEnum,
@@ -45,44 +54,60 @@ from .validation import (
 )
 
 __all__ = [
+    # Core models
     "CashFlowModel",
     "Model",
     "Timeline",
+    
+    # Settings
     "GlobalSettings",
+    "CalculationSettings", 
+    "ReportingSettings",
     "InflationSettings",
     "InflationTimingEnum",
-    "ReportingSettings",
+    
+    # Enums
     "AssetTypeEnum",
     "CalculationPass",
     "CashFlowCategoryEnum",
-    "DrawSchedule",
     "DrawScheduleKindEnum",
-    "AnyDrawSchedule",
-    "UniformDrawSchedule",
-    "SCurveDrawSchedule",
-    "ManualDrawSchedule",
-    "FirstLastDrawSchedule",
-    "FirstOnlyDrawSchedule",
-    "LastOnlyDrawSchedule",
     "ExpenseSubcategoryEnum",
     "FrequencyEnum",
     "LeaseStatusEnum",
     "LeaseTypeEnum",
-    "LeveredAggregateLineKey",
     "ProgramUseEnum",
     "RevenueSubcategoryEnum",
     "StartDateAnchorEnum",
     "UnitOfMeasureEnum",
-    "UnleveredAggregateLineKey",
     "UponExpirationEnum",
     "VacancyLossMethodEnum",
+    "UnleveredAggregateLineKey",
+    "LeveredAggregateLineKey",
+    
+    # Growth rates
     "GrowthRate",
-    "GrowthRates",
-    "FloatBetween0And1",
+    "GrowthRates", 
+    "PercentageGrowthRate",
+    "FixedGrowthRate",
+    
+    # Draw schedules
+    "AnyDrawSchedule",
+    "DrawSchedule",
+    "UniformDrawSchedule",
+    "SCurveDrawSchedule", 
+    "ManualDrawSchedule",
+    "FirstLastDrawSchedule",
+    "FirstOnlyDrawSchedule",
+    "LastOnlyDrawSchedule",
+    
+    # Types
     "PositiveFloat",
     "PositiveInt",
+    "FloatBetween0And1",
+    
+    # Validation
     "ValidationMixin",
-    "validate_term_specification",
-    "validate_mutual_exclusivity",
     "validate_conditional_requirement_decorator",
+    "validate_mutual_exclusivity", 
+    "validate_term_specification",
 ]

@@ -1,3 +1,10 @@
+"""
+Performa Core Framework
+
+Foundational building blocks for all real estate financial modeling in Performa.
+Contains essential primitives, base classes, and capital planning tools.
+"""
+
 from . import base, capital, primitives
 
 # Explicit imports from base module

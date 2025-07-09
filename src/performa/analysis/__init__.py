@@ -1,3 +1,10 @@
+"""
+Performa Analysis Engine
+
+Core analysis engine implementing the orchestrator pattern for cash flow calculations
+and the scenario pattern for property analysis.
+"""
+
 from .api import run
 from .orchestrator import AnalysisContext, CashFlowOrchestrator
 from .registry import get_scenario_for_model, register_scenario

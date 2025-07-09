@@ -1,4 +1,9 @@
-# Package initialization can be done in submodules as needed.
+"""
+Performa - Open-Source Real Estate Financial Modeling Framework
+
+Building blocks for sophisticated real estate analysis, from simple property
+valuations to complex development projects and institutional-grade deal structuring.
+"""
 
 import logging
 

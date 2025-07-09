@@ -12,13 +12,22 @@ from .types import AnyDebtFacility
 
 # Define __all__ to specify what gets imported with "from performa.debt import *"
 __all__ = [
+    # Core facility types
     "DebtFacility",
-    "ConstructionFacility",
+    "ConstructionFacility", 
     "PermanentFacility",
     "DebtTranche",
+    
+    # Financial planning
     "FinancingPlan",
+    
+    # Rate mechanics
     "InterestRate",
     "InterestRateType",
+    
+    # Payment calculations
     "LoanAmortization",
+    
+    # Type unions
     "AnyDebtFacility",
 ] 
