@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from performa.common.primitives import Model
+from performa.core.primitives import Model
 
 
 class _TestModel(Model):

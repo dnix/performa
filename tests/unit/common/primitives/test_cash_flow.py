@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from performa.analysis import AnalysisContext
-from performa.common.primitives import (
+from performa.core.primitives import (
     CashFlowModel,
     FrequencyEnum,
     GlobalSettings,
@@ -81,7 +81,7 @@ def test_enum_removal_complete(sample_timeline: Timeline):
     """Test that the old AggregateLineKey enum has been completely removed."""
     # Verify that the old enum is no longer available
     try:
-        from performa.common.primitives import AggregateLineKey
+        from performa.core.primitives import AggregateLineKey
         assert False, "AggregateLineKey should have been removed but is still importable"
     except ImportError:
         pass  # This is what we expect

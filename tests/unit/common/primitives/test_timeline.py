@@ -5,7 +5,7 @@ from datetime import date
 import pandas as pd
 import pytest
 
-from performa.common.primitives import Timeline
+from performa.core.primitives import Timeline
 
 
 # Test Instantiation and Validation

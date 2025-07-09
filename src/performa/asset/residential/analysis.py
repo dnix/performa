@@ -4,7 +4,7 @@ import logging
 from typing import List
 
 from performa.analysis import AnalysisScenarioBase, register_scenario
-from performa.common.primitives import (
+from performa.core.primitives import (
     CashFlowModel,
     FrequencyEnum,
     LeaseStatusEnum,

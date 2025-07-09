@@ -7,8 +7,8 @@ from typing import Dict, List, Optional, Union
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 
-from performa.common.base import RolloverLeaseTermsBase, RolloverProfileBase
-from performa.common.primitives import (
+from performa.core.base import RolloverLeaseTermsBase, RolloverProfileBase
+from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     GrowthRate,

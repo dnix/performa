@@ -4,9 +4,9 @@ from typing import List
 
 from pydantic import Field, computed_field, model_validator
 
-from ...common.base import PropertyBaseModel
-from ...common.capital import CapitalPlan
-from ...common.primitives import AssetTypeEnum
+from ...core.base import PropertyBaseModel
+from ...core.capital import CapitalPlan
+from ...core.primitives import AssetTypeEnum
 from .expense import ResidentialExpenses
 from .losses import ResidentialLosses
 from .misc_income import ResidentialMiscIncome

@@ -7,7 +7,7 @@ import pandas as pd
 from pydantic import Field
 from pyxirr import pmt
 
-from ..common.primitives import Model, PositiveFloat, PositiveInt
+from ..core.primitives import Model, PositiveFloat, PositiveInt
 from .rates import InterestRate
 
 

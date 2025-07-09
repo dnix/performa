@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Callable, Optional, Union
 import pandas as pd
 
 from ...analysis import AnalysisContext
-from ...common.base import TenantImprovementAllowanceBase
-from ...common.primitives import UnitOfMeasureEnum
+from ...core.base import TenantImprovementAllowanceBase
+from ...core.primitives import UnitOfMeasureEnum
 
 if TYPE_CHECKING:
     from .lease import OfficeLease

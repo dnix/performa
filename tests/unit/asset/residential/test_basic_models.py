@@ -25,7 +25,7 @@ from performa.asset.residential import (
     ResidentialUnitSpec,
     ResidentialVacantUnit,
 )
-from performa.common.primitives import (
+from performa.core.primitives import (
     AssetTypeEnum,
     GrowthRate,
     Timeline,
@@ -495,7 +495,7 @@ def test_property_with_vacant_units():
 def test_vacant_units_analysis_integration():
     """Test that vacant units work correctly in analysis scenarios"""
     from performa.analysis import run
-    from performa.common.primitives import GlobalSettings, Timeline
+    from performa.core.primitives import GlobalSettings, Timeline
     
     timeline = Timeline(start_date=date(2024, 1, 1), duration_months=12)
     settings = GlobalSettings()

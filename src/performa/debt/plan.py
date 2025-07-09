@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import Field, computed_field, model_validator
 
-from ..common.primitives import Model
+from ..core.primitives import Model
 from .construction import ConstructionFacility
 from .debt_facility import DebtFacility
 from .permanent import PermanentFacility

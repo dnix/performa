@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 import pandas as pd
 from pydantic import Field, computed_field, field_validator
 
-from ...common.base import LeaseBase
-from ...common.primitives import (
+from ...core.base import LeaseBase
+from ...core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     Model,
@@ -19,7 +19,7 @@ from ...common.primitives import (
 
 if TYPE_CHECKING:
     from ...analysis import AnalysisContext
-    from ...common.capital import CapitalPlan
+    from ...core.capital import CapitalPlan
     from .rollover import ResidentialRolloverLeaseTerms, ResidentialRolloverProfile
 
 logger = logging.getLogger(__name__)

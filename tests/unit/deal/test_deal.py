@@ -15,8 +15,8 @@ import pytest
 
 from performa.asset.office.property import OfficeProperty
 from performa.asset.residential.property import ResidentialProperty
-from performa.common.capital import CapitalPlan
-from performa.common.primitives import AssetTypeEnum, Timeline
+from performa.core.capital import CapitalPlan
+from performa.core.primitives import AssetTypeEnum, Timeline
 from performa.deal.acquisition import AcquisitionTerms
 from performa.deal.deal import AnyAsset, Deal
 from performa.development.project import DevelopmentProject

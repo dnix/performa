@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from performa.common.base import (
+from performa.core.base import (
     CollectionLossConfigBase,
     GeneralVacancyLossConfigBase,
     LossesBase,
 )
-from performa.common.primitives import VacancyLossMethodEnum
+from performa.core.primitives import VacancyLossMethodEnum
 
 
 def test_losses_base_instantiation():

@@ -82,8 +82,8 @@ from performa.asset.office import (
     Recovery,
     SpaceFilter,
 )
-from performa.common.base import Address, CommissionTier
-from performa.common.primitives import (
+from performa.core.base import Address, CommissionTier
+from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     GrowthRate,
@@ -93,7 +93,7 @@ from performa.common.primitives import (
     UnitOfMeasureEnum,
     UponExpirationEnum,
 )
-from performa.common.primitives.growth_rates import PercentageGrowthRate
+from performa.core.primitives.growth_rates import PercentageGrowthRate
 
 
 def test_office_fundamental_sanity() -> bool:

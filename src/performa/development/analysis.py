@@ -17,7 +17,7 @@ from typing import Any, List
 import pandas as pd
 
 from ..analysis import AnalysisScenarioBase, register_scenario
-from ..common.primitives import CashFlowModel, Timeline
+from ..core.primitives import CashFlowModel, Timeline
 from .project import DevelopmentProject
 
 

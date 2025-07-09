@@ -8,7 +8,7 @@ import pytest
 from performa.analysis import AnalysisContext
 from performa.asset.office.property import OfficeProperty
 from performa.asset.office.ti import OfficeTenantImprovement
-from performa.common.primitives import GlobalSettings, Timeline, UnitOfMeasureEnum
+from performa.core.primitives import GlobalSettings, Timeline, UnitOfMeasureEnum
 
 
 @pytest.fixture

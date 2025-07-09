@@ -5,7 +5,7 @@ from typing import Literal, Optional
 
 from pydantic import Field, model_validator
 
-from ..common.primitives import FloatBetween0And1, Model
+from ..core.primitives import FloatBetween0And1, Model
 
 
 class InterestRateType(str, Enum):

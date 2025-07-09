@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ...common.base import RentAbatementBase
+from ...core.base import RentAbatementBase
 
 
 class OfficeRentAbatement(RentAbatementBase):

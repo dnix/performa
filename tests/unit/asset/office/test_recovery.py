@@ -13,8 +13,8 @@ from performa.asset.office.expense import OfficeOpExItem
 from performa.asset.office.lease import OfficeLease
 from performa.asset.office.property import OfficeProperty
 from performa.asset.office.recovery import ExpensePool, OfficeRecoveryMethod, Recovery
-from performa.common.base import RecoveryCalculationState
-from performa.common.primitives import (
+from performa.core.base import RecoveryCalculationState
+from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     LeaseStatusEnum,

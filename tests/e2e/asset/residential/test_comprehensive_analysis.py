@@ -34,13 +34,13 @@ from performa.asset.residential import (
     ResidentialRolloverProfile,
     ResidentialUnitSpec,
 )
-from performa.common.primitives import (
+from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     Timeline,
     UnitOfMeasureEnum,
 )
-from performa.common.primitives.growth_rates import PercentageGrowthRate
+from performa.core.primitives.growth_rates import PercentageGrowthRate
 
 
 class TestLargeScaleProperties:

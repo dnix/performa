@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 from pydantic import Field
 
-from ...common.base import (
+from ...core.base import (
     CollectionLossConfigBase,
     GeneralVacancyLossConfigBase,
     LossesBase,

@@ -20,17 +20,17 @@ from uuid import UUID, uuid4
 import pandas as pd
 from pydantic import Field, computed_field, field_validator
 
-from ..common.primitives.draw_schedule import (
+from ..core.primitives.draw_schedule import (
     AnyDrawSchedule,
     FirstLastDrawSchedule,
     FirstOnlyDrawSchedule,
     LastOnlyDrawSchedule,
     UniformDrawSchedule,
 )
-from ..common.primitives.model import Model
-from ..common.primitives.timeline import Timeline
-from ..common.primitives.types import PositiveFloat
-from ..common.primitives.validation import validate_monthly_period_index
+from ..core.primitives.model import Model
+from ..core.primitives.timeline import Timeline
+from ..core.primitives.types import PositiveFloat
+from ..core.primitives.validation import validate_monthly_period_index
 
 
 class DealFee(Model):

@@ -24,8 +24,8 @@ from performa.asset.residential import (
     ResidentialRolloverProfile,
     ResidentialUnitSpec,
 )
-from performa.common.capital import CapitalItem, CapitalPlan
-from performa.common.primitives import GlobalSettings, GrowthRate, Timeline
+from performa.core.capital import CapitalItem, CapitalPlan
+from performa.core.primitives import GlobalSettings, GrowthRate, Timeline
 
 
 def test_renovation_trigger_basic():

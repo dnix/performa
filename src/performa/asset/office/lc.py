@@ -8,7 +8,7 @@ import pandas as pd
 from pydantic import model_validator
 
 from ...analysis import AnalysisContext
-from ...common.base import CommissionTier
+from ...core.base import CommissionTier
 from ..commercial.lc import CommercialLeasingCommissionBase
 
 if TYPE_CHECKING:

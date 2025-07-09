@@ -13,7 +13,7 @@ from performa.asset.office.losses import (
 )
 from performa.asset.office.property import OfficeProperty
 from performa.asset.office.rent_roll import OfficeRentRoll
-from performa.common.primitives import AssetTypeEnum
+from performa.core.primitives import AssetTypeEnum
 
 
 @pytest.fixture

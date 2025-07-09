@@ -13,8 +13,8 @@ from datetime import date
 
 import pytest
 
-from performa.common.capital import CapitalPlan
-from performa.common.primitives import AssetTypeEnum, GlobalSettings, Timeline
+from performa.core.capital import CapitalPlan
+from performa.core.primitives import AssetTypeEnum, GlobalSettings, Timeline
 from performa.deal.acquisition import AcquisitionTerms
 from performa.deal.calculator import analyze_deal
 from performa.deal.deal import Deal

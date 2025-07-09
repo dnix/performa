@@ -33,7 +33,7 @@ from performa.asset.office.absorption import (
     SpaceFilter,
 )
 from performa.asset.office.rent_roll import OfficeVacantSuite
-from performa.common.primitives import (
+from performa.core.primitives import (
     Timeline,
     UnitOfMeasureEnum,
     UponExpirationEnum,

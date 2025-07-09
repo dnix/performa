@@ -15,8 +15,8 @@ from datetime import date
 import pandas as pd
 import pytest
 
-from performa.common.capital import CapitalPlan
-from performa.common.primitives import AssetTypeEnum, GlobalSettings, Timeline
+from performa.core.capital import CapitalPlan
+from performa.core.primitives import AssetTypeEnum, GlobalSettings, Timeline
 from performa.deal.acquisition import AcquisitionTerms
 from performa.deal.calculator import analyze_deal
 from performa.deal.deal import Deal
@@ -37,8 +37,8 @@ class TestFundingCascade:
     @pytest.fixture
     def sample_development_project(self):
         """Create a sample development project with known construction costs."""
-        from performa.common.capital import CapitalItem
-        from performa.common.primitives import UnitOfMeasureEnum
+        from performa.core.capital import CapitalItem
+        from performa.core.primitives import UnitOfMeasureEnum
         
         # Create construction plan with known costs
         construction_items = [
@@ -481,8 +481,8 @@ class TestFundingCascade:
         - No unnecessary equity contributions
         """
         # Create a deal with gaps in Uses (no construction for some periods)
-        from performa.common.capital import CapitalItem
-        from performa.common.primitives import UnitOfMeasureEnum
+        from performa.core.capital import CapitalItem
+        from performa.core.primitives import UnitOfMeasureEnum
         
         # Create construction plan with gaps
         construction_items = [

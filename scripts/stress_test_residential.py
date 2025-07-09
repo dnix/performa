@@ -29,7 +29,7 @@ from performa.asset.residential import (
     ResidentialRolloverProfile,
     ResidentialUnitSpec,
 )
-from performa.common.primitives import (
+from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     LeaseStatusEnum,
@@ -37,7 +37,7 @@ from performa.common.primitives import (
     UnitOfMeasureEnum,
     UponExpirationEnum,
 )
-from performa.common.primitives.growth_rates import PercentageGrowthRate
+from performa.core.primitives.growth_rates import PercentageGrowthRate
 
 
 def create_basic_rollover_profile(name: str) -> ResidentialRolloverProfile:
@@ -483,7 +483,7 @@ def test_fundamental_sanity() -> bool:
         ResidentialRolloverLeaseTerms,
         ResidentialRolloverProfile,
     )
-    from performa.common.capital import CapitalPlan
+    from performa.core.capital import CapitalPlan
     
     plan = CapitalPlan(name="Test Plan")
     profile = ResidentialRolloverProfile(

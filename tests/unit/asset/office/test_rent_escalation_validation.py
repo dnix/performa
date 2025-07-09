@@ -6,8 +6,8 @@ import pytest
 from pydantic import ValidationError
 
 from performa.asset.office.rent_escalation import OfficeRentEscalation
-from performa.common.primitives import UnitOfMeasureEnum
-from performa.common.primitives.growth_rates import (
+from performa.core.primitives import UnitOfMeasureEnum
+from performa.core.primitives.growth_rates import (
     FixedGrowthRate,
     PercentageGrowthRate,
 )

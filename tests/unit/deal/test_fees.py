@@ -9,14 +9,14 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from performa.common.primitives.draw_schedule import (
+from performa.core.primitives.draw_schedule import (
     FirstLastDrawSchedule,
     FirstOnlyDrawSchedule,
     LastOnlyDrawSchedule,
     ManualDrawSchedule,
     UniformDrawSchedule,
 )
-from performa.common.primitives.timeline import Timeline
+from performa.core.primitives.timeline import Timeline
 from performa.deal.fees import DealFee
 
 

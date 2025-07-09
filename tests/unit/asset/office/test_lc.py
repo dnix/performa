@@ -9,7 +9,7 @@ from performa.analysis import AnalysisContext
 from performa.asset.office.lc import CommissionTier, OfficeLeasingCommission
 from performa.asset.office.lease import OfficeLease
 from performa.asset.office.property import OfficeProperty
-from performa.common.primitives import GlobalSettings, Timeline, UnitOfMeasureEnum
+from performa.core.primitives import GlobalSettings, Timeline, UnitOfMeasureEnum
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def sample_context() -> AnalysisContext:
 def sample_lease() -> OfficeLease:
     """Provides a sample lease with signing_date for testing split payments."""
     from performa.asset.office.lease_spec import OfficeLeaseSpec
-    from performa.common.primitives import (
+    from performa.core.primitives import (
         LeaseStatusEnum,
         LeaseTypeEnum,
         ProgramUseEnum,
@@ -243,7 +243,7 @@ def test_lc_split_payment_without_signing_date_error(sample_context: AnalysisCon
     
     # Create a lease without signing_date
     from performa.asset.office.lease_spec import OfficeLeaseSpec
-    from performa.common.primitives import (
+    from performa.core.primitives import (
         LeaseStatusEnum,
         LeaseTypeEnum,
         ProgramUseEnum,

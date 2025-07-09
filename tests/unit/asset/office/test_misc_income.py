@@ -8,7 +8,7 @@ import pytest
 from performa.analysis import AnalysisContext
 from performa.asset.office.misc_income import OfficeMiscIncome
 from performa.asset.office.property import OfficeProperty
-from performa.common.primitives import (
+from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     RevenueSubcategoryEnum,

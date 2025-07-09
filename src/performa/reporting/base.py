@@ -14,7 +14,7 @@ from uuid import UUID, uuid4
 
 from pydantic import Field
 
-from ..common.primitives import Model
+from ..core.primitives import Model
 
 
 class ReportTemplate(Model):

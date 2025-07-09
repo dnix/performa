@@ -5,7 +5,7 @@ from datetime import date
 import pytest
 
 from performa.asset.office.lease_spec import OfficeLeaseSpec
-from performa.common.primitives import (
+from performa.core.primitives import (
     FrequencyEnum,
     LeaseTypeEnum,
     UnitOfMeasureEnum,

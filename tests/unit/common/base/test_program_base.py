@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from performa.common.base import ProgramComponentSpec
-from performa.common.primitives import ProgramUseEnum
+from performa.core.base import ProgramComponentSpec
+from performa.core.primitives import ProgramUseEnum
 
 
 def test_program_component_spec_instantiation():

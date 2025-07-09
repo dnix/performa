@@ -11,7 +11,7 @@ from typing import Any
 
 import pandas as pd
 
-from ..common.primitives import CashFlowModel
+from ..core.primitives import CashFlowModel
 
 
 class DispositionCashFlow(CashFlowModel):

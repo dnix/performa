@@ -13,7 +13,7 @@ from uuid import UUID, uuid4
 import pandas as pd
 from pydantic import Field, model_validator
 
-from ..common.primitives import Model, PositiveFloat
+from ..core.primitives import Model, PositiveFloat
 
 
 class DCFValuation(Model):

@@ -12,7 +12,7 @@ from typing import Any, Dict, Optional
 import pandas as pd
 
 # Import the analysis module for context creation
-from ..common.primitives import GlobalSettings, Timeline
+from ..core.primitives import GlobalSettings, Timeline
 from .deal import Deal
 
 # TODO: Consider refactoring reporting functionality to dedicated reporting module
@@ -270,7 +270,7 @@ def _calculate_ongoing_performance_metrics(
     """
     import pandas as pd
 
-    from ..common.primitives import UnleveredAggregateLineKey
+    from ..core.primitives import UnleveredAggregateLineKey
     
     # Only calculate DSCR if we have financing
     if not financing_analysis["has_financing"]:

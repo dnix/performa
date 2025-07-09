@@ -25,7 +25,7 @@ from performa.asset.residential import (
     ResidentialUnitSpec,
     ResidentialVacantUnit,
 )
-from performa.common.primitives import (
+from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     Timeline,

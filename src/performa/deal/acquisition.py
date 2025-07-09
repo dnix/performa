@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Optional
 import pandas as pd
 from pydantic import Field, model_validator
 
-from ..common.primitives import (
+from ..core.primitives import (
     CashFlowModel,
     FloatBetween0And1,
     FrequencyEnum,

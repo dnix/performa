@@ -3,9 +3,9 @@ from __future__ import annotations
 from datetime import date
 from typing import List, Union
 
-from ...common.base import RentEscalationBase
-from ...common.primitives import UnitOfMeasureEnum
-from ...common.primitives.growth_rates import FixedGrowthRate, PercentageGrowthRate
+from ...core.base import RentEscalationBase
+from ...core.primitives import UnitOfMeasureEnum
+from ...core.primitives.growth_rates import FixedGrowthRate, PercentageGrowthRate
 
 
 class OfficeRentEscalation(RentEscalationBase):

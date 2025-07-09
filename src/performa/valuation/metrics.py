@@ -12,7 +12,7 @@ from typing import Dict, Optional, Union
 import pandas as pd
 from pyxirr import xirr
 
-from ..common.primitives.validation import validate_monthly_period_index
+from ..core.primitives.validation import validate_monthly_period_index
 
 
 class PropertyMetrics:

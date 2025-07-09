@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ...common.base import MiscIncomeBase
+from ...core.base import MiscIncomeBase
 
 
 class ResidentialMiscIncome(MiscIncomeBase):

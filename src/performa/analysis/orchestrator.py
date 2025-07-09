@@ -62,19 +62,19 @@ from uuid import UUID
 
 import pandas as pd
 
-from performa.common.primitives import (
+from performa.core.primitives import (
     CalculationPass,
     UnleveredAggregateLineKey,
     UponExpirationEnum,
 )
 
 if TYPE_CHECKING:
-    from performa.common.base import (
+    from performa.core.base import (
         LeaseBase,
         PropertyBaseModel,
         RecoveryCalculationState,
     )
-    from performa.common.primitives import (
+    from performa.core.primitives import (
         CashFlowModel,
         ExpenseSubcategoryEnum,
         GlobalSettings,
@@ -325,7 +325,7 @@ class CashFlowOrchestrator:
     # --- CRITICAL METHOD 2: _calculate_occupancy_series() ---
     def _calculate_occupancy_series(self) -> pd.Series:
         """Calculates the property-wide occupancy rate for each period."""
-        from performa.common.base import LeaseBase
+        from performa.core.base import LeaseBase
         total_occupied_area = pd.Series(0.0, index=self.context.timeline.period_index)
         lease_models = [m for m in self.models if isinstance(m, LeaseBase)]
         
@@ -376,7 +376,7 @@ class CashFlowOrchestrator:
             model = self.model_map[model_uid]
             
             # For leases with rollover profiles, use project_future_cash_flows to handle renewals
-            from performa.common.base import LeaseBase
+            from performa.core.base import LeaseBase
             if (isinstance(model, LeaseBase) and 
                 hasattr(model, 'rollover_profile') and 
                 model.rollover_profile and 
@@ -502,7 +502,7 @@ class CashFlowOrchestrator:
 
     def _get_aggregate_key(self, category: str, subcategory: str, component: str = 'value') -> Optional[UnleveredAggregateLineKey]:
         # Mapping logic from raw categories to summary lines
-        from performa.common.primitives import (
+        from performa.core.primitives import (
             ExpenseSubcategoryEnum,
             RevenueSubcategoryEnum,
         )
@@ -757,7 +757,7 @@ class CashFlowOrchestrator:
             target_key = self._get_aggregate_key(model.category, model.subcategory)
             
             # Handle complex models (like leases) that produce multiple components
-            from performa.common.base import LeaseBase
+            from performa.core.base import LeaseBase
             if isinstance(model, LeaseBase):
                 # Leases can contribute to multiple aggregates through different components
                 lease_components = ['base_rent', 'recoveries', 'abatement', 'ti_allowance', 'leasing_commission']

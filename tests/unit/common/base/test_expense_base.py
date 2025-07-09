@@ -9,8 +9,8 @@ import pytest
 from pydantic import ValidationError
 
 from performa.analysis import AnalysisContext
-from performa.common.base import CapExItemBase, OpExItemBase
-from performa.common.primitives import (
+from performa.core.base import CapExItemBase, OpExItemBase
+from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     Timeline,

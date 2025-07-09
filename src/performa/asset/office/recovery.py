@@ -8,9 +8,9 @@ from uuid import UUID, uuid4
 import pandas as pd
 from pydantic import Field, model_validator
 
-from ...common.base import ExpensePoolBase as CommonExpensePoolBase
-from ...common.base import OpExItemBase, RecoveryBase, RecoveryMethodBase
-from ...common.primitives import GlobalSettings, GrowthRate, Model
+from ...core.base import ExpensePoolBase as CoreExpensePoolBase
+from ...core.base import OpExItemBase, RecoveryBase, RecoveryMethodBase
+from ...core.primitives import GlobalSettings, GrowthRate, Model
 from ..commercial.recovery import CommercialRecoveryMethodBase
 
 if TYPE_CHECKING:
@@ -29,7 +29,7 @@ class RecoveryCalculationState:
     frozen_base_year_pro_rata: Optional[float] = None
 
 
-class ExpensePool(CommonExpensePoolBase):
+class ExpensePool(CoreExpensePoolBase):
     def compute_cf(
         self,
         timeline: pd.PeriodIndex,

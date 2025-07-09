@@ -9,8 +9,8 @@ import numpy as np
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 
-from performa.common.base import LeaseBase, RentEscalationBase, RolloverLeaseTermsBase
-from performa.common.primitives import (
+from performa.core.base import LeaseBase, RentEscalationBase, RolloverLeaseTermsBase
+from performa.core.primitives import (
     FrequencyEnum,
     LeaseStatusEnum,
     LeaseTypeEnum,
@@ -21,7 +21,7 @@ from performa.common.primitives import (
 
 if TYPE_CHECKING:
     from performa.analysis import AnalysisContext
-    from performa.common.primitives.growth_rates import (
+    from performa.core.primitives.growth_rates import (
         GrowthRateBase,
     )
 

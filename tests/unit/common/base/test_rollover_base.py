@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from performa.common.base import (
+from performa.core.base import (
     RolloverLeaseTermsBase,
     RolloverProfileBase,
 )
-from performa.common.primitives import (
+from performa.core.primitives import (
     FrequencyEnum,
     UnitOfMeasureEnum,
     UponExpirationEnum,

@@ -41,9 +41,9 @@ from performa.asset.residential.rollover import (
     ResidentialRolloverLeaseTerms,
     ResidentialRolloverProfile,
 )
-from performa.common.base import FixedQuantityPace as ResidentialFixedQuantityPace
-from performa.common.capital import CapitalItem, CapitalPlan
-from performa.common.primitives import AssetTypeEnum, Timeline
+from performa.core.base import FixedQuantityPace as ResidentialFixedQuantityPace
+from performa.core.capital import CapitalItem, CapitalPlan
+from performa.core.primitives import AssetTypeEnum, Timeline
 from performa.debt import (
     ConstructionFacility,
     DebtTranche,

@@ -18,8 +18,8 @@ from performa.asset.residential.rollover import (
     ResidentialRolloverLeaseTerms,
     ResidentialRolloverProfile,
 )
-from performa.common.base import DevelopmentBlueprintBase
-from performa.common.primitives import Timeline
+from performa.core.base import DevelopmentBlueprintBase
+from performa.core.primitives import Timeline
 
 
 def test_residential_blueprint_inheritance():
@@ -51,7 +51,7 @@ def test_residential_blueprint_instantiation():
     )
     
     # Create absorption plan with proper pace structure
-    from performa.common.base import FixedQuantityPace  # Import from common base
+    from performa.core.base import FixedQuantityPace  # Import from common base
     
     absorption_plan = ResidentialAbsorptionPlan(
         name="Residential Lease-Up Plan",
@@ -117,7 +117,7 @@ def test_residential_blueprint_unit_mix_aggregation():
         )
     ]
     
-    from performa.common.base import FixedQuantityPace
+    from performa.core.base import FixedQuantityPace
     
     absorption_plan = ResidentialAbsorptionPlan(
         name="Mixed Unit Plan",
@@ -180,7 +180,7 @@ def test_residential_blueprint_to_stabilized_asset():
         rollover_profile=rollover_profile
     )
     
-    from performa.common.base import FixedQuantityPace
+    from performa.core.base import FixedQuantityPace
     
     absorption_plan = ResidentialAbsorptionPlan(
         name="Luxury Residential Absorption",
@@ -246,7 +246,7 @@ def test_residential_blueprint_relative_timeline_validation():
         rollover_profile=rollover_profile
     )
     
-    from performa.common.base import FixedQuantityPace
+    from performa.core.base import FixedQuantityPace
     
     absorption_plan = ResidentialAbsorptionPlan(
         name="Test Plan",
@@ -299,7 +299,7 @@ def test_residential_blueprint_absorption_plan_validation():
         rollover_profile=rollover_profile
     )
     
-    from performa.common.base import FixedQuantityPace
+    from performa.core.base import FixedQuantityPace
     
     # Valid absorption plan
     valid_plan = ResidentialAbsorptionPlan(
@@ -332,7 +332,7 @@ def test_residential_blueprint_absorption_plan_validation():
 
 def test_residential_blueprint_empty_inventory():
     """Test blueprint behavior with empty vacant inventory."""
-    from performa.common.base import FixedQuantityPace
+    from performa.core.base import FixedQuantityPace
     
     absorption_plan = ResidentialAbsorptionPlan(
         name="Empty Plan",
@@ -395,7 +395,7 @@ def test_residential_blueprint_unit_count_calculation():
         )
     ]
     
-    from performa.common.base import FixedQuantityPace
+    from performa.core.base import FixedQuantityPace
     
     absorption_plan = ResidentialAbsorptionPlan(
         name="Mixed Size Plan",
@@ -454,7 +454,7 @@ def test_residential_blueprint_name_inheritance():
         rollover_profile=rollover_profile
     )
     
-    from performa.common.base import FixedQuantityPace
+    from performa.core.base import FixedQuantityPace
     
     absorption_plan = ResidentialAbsorptionPlan(
         name="Waterfront Absorption",

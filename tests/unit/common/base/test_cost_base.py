@@ -7,17 +7,17 @@ import pytest
 from pydantic import ValidationError
 
 from performa.analysis import AnalysisContext
-from performa.common.base import (
+from performa.core.base import (
     CommissionTier,
     LeasingCommissionBase,
     TenantImprovementAllowanceBase,
 )
-from performa.common.base.cost import (
+from performa.core.base.cost import (
     CommissionTier,
     LeasingCommissionBase,
     TenantImprovementAllowanceBase,
 )
-from performa.common.primitives import (
+from performa.core.primitives import (
     GlobalSettings,
     Timeline,
     UnitOfMeasureEnum,

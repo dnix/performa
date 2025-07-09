@@ -5,8 +5,8 @@ from uuid import UUID, uuid4
 
 from pydantic import Field
 
-from ...common.base import CapExItemBase, OpExItemBase
-from ...common.primitives import Model
+from ...core.base import CapExItemBase, OpExItemBase
+from ...core.primitives import Model
 
 
 class ResidentialOpExItem(OpExItemBase):

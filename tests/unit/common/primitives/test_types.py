@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from performa.common.primitives import FloatBetween0And1, PositiveFloat, PositiveInt
+from performa.core.primitives import FloatBetween0And1, PositiveFloat, PositiveInt
 
 # Use TypeAdapter for testing Pydantic constrained types
 positive_int_adapter = TypeAdapter(PositiveInt)

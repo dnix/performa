@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from performa.common.primitives import (
+from performa.core.primitives import (
     AssetTypeEnum,
     FrequencyEnum,
     LeveredAggregateLineKey,
@@ -79,7 +79,7 @@ def test_legacy_enum_removed():
     # Verify the old enum is no longer importable
     try:
         # This import should fail
-        exec("from performa.common.primitives.enums import AggregateLineKey")
+        exec("from performa.core.primitives.enums import AggregateLineKey")
         assert False, "AggregateLineKey should have been removed but is still importable"
     except ImportError:
         pass  # This is expected

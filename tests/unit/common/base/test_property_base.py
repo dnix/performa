@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from performa.common.base import Address, ProgramComponentSpec, PropertyBaseModel
-from performa.common.primitives import AssetTypeEnum, ProgramUseEnum
+from performa.core.base import Address, ProgramComponentSpec, PropertyBaseModel
+from performa.core.primitives import AssetTypeEnum, ProgramUseEnum
 
 
 def test_property_base_instantiation():

@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from pydantic import Field, model_validator
 
-from ..common.primitives import FloatBetween0And1, Model, PositiveFloat
+from ..core.primitives import FloatBetween0And1, Model, PositiveFloat
 from .debt_facility import DebtFacility
 from .rates import InterestRate
 

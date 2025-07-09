@@ -7,7 +7,7 @@ import pytest
 
 from performa.analysis import AnalysisContext
 from performa.asset.office import OfficeProperty
-from performa.common.primitives import GlobalSettings, Timeline
+from performa.core.primitives import GlobalSettings, Timeline
 
 
 @pytest.fixture

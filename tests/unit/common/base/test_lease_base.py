@@ -7,8 +7,8 @@ import pandas as pd
 import pytest
 
 from performa.analysis import AnalysisContext
-from performa.common.base import LeaseBase, LeaseSpecBase, RentAbatementBase
-from performa.common.primitives import (
+from performa.core.base import LeaseBase, LeaseSpecBase, RentAbatementBase
+from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     LeaseStatusEnum,

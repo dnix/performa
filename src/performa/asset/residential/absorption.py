@@ -29,7 +29,7 @@ from uuid import UUID
 
 from pydantic import Field
 
-from ...common.base import (
+from ...core.base import (
     AbsorptionPlanBase,
     CustomSchedulePace,
     DirectLeaseTerms,
@@ -38,7 +38,7 @@ from ...common.base import (
     PaceContext,
     SpaceFilter,
 )
-from ...common.primitives import (
+from ...core.primitives import (
     GlobalSettings,
     StartDateAnchorEnum,
 )

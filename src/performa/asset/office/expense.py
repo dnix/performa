@@ -7,8 +7,8 @@ from uuid import UUID
 import pandas as pd
 from pydantic import Field
 
-from ...common.base import CapExItemBase, OpExItemBase
-from ...common.primitives import GrowthRate, Model, Timeline, UnitOfMeasureEnum
+from ...core.base import CapExItemBase, OpExItemBase
+from ...core.primitives import GrowthRate, Model, Timeline, UnitOfMeasureEnum
 
 if TYPE_CHECKING:
     from performa.analysis import AnalysisContext

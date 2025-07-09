@@ -10,7 +10,7 @@ from performa.asset.office.rollover import (
     OfficeRolloverProfile,
     OfficeRolloverTenantImprovement,
 )
-from performa.common.primitives import (
+from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     GrowthRate,

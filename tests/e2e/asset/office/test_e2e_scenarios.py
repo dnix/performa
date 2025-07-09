@@ -28,11 +28,11 @@ from performa.asset.office import (
     Recovery,
     SpaceFilter,
 )
-from performa.common.base import CommissionTier, FixedQuantityPace
-from performa.common.primitives import (
-    UnleveredAggregateLineKey,
+from performa.core.base import CommissionTier, FixedQuantityPace
+from performa.core.primitives import (
     GlobalSettings,
     Timeline,
+    UnleveredAggregateLineKey,
     UponExpirationEnum,
 )
 

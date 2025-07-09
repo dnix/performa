@@ -12,7 +12,7 @@ from performa.asset.office.rollover import (
     OfficeRolloverLeaseTerms,
     OfficeRolloverProfile,
 )
-from performa.common.primitives import (
+from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     LeaseStatusEnum,

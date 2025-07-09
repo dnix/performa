@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ...common.primitives import Model
+from ...core.primitives import Model
 
 
 class OfficeTenant(Model):

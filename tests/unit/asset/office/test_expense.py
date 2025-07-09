@@ -13,7 +13,7 @@ from performa.asset.office.expense import (
     OfficeOpExItem,
 )
 from performa.asset.office.property import OfficeProperty
-from performa.common.primitives import (
+from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     GrowthRate,

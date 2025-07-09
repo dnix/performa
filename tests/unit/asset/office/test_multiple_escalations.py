@@ -21,7 +21,7 @@ from performa.asset.office.rent_escalation import (
     create_stepped_fixed_escalations,
     create_stepped_percentage_escalations,
 )
-from performa.common.primitives import (
+from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     LeaseTypeEnum,
@@ -29,7 +29,7 @@ from performa.common.primitives import (
     UnitOfMeasureEnum,
     UponExpirationEnum,
 )
-from performa.common.primitives.growth_rates import (
+from performa.core.primitives.growth_rates import (
     FixedGrowthRate,
     PercentageGrowthRate,
 )

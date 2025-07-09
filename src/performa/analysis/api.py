@@ -1,4 +1,4 @@
-from performa.common.primitives import GlobalSettings, Model, Timeline
+from performa.core.primitives import GlobalSettings, Model, Timeline
 
 from .registry import get_scenario_for_model
 from .scenario import AnalysisScenarioBase

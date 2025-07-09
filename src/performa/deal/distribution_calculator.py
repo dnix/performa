@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from pyxirr import xirr
 
-from ..common.primitives import Timeline
+from ..core.primitives import Timeline
 from .partners import Partner, PartnershipStructure
 
 # Constants for numerical precision

@@ -261,7 +261,7 @@ class ManualDrawSchedule(DrawSchedule):
             ManualDrawSchedule instance
             
         Example:
-            >>> from performa.common.primitives import Timeline
+            >>> from performa.core.primitives import Timeline
             >>> from datetime import date
             >>> timeline = Timeline(start_date=date(2024, 1, 1), duration_months=3)
             >>> schedule = ManualDrawSchedule.create_for_timeline([1, 2, 3], timeline)

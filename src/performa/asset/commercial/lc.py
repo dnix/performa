@@ -6,8 +6,8 @@ from typing import List, Literal
 import pandas as pd
 
 from ...analysis import AnalysisContext
-from ...common.base import CommissionTier, LeasingCommissionBase
-from ...common.primitives.types import FloatBetween0And1
+from ...core.base import CommissionTier, LeasingCommissionBase
+from ...core.primitives.types import FloatBetween0And1
 
 
 class CommercialLeasingCommissionBase(LeasingCommissionBase):

@@ -16,13 +16,13 @@ from performa.asset.office.losses import (
 )
 from performa.asset.office.property import OfficeProperty
 from performa.asset.office.rent_roll import OfficeRentRoll, OfficeVacantSuite
-from performa.common.primitives import (
-    UnleveredAggregateLineKey,
+from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     LeaseTypeEnum,
     Timeline,
     UnitOfMeasureEnum,
+    UnleveredAggregateLineKey,
     UponExpirationEnum,
 )
 

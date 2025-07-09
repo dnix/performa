@@ -34,7 +34,7 @@ from uuid import UUID, uuid4
 
 from pydantic import Field, field_validator
 
-from ..common.primitives import FloatBetween0And1, Model, PositiveFloat
+from ..core.primitives import FloatBetween0And1, Model, PositiveFloat
 
 
 class Partner(Model):

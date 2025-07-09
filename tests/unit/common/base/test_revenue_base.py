@@ -4,8 +4,8 @@ from datetime import date
 
 import pytest
 
-from performa.common.base import MiscIncomeBase
-from performa.common.primitives import (
+from performa.core.base import MiscIncomeBase
+from performa.core.primitives import (
     RevenueSubcategoryEnum,
     Timeline,
     UnitOfMeasureEnum,

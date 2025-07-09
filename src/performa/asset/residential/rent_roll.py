@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import Field, computed_field, model_validator
 
-from ...common.primitives import Model, PositiveFloat, PositiveInt
+from ...core.primitives import Model, PositiveFloat, PositiveInt
 from .rollover import ResidentialRolloverProfile
 
 

@@ -4,13 +4,13 @@ from datetime import date
 
 import pytest
 
-from performa.common.base import (
+from performa.core.base import (
     ExpensePoolBase,
     OpExItemBase,
     RecoveryBase,
     RecoveryMethodBase,
 )
-from performa.common.primitives import Timeline, UnitOfMeasureEnum
+from performa.core.primitives import Timeline, UnitOfMeasureEnum
 
 
 @pytest.fixture

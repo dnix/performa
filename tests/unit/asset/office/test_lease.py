@@ -16,8 +16,8 @@ from performa.asset.office.rollover import (
     OfficeRolloverTenantImprovement,
 )
 from performa.asset.office.ti import OfficeTenantImprovement
-from performa.common.base import CommissionTier
-from performa.common.primitives import (
+from performa.core.base import CommissionTier
+from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     LeaseStatusEnum,

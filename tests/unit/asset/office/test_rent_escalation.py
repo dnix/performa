@@ -7,7 +7,7 @@ from performa.analysis import AnalysisContext
 from performa.asset.office.lease import OfficeLease
 from performa.asset.office.lease_spec import OfficeLeaseSpec
 from performa.asset.office.rent_escalation import OfficeRentEscalation
-from performa.common.primitives import (
+from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     LeaseTypeEnum,
@@ -508,7 +508,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         Scenario: 3% growth rate applied as percentage escalation 
         Expected: 3% compound growth from Year 2 onwards
         """
-        from performa.common.primitives.growth_rates import PercentageGrowthRate
+        from performa.core.primitives.growth_rates import PercentageGrowthRate
         
         # Create a constant 3% growth rate
         growth_rate = PercentageGrowthRate(name="Market Growth", value=0.03)
@@ -569,7 +569,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         Scenario: Escalation rate defining $1.50/SF increase annually
         Expected: Cumulative $1.50/SF increases each year
         """
-        from performa.common.primitives.growth_rates import FixedGrowthRate
+        from performa.core.primitives.growth_rates import FixedGrowthRate
         
         # Create fixed escalation rate representing $1.50/SF/year increase
         escalation_rate = FixedGrowthRate(name="Fixed Growth", value=1.50)
@@ -630,7 +630,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         Scenario: Different growth rates by period (2% Year 2, 4% Year 3)
         Expected: Variable percentage increases based on period
         """
-        from performa.common.primitives.growth_rates import PercentageGrowthRate
+        from performa.core.primitives.growth_rates import PercentageGrowthRate
         
         # Create time-based growth rates
         growth_series = pd.Series({
@@ -720,7 +720,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         """
         from datetime import date
 
-        from performa.common.primitives.growth_rates import PercentageGrowthRate
+        from performa.core.primitives.growth_rates import PercentageGrowthRate
         
         # Create date-based growth rates
         growth_dict = {

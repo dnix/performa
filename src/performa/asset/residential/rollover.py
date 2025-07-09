@@ -7,9 +7,9 @@ from uuid import UUID
 
 from pydantic import Field, computed_field
 
-from ...common.base import RolloverLeaseTermsBase, RolloverProfileBase
-from ...common.capital import CapitalPlan
-from ...common.primitives import (
+from ...core.base import RolloverLeaseTermsBase, RolloverProfileBase
+from ...core.capital import CapitalPlan
+from ...core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     GrowthRate,

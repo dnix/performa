@@ -5,8 +5,8 @@ from uuid import UUID
 
 from performa.analysis import register_scenario
 from performa.analysis.orchestrator import AnalysisContext, CashFlowOrchestrator
-from performa.common.base import LeaseSpecBase
-from performa.common.primitives import CashFlowModel
+from performa.core.base import LeaseSpecBase
+from performa.core.primitives import CashFlowModel
 
 from ..commercial.analysis import CommercialAnalysisScenarioBase
 from .expense import OfficeCapExItem, OfficeOpExItem
@@ -233,13 +233,13 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
                 
                 # Convert to annual if needed
                 if hasattr(expense_item, 'frequency'):
-                    from performa.common.primitives.enums import FrequencyEnum
+                    from performa.core.primitives.enums import FrequencyEnum
                     if expense_item.frequency == FrequencyEnum.MONTHLY:
                         annual_value *= 12
                 
                 # Apply unit of measure adjustments
                 if hasattr(expense_item, 'unit_of_measure'):
-                    from performa.common.primitives.enums import UnitOfMeasureEnum
+                    from performa.core.primitives.enums import UnitOfMeasureEnum
                     if expense_item.unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
                         # Multiply by property area for per-unit expenses
                         annual_value *= self.model.net_rentable_area

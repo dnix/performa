@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Optional, Union
 import pandas as pd
 
 from ...analysis import AnalysisContext
-from ...common.base import MiscIncomeBase
+from ...core.base import MiscIncomeBase
 
 logger = logging.getLogger(__name__)
 

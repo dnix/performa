@@ -6,7 +6,7 @@ from typing import List, Optional
 import pandas as pd
 from pydantic import PrivateAttr
 
-from performa.common.primitives import CashFlowModel, GlobalSettings, Model, Timeline
+from performa.core.primitives import CashFlowModel, GlobalSettings, Model, Timeline
 
 from .orchestrator import AnalysisContext, CashFlowOrchestrator
 

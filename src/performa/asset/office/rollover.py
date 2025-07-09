@@ -6,8 +6,8 @@ from typing import Dict, List, Literal, Optional, Union
 
 import pandas as pd
 
-from ...common.base import RolloverLeaseTermsBase, RolloverProfileBase
-from ...common.primitives import (
+from ...core.base import RolloverLeaseTermsBase, RolloverProfileBase
+from ...core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     GrowthRate,

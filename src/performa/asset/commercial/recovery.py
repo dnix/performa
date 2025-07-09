@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Optional
 
 import pandas as pd
 
-from performa.common.base import LeaseBase, OpExItemBase, RecoveryMethodBase
+from performa.core.base import LeaseBase, OpExItemBase, RecoveryMethodBase
 
 if TYPE_CHECKING:
     from performa.analysis import AnalysisContext

@@ -9,8 +9,8 @@ import numpy as np
 import pandas as pd
 from pydantic import Field
 
-from ...common.base import CommissionTier, LeaseBase
-from ...common.primitives import (
+from ...core.base import CommissionTier, LeaseBase
+from ...core.primitives import (
     CashFlowModel,
     FrequencyEnum,
     GlobalSettings,

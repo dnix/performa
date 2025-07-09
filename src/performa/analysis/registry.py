@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Callable, Dict, Type
 
 # Import Model for type hinting
-from ..common.primitives import Model
+from ..core.primitives import Model
 
 if TYPE_CHECKING:
     from .scenario import AnalysisScenarioBase

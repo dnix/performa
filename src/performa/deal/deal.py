@@ -14,7 +14,7 @@ from pydantic import Field, computed_field
 
 from ..asset.office.property import OfficeProperty
 from ..asset.residential.property import ResidentialProperty
-from ..common.primitives import AssetTypeEnum, Model
+from ..core.primitives import AssetTypeEnum, Model
 from ..debt.plan import FinancingPlan
 from ..development.project import DevelopmentProject
 from ..valuation.disposition import DispositionValuation

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ...common.base import (
+from ...core.base import (
     CollectionLossConfigBase,
     GeneralVacancyLossConfigBase,
     LossesBase,

@@ -9,7 +9,7 @@ from datetime import datetime
 import pandas as pd
 import pytest
 
-from performa.common.primitives import Timeline
+from performa.core.primitives import Timeline
 from performa.deal.distribution_calculator import (
     DistributionCalculator,
     calculate_partner_distributions_with_structure,

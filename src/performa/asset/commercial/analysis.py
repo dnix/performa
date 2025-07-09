@@ -5,8 +5,8 @@ from typing import List, Optional
 
 from performa.analysis import AnalysisScenarioBase
 from performa.analysis.orchestrator import AnalysisContext
-from performa.common.base import LeaseSpecBase
-from performa.common.primitives import CashFlowModel
+from performa.core.base import LeaseSpecBase
+from performa.core.primitives import CashFlowModel
 
 
 class CommercialAnalysisScenarioBase(AnalysisScenarioBase):

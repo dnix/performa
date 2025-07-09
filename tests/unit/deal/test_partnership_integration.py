@@ -10,8 +10,8 @@ from datetime import datetime
 import pandas as pd
 import pytest
 
-from performa.common.capital import CapitalPlan
-from performa.common.primitives import AssetTypeEnum, Timeline
+from performa.core.capital import CapitalPlan
+from performa.core.primitives import AssetTypeEnum, Timeline
 from performa.deal import (
     Deal,
     DistributionCalculator,

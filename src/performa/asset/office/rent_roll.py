@@ -4,8 +4,8 @@ from typing import List, Optional
 
 from pydantic import Field, PositiveFloat, computed_field, model_validator
 
-from ...common.base import VacantSuiteBase
-from ...common.primitives import Model, ProgramUseEnum
+from ...core.base import VacantSuiteBase
+from ...core.primitives import Model, ProgramUseEnum
 from .lease_spec import OfficeLeaseSpec
 
 

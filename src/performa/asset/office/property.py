@@ -5,8 +5,8 @@ from typing import Dict, List, Optional
 
 from pydantic import Field, computed_field, model_validator
 
-from ...common.base import PropertyBaseModel, VacantSuiteBase
-from ...common.primitives import AssetTypeEnum, Model
+from ...core.base import PropertyBaseModel, VacantSuiteBase
+from ...core.primitives import AssetTypeEnum, Model
 from .absorption import OfficeAbsorptionPlan
 from .expense import OfficeExpenses
 from .lease_spec import OfficeLeaseSpec

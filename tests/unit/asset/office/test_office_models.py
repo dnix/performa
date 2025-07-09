@@ -14,7 +14,7 @@ from performa.asset.office.losses import (
 from performa.asset.office.property import OfficeProperty
 from performa.asset.office.rent_roll import OfficeRentRoll, OfficeVacantSuite
 from performa.asset.office.tenant import OfficeTenant
-from performa.common.primitives import (
+from performa.core.primitives import (
     AssetTypeEnum,
     FrequencyEnum,
     LeaseTypeEnum,

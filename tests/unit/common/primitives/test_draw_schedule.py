@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from performa.common.primitives import (
+from performa.core.primitives import (
     DrawScheduleKindEnum,
     FirstLastDrawSchedule,
     FirstOnlyDrawSchedule,
@@ -172,7 +172,7 @@ class TestManualDrawSchedule:
         """Test the create_for_timeline factory method."""
         from datetime import date
 
-        from performa.common.primitives import Timeline
+        from performa.core.primitives import Timeline
         
         timeline = Timeline(start_date=date(2024, 1, 1), duration_months=3)
         
@@ -388,7 +388,7 @@ class TestDrawScheduleDiscriminator:
         
     def test_parse_s_curve_from_dict(self):
         """Test parsing S-curve schedule from dict."""
-        from performa.common.primitives import AnyDrawSchedule
+        from performa.core.primitives import AnyDrawSchedule
         
         data = {"kind": "s-curve", "sigma": 2.0}
         # Note: In practice, you'd use a parent model with AnyDrawSchedule field
@@ -396,7 +396,7 @@ class TestDrawScheduleDiscriminator:
         
     def test_parse_manual_from_dict(self):
         """Test parsing manual schedule from dict."""
-        from performa.common.primitives import AnyDrawSchedule
+        from performa.core.primitives import AnyDrawSchedule
         
         data = {"kind": "manual", "values": [1, 2, 3]}
         # Note: In practice, you'd use a parent model with AnyDrawSchedule field

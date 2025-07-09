@@ -24,13 +24,13 @@ from performa.asset.residential import (
     ResidentialRolloverProfile,
     ResidentialUnitSpec,
 )
-from performa.common.primitives import (
+from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     Timeline,
     UnitOfMeasureEnum,
 )
-from performa.common.primitives.growth_rates import PercentageGrowthRate
+from performa.core.primitives.growth_rates import PercentageGrowthRate
 
 
 @pytest.fixture
@@ -227,7 +227,7 @@ def test_analysis_scenario_properties(sample_residential_property, analysis_time
         f"Expected {expected_total} total models, got {len(models)}"
     
     # All models should be CashFlowModel instances
-    from performa.common.primitives import CashFlowModel
+    from performa.core.primitives import CashFlowModel
     for model in models:
         assert isinstance(model, CashFlowModel), \
             f"Expected CashFlowModel, got {type(model)}"

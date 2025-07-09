@@ -12,7 +12,7 @@ import pandas as pd
 import pytest
 
 from performa.analysis import AnalysisContext
-from performa.common.primitives import GlobalSettings, Timeline
+from performa.core.primitives import GlobalSettings, Timeline
 from performa.deal.acquisition import AcquisitionTerms
 
 
@@ -269,7 +269,7 @@ class TestAcquisitionTermsIntegration:
 
     def test_inherits_from_cashflowmodel(self):
         """Test that AcquisitionTerms properly inherits from CashFlowModel."""
-        from performa.common.primitives import CashFlowModel
+        from performa.core.primitives import CashFlowModel
         
         timeline = Timeline(start_date=date(2024, 1, 1), duration_months=12)
         acquisition = AcquisitionTerms(

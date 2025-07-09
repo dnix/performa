@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import List, Literal
 
-from ...common.base import DevelopmentBlueprintBase
-from ...common.primitives import Timeline
+from ...core.base import DevelopmentBlueprintBase
+from ...core.primitives import Timeline
 from .absorption import OfficeAbsorptionPlan
 from .expense import OfficeExpenses
 from .losses import OfficeCollectionLoss, OfficeGeneralVacancyLoss, OfficeLosses

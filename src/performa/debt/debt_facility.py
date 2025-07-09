@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from ..common.primitives import FloatBetween0And1, Model
+from ..core.primitives import FloatBetween0And1, Model
 from .rates import InterestRate
 
 

@@ -32,8 +32,8 @@ from performa.asset.office import (
     OfficeVacantSuite,
     Recovery,
 )
-from performa.common.base import Address
-from performa.common.primitives import (
+from performa.core.base import Address
+from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     GrowthRate,
@@ -802,7 +802,7 @@ class TestSystematicValidation:
         assert default_settings.calculation.allow_complex_dependencies == False
         
         # Test restrictive settings (max_depth=1)
-        from performa.common.primitives.settings import CalculationSettings
+        from performa.core.primitives.settings import CalculationSettings
         restrictive_calc_settings = CalculationSettings(max_dependency_depth=1)
         restrictive_settings = GlobalSettings(
             analysis_start_date=timeline.start_date.to_timestamp().date(),
@@ -2100,7 +2100,7 @@ class TestSystematicValidation:
         timeline = Timeline.from_dates(date(2024, 1, 1), end_date=date(2024, 12, 31))
         
         # Use standard GlobalSettings (cap functionality currently at Recovery level)
-        from performa.common.primitives.settings import GlobalSettings
+        from performa.core.primitives.settings import GlobalSettings
         
         settings = GlobalSettings(
             analysis_start_date=timeline.start_date.to_timestamp().date()

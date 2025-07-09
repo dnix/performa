@@ -4,12 +4,12 @@ from datetime import date
 
 import pytest
 
-from performa.common.base import (
+from performa.core.base import (
     AbsorptionPlanBase,
     FixedQuantityPace,
     SpaceFilter,
 )
-from performa.common.primitives import Model, ProgramUseEnum, StartDateAnchorEnum
+from performa.core.primitives import Model, ProgramUseEnum, StartDateAnchorEnum
 
 # --- Mocks and Fixtures ---
 

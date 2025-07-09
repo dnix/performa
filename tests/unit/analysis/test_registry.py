@@ -8,7 +8,7 @@ import pytest
 
 from performa.analysis import get_scenario_for_model, register_scenario
 from performa.analysis.scenario import AnalysisScenarioBase
-from performa.common.primitives import Model
+from performa.core.primitives import Model
 
 
 class MockModel(Model):
@@ -87,7 +87,7 @@ class TestArchitecturalBenefits:
         """Test that multiple analysis components can reuse the same scenario lookup logic."""
         from datetime import date
 
-        from performa.common.primitives import GlobalSettings, Timeline
+        from performa.core.primitives import GlobalSettings, Timeline
         
         # The helper function should provide consistent results across different usage contexts
         model = MockModel()

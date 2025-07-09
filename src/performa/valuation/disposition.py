@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 
 from pydantic import Field, model_validator
 
-from ..common.primitives import Model, PositiveFloat
+from ..core.primitives import Model, PositiveFloat
 
 
 class DispositionValuation(Model):
