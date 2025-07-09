@@ -15,7 +15,7 @@ from .distribution_calculator import (
     calculate_partner_distributions_with_structure,
     create_simple_partnership,
 )
-from .fees import DeveloperFee
+from .fees import DealFee
 from .partners import (
     CarryPromote,
     Partner,
@@ -29,7 +29,7 @@ __all__ = [
     "AcquisitionTerms",
     "Deal",
     "analyze_deal",
-    "DeveloperFee",
+    "DealFee",
     "Partner",
     "PartnershipStructure",
     "WaterfallTier",

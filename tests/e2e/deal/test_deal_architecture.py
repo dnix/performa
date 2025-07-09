@@ -212,13 +212,11 @@ class TestDealCentricArchitectureIntegration:
         for _ in range(10):
             deal_type = deal.deal_type
             is_dev = deal.is_development_deal
-            is_stabilized = deal.is_stabilized_deal
             financing_type = deal.financing_type
             
         # Should be consistent
         assert deal_type == "development"
         assert is_dev is True
-        assert is_stabilized is False
         assert financing_type == "all_equity"
 
     def test_architecture_prevents_circular_dependencies(self, purified_development_project):
@@ -265,7 +263,10 @@ class TestDealCentricArchitectureIntegration:
         # Should handle None values gracefully
         assert deal.financing_type == "all_equity"
         assert deal.has_equity_partners is False
-        assert deal.total_facilities == 0
+        
+        # Test inline calculation instead of computed property
+        facilities_count = len(deal.financing.facilities) if deal.financing else 0
+        assert facilities_count == 0
 
 
 class TestArchitecturalQuality:

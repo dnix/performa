@@ -75,9 +75,6 @@ def analyze_deal(
     if settings is None:
         settings = GlobalSettings()
     
-    # Validate deal components
-    deal.validate_deal_components()
-    
     # Pass 1: Unlevered Asset Analysis
     unlevered_analysis = _analyze_unlevered_asset(deal, timeline, settings)
     
@@ -535,76 +532,17 @@ def _calculate_period_uses(
             print(f"Warning: Construction cost calculation failed: {e}")
     
     # 3. Calculate developer fees
-    if deal.developer_fee:
+    if deal.deal_fees:
         try:
-            # Calculate total project cost (acquisition + construction) for percentage-based fees
-            current_project_cost = (
-                uses_df["Acquisition Costs"].sum() + 
-                uses_df["Construction Costs"].sum()
-            )
-            
-            # Calculate upfront and completion fee amounts
-            upfront_fee = deal.developer_fee.calculate_upfront_fee(current_project_cost)
-            completion_fee = deal.developer_fee.calculate_completion_fee(current_project_cost)
-            
-            # Allocate developer fees based on payment timing
-            if deal.developer_fee.payment_timing == "upfront" and upfront_fee > 0:
-                # Pay upfront fee in first period with acquisition costs
-                first_period_with_acquisition = None
-                for period in timeline.period_index:
-                    if uses_df.loc[period, "Acquisition Costs"] > 0:
-                        first_period_with_acquisition = period
-                        break
-                
-                if first_period_with_acquisition is not None:
-                    uses_df.loc[first_period_with_acquisition, "Developer Fees"] = upfront_fee
-                else:
-                    # Fallback: pay in first period
-                    uses_df.iloc[0, uses_df.columns.get_loc("Developer Fees")] = upfront_fee
-                    
-            elif deal.developer_fee.payment_timing == "completion" and completion_fee > 0:
-                # Pay completion fee in last period with construction costs
-                last_period_with_construction = None
-                for period in reversed(timeline.period_index):
-                    if uses_df.loc[period, "Construction Costs"] > 0:
-                        last_period_with_construction = period
-                        break
-                
-                if last_period_with_construction is not None:
-                    uses_df.loc[last_period_with_construction, "Developer Fees"] = completion_fee
-                else:
-                    # Fallback: pay in last period
-                    uses_df.iloc[-1, uses_df.columns.get_loc("Developer Fees")] = completion_fee
-                    
-            elif deal.developer_fee.payment_timing == "split":
-                # Split payment between upfront and completion
-                if upfront_fee > 0:
-                    first_period_with_acquisition = None
-                    for period in timeline.period_index:
-                        if uses_df.loc[period, "Acquisition Costs"] > 0:
-                            first_period_with_acquisition = period
-                            break
-                    
-                    if first_period_with_acquisition is not None:
-                        uses_df.loc[first_period_with_acquisition, "Developer Fees"] += upfront_fee
-                    else:
-                        uses_df.iloc[0, uses_df.columns.get_loc("Developer Fees")] += upfront_fee
-                
-                if completion_fee > 0:
-                    last_period_with_construction = None
-                    for period in reversed(timeline.period_index):
-                        if uses_df.loc[period, "Construction Costs"] > 0:
-                            last_period_with_construction = period
-                            break
-                    
-                    if last_period_with_construction is not None:
-                        uses_df.loc[last_period_with_construction, "Developer Fees"] += completion_fee
-                    else:
-                        uses_df.iloc[-1, uses_df.columns.get_loc("Developer Fees")] += completion_fee
+            # Process each deal fee using the DrawSchedule system
+            for fee in deal.deal_fees:
+                # Use compute_cf for consistency with CapitalItem
+                fee_cf = fee.compute_cf(timeline)
+                uses_df["Developer Fees"] += fee_cf.reindex(timeline.period_index, fill_value=0.0)
                         
         except Exception as e:
             # Fallback: Skip developer fees if calculation fails
-            print(f"Warning: Developer fee calculation failed: {e}")
+            print(f"Warning: Deal fee calculation failed: {e}")
     
     # 4. Extract other project costs from unlevered analysis
     # TODO: This could include other costs like operating deficits during lease-up
@@ -687,6 +625,7 @@ def _calculate_debt_funding(
     equity_cumulative: pd.Series,
     timeline: Timeline,
 ) -> tuple[pd.Series, pd.Series, dict]:
+    # FIXME: check this is not being used!
     """
     Calculate debt funding for each period using the debt-second funding cascade.
     
@@ -807,6 +746,7 @@ def _calculate_interest_expense(
     timeline: Timeline,
     settings: GlobalSettings,
 ) -> pd.Series:
+    # FIXME: check this is not being used!
     """
     Calculate interest expense for each period (Step D).
     
@@ -1333,28 +1273,17 @@ def _calculate_developer_fee_distributions(
     # Start with original cash flows
     remaining_cash_flows = cash_flows.copy()
     
-    # Only calculate developer fees if deal has both a fee and equity partners
-    if not deal.developer_fee or not deal.has_equity_partners:
+    # Only calculate developer fees if deal has both fees and equity partners
+    if not deal.deal_fees or not deal.has_equity_partners:
         developer_fee_details["remaining_cash_flows_after_fee"] = remaining_cash_flows
         return developer_fee_details
     
-    # Calculate total developer fee amount
-    # We need the total project cost, which we can estimate from the funding cascade
-    if isinstance(levered_cash_flows, dict) and "funding_cascade_details" in levered_cash_flows:
-        cascade_details = levered_cash_flows["funding_cascade_details"]
-        if "uses_breakdown" in cascade_details:
-            uses_breakdown = cascade_details["uses_breakdown"]
-            if hasattr(uses_breakdown, "columns") and "Total Uses" in uses_breakdown.columns:
-                total_project_cost = uses_breakdown["Total Uses"].sum()
-            else:
-                # Fallback: sum all negative cash flows as project cost estimate
-                total_project_cost = abs(cash_flows[cash_flows < 0].sum())
-        else:
-            total_project_cost = abs(cash_flows[cash_flows < 0].sum())
-    else:
-        total_project_cost = abs(cash_flows[cash_flows < 0].sum())
+    # Calculate total developer fee amount from all fees
+    total_developer_fee = 0.0
     
-    total_developer_fee = deal.developer_fee.calculate_total_fee(total_project_cost)
+    # Sum all deal fees
+    for fee in deal.deal_fees:
+        total_developer_fee += fee.calculate_total_fee()
     
     # Get GP partners for fee allocation
     gp_partners = deal.equity_partners.gp_partners
@@ -1383,7 +1312,7 @@ def _calculate_developer_fee_distributions(
     developer_fee_details["total_developer_fee"] = total_developer_fee
     
     # For simplicity, reduce the first positive cash flow by the developer fee amount
-    # This represents the priority payment to GP before standard distributions
+    # This represents the priority payment to GP before standard waterfall distributions
     positive_cash_flows = remaining_cash_flows[remaining_cash_flows > 0]
     
     if len(positive_cash_flows) > 0 and total_developer_fee > 0:

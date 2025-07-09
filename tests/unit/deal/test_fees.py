@@ -1,266 +1,538 @@
 """
-Tests for developer fee models.
+Tests for deal fee models.
 """
 
+from datetime import date
+from uuid import UUID
+
+import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from performa.deal.fees import DeveloperFee
+from performa.common.primitives.draw_schedule import (
+    FirstLastDrawSchedule,
+    FirstOnlyDrawSchedule,
+    LastOnlyDrawSchedule,
+    ManualDrawSchedule,
+    UniformDrawSchedule,
+)
+from performa.common.primitives.timeline import Timeline
+from performa.deal.fees import DealFee
 
 
-class TestDeveloperFee:
-    """Test DeveloperFee model."""
+class TestDealFee:
+    """Test DealFee model."""
     
-    def test_fixed_amount_fee_creation(self):
-        """Test creating a fixed amount developer fee."""
-        fee = DeveloperFee(
+    @pytest.fixture
+    def timeline(self):
+        """Create a test timeline."""
+        return Timeline.from_dates(
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31)
+        )
+    
+    def test_basic_fee_creation(self, timeline):
+        """Test creating a basic deal fee."""
+        fee = DealFee(
             name="Development Fee",
-            amount=500_000,
-            payment_timing="completion"
+            value=500_000,
+            timeline=timeline
         )
         
         assert fee.name == "Development Fee"
-        assert fee.amount == 500_000
-        assert fee.is_percentage is False
-        assert fee.payment_timing == "completion"
-        assert fee.upfront_percentage == 0.5  # default
+        assert fee.value == 500_000
+        assert fee.timeline == timeline
+        assert isinstance(fee.draw_schedule, UniformDrawSchedule)  # default
     
-    def test_percentage_fee_creation(self):
-        """Test creating a percentage-based developer fee."""
-        fee = DeveloperFee(
-            name="Development Fee",
-            amount=0.04,  # 4%
-            is_percentage=True,
-            payment_timing="split"
+    def test_fee_defaults(self, timeline):
+        """Test default values for deal fee."""
+        fee = DealFee(
+            name="Developer Fee",
+            value=100_000,
+            timeline=timeline
         )
-        
-        assert fee.name == "Development Fee"
-        assert fee.amount == 0.04
-        assert fee.is_percentage is True
-        assert fee.payment_timing == "split"
-        assert fee.completion_percentage == 0.5  # 1.0 - 0.5
-    
-    def test_fee_defaults(self):
-        """Test default values for developer fee."""
-        fee = DeveloperFee(amount=100_000)
         
         assert fee.name == "Developer Fee"
-        assert fee.is_percentage is False
-        assert fee.payment_timing == "completion"
-        assert fee.upfront_percentage == 0.5
-        assert fee.completion_percentage == 0.5
-        assert fee.description is None
+        assert fee.value == 100_000
+        assert fee.timeline == timeline
+        assert isinstance(fee.draw_schedule, UniformDrawSchedule)  # default
     
-    def test_calculate_total_fee_fixed(self):
+    def test_calculate_total_fee_fixed(self, timeline):
         """Test calculating total fee for fixed amount."""
-        fee = DeveloperFee(amount=500_000)
+        fee = DealFee(
+            name="Developer Fee",
+            value=500_000,
+            timeline=timeline
+        )
         
-        # Fixed amount doesn't depend on project cost
-        total_fee = fee.calculate_total_fee(10_000_000)
+        # Fixed amount is always the same regardless of project details
+        total_fee = fee.calculate_total_fee()
         assert total_fee == 500_000
-        
-        # Should be same regardless of project cost
-        total_fee = fee.calculate_total_fee(20_000_000)
-        assert total_fee == 500_000
     
-    def test_calculate_total_fee_percentage(self):
-        """Test calculating total fee for percentage-based amount."""
-        fee = DeveloperFee(amount=0.04, is_percentage=True)  # 4%
-        
-        # 4% of $10M = $400K
-        total_fee = fee.calculate_total_fee(10_000_000)
-        assert total_fee == 400_000
-        
-        # 4% of $20M = $800K
-        total_fee = fee.calculate_total_fee(20_000_000)
-        assert total_fee == 800_000
-    
-    def test_upfront_payment_timing(self):
-        """Test upfront payment timing calculations."""
-        fee = DeveloperFee(amount=500_000, payment_timing="upfront")
-        
-        upfront_fee = fee.calculate_upfront_fee(10_000_000)
-        completion_fee = fee.calculate_completion_fee(10_000_000)
-        
-        assert upfront_fee == 500_000
-        assert completion_fee == 0
-    
-    def test_completion_payment_timing(self):
-        """Test completion payment timing calculations."""
-        fee = DeveloperFee(amount=500_000, payment_timing="completion")
-        
-        upfront_fee = fee.calculate_upfront_fee(10_000_000)
-        completion_fee = fee.calculate_completion_fee(10_000_000)
-        
-        assert upfront_fee == 0
-        assert completion_fee == 500_000
-    
-    def test_split_payment_timing(self):
-        """Test split payment timing calculations."""
-        fee = DeveloperFee(
-            amount=500_000, 
-            payment_timing="split",
-            upfront_percentage=0.3  # 30% upfront, 70% completion
+    def test_fee_small_values(self, timeline):
+        """Test that small fee values are accepted."""
+        fee = DealFee(
+            name="Developer Fee",
+            value=5_000,
+            timeline=timeline
         )
-        
-        upfront_fee = fee.calculate_upfront_fee(10_000_000)
-        completion_fee = fee.calculate_completion_fee(10_000_000)
-        
-        assert upfront_fee == 150_000  # 30% of 500K
-        assert completion_fee == 350_000  # 70% of 500K
-        assert upfront_fee + completion_fee == 500_000
+        assert fee.value == 5_000
     
-    def test_split_payment_percentage_fee(self):
-        """Test split payment with percentage-based fee."""
-        fee = DeveloperFee(
-            amount=0.04,  # 4%
-            is_percentage=True,
-            payment_timing="split",
-            upfront_percentage=0.6  # 60% upfront, 40% completion
+    def test_fee_large_values(self, timeline):
+        """Test that large fee values are accepted."""
+        fee = DealFee(
+            name="Developer Fee",
+            value=15_000_000,
+            timeline=timeline
         )
-        
-        total_cost = 10_000_000
-        upfront_fee = fee.calculate_upfront_fee(total_cost)
-        completion_fee = fee.calculate_completion_fee(total_cost)
-        
-        expected_total = 400_000  # 4% of $10M
-        assert upfront_fee == 240_000  # 60% of 400K
-        assert completion_fee == 160_000  # 40% of 400K
-        assert upfront_fee + completion_fee == expected_total
+        assert fee.value == 15_000_000
     
-    def test_completion_percentage_property(self):
-        """Test completion_percentage computed property."""
-        fee = DeveloperFee(amount=100_000, upfront_percentage=0.3)
-        assert fee.completion_percentage == pytest.approx(0.7)
-        
-        fee = DeveloperFee(amount=100_000, upfront_percentage=0.8)
-        assert fee.completion_percentage == pytest.approx(0.2)
-    
-    def test_string_representation_fixed(self):
-        """Test string representation for fixed amount fee."""
-        fee = DeveloperFee(
-            name="Development Fee",
-            amount=500_000,
-            payment_timing="completion"
+    def test_fee_various_ranges(self, timeline):
+        """Test various fee ranges are accepted."""
+        # Test small fee
+        fee_small = DealFee(
+            name="Developer Fee",
+            value=1_000,
+            timeline=timeline
         )
+        assert fee_small.value == 1_000
         
-        expected = "Development Fee: $500,000 (completion)"
-        assert str(fee) == expected
-    
-    def test_string_representation_percentage(self):
-        """Test string representation for percentage fee."""
-        fee = DeveloperFee(
-            name="Development Fee",
-            amount=0.04,
-            is_percentage=True,
-            payment_timing="split"
+        # Test large fee
+        fee_large = DealFee(
+            name="Developer Fee",
+            value=50_000_000,
+            timeline=timeline
         )
-        
-        expected = "Development Fee: 4.0% of total cost (split)"
-        assert str(fee) == expected
-    
-    def test_percentage_validation_too_low(self):
-        """Test validation of percentage amounts that are too low."""
-        with pytest.raises(ValidationError) as exc_info:
-            DeveloperFee(amount=0.0005, is_percentage=True)  # 0.05%
-        
-        assert "must be between 0.1% and 20%" in str(exc_info.value)
-    
-    def test_percentage_validation_too_high(self):
-        """Test validation of percentage amounts that are too high."""
-        with pytest.raises(ValidationError) as exc_info:
-            DeveloperFee(amount=0.25, is_percentage=True)  # 25%
-        
-        assert "must be between 0.1% and 20%" in str(exc_info.value)
-    
-    def test_percentage_validation_valid_range(self):
-        """Test validation accepts valid percentage ranges."""
-        # Test minimum valid
-        fee = DeveloperFee(amount=0.001, is_percentage=True)  # 0.1%
-        assert fee.amount == 0.001
-        
-        # Test maximum valid
-        fee = DeveloperFee(amount=0.20, is_percentage=True)  # 20%
-        assert fee.amount == 0.20
+        assert fee_large.value == 50_000_000
         
         # Test typical range
-        fee = DeveloperFee(amount=0.04, is_percentage=True)  # 4%
-        assert fee.amount == 0.04
+        fee_typical = DealFee(
+            name="Developer Fee",
+            value=750_000,
+            timeline=timeline
+        )
+        assert fee_typical.value == 750_000
     
-    def test_fixed_amount_validation(self):
-        """Test validation of fixed amounts."""
-        # Fixed amounts should accept any positive value
-        fee = DeveloperFee(amount=100_000)
-        assert fee.amount == 100_000
-        
-        fee = DeveloperFee(amount=10_000_000)
-        assert fee.amount == 10_000_000
-        
-        # Should reject negative amounts
-        with pytest.raises(ValidationError):
-            DeveloperFee(amount=-100_000)
-    
-    def test_fee_with_description(self):
-        """Test fee with optional description."""
-        fee = DeveloperFee(
-            name="Custom Development Fee",
-            amount=750_000,
-            description="Fee for mixed-use development project"
+    def test_fee_with_description(self, timeline):
+        """Test fee creation with description."""
+        fee = DealFee(
+            name="Development Fee",
+            value=500_000,
+            timeline=timeline,
+            description="Fee for development management services"
         )
         
-        assert fee.description == "Fee for mixed-use development project"
+        assert fee.description == "Fee for development management services"
     
-    def test_fee_uid_generation(self):
-        """Test that each fee gets a unique UUID."""
-        fee1 = DeveloperFee(amount=100_000)
-        fee2 = DeveloperFee(amount=200_000)
+    def test_fee_uid_generation(self, timeline):
+        """Test that fees get unique UIDs."""
+        fee1 = DealFee(name="Fee 1", value=100_000, timeline=timeline)
+        fee2 = DealFee(name="Fee 2", value=200_000, timeline=timeline)
         
         assert fee1.uid != fee2.uid
-        assert len(str(fee1.uid)) == 36  # UUID string length
-
-
-class TestDeveloperFeeIntegration:
-    """Test DeveloperFee integration scenarios."""
+        assert isinstance(fee1.uid, UUID)
     
-    def test_typical_development_fee_scenarios(self):
+    def test_series_calculation(self, timeline):
+        """Test calculating fee as a pandas Series."""
+        fee = DealFee(
+            name="Development Fee",
+            value=500_000,
+            timeline=timeline
+        )
+        
+        # Test series with periods
+        series = fee.calculate_total_fee_series(periods=3)
+        assert len(series) == 3
+        assert all(series == 500_000)
+        
+        # Test series with custom index
+        custom_index = pd.Index(['Q1', 'Q2', 'Q3'])
+        series_indexed = fee.calculate_total_fee_series(periods=3, index=custom_index)
+        assert len(series_indexed) == 3
+        assert list(series_indexed.index) == ['Q1', 'Q2', 'Q3']
+        assert all(series_indexed == 500_000)
+    
+    def test_dict_value_creation(self, timeline):
+        """Test creating a fee with milestone-based dict values."""
+        milestone_payments = {
+            date(2024, 3, 1): 100_000,
+            date(2024, 9, 1): 200_000,
+            date(2025, 3, 1): 200_000,
+        }
+        
+        fee = DealFee(
+            name="Development Fee",
+            value=milestone_payments,
+            timeline=timeline
+        )
+        
+        assert fee.name == "Development Fee"
+        assert fee.value == milestone_payments
+        assert fee.calculate_total_fee() == 500_000
+    
+    def test_dict_value_validation(self, timeline):
+        """Test validation of dict values."""
+        # Invalid key type
+        with pytest.raises(ValidationError) as exc_info:
+            DealFee(
+                name="Fee",
+                value={123: 100_000},  # Integer key instead of date
+                timeline=timeline
+            )
+        assert "date_from_datetime_inexact" in str(exc_info.value) or "must be dates" in str(exc_info.value)
+        
+        # Negative value
+        with pytest.raises(ValidationError) as exc_info:
+            DealFee(
+                name="Fee",
+                value={date(2024, 3, 1): -100_000},
+                timeline=timeline
+            )
+        assert "greater than or equal to 0" in str(exc_info.value) or "must be non-negative" in str(exc_info.value)
+    
+    def test_dict_to_series_conversion(self, timeline):
+        """Test converting milestone dict to series."""
+        milestone_payments = {
+            date(2024, 3, 1): 100_000,
+            date(2024, 6, 1): 200_000,
+        }
+        
+        fee = DealFee(
+            name="Development Fee",
+            value=milestone_payments,
+            timeline=timeline
+        )
+        
+        # Create a period index
+        periods = pd.period_range('2024-01', periods=12, freq='M')
+        series = fee.calculate_total_fee_series(periods=12, index=periods)
+        
+        assert len(series) == 12
+        assert series[pd.Period('2024-03', freq='M')] == 100_000
+        assert series[pd.Period('2024-06', freq='M')] == 200_000
+        assert series[pd.Period('2024-01', freq='M')] == 0  # No payment this month
+    
+    def test_dict_value_requires_index_for_series(self, timeline):
+        """Test that dict values require an index when converting to series."""
+        fee = DealFee(
+            name="Fee",
+            value={date(2024, 3, 1): 100_000},
+            timeline=timeline
+        )
+        
+        with pytest.raises(ValueError) as exc_info:
+            fee.calculate_total_fee_series(periods=12)
+        assert "Index must be provided" in str(exc_info.value)
+    
+    def test_custom_fee_extension(self, timeline):
+        """Test that DealFee can be extended for custom fee types."""
+        
+        class AssetManagementFee(DealFee):
+            """Custom asset management fee."""
+            
+            def __str__(self) -> str:
+                return f"{self.name}: ${self.value:,.0f} (annual)"
+        
+        fee = AssetManagementFee(
+            name="Asset Management Fee",
+            value=375_000,
+            timeline=timeline
+        )
+        
+        assert str(fee) == "Asset Management Fee: $375,000 (annual)"
+
+
+class TestDealFeeDrawScheduleIntegration:
+    """Test DealFee integration with DrawSchedule system."""
+    
+    @pytest.fixture
+    def timeline(self):
+        """Create a test timeline."""
+        return Timeline.from_dates(
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31)
+        )
+    
+    def test_create_upfront_fee(self, timeline):
+        """Test creating upfront fee using factory method."""
+        fee = DealFee.create_upfront_fee(
+            name="Development Fee",
+            value=500_000,
+            timeline=timeline
+        )
+        
+        assert fee.name == "Development Fee"
+        assert fee.value == 500_000
+        assert fee.timeline == timeline
+        assert isinstance(fee.draw_schedule, FirstOnlyDrawSchedule)
+    
+    def test_create_completion_fee(self, timeline):
+        """Test creating completion fee using factory method."""
+        fee = DealFee.create_completion_fee(
+            name="Development Fee",
+            value=750_000,
+            timeline=timeline
+        )
+        
+        assert fee.name == "Development Fee"
+        assert fee.value == 750_000
+        assert fee.timeline == timeline
+        assert isinstance(fee.draw_schedule, LastOnlyDrawSchedule)
+    
+    def test_create_split_fee_with_first_percentage(self, timeline):
+        """Test creating split fee with first_percentage."""
+        fee = DealFee.create_split_fee(
+            name="Development Fee",
+            value=1_000_000,
+            timeline=timeline,
+            first_percentage=0.3
+        )
+        
+        assert fee.name == "Development Fee"
+        assert fee.value == 1_000_000
+        assert fee.timeline == timeline
+        assert isinstance(fee.draw_schedule, FirstLastDrawSchedule)
+        assert fee.draw_schedule.first_percentage == 0.3
+        assert fee.draw_schedule.effective_first_percentage == 0.3
+    
+    def test_create_split_fee_with_last_percentage(self, timeline):
+        """Test creating split fee with last_percentage."""
+        fee = DealFee.create_split_fee(
+            name="Development Fee",
+            value=1_000_000,
+            timeline=timeline,
+            last_percentage=0.7
+        )
+        
+        assert fee.name == "Development Fee"
+        assert fee.value == 1_000_000
+        assert fee.timeline == timeline
+        assert isinstance(fee.draw_schedule, FirstLastDrawSchedule)
+        assert fee.draw_schedule.last_percentage == 0.7
+        assert fee.draw_schedule.effective_first_percentage == 0.3
+    
+    def test_create_split_fee_validation_errors(self, timeline):
+        """Test split fee validation errors."""
+        # Both percentages specified
+        with pytest.raises(ValueError, match="Cannot specify both"):
+            DealFee.create_split_fee(
+                name="Fee",
+                value=1_000_000,
+                timeline=timeline,
+                first_percentage=0.3,
+                last_percentage=0.7
+            )
+        
+        # Neither percentage specified
+        with pytest.raises(ValueError, match="Must specify either"):
+            DealFee.create_split_fee(
+                name="Fee",
+                value=1_000_000,
+                timeline=timeline
+            )
+    
+    def test_create_uniform_fee(self, timeline):
+        """Test creating uniform fee using factory method."""
+        fee = DealFee.create_uniform_fee(
+            name="Management Fee",
+            value=240_000,
+            timeline=timeline
+        )
+        
+        assert fee.name == "Management Fee"
+        assert fee.value == 240_000
+        assert fee.timeline == timeline
+        assert isinstance(fee.draw_schedule, UniformDrawSchedule)
+    
+    def test_custom_draw_schedule(self, timeline):
+        """Test using custom draw schedule."""
+        fee = DealFee(
+            name="Custom Fee",
+            value=600_000,
+            timeline=timeline,
+            draw_schedule=ManualDrawSchedule(values=[0.2, 0.3, 0.5])
+        )
+        
+        assert fee.name == "Custom Fee"
+        assert fee.value == 600_000
+        assert fee.timeline == timeline
+        assert isinstance(fee.draw_schedule, ManualDrawSchedule)
+    
+    def test_calculate_fee_schedule_upfront(self, timeline):
+        """Test calculating fee cash flows for upfront payment."""
+        fee = DealFee.create_upfront_fee(
+            name="Development Fee",
+            value=500_000,
+            timeline=timeline
+        )
+        
+        cash_flows = fee.compute_cf()
+        
+        assert isinstance(cash_flows, pd.Series)
+        assert len(cash_flows) == timeline.duration_months
+        assert cash_flows.sum() == 500_000
+        assert cash_flows.iloc[0] == 500_000  # All in first period
+        assert cash_flows.iloc[1:].sum() == 0  # Nothing in other periods
+    
+    def test_calculate_fee_schedule_completion(self, timeline):
+        """Test calculating fee cash flows for completion payment."""
+        fee = DealFee.create_completion_fee(
+            name="Development Fee",
+            value=750_000,
+            timeline=timeline
+        )
+        
+        cash_flows = fee.compute_cf()
+        
+        assert isinstance(cash_flows, pd.Series)
+        assert len(cash_flows) == timeline.duration_months
+        assert cash_flows.sum() == 750_000
+        assert cash_flows.iloc[-1] == 750_000  # All in last period
+        assert cash_flows.iloc[:-1].sum() == 0  # Nothing in other periods
+    
+    def test_calculate_fee_schedule_split(self, timeline):
+        """Test calculating fee cash flows for split payment."""
+        fee = DealFee.create_split_fee(
+            name="Development Fee",
+            value=1_000_000,
+            timeline=timeline,
+            first_percentage=0.3
+        )
+        
+        cash_flows = fee.compute_cf()
+        
+        assert isinstance(cash_flows, pd.Series)
+        assert len(cash_flows) == timeline.duration_months
+        assert cash_flows.sum() == 1_000_000
+        assert cash_flows.iloc[0] == 300_000  # 30% upfront
+        assert cash_flows.iloc[-1] == 700_000  # 70% completion
+        assert cash_flows.iloc[1:-1].sum() == 0  # Nothing in middle periods
+    
+    def test_calculate_fee_schedule_uniform(self, timeline):
+        """Test calculating fee cash flows for uniform payment."""
+        fee = DealFee.create_uniform_fee(
+            name="Management Fee",
+            value=240_000,
+            timeline=timeline
+        )
+        
+        cash_flows = fee.compute_cf()
+        
+        assert isinstance(cash_flows, pd.Series)
+        assert len(cash_flows) == timeline.duration_months
+        assert cash_flows.sum() == 240_000
+        
+        # Should be evenly distributed
+        expected_monthly = 240_000 / timeline.duration_months
+        assert all(abs(val - expected_monthly) < 0.01 for val in cash_flows)
+    
+    def test_calculate_fee_schedule_manual(self, timeline):
+        """Test calculating fee cash flows for manual draw schedule."""
+        # Create a manual schedule with 12 values (one for each month)
+        # Pattern: higher values in first few months, then small values
+        values = [3, 6, 9, 1, 1, 1, 1, 1, 1, 1, 1, 1]  # All positive values
+        
+        fee = DealFee(
+            name="Custom Fee",
+            value=600_000,
+            timeline=timeline,
+            draw_schedule=ManualDrawSchedule(values=values)
+        )
+        
+        cash_flows = fee.compute_cf()
+        
+        assert isinstance(cash_flows, pd.Series)
+        assert len(cash_flows) == timeline.duration_months
+        assert cash_flows.sum() == 600_000
+        
+        # First 3 periods should follow the pattern 3:6:9 (normalized)
+        # values=[3,6,9,1,1,1,1,1,1,1,1,1] sum to 27
+        # So normalized: [3/27, 6/27, 9/27, 1/27, ...] = [1/9, 2/9, 3/9, 1/27, ...]
+        assert abs(cash_flows.iloc[0] - (600_000 * 3/27)) < 0.01  # 3/27 * 600k
+        assert abs(cash_flows.iloc[1] - (600_000 * 6/27)) < 0.01  # 6/27 * 600k
+        assert abs(cash_flows.iloc[2] - (600_000 * 9/27)) < 0.01  # 9/27 * 600k
+        assert abs(cash_flows.iloc[3] - (600_000 * 1/27)) < 0.01  # 1/27 * 600k
+    
+    def test_upfront_fee_calculation_with_draw_schedule(self, timeline):
+        """Test upfront_amount with DrawSchedule."""
+        fee = DealFee.create_split_fee(
+            name="Development Fee",
+            value=1_000_000,
+            timeline=timeline,
+            first_percentage=0.3
+        )
+        
+        upfront_fee = fee.upfront_amount()
+        assert upfront_fee == 300_000  # 30% of 1M
+    
+    def test_completion_fee_calculation_with_draw_schedule(self, timeline):
+        """Test completion_amount with DrawSchedule."""
+        fee = DealFee.create_split_fee(
+            name="Development Fee",
+            value=1_000_000,
+            timeline=timeline,
+            first_percentage=0.3
+        )
+        
+        completion_fee = fee.completion_amount()
+        assert completion_fee == 700_000  # 70% of 1M
+    
+    def test_string_representation_with_draw_schedule(self, timeline):
+        """Test string representation with DrawSchedule."""
+        fee = DealFee.create_upfront_fee(
+            name="Development Fee",
+            value=500_000,
+            timeline=timeline
+        )
+        
+        string_repr = str(fee)
+        assert "Development Fee: $500,000 (FirstOnlyDrawSchedule)" in string_repr
+
+
+class TestDealFeeIntegration:
+    """Test DealFee integration scenarios."""
+    
+    @pytest.fixture
+    def timeline(self):
+        """Create a test timeline."""
+        return Timeline.from_dates(
+            start_date=date(2024, 1, 1),
+            end_date=date(2024, 12, 31)
+        )
+    
+    def test_typical_development_fee_scenarios(self, timeline):
         """Test typical real-world developer fee scenarios."""
         # Scenario 1: Fixed amount completion fee
-        dev_fee = DeveloperFee(
+        dev_fee = DealFee.create_completion_fee(
             name="Development Fee",
-            amount=1_000_000,
-            payment_timing="completion"
+            value=1_000_000,
+            timeline=timeline
         )
         
-        project_cost = 25_000_000
-        assert dev_fee.calculate_total_fee(project_cost) == 1_000_000
-        assert dev_fee.calculate_upfront_fee(project_cost) == 0
-        assert dev_fee.calculate_completion_fee(project_cost) == 1_000_000
+        assert dev_fee.calculate_total_fee() == 1_000_000
+        assert dev_fee.upfront_amount() == 0
+        assert dev_fee.completion_amount() == 1_000_000
         
-        # Scenario 2: Percentage-based split fee (industry standard)
-        dev_fee = DeveloperFee(
+        # Scenario 2: Split fee (30% upfront, 70% completion)
+        split_fee = DealFee.create_split_fee(
             name="Development Fee",
-            amount=0.04,  # 4%
-            is_percentage=True,
-            payment_timing="split",
-            upfront_percentage=0.5  # 50/50 split
+            value=2_000_000,
+            timeline=timeline,
+            first_percentage=0.3
         )
         
-        project_cost = 25_000_000
-        expected_total = 1_000_000  # 4% of $25M
-        assert dev_fee.calculate_total_fee(project_cost) == expected_total
-        assert dev_fee.calculate_upfront_fee(project_cost) == 500_000
-        assert dev_fee.calculate_completion_fee(project_cost) == 500_000
+        assert split_fee.calculate_total_fee() == 2_000_000
+        assert split_fee.upfront_amount() == 600_000
+        assert split_fee.completion_amount() == 1_400_000
         
-        # Scenario 3: Small acquisition fee
-        acq_fee = DeveloperFee(
-            name="Acquisition Fee",
-            amount=0.015,  # 1.5%
-            is_percentage=True,
-            payment_timing="upfront"
+        # Scenario 3: Uniform fee spread over construction
+        uniform_fee = DealFee.create_uniform_fee(
+            name="Management Fee",
+            value=360_000,
+            timeline=timeline
         )
         
-        acquisition_cost = 50_000_000
-        expected_total = 750_000  # 1.5% of $50M
-        assert acq_fee.calculate_total_fee(acquisition_cost) == expected_total
-        assert acq_fee.calculate_upfront_fee(acquisition_cost) == expected_total
-        assert acq_fee.calculate_completion_fee(acquisition_cost) == 0 
+        assert uniform_fee.calculate_total_fee() == 360_000
+        expected_monthly = 360_000 / timeline.duration_months
+        assert uniform_fee.upfront_amount() == expected_monthly
+        assert uniform_fee.completion_amount() == expected_monthly 

@@ -19,7 +19,7 @@ from ..debt.plan import FinancingPlan
 from ..development.project import DevelopmentProject
 from ..valuation.disposition import DispositionValuation
 from .acquisition import AcquisitionTerms
-from .fees import DeveloperFee
+from .fees import DealFee
 from .partners import PartnershipStructure
 
 # Simple union for all asset types that can be in a Deal
@@ -88,9 +88,9 @@ class Deal(Model):
         default=None, description="Partnership structure for equity waterfall and distributions"
     )
     
-    # Developer Fee - Optional developer fee structure
-    developer_fee: Optional[DeveloperFee] = Field(
-        default=None, description="Developer fee structure and payment schedule"
+    # Deal Fees - Optional deal fee structures (developer, management, etc.)
+    deal_fees: Optional[List[DealFee]] = Field(
+        default=None, description="Deal-level fee structures and payment schedules"
     )
     
     @computed_field
@@ -103,7 +103,6 @@ class Deal(Model):
             String classification of the deal type
         """
         # FIXME: this could be problematic to maintain as we add more use types
-        # Use duck typing to detect development projects
         if hasattr(self.asset, 'construction_plan'):
             return "development"
         elif self.asset.property_type == AssetTypeEnum.OFFICE:
@@ -121,19 +120,8 @@ class Deal(Model):
     
     @computed_field
     @property
-    def is_stabilized_deal(self) -> bool:
-        """Check if this is a stabilized asset deal."""
-        return not self.is_development_deal
-    
-    @computed_field
-    @property
     def financing_type(self) -> str:
-        """
-        Classify the financing structure.
-        
-        Returns:
-            String classification of the financing type
-        """
+        """Classify the financing structure."""
         if self.financing is None:
             return "all_equity"
         elif self.financing.has_refinancing:
@@ -149,26 +137,4 @@ class Deal(Model):
     @property
     def has_equity_partners(self) -> bool:
         """Check if this deal has equity partners."""
-        return self.equity_partners is not None and self.equity_partners.partner_count > 0
-    
-    @computed_field
-    @property
-    def total_facilities(self) -> int:
-        """Get the total number of debt facilities in the financing plan."""
-        return len(self.financing.facilities) if self.financing else 0
-    
-    def validate_deal_components(self) -> None:
-        """
-        Validate that all deal components are compatible.
-        
-        This method performs business logic validation to ensure
-        the deal components make sense together.
-        """
-        # FIXME: is this necessary? should we be using pydantic validators instead?
-        # Validate asset has property_type for business logic
-        if not hasattr(self.asset, 'property_type'):
-            raise ValueError(f"Asset {type(self.asset)} missing required 'property_type' field")
-        
-        # Additional validations can be added here
-        # For example, ensuring financing is appropriate for asset type
-        pass 
+        return self.equity_partners is not None and self.equity_partners.partner_count > 0 

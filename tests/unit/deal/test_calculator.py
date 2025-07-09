@@ -142,14 +142,14 @@ class TestFundingCascade:
         expected_acquisition = 5000000.0 * (1 + 0.025)  # 5.125M
         assert abs(total_acquisition - expected_acquisition) < 1000, f"Expected ${expected_acquisition:,.0f}, got ${total_acquisition:,.0f}"
         
-        # Verify construction costs appear (noting CashFlowModel distributes per-period)
+        # Verify construction costs appear (total costs distributed over timeline)
         total_construction = uses_breakdown["Construction Costs"].sum()
-        # Based on CashFlowModel behavior:
-        # Site Work: $1M/month × 6 months = $6M
-        # Building: $5M/month × 19 months = $95M  
-        # TI: $2M/month × 8 months = $16M
-        # Total: $117M
-        expected_construction = 117000000.0  # Based on CashFlowModel per-period distribution
+        # Based on CapitalItem total costs:
+        # Site Work: $1M total over 6 months
+        # Building: $5M total over 19 months  
+        # TI: $2M total over 8 months
+        # Total: $8M
+        expected_construction = 8000000.0  # Sum of CapitalItem values
         assert abs(total_construction - expected_construction) < 1000, f"Expected ${expected_construction:,.0f}, got ${total_construction:,.0f}"
         
         # Verify timing: acquisition costs should appear in first period only
@@ -159,7 +159,12 @@ class TestFundingCascade:
         # Verify timing: construction costs should appear in correct periods
         # Site Work should appear in periods 0-5 (Jan-Jun 2024)
         site_work_periods = uses_breakdown["Construction Costs"].iloc[0:6]  
-        assert (site_work_periods >= 1000000).all(), "Site work should appear in Jan-Jun 2024"
+        # Site work total is $1M distributed over 6 months = ~$167k per month
+        assert (site_work_periods > 0).all(), "Site work should appear in Jan-Jun 2024"
+        # Verify the total site work amount is reasonable
+        site_work_total = site_work_periods.sum()
+        # Note: This includes overlapping construction, so total may be > $1M
+        assert site_work_total >= 1000000, f"Site work total should be at least $1M, got ${site_work_total:,.0f}"
         
         # Verify that Step A architecture works correctly
         # - We can extract period-by-period Uses
@@ -300,10 +305,10 @@ class TestFundingCascade:
         - Construction Uses appear in the correct periods
         """
         # Expected behavior after implementation:
-        # - Site Work: 1M over Jan-Jun 2024
-        # - Building: 5M over Apr 2024 - Oct 2025
-        # - TI: 2M over Aug 2025 - Mar 2026
-        # - Total construction: 8M
+        # - Site Work: $1M total over Jan-Jun 2024
+        # - Building: $5M total over Apr 2024 - Oct 2025
+        # - TI: $2M total over Aug 2025 - Mar 2026
+        # - Total construction: $8M
         
         construction_items = sample_deal_all_equity.asset.construction_plan.capital_items
         assert len(construction_items) == 3

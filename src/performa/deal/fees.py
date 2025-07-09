@@ -1,159 +1,363 @@
 """
-Developer Fee Models for Real Estate Deals
+Deal-level fee abstractions for Performa.
 
-This module defines fee structures for real estate development and acquisition deals,
-with support for flexible payment schedules and both fixed and percentage-based amounts.
+This module provides base classes and concrete implementations for various
+deal-level fees including developer fees, asset management fees, and other
+transaction-related costs using the flexible DrawSchedule system.
+
+TODO: Consider integrating with LeveredAggregateLineKey for sophisticated
+reference metric handling (% of TDC, % of GAV, etc.). This would require:
+- Lookup methods to calculate deal-level metrics 
+- Integration with deal analysis pipeline
+- Clear enum-based reference definitions
+- Only implement when we have a concrete need for this complexity
 """
 
-from typing import Literal, Optional, Union
+from datetime import date
+from typing import Dict, Optional, Union
 from uuid import UUID, uuid4
 
-from pydantic import Field, computed_field, field_validator, model_validator
+import pandas as pd
+from pydantic import Field, computed_field, field_validator
 
-from ..common.primitives import FloatBetween0And1, Model, PositiveFloat
+from ..common.primitives.draw_schedule import (
+    AnyDrawSchedule,
+    FirstLastDrawSchedule,
+    FirstOnlyDrawSchedule,
+    LastOnlyDrawSchedule,
+    UniformDrawSchedule,
+)
+from ..common.primitives.model import Model
+from ..common.primitives.timeline import Timeline
+from ..common.primitives.types import PositiveFloat
+from ..common.primitives.validation import validate_monthly_period_index
 
 
-class DeveloperFee(Model):
+class DealFee(Model):
     """
-    Developer fee model for real estate deals.
+    Deal-level fee with flexible payment timing via DrawSchedule.
     
-    Supports both fixed dollar amounts and percentage-based fees with flexible
-    payment timing to match industry practice.
+    Uses the DrawSchedule system to provide flexible payment patterns for
+    developer fees, asset management fees, and other transaction-related costs.
     
-    Common Industry Patterns:
-    - 3-5% of total project cost for development deals
-    - 1-2% of acquisition price for acquisition deals
-    - Payment timing varies: upfront, at completion, or split schedule
-    
-    Examples:
-        # Fixed amount fee
-        fee = DeveloperFee(
+    Usage Examples:
+        # Upfront payment
+        fee = DealFee.create_upfront_fee(
             name="Development Fee",
-            amount=500_000,
-            payment_timing="completion"
+            value=500_000,
+            timeline=project_timeline
         )
         
-        # Percentage-based fee (4% of total cost)
-        fee = DeveloperFee(
+        # Complex split payment
+        fee = DealFee.create_split_fee(
             name="Development Fee", 
-            amount=0.04,
-            is_percentage=True,
-            payment_timing="split"
+            value=750_000,
+            timeline=project_timeline,
+            first_percentage=0.3
         )
+        
+        # Custom milestone payments
+        fee = DealFee(
+            name="Development Fee",
+            value=1_000_000,
+            timeline=project_timeline,
+            draw_schedule=ManualDrawSchedule(values=[0.2, 0.0, 0.3, 0.0, 0.5])
+        )
+        
+        # S-curve following construction activity
+        fee = DealFee(
+            name="Development Fee",
+            value=750_000,
+            timeline=project_timeline,
+            draw_schedule=SCurveDrawSchedule(sigma=0.3)
+        )
+    
+    Common Industry Patterns (for developer fees):
+    - $500K - $2M for typical development deals
+    - $100K - $500K for smaller projects
+    - Payment timing varies: upfront, at completion, or split schedule
+    - Typically paid as priority distributions to GP partners
     """
     
     # Core Identity
     uid: UUID = Field(default_factory=uuid4)
-    name: str = Field(default="Developer Fee", description="Fee name for identification")
+    name: str = Field(..., description="Fee name for identification")
+    description: Optional[str] = Field(default=None, description="Fee description")
     
-    # Fee Structure
-    amount: Union[PositiveFloat, FloatBetween0And1] = Field(
-        ..., 
-        description="Fee amount (fixed dollars or percentage of total cost)"
+    # Fee Configuration
+    value: Union[PositiveFloat, pd.Series, Dict[date, PositiveFloat]] = Field(
+        ...,
+        description="Fee amount in dollars (constant, monthly series, or milestone dict)"
     )
     
-    is_percentage: bool = Field(
-        default=False,
-        description="Whether amount is a percentage of total project cost"
+    # DrawSchedule Integration
+    timeline: Timeline = Field(
+        ...,
+        description="Timeline for fee payment schedule"
     )
     
-    payment_timing: Literal["upfront", "completion", "split"] = Field(
-        default="completion",
-        description="When the fee is paid during the project lifecycle"
+    draw_schedule: AnyDrawSchedule = Field(
+        default_factory=UniformDrawSchedule,
+        description="DrawSchedule pattern for fee payment timing"
     )
     
-    # Split Payment Configuration (only used when payment_timing="split")
-    upfront_percentage: FloatBetween0And1 = Field(
-        default=0.5,
-        description="Percentage paid upfront when using split payment timing"
-    )
+    # Factory Methods for Common Patterns
+    @classmethod
+    def create_upfront_fee(
+        cls, 
+        name: str, 
+        value: Union[PositiveFloat, pd.Series, Dict[date, PositiveFloat]], 
+        timeline: Timeline,
+        description: Optional[str] = None
+    ) -> "DealFee":
+        """
+        Factory method for upfront fees.
+        
+        Args:
+            name: Fee name
+            value: Fee amount
+            timeline: Project timeline
+            description: Optional description
+            
+        Returns:
+            DealFee configured for upfront payment
+        """
+        return cls(
+            name=name,
+            value=value,
+            timeline=timeline,
+            draw_schedule=FirstOnlyDrawSchedule(),
+            description=description
+        )
     
-    # Optional Details
-    description: Optional[str] = Field(
-        default=None, 
-        description="Additional fee description"
-    )
+    @classmethod
+    def create_completion_fee(
+        cls, 
+        name: str, 
+        value: Union[PositiveFloat, pd.Series, Dict[date, PositiveFloat]], 
+        timeline: Timeline,
+        description: Optional[str] = None
+    ) -> "DealFee":
+        """
+        Factory method for completion fees.
+        
+        Args:
+            name: Fee name
+            value: Fee amount
+            timeline: Project timeline
+            description: Optional description
+            
+        Returns:
+            DealFee configured for completion payment
+        """
+        return cls(
+            name=name,
+            value=value,
+            timeline=timeline,
+            draw_schedule=LastOnlyDrawSchedule(),
+            description=description
+        )
     
-    @model_validator(mode="after")
-    def validate_percentage_amount_range(self) -> "DeveloperFee":
-        """Validate amount is reasonable when it's a percentage."""
-        if self.is_percentage:
-            # For percentages, validate reasonable range (0.1% to 20%)
-            if not (0.001 <= self.amount <= 0.20):
-                raise ValueError(
-                    f"Percentage-based fee amount must be between 0.1% and 20%, got {self.amount:.1%}"
-                )
-        return self
+    @classmethod
+    def create_split_fee(
+        cls, 
+        name: str, 
+        value: Union[PositiveFloat, pd.Series, Dict[date, PositiveFloat]], 
+        timeline: Timeline,
+        first_percentage: Optional[float] = None,
+        last_percentage: Optional[float] = None,
+        description: Optional[str] = None
+    ) -> "DealFee":
+        """
+        Factory method for split fees.
+        
+        Args:
+            name: Fee name
+            value: Fee amount
+            timeline: Project timeline
+            first_percentage: Percentage paid upfront (mutually exclusive with last_percentage)
+            last_percentage: Percentage paid at completion (mutually exclusive with first_percentage)
+            description: Optional description
+            
+        Returns:
+            DealFee configured for split payment
+        """
+        if first_percentage is not None and last_percentage is not None:
+            raise ValueError("Cannot specify both first_percentage and last_percentage")
+        if first_percentage is None and last_percentage is None:
+            raise ValueError("Must specify either first_percentage or last_percentage")
+        
+        if first_percentage is not None:
+            draw_schedule = FirstLastDrawSchedule(first_percentage=first_percentage)
+        else:
+            draw_schedule = FirstLastDrawSchedule(last_percentage=last_percentage)
+        
+        return cls(
+            name=name,
+            value=value,
+            timeline=timeline,
+            draw_schedule=draw_schedule,
+            description=description
+        )
     
-    @computed_field
-    @property
-    def completion_percentage(self) -> float:
-        """Percentage paid at completion when using split payment timing."""
-        return 1.0 - self.upfront_percentage
+    @classmethod
+    def create_uniform_fee(
+        cls, 
+        name: str, 
+        value: Union[PositiveFloat, pd.Series, Dict[date, PositiveFloat]], 
+        timeline: Timeline,
+        description: Optional[str] = None
+    ) -> "DealFee":
+        """
+        Factory method for uniform fees.
+        
+        Args:
+            name: Fee name
+            value: Fee amount
+            timeline: Project timeline
+            description: Optional description
+            
+        Returns:
+            DealFee configured for uniform payment across timeline
+        """
+        return cls(
+            name=name,
+            value=value,
+            timeline=timeline,
+            draw_schedule=UniformDrawSchedule(),
+            description=description
+        )
+
+    @field_validator("value")
+    @classmethod
+    def validate_value(cls, v: Union[PositiveFloat, pd.Series, Dict[date, PositiveFloat]]) -> Union[PositiveFloat, pd.Series, Dict[date, PositiveFloat]]:
+        """Validate fee value format and constraints."""
+        if isinstance(v, pd.Series):
+            # Validate monthly PeriodIndex
+            validate_monthly_period_index(v, field_name="fee value")
+            
+            # Ensure all values are non-negative
+            if not pd.api.types.is_numeric_dtype(v.dtype):
+                raise ValueError("Fee value Series must have numeric values")
+            if (v < 0).any():
+                raise ValueError("All fee values in Series must be non-negative")
+        elif isinstance(v, dict):
+            # Validate dict has date keys and positive values
+            for key, val in v.items():
+                if not isinstance(key, date):
+                    raise ValueError(
+                        f"Fee milestone dictionary keys must be dates, got {type(key)}"
+                    )
+                if not isinstance(val, (int, float)) or val < 0:
+                    raise ValueError(f"Fee value for {key} must be non-negative, got {val}")
+        elif isinstance(v, (int, float)):
+            if v < 0:
+                raise ValueError(f"Fee value must be non-negative, got {v}")
+        else:
+            raise TypeError(f"Fee value must be a positive number, pandas Series, or date->value dict, got {type(v)}")
+        
+        return v
     
-    def calculate_total_fee(self, total_project_cost: float) -> float:
+    def calculate_total_fee(self) -> float:
         """
         Calculate the total dollar amount of the fee.
         
-        Args:
-            total_project_cost: Total project cost for percentage-based calculations
-            
+        For Series values, returns the sum of all values.
+        For Dict values, returns the sum of all milestone payments.
+        
         Returns:
             Total fee amount in dollars
         """
-        if self.is_percentage:
-            return self.amount * total_project_cost
+        if isinstance(self.value, pd.Series):
+            return self.value.sum()
+        elif isinstance(self.value, dict):
+            return sum(self.value.values())
+        return self.value
+    
+    def compute_cf(self, timeline: Optional[Timeline] = None) -> pd.Series:
+        """
+        Compute fee cash flows as a pandas Series.
+        
+        Args:
+            timeline: Timeline to use (defaults to self.timeline)
+            
+        Returns:
+            Series with fee cash flows for each period
+        """
+        # Use provided timeline or fall back to self.timeline
+        effective_timeline = timeline or self.timeline
+        
+        return self.draw_schedule.apply_to_amount(
+            amount=self.calculate_total_fee(),
+            periods=effective_timeline.duration_months,
+            index=effective_timeline.period_index
+        )
+
+    def calculate_total_fee_series(self, periods: int, index: Optional[pd.Index] = None) -> pd.Series:
+        """
+        Calculate the total fee as a pandas Series.
+        
+        For scalar values, repeats the value for each period.
+        For Series values, returns the series itself (validated to have monthly PeriodIndex).
+        For Dict values, creates a series with values at milestone dates and zeros elsewhere.
+        
+        Args:
+            periods: Number of periods to create (ignored if value is already a Series)
+            index: Optional index for the Series (must be PeriodIndex for dict values)
+            
+        Returns:
+            Series with the fee value for each period
+        """
+        if isinstance(self.value, pd.Series):
+            # Return the existing series (already validated to be monthly)
+            return self.value
+        elif isinstance(self.value, dict):
+            # Convert milestone dict to series
+            if index is None:
+                raise ValueError("Index must be provided when value is a milestone dict")
+            if not isinstance(index, pd.PeriodIndex):
+                raise ValueError("Index must be a PeriodIndex when value is a milestone dict")
+            
+            # Create series with zeros
+            series = pd.Series(0.0, index=index)
+            
+            # Fill in milestone values
+            for milestone_date, amount in self.value.items():
+                milestone_period = pd.Period(milestone_date, freq='M')
+                if milestone_period in series.index:
+                    series[milestone_period] = amount
+            
+            return series
+        elif index is not None:
+            if len(index) != periods:
+                raise ValueError(f"Index length ({len(index)}) must match periods ({periods})")
+            return pd.Series([self.value] * periods, index=index)
         else:
-            return self.amount
+            return pd.Series([self.value] * periods)
     
-    def calculate_upfront_fee(self, total_project_cost: float) -> float:
-        """
-        Calculate the upfront fee amount.
-        
-        Args:
-            total_project_cost: Total project cost for percentage-based calculations
-            
-        Returns:
-            Upfront fee amount in dollars
-        """
-        total_fee = self.calculate_total_fee(total_project_cost)
-        
-        if self.payment_timing == "upfront":
-            return total_fee
-        elif self.payment_timing == "completion":
-            return 0.0
-        else:  # split
-            return total_fee * self.upfront_percentage
+    def upfront_amount(self) -> float:
+        """Get the upfront fee amount."""
+        cash_flows = self.compute_cf()
+        return cash_flows.iloc[0] if len(cash_flows) > 0 else 0.0
     
-    def calculate_completion_fee(self, total_project_cost: float) -> float:
-        """
-        Calculate the completion fee amount.
-        
-        Args:
-            total_project_cost: Total project cost for percentage-based calculations
-            
-        Returns:
-            Completion fee amount in dollars
-        """
-        total_fee = self.calculate_total_fee(total_project_cost)
-        
-        if self.payment_timing == "upfront":
-            return 0.0
-        elif self.payment_timing == "completion":
-            return total_fee
-        else:  # split
-            return total_fee * self.completion_percentage
-    
+    def completion_amount(self) -> float:
+        """Get the completion fee amount."""
+        cash_flows = self.compute_cf()
+        return cash_flows.iloc[-1] if len(cash_flows) > 0 else 0.0
+
     def __str__(self) -> str:
-        if self.is_percentage:
-            amount_str = f"{self.amount:.1%} of total cost"
-        else:
-            amount_str = f"${self.amount:,.0f}"
+        """
+        Return string representation of the deal fee.
         
-        return f"{self.name}: {amount_str} ({self.payment_timing})"
-
-
-# Export the main classes
-__all__ = [
-    "DeveloperFee",
-] 
+        Examples:
+            "Development Fee: $750,000 (FirstLastDrawSchedule)"
+            "Developer Fee: $500,000 (UniformDrawSchedule)"
+            "Management Fee: $1,200,000 total (ManualDrawSchedule)"
+        """
+        if isinstance(self.value, pd.Series):
+            total = self.value.sum()
+            schedule_type = type(self.draw_schedule).__name__
+            return f"{self.name}: ${total:,.0f} total ({schedule_type})"
+        else:
+            schedule_type = type(self.draw_schedule).__name__
+            return f"{self.name}: ${self.value:,.0f} ({schedule_type})"
