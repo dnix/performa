@@ -8,7 +8,7 @@ deal-level financial structuring.
 """
 
 from .acquisition import AcquisitionTerms
-from .calculator import analyze_deal
+from .api import analyze
 from .deal import Deal
 from .distribution_calculator import (
     DistributionCalculator,
@@ -16,6 +16,7 @@ from .distribution_calculator import (
     create_simple_partnership,
 )
 from .fees import DealFee
+from .orchestrator import DealCalculator
 from .partners import (
     CarryPromote,
     Partner,
@@ -24,6 +25,7 @@ from .partners import (
     WaterfallPromote,
     WaterfallTier,
 )
+from .results import DealAnalysisResult
 
 __all__ = [
     # Core deal components
@@ -31,8 +33,10 @@ __all__ = [
     "AcquisitionTerms",
     "DealFee",
     
-    # Analysis engine
-    "analyze_deal",
+    # Analysis API
+    "analyze",
+    "DealAnalysisResult",
+    "DealCalculator",
     
     # Partnership structures
     "Partner",

@@ -1,23 +1,22 @@
 """
-Integration Tests for Deal-Centric Architecture
+End-to-End Deal Architecture Tests
 
-Tests the complete integration of the deal-centric architecture including:
-- Asset/Deal layer separation
-- Development project purification 
-- Polymorphic asset handling
-- Complete analyze_deal pipeline
-- End-to-end architecture validation
+This module tests the complete deal analysis pipeline:
+- Complete analyze pipeline
+- Asset-level analysis integration 
+- Deal-level orchestration
+- Financing integration
+- Multi-asset support
 """
 
 from datetime import date
 
 import pytest
 
-from performa.core.capital import CapitalPlan
-from performa.core.primitives import AssetTypeEnum, GlobalSettings, Timeline
+from performa.core.capital import CapitalItem, CapitalPlan
+from performa.core.primitives import AssetTypeEnum, Timeline, UnitOfMeasureEnum
+from performa.deal import Deal, analyze
 from performa.deal.acquisition import AcquisitionTerms
-from performa.deal.calculator import analyze_deal
-from performa.deal.deal import Deal
 from performa.development.project import DevelopmentProject
 
 
@@ -101,24 +100,25 @@ class TestDealCentricArchitectureIntegration:
             disposition=None
         )
         
-        results = analyze_deal(deal, timeline)
+        results = analyze(deal, timeline)
         
         # Validate 5-pass structure
-        assert "unlevered_analysis" in results      # Pass 1: Unlevered asset analysis
-        assert "financing_analysis" in results     # Pass 2: Financing integration  
-        assert "levered_cash_flows" in results     # Pass 3: Levered cash flows
-        assert "partner_distributions" in results  # Pass 4: Partner distributions
-        assert "deal_metrics" in results          # Pass 5: Deal metrics
+        assert hasattr(results, "unlevered_analysis")      # Pass 1: Unlevered asset analysis
+        assert hasattr(results, "financing_analysis")     # Pass 2: Financing integration  
+        assert hasattr(results, "levered_cash_flows")     # Pass 3: Levered cash flows
+        assert hasattr(results, "partner_distributions")  # Pass 4: Partner distributions
+        assert hasattr(results, "deal_metrics")          # Pass 5: Deal metrics
         
         # Validate architecture separation
-        unlevered = results["unlevered_analysis"]
+        unlevered = results.unlevered_analysis
         assert unlevered is not None  # Asset analysis should complete
         
-        financing = results["financing_analysis"]
-        assert financing["has_financing"] is False  # No financing provided
+        financing = results.financing_analysis
+        # For all-equity deals, financing_analysis should be None
+        assert financing is None  # No financing provided
         
-        levered = results["levered_cash_flows"]
-        assert "cash_flow_components" in levered  # Should separate components
+        levered = results.levered_cash_flows
+        assert hasattr(levered, "cash_flow_components")  # Should separate components
 
     def test_asset_deal_layer_separation(self, purified_development_project, acquisition_terms, timeline):
         """Test clean separation between Asset and Deal layers."""
@@ -143,8 +143,8 @@ class TestDealCentricArchitectureIntegration:
         assert hasattr(deal, 'equity_partners')
         
         # Analysis should work on Deal level
-        results = analyze_deal(deal, timeline)
-        assert results["deal_summary"]["is_development"] is True
+        results = analyze(deal, timeline)
+        assert results.deal_summary.is_development is True
 
     def test_different_asset_types_same_deal_interface(self, acquisition_terms, timeline):
         """Test that different asset types work with the same Deal interface."""
@@ -173,12 +173,12 @@ class TestDealCentricArchitectureIntegration:
                 acquisition=acquisition_terms
             )
             
-            # Same analyze_deal function for all asset types
-            results = analyze_deal(deal, timeline)
+            # Same analyze function for all asset types
+            results = analyze(deal, timeline)
             
             # Should work consistently
-            assert results["deal_summary"]["asset_type"] == asset_type
-            assert results["deal_summary"]["deal_type"] == "development"
+            assert results.deal_summary.asset_type == asset_type
+            assert results.deal_summary.deal_type == "development"
 
     def test_pydantic_validation_integration(self, purified_development_project, acquisition_terms, timeline):
         """Test that Pydantic validation works properly in integration."""
@@ -189,16 +189,16 @@ class TestDealCentricArchitectureIntegration:
         )
         
         # This should work without Pydantic validation errors
-        results = analyze_deal(deal, timeline)
+        results = analyze(deal, timeline)
         
         # Should complete successfully
         assert results is not None
-        assert "unlevered_analysis" in results
+        assert hasattr(results, "unlevered_analysis")
         
         # Unlevered analysis should have proper structure
-        unlevered = results["unlevered_analysis"]
-        assert "scenario" in unlevered
-        assert "models" in unlevered
+        unlevered = results.unlevered_analysis
+        assert hasattr(unlevered, "scenario")
+        assert hasattr(unlevered, "models")
 
     def test_computed_fields_performance(self, purified_development_project, acquisition_terms):
         """Test that computed fields provide good performance."""
@@ -347,10 +347,10 @@ class TestArchitecturalQuality:
         )
         
         # Should handle production-like scenarios
-        results = analyze_deal(deal, timeline)
+        results = analyze(deal, timeline)
         
         # Should have comprehensive results structure
-        assert len(results) >= 6  # All major result sections
+        assert len([attr for attr in ["deal_summary", "unlevered_analysis", "financing_analysis", "levered_cash_flows", "partner_distributions", "deal_metrics"] if hasattr(results, attr)]) >= 6  # All major result sections
         
         # Should have proper error handling (no exceptions raised)
         assert results is not None 

@@ -38,7 +38,7 @@ class Deal(Model):
     
     This is the core model that enables the unified deal-centric architecture.
     It cleanly separates the physical asset from the investment strategy,
-    allowing the same analyze_deal() function to handle any scenario.
+    allowing the same analyze() function to handle any scenario.
     
     Key Architecture:
     - asset: The physical real estate property or development project

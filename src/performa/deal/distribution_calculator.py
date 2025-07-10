@@ -213,6 +213,10 @@ class DistributionCalculator:
         # Initialize partner cash flows matrix
         partner_flows = np.zeros((n_periods, n_partners))
         
+        # Track cumulative capital contributions and return by partner
+        partner_capital_contributions = np.zeros(n_partners)
+        partner_capital_returned = np.zeros(n_partners)
+        
         # Track current tier
         current_tier_index = 0
         
@@ -307,12 +311,36 @@ class DistributionCalculator:
             
             if cf_value < 0:
                 # Negative cash flow: equity contribution distributed pro-rata
-                partner_flows[period_idx, :] += cf_value * partner_shares
+                contributions = cf_value * partner_shares
+                partner_flows[period_idx, :] += contributions
+                # Track capital contributions (as positive amounts)
+                partner_capital_contributions += -contributions  # Convert to positive
+                
             elif cf_value > 0:
-                # Positive cash flow: apply waterfall logic
+                # Positive cash flow: First return capital, then apply waterfall logic
                 remaining_cf = cf_value
                 
-                while remaining_cf > 0.01:  # Continue until all cash flow is allocated (to nearest cent)
+                # Step 1: Return capital pro-rata until partners get their investments back
+                total_unreturned_capital = np.maximum(0, partner_capital_contributions - partner_capital_returned).sum()
+                
+                if total_unreturned_capital > 0 and remaining_cf > 0:
+                    # Calculate how much capital to return this period
+                    capital_to_return = min(remaining_cf, total_unreturned_capital)
+                    
+                    # Distribute capital return pro-rata based on unreturned amounts
+                    unreturned_by_partner = np.maximum(0, partner_capital_contributions - partner_capital_returned)
+                    
+                    if unreturned_by_partner.sum() > 0:
+                        capital_return_ratios = unreturned_by_partner / unreturned_by_partner.sum()
+                        capital_returns = capital_to_return * capital_return_ratios
+                        
+                        # Allocate capital returns
+                        partner_flows[period_idx, :] += capital_returns
+                        partner_capital_returned += capital_returns
+                        remaining_cf -= capital_to_return
+                
+                # Step 2: Apply waterfall logic to remaining cash flow (profits above capital)
+                while remaining_cf > 0.01:  # Continue until all profit is allocated (to nearest cent)
                     # Determine current tier promote rate
                     if current_tier_index < len(tiers):
                         hurdle_rate, promote_rate = tiers[current_tier_index]

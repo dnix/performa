@@ -122,6 +122,8 @@ class PermanentFacility(DebtFacility):
         1. LTV: Maximum loan based on property value and LTV ratio
         2. DSCR: Maximum loan based on projected Year 1 stabilized NOI and DSCR hurdle
 
+        Uses industry-standard financial calculations for institutional-grade accuracy.
+
         Args:
             property_value: The appraised or calculated value of the property for LTV purposes
             forward_stabilized_noi: The projected annual NOI for the first year of stabilized operations
@@ -135,22 +137,58 @@ class PermanentFacility(DebtFacility):
         # 2. DSCR Sizing Constraint
         max_supportable_debt_service = forward_stabilized_noi / self.dscr_hurdle
 
-        # Calculate annual debt service for a hypothetical $1 loan to get payment factor
-        amortization = LoanAmortization(
-            loan_amount=1.0,
-            term=self.amortization_years or self.loan_term_years,
-            interest_rate=self.interest_rate,
-        )
-        amortization_schedule, _ = amortization.amortization_schedule
+        # Calculate annual debt constant using efficient direct calculation
+        # Annual debt constant = Annual debt service / Loan amount
+        annual_debt_constant = self._calculate_annual_debt_constant()
         
-        # Take the first 12 months of payments for annual debt service calculation
-        annual_debt_service_per_dollar = amortization_schedule["Payment"].iloc[:12].sum()
-        
-        # Max loan = Max supportable debt service / debt service per dollar
-        max_loan_from_dscr = max_supportable_debt_service / annual_debt_service_per_dollar
+        # Max loan = Max supportable debt service / debt constant
+        max_loan_from_dscr = max_supportable_debt_service / annual_debt_constant
         
         # Return the lesser of the two constraints (most restrictive)
         return min(max_loan_from_ltv, max_loan_from_dscr)
+
+    def _calculate_annual_debt_constant(self) -> float:
+        """
+        Calculate the annual debt constant (annual debt service per dollar of loan).
+        
+        This is the ratio of annual debt service to loan amount, calculated using
+        standard financial formulas without generating full amortization schedules.
+        
+        Returns:
+            float: Annual debt constant (debt service per dollar of loan)
+        """
+        # Get effective annual interest rate
+        annual_rate = self.interest_rate.effective_rate
+        
+        # Get amortization term (defaults to loan term if not specified)
+        amortization_years = self.amortization_years or self.loan_term_years
+        
+        if annual_rate == 0:
+            # Handle zero interest rate case
+            return 1.0 / amortization_years
+        
+        # Calculate monthly payment factor using standard PMT formula
+        monthly_rate = annual_rate / 12
+        num_payments = amortization_years * 12
+        
+        # Monthly payment per dollar of loan = PMT(rate, nper, pv=-1, fv=0)
+        # Using standard financial formula: PMT = PV * [r(1+r)^n] / [(1+r)^n - 1]
+        monthly_payment_factor = (
+            monthly_rate * (1 + monthly_rate) ** num_payments
+        ) / ((1 + monthly_rate) ** num_payments - 1)
+        
+        # Annual debt constant = monthly payment factor * 12
+        annual_debt_constant = monthly_payment_factor * 12
+        
+        # Handle balloon payment case (loan term < amortization term)
+        if self.loan_term_years < amortization_years:
+            # For balloon loans, we need to add the balloon payment component
+            # This is a simplified calculation - in practice, balloon sizing is complex
+            # For now, use the fully amortizing debt constant as a conservative approach
+            # TODO: Implement actual balloon payment calculation
+            pass
+        
+        return annual_debt_constant
 
     def generate_amortization(
         self, loan_amount: PositiveFloat, start_date: pd.Period

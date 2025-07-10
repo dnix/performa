@@ -19,8 +19,9 @@ development ventures with sophisticated waterfall structures.
 - **CarryPromote**: Carried interest calculations for fund structures
 
 ### Analysis Engine
+- **DealCalculator**: Service class that orchestrates complete deal analysis workflows
 - **DistributionCalculator**: Cash flow distribution engine with waterfall mechanics
-- **analyze_deal**: Main analysis function for complete deal scenarios
+- **analyze**: Main analysis function for complete deal scenarios (returns strongly-typed DealAnalysisResult)
 
 ## Architecture
 
@@ -51,7 +52,7 @@ The deal module implements a sophisticated layered architecture:
 
 ```python
 from performa.deal import (
-    Deal, PartnershipStructure, Partner, WaterfallPromote, analyze_deal
+    Deal, PartnershipStructure, Partner, WaterfallPromote, analyze
 )
 from performa.asset.office import OfficeProperty
 from performa.debt import PermanentFacility
@@ -78,9 +79,21 @@ deal = Deal(
     acquisition_terms=acquisition_terms
 )
 
-# Analyze deal returns
-deal_results = analyze_deal(deal, timeline, settings)
-partner_returns = deal_results.get_partner_distributions()
+# Analyze deal returns (returns strongly-typed DealAnalysisResult)
+results = analyze(deal, timeline, settings)
+
+# Access results with full IDE autocompletion and type safety
+deal_irr = results.deal_metrics.irr
+equity_multiple = results.deal_metrics.equity_multiple
+partner_distributions = results.partner_distributions
+
+# Access cash flow components
+levered_cash_flows = results.levered_cash_flows.levered_cash_flows
+cash_flow_summary = results.levered_cash_flows.cash_flow_summary
+
+# Access detailed analysis
+unlevered_analysis = results.unlevered_analysis.scenario
+financing_details = results.financing_analysis  # None for all-equity deals
 ```
 
 ## Integration
