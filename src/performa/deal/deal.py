@@ -20,7 +20,7 @@ from ..development.project import DevelopmentProject
 from ..valuation.disposition import DispositionValuation
 from .acquisition import AcquisitionTerms
 from .fees import DealFee
-from .partners import PartnershipStructure
+from .partnership import PartnershipStructure
 
 # Simple union for all asset types that can be in a Deal
 # Pydantic v2 automatically infers the correct type based on unique fields:

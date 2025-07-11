@@ -30,34 +30,11 @@ Example:
 """
 
 from typing import List, Literal, Optional, Union
-from uuid import UUID, uuid4
 
 from pydantic import Field, field_validator
 
 from ..core.primitives import FloatBetween0And1, Model, PositiveFloat
-
-
-class Partner(Model):
-    """
-    Represents an equity partner in a real estate deal.
-    
-    This model captures the essential partnership information including
-    partner type (GP/LP), ownership percentage, and identification details.
-    """
-    
-    # Core Identity
-    uid: UUID = Field(default_factory=uuid4)
-    name: str = Field(..., description="Partner name for identification")
-    
-    # Partnership Structure
-    kind: Literal["GP", "LP"] = Field(..., description="Partner type: General Partner or Limited Partner")
-    share: FloatBetween0And1 = Field(..., description="Percentage of total equity ownership")
-    
-    # Optional Details
-    description: Optional[str] = Field(default=None, description="Additional partner description")
-    
-    def __str__(self) -> str:
-        return f"{self.name} ({self.kind}): {self.share:.1%} equity"
+from .entities import Partner
 
 
 class WaterfallTier(Model):

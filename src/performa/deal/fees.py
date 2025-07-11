@@ -27,24 +27,34 @@ from ..core.primitives.draw_schedule import (
     LastOnlyDrawSchedule,
     UniformDrawSchedule,
 )
+from ..core.primitives.enums import FeeTypeEnum
 from ..core.primitives.model import Model
 from ..core.primitives.timeline import Timeline
 from ..core.primitives.types import PositiveFloat
 from ..core.primitives.validation import validate_monthly_period_index
+from .entities import Entity
 
 
 class DealFee(Model):
     """
     Deal-level fee with flexible payment timing via DrawSchedule.
     
+    Supports dual-entry accounting where fees are simultaneously a USE of project
+    funds and a SOURCE of income for specific partners (typically GP). Each fee
+    must specify its payee Partner for proper allocation.
+    
     Uses the DrawSchedule system to provide flexible payment patterns for
     developer fees, asset management fees, and other transaction-related costs.
     
     Usage Examples:
+        # Create a partner first
+        developer = Partner(name="Developer", kind="GP", share=0.25)
+        
         # Upfront payment
         fee = DealFee.create_upfront_fee(
             name="Development Fee",
             value=500_000,
+            payee=developer,
             timeline=project_timeline
         )
         
@@ -52,6 +62,7 @@ class DealFee(Model):
         fee = DealFee.create_split_fee(
             name="Development Fee", 
             value=750_000,
+            payee=developer,
             timeline=project_timeline,
             first_percentage=0.3
         )
@@ -60,6 +71,7 @@ class DealFee(Model):
         fee = DealFee(
             name="Development Fee",
             value=1_000_000,
+            payee=developer,
             timeline=project_timeline,
             draw_schedule=ManualDrawSchedule(values=[0.2, 0.0, 0.3, 0.0, 0.5])
         )
@@ -68,6 +80,7 @@ class DealFee(Model):
         fee = DealFee(
             name="Development Fee",
             value=750_000,
+            payee=developer,
             timeline=project_timeline,
             draw_schedule=SCurveDrawSchedule(sigma=0.3)
         )
@@ -83,6 +96,13 @@ class DealFee(Model):
     uid: UUID = Field(default_factory=uuid4)
     name: str = Field(..., description="Fee name for identification")
     description: Optional[str] = Field(default=None, description="Fee description")
+    
+    # Partnership Information
+    payee: Entity = Field(..., description="Entity that receives the fee payment")
+    fee_type: Optional[FeeTypeEnum] = Field(
+        default=None, 
+        description="Optional fee categorization for accounting and reporting purposes"
+    )
     
     # Fee Configuration
     value: Union[PositiveFloat, pd.Series, Dict[date, PositiveFloat]] = Field(
@@ -107,8 +127,10 @@ class DealFee(Model):
         cls, 
         name: str, 
         value: Union[PositiveFloat, pd.Series, Dict[date, PositiveFloat]], 
+        payee: Entity,
         timeline: Timeline,
-        description: Optional[str] = None
+        description: Optional[str] = None,
+        fee_type: Optional[FeeTypeEnum] = None
     ) -> "DealFee":
         """
         Factory method for upfront fees.
@@ -116,8 +138,10 @@ class DealFee(Model):
         Args:
             name: Fee name
             value: Fee amount
+            payee: Entity who receives the fee
             timeline: Project timeline
             description: Optional description
+            fee_type: Optional fee categorization
             
         Returns:
             DealFee configured for upfront payment
@@ -125,9 +149,11 @@ class DealFee(Model):
         return cls(
             name=name,
             value=value,
+            payee=payee,
             timeline=timeline,
             draw_schedule=FirstOnlyDrawSchedule(),
-            description=description
+            description=description,
+            fee_type=fee_type
         )
     
     @classmethod
@@ -135,8 +161,10 @@ class DealFee(Model):
         cls, 
         name: str, 
         value: Union[PositiveFloat, pd.Series, Dict[date, PositiveFloat]], 
+        payee: Entity,
         timeline: Timeline,
-        description: Optional[str] = None
+        description: Optional[str] = None,
+        fee_type: Optional[FeeTypeEnum] = None
     ) -> "DealFee":
         """
         Factory method for completion fees.
@@ -144,8 +172,10 @@ class DealFee(Model):
         Args:
             name: Fee name
             value: Fee amount
+            payee: Entity that receives the fee
             timeline: Project timeline
             description: Optional description
+            fee_type: Optional fee categorization
             
         Returns:
             DealFee configured for completion payment
@@ -153,9 +183,11 @@ class DealFee(Model):
         return cls(
             name=name,
             value=value,
+            payee=payee,
             timeline=timeline,
             draw_schedule=LastOnlyDrawSchedule(),
-            description=description
+            description=description,
+            fee_type=fee_type
         )
     
     @classmethod
@@ -163,10 +195,12 @@ class DealFee(Model):
         cls, 
         name: str, 
         value: Union[PositiveFloat, pd.Series, Dict[date, PositiveFloat]], 
+        payee: Entity,
         timeline: Timeline,
         first_percentage: Optional[float] = None,
         last_percentage: Optional[float] = None,
-        description: Optional[str] = None
+        description: Optional[str] = None,
+        fee_type: Optional[FeeTypeEnum] = None
     ) -> "DealFee":
         """
         Factory method for split fees.
@@ -174,10 +208,12 @@ class DealFee(Model):
         Args:
             name: Fee name
             value: Fee amount
+            payee: Entity that receives the fee
             timeline: Project timeline
             first_percentage: Percentage paid upfront (mutually exclusive with last_percentage)
             last_percentage: Percentage paid at completion (mutually exclusive with first_percentage)
             description: Optional description
+            fee_type: Optional fee categorization
             
         Returns:
             DealFee configured for split payment
@@ -195,9 +231,11 @@ class DealFee(Model):
         return cls(
             name=name,
             value=value,
+            payee=payee,
             timeline=timeline,
             draw_schedule=draw_schedule,
-            description=description
+            description=description,
+            fee_type=fee_type
         )
     
     @classmethod
@@ -205,8 +243,10 @@ class DealFee(Model):
         cls, 
         name: str, 
         value: Union[PositiveFloat, pd.Series, Dict[date, PositiveFloat]], 
+        payee: Entity,
         timeline: Timeline,
-        description: Optional[str] = None
+        description: Optional[str] = None,
+        fee_type: Optional[FeeTypeEnum] = None
     ) -> "DealFee":
         """
         Factory method for uniform fees.
@@ -214,8 +254,10 @@ class DealFee(Model):
         Args:
             name: Fee name
             value: Fee amount
+            payee: Entity that receives the fee
             timeline: Project timeline
             description: Optional description
+            fee_type: Optional fee categorization
             
         Returns:
             DealFee configured for uniform payment across timeline
@@ -223,9 +265,11 @@ class DealFee(Model):
         return cls(
             name=name,
             value=value,
+            payee=payee,
             timeline=timeline,
             draw_schedule=UniformDrawSchedule(),
-            description=description
+            description=description,
+            fee_type=fee_type
         )
 
     @field_validator("value")
@@ -350,14 +394,14 @@ class DealFee(Model):
         Return string representation of the deal fee.
         
         Examples:
-            "Development Fee: $750,000 (FirstLastDrawSchedule)"
-            "Developer Fee: $500,000 (UniformDrawSchedule)"
-            "Management Fee: $1,200,000 total (ManualDrawSchedule)"
+            "Development Fee: $750,000 (FirstLastDrawSchedule) -> Developer (GP)"
+            "Developer Fee: $500,000 (UniformDrawSchedule) -> Developer (GP)"
+            "Management Fee: $1,200,000 total (ManualDrawSchedule) -> Asset Manager (GP)"
         """
         if isinstance(self.value, pd.Series):
             total = self.value.sum()
             schedule_type = type(self.draw_schedule).__name__
-            return f"{self.name}: ${total:,.0f} total ({schedule_type})"
+            return f"{self.name}: ${total:,.0f} total ({schedule_type}) -> {self.payee.name} ({self.payee.kind})"
         else:
             schedule_type = type(self.draw_schedule).__name__
-            return f"{self.name}: ${self.value:,.0f} ({schedule_type})"
+            return f"{self.name}: ${self.value:,.0f} ({schedule_type}) -> {self.payee.name} ({self.payee.kind})"

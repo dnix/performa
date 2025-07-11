@@ -438,3 +438,82 @@ class DrawScheduleKindEnum(str, Enum):
     FIRST_LAST = "first-last"
     FIRST_ONLY = "first-only"
     LAST_ONLY = "last-only"
+
+
+class FeeTypeEnum(str, Enum):
+    """
+    Standard fee type categories for real estate deals.
+    
+    This enum standardizes fee categorization for proper accounting, reporting,
+    and analytics. Fees are broadly categorized as either partner fees (paid to
+    equity participants) or third-party fees (paid to external service providers).
+    
+    Partner Fee Types:
+        DEVELOPER: Development and construction management fees
+        ASSET_MANAGEMENT: Ongoing asset management and oversight fees
+        ACQUISITION: Acquisition and due diligence fees
+        DISPOSITION: Sale and disposition fees
+        PROMOTE: Carried interest and performance fees
+        
+    Third-Party Fee Types:
+        PROFESSIONAL_SERVICES: Architecture, engineering, consulting
+        BROKERAGE: Leasing commissions and sales brokerage
+        LEGAL: Legal services and transaction costs
+        FINANCING: Loan origination and financing fees
+        CONSTRUCTION_MANAGEMENT: Third-party construction management
+        PROPERTY_MANAGEMENT: Third-party property management services
+        
+    General:
+        OTHER: Any fee type not covered by the above categories
+    """
+    
+    # Partner Fee Types (typically paid to GP/LP equity participants)
+    DEVELOPER = "Developer"
+    ASSET_MANAGEMENT = "Asset Management"
+    ACQUISITION = "Acquisition"
+    DISPOSITION = "Disposition"
+    PROMOTE = "Promote"
+    
+    # Third-Party Fee Types (typically paid to external service providers)
+    PROFESSIONAL_SERVICES = "Professional Services"
+    BROKERAGE = "Brokerage"
+    LEGAL = "Legal"
+    FINANCING = "Financing"
+    CONSTRUCTION_MANAGEMENT = "Construction Management"
+    PROPERTY_MANAGEMENT = "Property Management"
+    
+    # General
+    OTHER = "Other"
+    
+    @classmethod
+    def get_partner_fee_types(cls) -> List["FeeTypeEnum"]:
+        """Return fee types typically paid to equity partners."""
+        return [
+            cls.DEVELOPER,
+            cls.ASSET_MANAGEMENT,
+            cls.ACQUISITION,
+            cls.DISPOSITION,
+            cls.PROMOTE,
+        ]
+    
+    @classmethod
+    def get_third_party_fee_types(cls) -> List["FeeTypeEnum"]:
+        """Return fee types typically paid to third-party service providers."""
+        return [
+            cls.PROFESSIONAL_SERVICES,
+            cls.BROKERAGE,
+            cls.LEGAL,
+            cls.FINANCING,
+            cls.CONSTRUCTION_MANAGEMENT,
+            cls.PROPERTY_MANAGEMENT,
+        ]
+    
+    @classmethod
+    def is_partner_fee_type(cls, fee_type: "FeeTypeEnum") -> bool:
+        """Check if a fee type is typically paid to equity partners."""
+        return fee_type in cls.get_partner_fee_types()
+    
+    @classmethod
+    def is_third_party_fee_type(cls, fee_type: "FeeTypeEnum") -> bool:
+        """Check if a fee type is typically paid to third-party providers."""
+        return fee_type in cls.get_third_party_fee_types()

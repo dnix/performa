@@ -15,7 +15,8 @@ from performa.deal.distribution_calculator import (
     calculate_partner_distributions_with_structure,
     create_simple_partnership,
 )
-from performa.deal.partners import Partner, PartnershipStructure
+from performa.deal.entities import Partner
+from performa.deal.partnership import PartnershipStructure
 
 
 class TestDistributionCalculator:
@@ -444,7 +445,7 @@ class TestWaterfallDistributions:
     
     def test_simple_carry_promote_distribution(self):
         """Test simple carry promote distribution (pref + fixed carry)."""
-        from performa.deal.partners import CarryPromote
+        from performa.deal.partnership import CarryPromote
         
         # Create partnership with simple carry promote: 8% pref, 20% carry
         gp = Partner(name="GP", kind="GP", share=0.20)
@@ -518,7 +519,7 @@ class TestWaterfallDistributions:
     
     def test_sophisticated_waterfall_promote_distribution(self):
         """Test sophisticated multi-tier waterfall promote distribution."""
-        from performa.deal.partners import WaterfallPromote, WaterfallTier
+        from performa.deal.partnership import WaterfallPromote, WaterfallTier
         
         # Create partnership with sophisticated waterfall promote
         gp = Partner(name="Development GP", kind="GP", share=0.25)
@@ -603,7 +604,7 @@ class TestWaterfallDistributions:
     
     def test_carry_promote_below_preferred_return(self):
         """Test carry promote when returns are below preferred return."""
-        from performa.deal.partners import CarryPromote
+        from performa.deal.partnership import CarryPromote
         
         # Create partnership with carry promote: 12% pref, 20% carry
         gp = Partner(name="GP", kind="GP", share=0.30)
@@ -665,7 +666,7 @@ class TestWaterfallDistributions:
     
     def test_waterfall_promote_with_multi_period_cash_flows(self):
         """Test waterfall promote with multiple investment and return periods."""
-        from performa.deal.partners import WaterfallPromote, WaterfallTier
+        from performa.deal.partnership import WaterfallPromote, WaterfallTier
         
         # Create partnership with sophisticated waterfall promote
         gp = Partner(name="GP", kind="GP", share=0.20)
@@ -743,7 +744,11 @@ class TestWaterfallDistributions:
     
     def test_carry_vs_waterfall_promote_comparison(self):
         """Test comparing carry vs waterfall promote structures."""
-        from performa.deal.partners import CarryPromote, WaterfallPromote, WaterfallTier
+        from performa.deal.partnership import (
+            CarryPromote,
+            WaterfallPromote,
+            WaterfallTier,
+        )
         
         # Create timeline
         timeline = Timeline(
@@ -820,7 +825,7 @@ class TestWaterfallDistributions:
     
     def test_waterfall_vs_pari_passu_comparison(self):
         """Test comparing waterfall vs pari passu distributions with same partnership."""
-        from performa.deal.partners import CarryPromote
+        from performa.deal.partnership import CarryPromote
         
         # Create timeline
         timeline = Timeline(
@@ -884,7 +889,7 @@ class TestWaterfallDistributions:
     
     def test_waterfall_distribution_method_validation(self):
         """Test that waterfall distribution method is properly validated."""
-        from performa.deal.partners import CarryPromote
+        from performa.deal.partnership import CarryPromote
         
         # Create partnership with waterfall method
         partnership = PartnershipStructure(

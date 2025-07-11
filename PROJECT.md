@@ -35,7 +35,7 @@ src/performa/
 │   ├── commercial/       # Logic shared by all commercial asset types
 │   ├── office/           # Office-specific models and logic
 │   └── ...               # Other asset types (retail, etc.)
-├── common/               # Primitives and base classes shared across all modules
+├── core/                 # Primitives and base classes shared across all modules
 │   ├── base/             # Abstract base classes for core components (lease, expense, etc.)
 │   └── primitives/       # Core data types (enums, timeline, cashflow model)
 ├── debt/                 # Debt modeling components

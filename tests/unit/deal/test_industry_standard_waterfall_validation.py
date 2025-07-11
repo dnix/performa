@@ -18,7 +18,7 @@ import pytest
 
 from performa.core.primitives import Timeline
 from performa.deal.distribution_calculator import DistributionCalculator
-from performa.deal.partners import (
+from performa.deal.partnership import (
     Partner,
     PartnershipStructure,
     WaterfallPromote,

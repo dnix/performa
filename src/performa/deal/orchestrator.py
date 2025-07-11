@@ -99,7 +99,7 @@ class DealCalculator:
             # Execute the deal analysis workflow
             self._analyze_unlevered_asset()  # pass 1: unlevered asset analysis
             self._integrate_financing()  # pass 2: financing integration
-            self._calculate_enhanced_dscr_metrics()  # pass 3: performance metrics (DSCR)
+            self._calculate_dscr_metrics()  # pass 3: performance metrics (DSCR)
             self._calculate_levered_cash_flows()  # pass 4: levered cash flows
             self._calculate_partner_distributions()  # pass 5: partner distributions
             self._calculate_deal_metrics()  # pass 6: deal metrics
@@ -140,6 +140,7 @@ class DealCalculator:
         scenario_cls = get_scenario_for_model(self.deal.asset)
         
         # Create scenario using dict representation to avoid Pydantic validation issues
+        # PERF: review this for round trip issues
         scenario_data = {
             'model': self.deal.asset.model_dump(),
             'timeline': self.timeline.model_dump(),
@@ -229,11 +230,11 @@ class DealCalculator:
             self.partner_distributions = self._calculate_single_entity_distributions(cash_flows)
             return
         
-        # Calculate developer fee priority payments
-        developer_fee_details = self._calculate_developer_fee_distributions(cash_flows)
+        # Calculate fee priority payments
+        fee_details = self._calculate_fee_distributions(cash_flows)
         
-        # Get remaining cash flows after developer fee payments
-        remaining_cash_flows = developer_fee_details["remaining_cash_flows_after_fee"]
+        # Get remaining cash flows after fee payments
+        remaining_cash_flows = fee_details["remaining_cash_flows_after_fee"]
         
         # Calculate standard waterfall distributions on remaining cash flows
         if isinstance(remaining_cash_flows, pd.Series):
@@ -241,16 +242,16 @@ class DealCalculator:
                 calculator = DistributionCalculator(self.deal.equity_partners)
                 waterfall_results = calculator.calculate_distributions(remaining_cash_flows, self.timeline)
                 
-                # Combine developer fee and waterfall results
+                # Combine fee and waterfall results
                 try:
-                    combined_results = self._combine_developer_fee_and_waterfall_results(
-                        developer_fee_details, waterfall_results
+                    combined_results = self._combine_fee_and_waterfall_results(
+                        fee_details, waterfall_results
                     )
                     self.partner_distributions = self._create_partner_distributions_result(combined_results)
                 except Exception as combine_error:
                     logger.error(f"Combination failed: {combine_error}")
                     # Use waterfall results directly if combination fails
-                    waterfall_results["developer_fee_details"] = developer_fee_details
+                    waterfall_results["fee_details"] = fee_details
                     self.partner_distributions = self._create_partner_distributions_result(waterfall_results)
                     
             except Exception as e:
@@ -267,7 +268,7 @@ class DealCalculator:
                         "preferred_return": 0.0,
                         "promote_distributions": 0.0,
                     },
-                    "developer_fee_details": developer_fee_details,
+                    "fee_details": fee_details,
                 }
                 self.partner_distributions = self._create_partner_distributions_result(error_results)
                 logger.error(f"DistributionCalculator failed with error: {e}")
@@ -286,7 +287,7 @@ class DealCalculator:
                     "preferred_return": 0.0,
                     "promote_distributions": 0.0,
                 },
-                "developer_fee_details": developer_fee_details,
+                "fee_details": fee_details,
             }
             self.partner_distributions = self._create_partner_distributions_result(error_results)
     
@@ -549,7 +550,7 @@ class DealCalculator:
     
     def _execute_funding_cascade(self, base_uses: pd.Series, funding_components: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Execute the enhanced funding cascade with institutional-grade logic.
+        Execute institutional-grade funding cascade with comprehensive logic.
         
         Args:
             base_uses: Base uses before interest compounding
@@ -857,15 +858,15 @@ class DealCalculator:
         interest_reserve_rate = getattr(construction_facility, 'interest_reserve_rate', 0.15)
         return total_facility_capacity * interest_reserve_rate
     
-    def _calculate_enhanced_dscr_metrics(self) -> None:
+    def _calculate_dscr_metrics(self) -> None:
         """
-        Calculate ongoing performance metrics (DSCR time series) with institutional-grade analysis.
+        Calculate debt service coverage ratio (DSCR) metrics and time series.
         
-        This calculates performance metrics like DSCR that depend on both
-        asset operations and financing structure, providing comprehensive analysis including:
-        - Proper NOI extraction from asset analysis
+        Calculates DSCR metrics that depend on both asset operations and financing structure,
+        providing comprehensive analysis including:
+        - NOI extraction from asset analysis
         - Multi-facility debt service aggregation
-        - Comprehensive DSCR statistics and covenant monitoring
+        - DSCR statistics and covenant monitoring
         - Forward-looking DSCR projections for underwriting
         - Stress testing and sensitivity analysis
         """
@@ -890,18 +891,18 @@ class DealCalculator:
             # === Calculate DSCR Time Series ===
             dscr_series = self._calculate_dscr_time_series(noi_series, total_debt_service_series)
             
-            # === Calculate Enhanced DSCR Statistics ===
-            dscr_summary_data = self._calculate_enhanced_dscr_summary(dscr_series)
+            # === Calculate DSCR Statistics ===
+            dscr_summary_data = self._calculate_dscr_summary(dscr_series)
             
             # === Add Forward-Looking Analysis ===
             forward_analysis = self._calculate_forward_dscr_analysis(noi_series, total_debt_service_series)
             
-            # Update financing analysis with enhanced metrics
+            # Update financing analysis with metrics
             self.financing_analysis.dscr_time_series = dscr_series
             self.financing_analysis.dscr_summary = DSCRSummary(**dscr_summary_data) if not dscr_summary_data.get('error') else None
             
         except Exception as e:
-            # Fallback: Use basic DSCR calculation if enhanced calculation fails
+            # Fallback: Use basic DSCR calculation if comprehensive calculation fails
             self._calculate_basic_dscr_fallback(e)
     
     def _extract_noi_time_series(self) -> pd.Series:
@@ -991,9 +992,9 @@ class DealCalculator:
         
         return dscr_series
     
-    def _calculate_enhanced_dscr_summary(self, dscr_series: pd.Series) -> Dict[str, Any]:
+    def _calculate_dscr_summary(self, dscr_series: pd.Series) -> Dict[str, Any]:
         """
-        Calculate enhanced DSCR summary statistics for covenant monitoring.
+        Calculate comprehensive DSCR summary statistics for covenant monitoring.
         
         Args:
             dscr_series: DSCR time series
@@ -1120,10 +1121,10 @@ class DealCalculator:
     
     def _calculate_basic_dscr_fallback(self, error: Exception) -> None:
         """
-        Basic DSCR calculation fallback when enhanced calculation fails.
+        Basic DSCR calculation fallback when comprehensive calculation fails.
         
         Args:
-            error: The exception that caused the enhanced calculation to fail
+            error: The exception that caused the comprehensive calculation to fail
         """
         import pandas as pd
 
@@ -1211,9 +1212,9 @@ class DealCalculator:
                     "preferred_return": 0.0,
                     "promote_distributions": 0.0,
                 },
-                "developer_fee_details": {
-                    "total_developer_fee": 0.0,
-                    "developer_fee_by_partner": {},
+                "fee_accounting_details": {
+                    "total_partner_fees": 0.0,
+                    "partner_fees_by_partner": {},
                     "remaining_cash_flows_after_fee": cash_flows,
                 }
             }
@@ -1231,78 +1232,178 @@ class DealCalculator:
                     "preferred_return": 0.0,
                     "promote_distributions": 0.0,
                 },
-                "developer_fee_details": {
-                    "total_developer_fee": 0.0,
-                    "developer_fee_by_partner": {},
+                "fee_accounting_details": {
+                    "total_partner_fees": 0.0,
+                    "partner_fees_by_partner": {},
                     "remaining_cash_flows_after_fee": pd.Series(0.0, index=self.timeline.period_index),
                 }
             }
     
-    def _calculate_developer_fee_distributions(self, cash_flows) -> Dict[str, Any]:
-        """Calculate developer fee priority payments to GP partners."""
+    def _calculate_fee_distributions(self, cash_flows) -> Dict[str, Any]:
+        """
+        Calculate fee priority payments with dual-entry accounting.
+        
+        Features:
+        - Uses actual payee Entity from each DealFee (not pro-rata GP allocation)
+        - Dual-entry logic: fees are both project debit and partner credit
+        - Processes fees according to their draw schedules
+        - Maintains detailed audit trail for each fee and payee
+        """
         import pandas as pd
         
-        # Initialize developer fee tracking
-        developer_fee_details = {
-            "total_developer_fee": 0.0,
-            "developer_fee_by_partner": {},
+        # Initialize fee tracking
+        fee_accounting_details = {
+            "total_partner_fees": 0.0,
+            "partner_fees_by_partner": {},
+            "fee_details_by_partner": {},  # Track individual fees per partner
+            "fee_cash_flows_by_partner": {},  # Track fee timing per partner
+            "third_party_fees": {},  # Track third-party fees separately
+            "third_party_fee_details": {},  # Track individual third-party fees
+            "third_party_fee_cash_flows": {},  # Track third-party fee timing
+            "total_third_party_fees": 0.0,
             "remaining_cash_flows_after_fee": None,
         }
         
         if not isinstance(cash_flows, pd.Series):
-            developer_fee_details["remaining_cash_flows_after_fee"] = pd.Series(0.0, index=self.timeline.period_index)
-            return developer_fee_details
+            fee_accounting_details["remaining_cash_flows_after_fee"] = pd.Series(0.0, index=self.timeline.period_index)
+            return fee_accounting_details
         
-        # Start with original cash flows
-        remaining_cash_flows = cash_flows.copy()
+        # Start with original cash flows (ensure float dtype for calculations)
+        remaining_cash_flows = cash_flows.copy().astype(float)
         
-        # Only calculate developer fees if deal has both fees and equity partners
+        # Only process fees if deal has both fees and equity partners
         if not self.deal.deal_fees or not self.deal.has_equity_partners:
-            developer_fee_details["remaining_cash_flows_after_fee"] = remaining_cash_flows
-            return developer_fee_details
+            fee_accounting_details["remaining_cash_flows_after_fee"] = remaining_cash_flows
+            return fee_accounting_details
         
-        # Calculate total developer fee amount from all fees
-        total_developer_fee = 0.0
-        for fee in self.deal.deal_fees:
-            total_developer_fee += fee.calculate_total_fee()
-        
-        # Get GP partners for fee allocation
-        gp_partners = self.deal.equity_partners.gp_partners
-        
-        if not gp_partners or total_developer_fee <= 0:
-            developer_fee_details["remaining_cash_flows_after_fee"] = remaining_cash_flows
-            return developer_fee_details
-        
-        # Initialize partner fee tracking
+        # Initialize partner tracking for all partners
         for partner in self.deal.equity_partners.partners:
-            developer_fee_details["developer_fee_by_partner"][partner.name] = 0.0
+            fee_accounting_details["partner_fees_by_partner"][partner.name] = 0.0
+            fee_accounting_details["fee_details_by_partner"][partner.name] = []
+            fee_accounting_details["fee_cash_flows_by_partner"][partner.name] = pd.Series(0.0, index=self.timeline.period_index, dtype=float)
         
-        # Allocate developer fee among GP partners pro-rata by GP share
-        gp_total_share = self.deal.equity_partners.gp_total_share
+        # === FEE PROCESSING ===
         
-        if gp_total_share > 0:
-            for gp_partner in gp_partners:
-                gp_proportion = gp_partner.share / gp_total_share
-                partner_developer_fee = total_developer_fee * gp_proportion
-                developer_fee_details["developer_fee_by_partner"][gp_partner.name] = partner_developer_fee
+        # Step 1: Process each fee individually with its specific payee and timing
+        total_fee_by_period = pd.Series(0.0, index=self.timeline.period_index, dtype=float)
         
-        # Update total developer fee
-        developer_fee_details["total_developer_fee"] = total_developer_fee
+        for fee in self.deal.deal_fees:
+            try:
+                # Calculate fee cash flows using the fee's draw schedule
+                fee_cash_flows = fee.compute_cf(self.timeline)
+                total_fee_amount = fee.calculate_total_fee()
+                
+                # Check if payee is an equity participant (Partner) or third party
+                if fee.payee.is_equity_participant:
+                    # Validate that the payee is actually a partner in this deal
+                    payee_partner = None
+                    for partner in self.deal.equity_partners.partners:
+                        if partner.name == fee.payee.name:
+                            payee_partner = partner
+                            break
+                    
+                    if payee_partner is None:
+                        logger.warning(f"Fee payee '{fee.payee.name}' is an equity partner but not in this deal. Skipping fee '{fee.name}'.")
+                        continue
+                else:
+                    # Third-party fee - no partner validation needed
+                    payee_partner = None
+                
+                # DEBIT: Add fee amounts to project uses (reduces distributable cash flow)
+                total_fee_by_period += fee_cash_flows.reindex(self.timeline.period_index, fill_value=0.0)
+                
+                if payee_partner is not None:
+                    # CREDIT: Allocate fee to the specific payee partner (dual-entry)
+                    fee_accounting_details["partner_fees_by_partner"][payee_partner.name] += total_fee_amount
+                    fee_accounting_details["fee_cash_flows_by_partner"][payee_partner.name] += fee_cash_flows.reindex(self.timeline.period_index, fill_value=0.0)
+                    
+                    # Track individual fee details for audit trail
+                    fee_detail = {
+                        "fee_name": fee.name,
+                        "fee_type": getattr(fee, 'fee_type', 'Developer'),
+                        "amount": total_fee_amount,
+                        "payee": payee_partner.name,
+                        "draw_schedule": type(fee.draw_schedule).__name__,
+                        "description": getattr(fee, 'description', ''),
+                    }
+                    fee_accounting_details["fee_details_by_partner"][payee_partner.name].append(fee_detail)
+                    
+                    # Update total partner fees
+                    fee_accounting_details["total_partner_fees"] += total_fee_amount
+                    
+                    logger.debug(f"Processed partner fee '{fee.name}': ${total_fee_amount:,.0f} -> {payee_partner.name} ({payee_partner.kind})")
+                else:
+                    # Handle third-party fee (single-entry - project cost only)
+                    payee_name = fee.payee.name
+                    
+                    # Track third-party fees separately
+                    if payee_name not in fee_accounting_details["third_party_fees"]:
+                        fee_accounting_details["third_party_fees"][payee_name] = 0.0
+                        fee_accounting_details["third_party_fee_details"][payee_name] = []
+                        fee_accounting_details["third_party_fee_cash_flows"][payee_name] = pd.Series(0.0, index=self.timeline.period_index, dtype=float)
+                    
+                    fee_accounting_details["third_party_fees"][payee_name] += total_fee_amount
+                    fee_accounting_details["third_party_fee_cash_flows"][payee_name] += fee_cash_flows.reindex(self.timeline.period_index, fill_value=0.0)
+                    
+                    # Track individual third-party fee details
+                    fee_detail = {
+                        "fee_name": fee.name,
+                        "fee_type": getattr(fee, 'fee_type', 'Third Party'),
+                        "amount": total_fee_amount,
+                        "payee": payee_name,
+                        "draw_schedule": type(fee.draw_schedule).__name__,
+                        "description": getattr(fee, 'description', ''),
+                    }
+                    fee_accounting_details["third_party_fee_details"][payee_name].append(fee_detail)
+                    
+                    # Update total third-party fees
+                    fee_accounting_details["total_third_party_fees"] += total_fee_amount
+                    
+                    logger.debug(f"Processed third-party fee '{fee.name}': ${total_fee_amount:,.0f} -> {payee_name} (Third Party)")
+                
+            except Exception as e:
+                logger.error(f"Failed to process fee '{fee.name}': {e}")
+                continue
         
-        # Reduce the first positive cash flow by the developer fee amount
-        positive_cash_flows = remaining_cash_flows[remaining_cash_flows > 0]
+        # Step 2: Apply priority payment logic - reduce cash flows by total fee amounts
+        # Fees are paid as priority distributions before equity waterfall
         
-        if len(positive_cash_flows) > 0 and total_developer_fee > 0:
-            first_positive_period = positive_cash_flows.index[0]
-            remaining_cash_flows[first_positive_period] = max(
-                0, remaining_cash_flows[first_positive_period] - total_developer_fee
-            )
+        if fee_accounting_details["total_partner_fees"] > 0:
+            # Fee deduction logic: Only reduce positive cash flows (distributions)
+            # This ensures fees don't affect negative cash flows (investments)
+            
+            remaining_fees_to_deduct = total_fee_by_period.copy()
+            
+            for period in self.timeline.period_index:
+                period_cash_flow = remaining_cash_flows[period]
+                period_fees = remaining_fees_to_deduct[period]
+                
+                if period_cash_flow > 0 and period_fees > 0:
+                    # Reduce positive cash flow by fees, but don't go negative
+                    fee_deduction = min(period_cash_flow, period_fees)
+                    remaining_cash_flows[period] -= fee_deduction
+                    remaining_fees_to_deduct[period] -= fee_deduction
+            
+            # Handle any remaining fees that couldn't be deducted due to insufficient cash flow
+            total_undeducted_fees = remaining_fees_to_deduct.sum()
+            if total_undeducted_fees > 0:
+                logger.warning(f"Could not deduct ${total_undeducted_fees:,.0f} in fees due to insufficient positive cash flows")
+            
+            logger.info(f"Applied ${fee_accounting_details['total_partner_fees'] - total_undeducted_fees:,.0f} in priority fee payments across {len(self.deal.deal_fees)} fee(s)")
         
-        developer_fee_details["remaining_cash_flows_after_fee"] = remaining_cash_flows
-        return developer_fee_details
+        fee_accounting_details["remaining_cash_flows_after_fee"] = remaining_cash_flows
+        return fee_accounting_details
     
-    def _combine_developer_fee_and_waterfall_results(self, developer_fee_details: Dict[str, Any], waterfall_results: Dict[str, Any]) -> Dict[str, Any]:
-        """Combine developer fee priority payments with waterfall distribution results."""
+    def _combine_fee_and_waterfall_results(self, fee_details: Dict[str, Any], waterfall_results: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Combine fee priority payments with waterfall distribution results.
+        
+        Features:
+        - Dual-entry fee accounting with actual payees
+        - Properly adjusts partner cash flows to include fee payments
+        - Maintains detailed audit trail of fee vs. waterfall distributions
+        - Recalculates all partner metrics accurately
+        """
         import pandas as pd
         
         # Map DistributionCalculator output to Pydantic model structure
@@ -1333,43 +1434,140 @@ class DealCalculator:
         else:
             deal_distributions = pd.Series(0.0, index=self.timeline.period_index)
         
-        # Update partner-specific results to include developer fees
+        # === PARTNER RESULTS WITH FEE ACCOUNTING ===
+        
         updated_partner_results = {}
         if partner_distributions and self.deal.has_equity_partners:
             for partner_name, partner_result in partner_distributions.items():
                 updated_result = partner_result.copy()
                 
-                # Add developer fee to this partner's results
-                developer_fee = developer_fee_details["developer_fee_by_partner"].get(partner_name, 0.0)
-                updated_result["developer_fee"] = developer_fee
+                # Get fee amounts for this partner (using actual payee allocation)
+                partner_fee_amount = fee_details["partner_fees_by_partner"].get(partner_name, 0.0)
+                fee_cash_flows = fee_details["fee_cash_flows_by_partner"].get(partner_name, pd.Series(0.0, index=self.timeline.period_index))
+                fee_details_list = fee_details["fee_details_by_partner"].get(partner_name, [])
                 
-                if developer_fee > 0:
+                # Fee tracking for this partner
+                updated_result["developer_fee_amount"] = partner_fee_amount
+                updated_result["developer_fee_details"] = fee_details_list
+                updated_result["fee_count"] = len(fee_details_list)
+                
+                # Update partner's cash flows to include fee payments
+                partner_waterfall_cf = partner_result.get("cash_flows", pd.Series(0.0, index=self.timeline.period_index))
+                updated_partner_cf = partner_waterfall_cf + fee_cash_flows
+                updated_result["cash_flows"] = updated_partner_cf
+                
+                # Update deal-level distributions to include fees
+                deal_distributions += fee_cash_flows
+                
+                if partner_fee_amount > 0:
                     # Update partner's total distributions and metrics
-                    updated_result["total_distributions"] = partner_result.get("total_distributions", 0) + developer_fee
-                    updated_result["net_profit"] = partner_result.get("net_profit", 0) + developer_fee
+                    waterfall_distributions = partner_result.get("total_distributions", 0.0)
+                    updated_result["total_distributions"] = waterfall_distributions + partner_fee_amount
+                    updated_result["distributions_from_waterfall"] = waterfall_distributions
+                    updated_result["distributions_from_fees"] = partner_fee_amount
+                    
+                    # Fee breakdown for this partner
+                    updated_result["fee_details"] = {detail["fee_name"]: detail["amount"] for detail in fee_details_list}
+                    updated_result["fee_cash_flows"] = fee_cash_flows
+                    
+                    # Update net profit
+                    updated_result["net_profit"] = partner_result.get("net_profit", 0.0) + partner_fee_amount
                     
                     # Recalculate equity multiple if investment > 0
-                    investment = partner_result.get("total_investment", 0)
+                    investment = partner_result.get("total_investment", 0.0)
                     if investment > 0:
                         updated_result["equity_multiple"] = updated_result["total_distributions"] / investment
                     else:
                         updated_result["equity_multiple"] = 0.0
+                    
+                    # Recalculate IRR if possible
+                    try:
+                        if isinstance(updated_partner_cf, pd.Series) and len(updated_partner_cf) > 1:
+                            # Use pyxirr for more accurate IRR calculation
+                            from pyxirr import xirr
+                            dates = [period.to_timestamp().date() for period in updated_partner_cf.index]
+                            partner_irr = xirr(dates, updated_partner_cf.values)
+                            if partner_irr is not None:
+                                updated_result["irr"] = float(partner_irr)
+                    except Exception:
+                        # Fallback: use existing IRR if available
+                        updated_result["irr"] = partner_result.get("irr", None)
+                else:
+                    # No fees for this partner - maintain waterfall-only results
+                    updated_result["distributions_from_waterfall"] = partner_result.get("total_distributions", 0.0)
+                    updated_result["distributions_from_fees"] = 0.0
+                    updated_result["developer_fee_amount"] = 0.0
+                    updated_result["fee_count"] = 0
+                    updated_result["fee_details"] = {}
+                    updated_result["fee_cash_flows"] = pd.Series(0.0, index=self.timeline.period_index)
+                
+                # Add backward compatibility field (deprecated)
+                updated_result["developer_fee"] = partner_fee_amount
                 
                 updated_partner_results[partner_name] = updated_result
+                
+                logger.debug(f"Partner result for {partner_name}: "
+                           f"Waterfall=${updated_result.get('distributions_from_waterfall', 0):,.0f}, "
+                           f"Fees=${updated_result.get('distributions_from_fees', 0):,.0f}, "
+                           f"Total=${updated_result.get('total_distributions', 0):,.0f}")
         
-        # Update total deal metrics to include developer fee
-        total_developer_fee = developer_fee_details["total_developer_fee"]
-        if total_developer_fee > 0:
-            total_distributions += total_developer_fee
+        # Update total deal metrics to include partner fees
+        total_partner_fees = fee_details["total_partner_fees"]
+        if total_partner_fees > 0:
+            total_distributions += total_partner_fees
             if total_investment > 0:
                 equity_multiple = total_distributions / total_investment
         
-        # Create waterfall details structure for pari_passu deals
+        # === FEE ACCOUNTING DETAILS WITH TRACKING ===
+        
+        # Calculate total fees by type for reporting
+        total_fees_by_type = {}
+        fee_timing_summary = {}
+        
+        for partner_name, fee_list in fee_details["fee_details_by_partner"].items():
+            if fee_list:
+                fee_timing_summary[partner_name] = {}
+                for fee_detail in fee_list:
+                    fee_type = fee_detail.get("fee_type", "Developer")
+                    fee_amount = fee_detail.get("amount", 0.0)
+                    
+                    if fee_type not in total_fees_by_type:
+                        total_fees_by_type[fee_type] = 0.0
+                    total_fees_by_type[fee_type] += fee_amount
+                    
+                    # Add timing information
+                    partner_cf = fee_details["fee_cash_flows_by_partner"].get(partner_name, pd.Series(0.0, index=self.timeline.period_index))
+                    for period_idx, period in enumerate(self.timeline.period_index):
+                        if partner_cf[period] > 0:
+                            period_str = str(period)
+                            if period_str not in fee_timing_summary[partner_name]:
+                                fee_timing_summary[partner_name][period_str] = 0.0
+                            fee_timing_summary[partner_name][period_str] += partner_cf[period]
+        
+        # Update fee details with tracking
+        updated_fee_details = fee_details.copy()
+        updated_fee_details["total_fees_by_type"] = total_fees_by_type
+        updated_fee_details["fee_timing_summary"] = fee_timing_summary
+        
+        # Convert fee_details_by_partner from list to dict format for Pydantic validation
+        converted_fee_details = {}
+        for partner_name, fee_list in updated_fee_details["fee_details_by_partner"].items():
+            converted_fee_details[partner_name] = {}
+            for fee_detail in fee_list:
+                fee_name = fee_detail.get("fee_name", "Unknown Fee")
+                fee_amount = fee_detail.get("amount", 0.0)
+                converted_fee_details[partner_name][fee_name] = fee_amount
+        
+        updated_fee_details["fee_details_by_partner"] = converted_fee_details
+        
+        # Create waterfall details structure
         if distribution_method == "pari_passu":
             waterfall_details = {
                 "preferred_return": 0.0,  # No preferred return in pari passu
                 "promote_distributions": 0.0,  # No promotes in pari passu
                 "partner_results": updated_partner_results,
+                "total_waterfall_distributions": total_distributions - total_partner_fees,
+                "total_fee_distributions": total_partner_fees,
             }
         else:
             # For actual waterfall deals, extract from waterfall_results
@@ -1378,8 +1576,9 @@ class DealCalculator:
                 "promote_distributions": 0.0,
                 "partner_results": updated_partner_results,
             })
-            if "partner_results" not in waterfall_details:
-                waterfall_details["partner_results"] = updated_partner_results
+            waterfall_details["partner_results"] = updated_partner_results
+            waterfall_details["total_waterfall_distributions"] = total_distributions - total_partner_fees
+            waterfall_details["total_fee_distributions"] = total_partner_fees
         
         # Create final result structure matching Pydantic models
         combined_results = {
@@ -1390,8 +1589,12 @@ class DealCalculator:
             "irr": irr,
             "distributions": deal_distributions,
             "waterfall_details": waterfall_details,
-            "developer_fee_details": developer_fee_details,
+            "fee_accounting_details": updated_fee_details,
         }
+        
+        logger.info(f"Combined results: Total distributions=${total_distributions:,.0f} "
+                   f"(Waterfall=${total_distributions - total_partner_fees:,.0f} + "
+                   f"Fees=${total_partner_fees:,.0f})")
         
         return combined_results
     
@@ -1670,4 +1873,4 @@ class DealCalculator:
         self.levered_cash_flows.levered_cash_flows = levered_cash_flows
         self.levered_cash_flows.cash_flow_components = cash_flow_components
         self.levered_cash_flows.cash_flow_summary = cash_flow_summary
-        self.levered_cash_flows.funding_cascade_details = funding_cascade_details 
+        self.levered_cash_flows.funding_cascade_details = funding_cascade_details

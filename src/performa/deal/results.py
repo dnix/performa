@@ -313,22 +313,75 @@ class LeveredCashFlowResult(ResultModel):
 # Distribution Models (with discriminated unions)
 # =============================================================================
 
-class DeveloperFeeDetails(ResultModel):
-    """Developer fee allocation and tracking."""
+class FeeAccountingDetails(ResultModel):
+    """Fee allocation and tracking with dual-entry accounting."""
     
-    total_developer_fee: float = Field(0.0, description="Total developer fee amount")
-    developer_fee_by_partner: Dict[str, float] = Field(
+    total_partner_fees: float = Field(0.0, description="Total partner fee amount")
+    partner_fees_by_partner: Dict[str, float] = Field(
         default_factory=dict,
-        description="Developer fee allocation by partner name"
+        description="Partner fee allocation by partner name"
     )
     remaining_cash_flows_after_fee: pd.Series = Field(None, description="Cash flows after fee deduction")
+    
+    # Detailed fee tracking
+    fee_details_by_partner: Dict[str, Dict[str, float]] = Field(
+        default_factory=dict,
+        description="Detailed fee breakdown by partner: {partner_name: {fee_name: amount}}"
+    )
+    fee_cash_flows_by_partner: Dict[str, pd.Series] = Field(
+        default_factory=dict,
+        description="Fee cash flows by partner: {partner_name: pd.Series}"
+    )
+    total_fees_by_type: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Total fees by type: {fee_type: total_amount}"
+    )
+    fee_timing_summary: Dict[str, Dict[str, float]] = Field(
+        default_factory=dict,
+        description="Fee timing summary: {partner_name: {period: amount}}"
+    )
+    
+    # Third-party fee tracking
+    third_party_fees: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Third-party fee amounts by entity name"
+    )
+    third_party_fee_details: Dict[str, Dict[str, float]] = Field(
+        default_factory=dict,
+        description="Detailed third-party fee breakdown: {entity_name: {fee_name: amount}}"
+    )
+    third_party_fee_cash_flows: Dict[str, pd.Series] = Field(
+        default_factory=dict,
+        description="Third-party fee cash flows: {entity_name: pd.Series}"
+    )
+    total_third_party_fees: float = Field(0.0, description="Total third-party fee amount")
 
     @field_validator('remaining_cash_flows_after_fee')
     @classmethod
     def validate_remaining_cash_flows(cls, v):
         """Validate remaining cash flows is a pandas Series."""
-        if not isinstance(v, pd.Series):
+        if v is not None and not isinstance(v, pd.Series):
             raise ValueError('remaining_cash_flows_after_fee must be a pandas Series')
+        return v
+    
+    @field_validator('fee_cash_flows_by_partner')
+    @classmethod
+    def validate_fee_cash_flows(cls, v):
+        """Validate fee cash flows are pandas Series."""
+        if v:
+            for partner_name, series in v.items():
+                if not isinstance(series, pd.Series):
+                    raise ValueError(f'Fee cash flows for partner {partner_name} must be pandas Series')
+        return v
+    
+    @field_validator('third_party_fee_cash_flows')
+    @classmethod
+    def validate_third_party_fee_cash_flows(cls, v):
+        """Validate third-party fee cash flows are pandas Series."""
+        if v:
+            for entity_name, series in v.items():
+                if not isinstance(series, pd.Series):
+                    raise ValueError(f'Third-party fee cash flows for entity {entity_name} must be pandas Series')
         return v
 
 
@@ -343,14 +396,35 @@ class PartnerMetrics(ResultModel):
     equity_multiple: float = Field(None, description="Partner's equity multiple")
     irr: Optional[float] = Field(None, description="Partner's IRR")
     ownership_percentage: float = Field(None, description="Partner's ownership percentage")
-    developer_fee: float = Field(0.0, description="Developer fee received by partner")
+    
+    # Distribution source tracking
+    distributions_from_waterfall: float = Field(0.0, description="Distributions from equity waterfall")
+    distributions_from_fees: float = Field(0.0, description="Distributions from deal fees")
+    
+    # Backward compatibility (deprecated - use distributions_from_fees)
+    developer_fee: float = Field(0.0, description="Developer fee received by partner (deprecated)")
+    
+    # Detailed fee breakdown for this partner
+    fee_details: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Detailed fee breakdown: {fee_name: amount}"
+    )
+    fee_cash_flows: Optional[pd.Series] = Field(None, description="Fee cash flows for this partner")
 
     @field_validator('cash_flows')
     @classmethod
     def validate_cash_flows(cls, v):
         """Validate cash_flows is a pandas Series."""
-        if not isinstance(v, pd.Series):
+        if v is not None and not isinstance(v, pd.Series):
             raise ValueError('cash_flows must be a pandas Series')
+        return v
+    
+    @field_validator('fee_cash_flows')
+    @classmethod
+    def validate_fee_cash_flows(cls, v):
+        """Validate fee_cash_flows is a pandas Series."""
+        if v is not None and not isinstance(v, pd.Series):
+            raise ValueError('fee_cash_flows must be a pandas Series')
         return v
 
 
@@ -394,7 +468,7 @@ class WaterfallDistributionResult(BaseDistributionResult):
     
     # Waterfall Details
     waterfall_details: WaterfallDetails = Field(None, description="Detailed waterfall results")
-    developer_fee_details: DeveloperFeeDetails = Field(None, description="Developer fee details")
+    fee_accounting_details: FeeAccountingDetails = Field(None, description="Fee accounting details")
 
 
 class SingleEntityWaterfallDetails(ResultModel):
@@ -413,11 +487,11 @@ class SingleEntityWaterfallDetails(ResultModel):
         return v
 
 
-class EmptyDeveloperFeeDetails(DeveloperFeeDetails):
-    """Empty developer fee details for single entity deals."""
+class EmptyFeeAccountingDetails(FeeAccountingDetails):
+    """Empty fee accounting details for single entity deals."""
     
-    total_developer_fee: float = 0.0
-    developer_fee_by_partner: Dict[str, float] = Field(default_factory=dict)
+    total_partner_fees: float = 0.0
+    partner_fees_by_partner: Dict[str, float] = Field(default_factory=dict)
 
 
 class SingleEntityDistributionResult(BaseDistributionResult):
@@ -427,7 +501,7 @@ class SingleEntityDistributionResult(BaseDistributionResult):
     
     # Simplified Details
     waterfall_details: SingleEntityWaterfallDetails = Field(None, description="Single entity waterfall")
-    developer_fee_details: EmptyDeveloperFeeDetails = Field(None, description="Empty developer fees")
+    fee_accounting_details: EmptyFeeAccountingDetails = Field(None, description="Empty fee accounting")
 
 
 class ErrorWaterfallDetails(ResultModel):
@@ -445,7 +519,7 @@ class ErrorDistributionResult(BaseDistributionResult):
     
     # Error Details
     waterfall_details: ErrorWaterfallDetails = Field(None, description="Error waterfall details")
-    developer_fee_details: DeveloperFeeDetails = Field(None, description="Developer fee details")
+    fee_accounting_details: FeeAccountingDetails = Field(None, description="Fee accounting details")
 
 
 # Union type for all distribution results (discriminated by distribution_method)
@@ -518,7 +592,7 @@ __all__ = [
     "WaterfallDetails",
     "SingleEntityWaterfallDetails",
     "ErrorWaterfallDetails",
-    "DeveloperFeeDetails",
-    "EmptyDeveloperFeeDetails",
+    "FeeAccountingDetails",
+    "EmptyFeeAccountingDetails",
     "PartnerMetrics",
 ] 

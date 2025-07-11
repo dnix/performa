@@ -7,7 +7,7 @@ This module tests the partner structure and validation logic for equity partners
 import pytest
 from pydantic import ValidationError
 
-from performa.deal.partners import (
+from performa.deal.partnership import (
     CarryPromote,
     Partner,
     PartnershipStructure,

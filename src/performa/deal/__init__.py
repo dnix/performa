@@ -15,11 +15,11 @@ from .distribution_calculator import (
     calculate_partner_distributions_with_structure,
     create_simple_partnership,
 )
+from .entities import Entity, Partner, ThirdParty
 from .fees import DealFee
 from .orchestrator import DealCalculator
-from .partners import (
+from .partnership import (
     CarryPromote,
-    Partner,
     PartnershipStructure,
     PromoteStructure,
     WaterfallPromote,
@@ -39,7 +39,9 @@ __all__ = [
     "DealCalculator",
     
     # Partnership structures
+    "Entity",
     "Partner",
+    "ThirdParty",
     "PartnershipStructure",
     "WaterfallTier",
     "WaterfallPromote",
