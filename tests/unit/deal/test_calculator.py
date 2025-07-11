@@ -552,14 +552,12 @@ class TestFundingCascade:
         """
         # Create a leveraged deal with construction financing
         from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
-        from performa.debt.rates import InterestRate, InterestRateType
+        from performa.debt.rates import InterestRate, FixedRate
         
         # Create construction facility with 70% LTC
         senior_tranche = DebtTranche(
             name="Senior Tranche",
-            interest_rate=InterestRate(
-                rate_type=InterestRateType.FIXED,
-                base_rate=Decimal(0.05)  # 5% fixed rate
+            interest_rate=InterestRate(details=FixedRate(rate=Decimal(0.05))  # 5% fixed rate
             ),
             fee_rate=Decimal(0.01),  # 1% fee
             ltc_threshold=Decimal(0.70)  # 70% LTC
@@ -634,13 +632,11 @@ class TestFundingCascade:
         """
         # Create leveraged deal with 50% LTC for clear equity/debt split
         from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
-        from performa.debt.rates import InterestRate, InterestRateType
+        from performa.debt.rates import InterestRate, FixedRate
         
         senior_tranche = DebtTranche(
             name="Senior Tranche",
-            interest_rate=InterestRate(
-                rate_type=InterestRateType.FIXED,
-                base_rate=Decimal(0.06)  # 6% fixed rate
+            interest_rate=InterestRate(details=FixedRate(rate=Decimal(0.06))  # 6% fixed rate
             ),
             fee_rate=Decimal(0.015),  # 1.5% fee
             ltc_threshold=Decimal(0.50)  # 50% LTC
@@ -705,13 +701,11 @@ class TestFundingCascade:
         """
         # Create multi-tranche construction facility
         from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
-        from performa.debt.rates import InterestRate, InterestRateType
+        from performa.debt.rates import InterestRate, FixedRate
         
         senior_tranche = DebtTranche(
             name="Senior Tranche",
-            interest_rate=InterestRate(
-                rate_type=InterestRateType.FIXED,
-                base_rate=Decimal(0.05)  # 5% fixed rate
+            interest_rate=InterestRate(details=FixedRate(rate=Decimal(0.05))  # 5% fixed rate
             ),
             fee_rate=Decimal(0.01),  # 1% fee
             ltc_threshold=Decimal(0.60)  # 60% LTC senior
@@ -719,9 +713,7 @@ class TestFundingCascade:
         
         junior_tranche = DebtTranche(
             name="Junior Tranche",
-            interest_rate=InterestRate(
-                rate_type=InterestRateType.FIXED,
-                base_rate=Decimal(0.08)  # 8% fixed rate (higher for junior)
+            interest_rate=InterestRate(details=FixedRate(rate=Decimal(0.08))  # 8% fixed rate (higher for junior)
             ),
             fee_rate=Decimal(0.02),  # 2% fee
             ltc_threshold=Decimal(0.75)  # 75% LTC total (15% junior)
@@ -789,13 +781,11 @@ class TestFundingCascade:
         """
         # Create leveraged deal with 60% LTC
         from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
-        from performa.debt.rates import InterestRate, InterestRateType
+        from performa.debt.rates import InterestRate, FixedRate
         
         senior_tranche = DebtTranche(
             name="Senior Tranche",
-            interest_rate=InterestRate(
-                rate_type=InterestRateType.FIXED,
-                base_rate=Decimal(0.055)  # 5.5% fixed rate
+            interest_rate=InterestRate(details=FixedRate(rate=Decimal(0.055))  # 5.5% fixed rate
             ),
             fee_rate=Decimal(0.0125),  # 1.25% fee
             ltc_threshold=Decimal(0.60)  # 60% LTC
@@ -877,13 +867,11 @@ class TestFundingCascade:
         """
         # Create leveraged deal with 65% LTC
         from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
-        from performa.debt.rates import InterestRate, InterestRateType
+        from performa.debt.rates import InterestRate, FixedRate
         
         senior_tranche = DebtTranche(
             name="Senior Tranche",
-            interest_rate=InterestRate(
-                rate_type=InterestRateType.FIXED,
-                base_rate=Decimal(0.04)  # 4% fixed rate
+            interest_rate=InterestRate(details=FixedRate(rate=Decimal(0.04))  # 4% fixed rate
             ),
             fee_rate=Decimal(0.008),  # 0.8% fee
             ltc_threshold=Decimal(0.65)  # 65% LTC
@@ -950,13 +938,11 @@ class TestFundingCascade:
         """
         # Create leveraged deal with 60% LTC
         from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
-        from performa.debt.rates import InterestRate, InterestRateType
+        from performa.debt.rates import InterestRate, FixedRate
         
         senior_tranche = DebtTranche(
             name="Senior Tranche",
-            interest_rate=InterestRate(
-                rate_type=InterestRateType.FIXED,
-                base_rate=Decimal(0.06)  # 6% annual interest rate
+            interest_rate=InterestRate(details=FixedRate(rate=Decimal(0.06))  # 6% annual interest rate
             ),
             fee_rate=Decimal(0.01),  # 1% fee
             ltc_threshold=Decimal(0.60)  # 60% LTC
@@ -1038,13 +1024,11 @@ class TestFundingCascade:
         """
         # Create leveraged deal with 70% LTC
         from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
-        from performa.debt.rates import InterestRate, InterestRateType
+        from performa.debt.rates import InterestRate, FixedRate
         
         senior_tranche = DebtTranche(
             name="Senior Tranche",
-            interest_rate=InterestRate(
-                rate_type=InterestRateType.FIXED,
-                base_rate=Decimal(0.08)  # 8% annual interest rate (higher for compounding test)
+            interest_rate=InterestRate(details=FixedRate(rate=Decimal(0.08))  # 8% annual interest rate (higher for compounding test)
             ),
             fee_rate=Decimal(0.01),
             ltc_threshold=Decimal(0.70)  # 70% LTC
@@ -1119,13 +1103,11 @@ class TestFundingCascade:
         """
         # Create leveraged deal with PIK interest
         from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
-        from performa.debt.rates import InterestRate, InterestRateType
+        from performa.debt.rates import InterestRate, FixedRate
         
         senior_tranche = DebtTranche(
             name="Senior Tranche",
-            interest_rate=InterestRate(
-                rate_type=InterestRateType.FIXED,
-                base_rate=Decimal(0.06)  # 6% annual interest rate
+            interest_rate=InterestRate(details=FixedRate(rate=Decimal(0.06))  # 6% annual interest rate
             ),
             fee_rate=Decimal(0.01),
             ltc_threshold=Decimal(0.65),  # 65% LTC
@@ -1211,13 +1193,11 @@ class TestFundingCascade:
         """
         # Create leveraged deal with interest reserve
         from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
-        from performa.debt.rates import InterestRate, InterestRateType
+        from performa.debt.rates import InterestRate, FixedRate
         
         senior_tranche = DebtTranche(
             name="Senior Tranche",
-            interest_rate=InterestRate(
-                rate_type=InterestRateType.FIXED,
-                base_rate=Decimal(0.055)  # 5.5% annual interest rate
+            interest_rate=InterestRate(details=FixedRate(rate=Decimal(0.055))  # 5.5% annual interest rate
             ),
             fee_rate=Decimal(0.01),
             ltc_threshold=Decimal(0.75)  # 75% LTC (higher to accommodate interest reserve)
@@ -1294,14 +1274,12 @@ class TestFundingCascade:
         """
         # Create complex leveraged deal for comprehensive integration test
         from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
-        from performa.debt.rates import InterestRate, InterestRateType
+        from performa.debt.rates import InterestRate, FixedRate
         
         # Multi-tranche facility with different interest rates
         senior_tranche = DebtTranche(
             name="Senior Tranche",
-            interest_rate=InterestRate(
-                rate_type=InterestRateType.FIXED,
-                base_rate=Decimal(0.05)  # 5% annual interest rate
+            interest_rate=InterestRate(details=FixedRate(rate=Decimal(0.05))  # 5% annual interest rate
             ),
             fee_rate=Decimal(0.01),
             ltc_threshold=Decimal(0.55)  # 55% LTC senior
@@ -1309,9 +1287,7 @@ class TestFundingCascade:
         
         junior_tranche = DebtTranche(
             name="Junior Tranche",
-            interest_rate=InterestRate(
-                rate_type=InterestRateType.FIXED,
-                base_rate=Decimal(0.09)  # 9% annual interest rate (higher for junior)
+            interest_rate=InterestRate(details=FixedRate(rate=Decimal(0.09))  # 9% annual interest rate (higher for junior)
             ),
             fee_rate=Decimal(0.02),
             ltc_threshold=Decimal(0.70)  # 70% LTC total (15% junior)

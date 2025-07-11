@@ -36,9 +36,8 @@ from performa.core.primitives import AssetTypeEnum, GlobalSettings, Timeline
 from performa.debt import (
     ConstructionFacility,
     DebtTranche,
-    InterestRate,
-    InterestRateType,
 )
+from performa.debt.rates import FixedRate, InterestRate
 from performa.development import DevelopmentAnalysisScenario, DevelopmentProject
 from performa.valuation import DispositionValuation
 
@@ -62,7 +61,7 @@ def test_development_analysis_scenario_instantiation():
         tranches=[
             DebtTranche(
                 name="Construction Loan",
-                interest_rate=InterestRate(rate_type=InterestRateType.FIXED, base_rate=0.065),
+                interest_rate=InterestRate(details=FixedRate(rate=0.065)),
                 fee_rate=0.01,
                 ltc_threshold=0.75
             )
@@ -151,7 +150,7 @@ def test_development_analysis_scenario_prepare_models():
         tranches=[
             DebtTranche(
                 name="Construction Loan",
-                interest_rate=InterestRate(rate_type=InterestRateType.FIXED, base_rate=0.07),
+                interest_rate=InterestRate(details=FixedRate(rate=0.07)),
                 fee_rate=0.015,
                 ltc_threshold=0.75
             )
@@ -244,7 +243,7 @@ def test_development_analysis_scenario_mixed_use():
         tranches=[
             DebtTranche(
                 name="Construction Loan",
-                interest_rate=InterestRate(rate_type=InterestRateType.FIXED, base_rate=0.065),
+                interest_rate=InterestRate(details=FixedRate(rate=0.065)),
                 fee_rate=0.015,
                 ltc_threshold=0.70
             )
@@ -369,7 +368,7 @@ def test_development_analysis_scenario_empty_blueprints():
         tranches=[
             DebtTranche(
                 name="Land Development Loan",
-                interest_rate=InterestRate(rate_type=InterestRateType.FIXED, base_rate=0.08),
+                interest_rate=InterestRate(details=FixedRate(rate=0.08)),
                 fee_rate=0.02,
                 ltc_threshold=0.70
             )
@@ -424,7 +423,7 @@ def test_development_analysis_scenario_with_disposition():
         tranches=[
             DebtTranche(
                 name="Construction-to-Perm Loan",
-                interest_rate=InterestRate(rate_type=InterestRateType.FIXED, base_rate=0.065),
+                interest_rate=InterestRate(details=FixedRate(rate=0.065)),
                 fee_rate=0.015,
                 ltc_threshold=0.75
             )
@@ -520,7 +519,7 @@ def test_development_analysis_scenario_polymorphic_iteration():
         tranches=[
             DebtTranche(
                 name="Construction Loan",
-                interest_rate=InterestRate(rate_type=InterestRateType.FIXED, base_rate=0.065),
+                interest_rate=InterestRate(details=FixedRate(rate=0.065)),
                 fee_rate=0.01,
                 ltc_threshold=0.75
             )
@@ -640,7 +639,7 @@ def test_development_analysis_end_to_end():
         tranches=[
             DebtTranche(
                 name="Senior Construction Loan",
-                interest_rate=InterestRate(rate_type=InterestRateType.FIXED, base_rate=0.07),
+                interest_rate=InterestRate(details=FixedRate(rate=0.07)),
                 fee_rate=0.015,
                 ltc_threshold=0.75
             )

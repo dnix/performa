@@ -17,7 +17,10 @@ class PermanentFacility(DebtFacility):
 
     Handles permanent loan calculations including refinancing amount determination,
     loan amortization, and payment schedules. Now supports institutional-grade
-    sizing using both LTV and DSCR constraints.
+    sizing using the complete "Sizing Trifecta": LTV, DSCR, and Debt Yield constraints.
+    
+    Also supports continuous covenant monitoring for active risk management throughout
+    the loan lifecycle.
 
     Attributes:
         kind: Discriminator field for union types
@@ -25,10 +28,14 @@ class PermanentFacility(DebtFacility):
         interest_rate: Interest rate configuration
         loan_term_years: Total loan term in years
         amortization_years: Amortization period in years (defaults to loan term)
-        ltv_ratio: Maximum loan-to-value ratio
-        dscr_hurdle: Minimum debt service coverage ratio
-        loan_amount: Fixed loan amount (optional - overrides LTV/DSCR sizing)
+        ltv_ratio: Maximum loan-to-value ratio (for sizing)
+        dscr_hurdle: Minimum debt service coverage ratio (for sizing)
+        debt_yield_hurdle: Minimum debt yield hurdle (for sizing, optional)
+        loan_amount: Fixed loan amount (optional - overrides automatic sizing)
         refinance_timing: When to refinance (months from start)
+        ongoing_ltv_max: Maximum LTV for ongoing covenant monitoring (optional)
+        ongoing_dscr_min: Minimum DSCR for ongoing covenant monitoring (optional)
+        ongoing_debt_yield_min: Minimum debt yield for ongoing covenant monitoring (optional)
     """
 
     # Discriminator field for union types - REQUIRED
@@ -45,7 +52,7 @@ class PermanentFacility(DebtFacility):
         description="Amortization period in years (defaults to loan term for fully amortizing)"
     )
 
-    # Underwriting constraints
+    # Underwriting constraints - The "Sizing Trifecta"
     ltv_ratio: FloatBetween0And1 = Field(
         ...,
         description="Maximum loan-to-value ratio for sizing"
@@ -54,7 +61,17 @@ class PermanentFacility(DebtFacility):
         ...,
         description="Minimum debt service coverage ratio for sizing"
     )
+    debt_yield_hurdle: Optional[PositiveFloat] = Field(
+        default=None,
+        description="Minimum debt yield hurdle for sizing (e.g., 0.08 for 8% debt yield)"
+    )
 
+    # Sizing method (auto vs manual)
+    sizing_method: Literal['auto', 'manual'] = Field(
+        default='auto',
+        description="Sizing method: 'auto' for automatic sizing using trifecta, 'manual' for fixed amount"
+    )
+    
     # Optional fixed amount (overrides LTV/DSCR sizing)
     loan_amount: Optional[PositiveFloat] = Field(
         default=None,
@@ -66,9 +83,28 @@ class PermanentFacility(DebtFacility):
         default=None,
         description="When to refinance (months from project start)"
     )
+    
+    # Interest-only periods (institutional feature)
+    interest_only_months: Optional[PositiveInt] = Field(
+        default=None,
+        description="Number of initial months with interest-only payments"
+    )
+
+    # Ongoing covenant monitoring hurdles (for continuous risk management)
+    ongoing_ltv_max: Optional[FloatBetween0And1] = Field(
+        default=None,
+        description="Maximum LTV ratio that must be maintained during loan lifecycle (ongoing covenant)"
+    )
+    ongoing_dscr_min: Optional[PositiveFloat] = Field(
+        default=None,
+        description="Minimum DSCR that must be maintained during loan lifecycle (ongoing covenant)"
+    )
+    ongoing_debt_yield_min: Optional[PositiveFloat] = Field(
+        default=None,
+        description="Minimum debt yield that must be maintained during loan lifecycle (ongoing covenant)"
+    )
 
     # TODO: Add support for:
-    # - Debt yield hurdle
     # - Lockout periods
     # - Defeasance calculations
     # - Yield maintenance calculations
@@ -76,7 +112,6 @@ class PermanentFacility(DebtFacility):
     # - Future funding components
     # - Multiple notes/components (A/B/C notes)
     # - Ongoing debt service reserve requirements
-    # - Financial covenants (DSCR, Debt Yield, etc.)
 
     @model_validator(mode="after")
     def validate_financing_terms(self) -> "PermanentFacility":
@@ -87,10 +122,8 @@ class PermanentFacility(DebtFacility):
         - LTV ratio is reasonable (<=0.80)
         - Amortization term is reasonable (<=40 years)
         - Loan term is reasonable (<=30 years)
-        - Fee rate is reasonable (<=3%)
         - DSCR hurdle is reasonable (>=1.00)
         """
-        # FIXME: review validations
         if self.ltv_ratio > 0.80:
             raise ValueError("LTV ratio cannot exceed 80%")
 
@@ -115,22 +148,32 @@ class PermanentFacility(DebtFacility):
         forward_stabilized_noi: float,
     ) -> float:
         """
-        Calculate the maximum loan amount based on the lesser of LTV and DSCR constraints,
-        using explicit underwriting inputs for point-in-time sizing.
+        Calculate the loan amount using either manual override or automatic "Sizing Trifecta":
+        LTV, DSCR, and Debt Yield constraints.
 
-        This method models the actual underwriting process where lenders evaluate:
+        For manual sizing, returns the specified loan_amount.
+        For automatic sizing, models the actual underwriting process where lenders evaluate:
         1. LTV: Maximum loan based on property value and LTV ratio
-        2. DSCR: Maximum loan based on projected Year 1 stabilized NOI and DSCR hurdle
+        2. DSCR: Maximum loan based on projected Year 1 stabilized NOI and DSCR hurdle  
+        3. Debt Yield: Maximum loan based on NOI and minimum debt yield hurdle
 
-        Uses industry-standard financial calculations for institutional-grade accuracy.
+        The loan amount is the most restrictive (minimum) of these three constraints,
+        ensuring the loan meets all underwriting standards.
 
         Args:
             property_value: The appraised or calculated value of the property for LTV purposes
             forward_stabilized_noi: The projected annual NOI for the first year of stabilized operations
 
         Returns:
-            float: Maximum loan amount based on the most restrictive constraint (LTV or DSCR)
+            float: Loan amount based on sizing method (manual override or most restrictive constraint)
         """
+        # Check for manual sizing override
+        if self.sizing_method == 'manual':
+            if self.loan_amount is None:
+                raise ValueError("Manual sizing requires loan_amount to be specified")
+            return self.loan_amount
+        
+        # Automatic sizing using Sizing Trifecta
         # 1. LTV Sizing Constraint
         max_loan_from_ltv = property_value * self.ltv_ratio
 
@@ -144,8 +187,14 @@ class PermanentFacility(DebtFacility):
         # Max loan = Max supportable debt service / debt constant
         max_loan_from_dscr = max_supportable_debt_service / annual_debt_constant
         
-        # Return the lesser of the two constraints (most restrictive)
-        return min(max_loan_from_ltv, max_loan_from_dscr)
+        # 3. Debt Yield Sizing Constraint
+        # Debt Yield = NOI / Loan Amount, so Max Loan = NOI / Debt Yield Hurdle
+        max_loan_from_debt_yield = float('inf')  # Default to no constraint
+        if self.debt_yield_hurdle and self.debt_yield_hurdle > 0:
+            max_loan_from_debt_yield = forward_stabilized_noi / self.debt_yield_hurdle
+        
+        # Return the most restrictive constraint (minimum of all three)
+        return min(max_loan_from_ltv, max_loan_from_dscr, max_loan_from_debt_yield)
 
     def _calculate_annual_debt_constant(self) -> float:
         """
@@ -191,7 +240,7 @@ class PermanentFacility(DebtFacility):
         return annual_debt_constant
 
     def generate_amortization(
-        self, loan_amount: PositiveFloat, start_date: pd.Period
+        self, loan_amount: PositiveFloat, start_date: pd.Period, index_curve: Optional[pd.Series] = None
     ) -> pd.DataFrame:
         """
         Generate permanent loan amortization schedule.
@@ -202,6 +251,7 @@ class PermanentFacility(DebtFacility):
         Args:
             loan_amount: Loan amount to be amortized
             start_date: Start date for amortization schedule
+            index_curve: Optional index curve for floating rate calculations
 
         Returns:
             DataFrame containing the amortization schedule
@@ -211,6 +261,8 @@ class PermanentFacility(DebtFacility):
             term=self.amortization_years or self.loan_term_years,
             interest_rate=self.interest_rate,
             start_date=start_date,
+            interest_only_periods=self.interest_only_months or 0,
+            index_curve=index_curve,
         )
         schedule, _ = amortization.amortization_schedule
         
@@ -328,3 +380,151 @@ class PermanentFacility(DebtFacility):
             loan_proceeds.iloc[0] = loan_amount
         
         return loan_proceeds
+
+    def calculate_covenant_monitoring(
+        self,
+        timeline,
+        property_value_series: pd.Series,
+        noi_series: pd.Series,
+        loan_amount: Optional[float] = None,
+        index_curve: Optional[pd.Series] = None
+    ) -> pd.DataFrame:
+        """
+        Calculate continuous covenant monitoring metrics throughout the loan lifecycle.
+        
+        This method generates time series for LTV, DSCR, and Debt Yield ratios and
+        compares them against ongoing covenant hurdles to identify potential breaches.
+        
+        This is the core of active risk management - transforming the loan from a
+        simple calculation into a living contract with ongoing obligations.
+        
+        Args:
+            timeline: Timeline object with period_index
+            property_value_series: Time series of property values by period
+            noi_series: Time series of Net Operating Income by period
+            loan_amount: Loan amount for calculations (uses self.loan_amount if not provided)
+            
+        Returns:
+            DataFrame with covenant monitoring results containing:
+            - LTV: Loan-to-Value ratio for each period
+            - DSCR: Debt Service Coverage Ratio for each period
+            - Debt_Yield: Debt Yield ratio for each period
+            - LTV_Breach: Boolean flag for LTV covenant breach
+            - DSCR_Breach: Boolean flag for DSCR covenant breach
+            - Debt_Yield_Breach: Boolean flag for Debt Yield covenant breach
+            - Covenant_Status: Overall covenant status for each period
+            
+        Raises:
+            ValueError: If covenant monitoring fields are not configured or required data is missing
+        """
+        # Validate covenant monitoring is configured
+        if not any([self.ongoing_ltv_max, self.ongoing_dscr_min, self.ongoing_debt_yield_min]):
+            raise ValueError(
+                "Covenant monitoring requires at least one ongoing covenant hurdle to be configured. "
+                "Set ongoing_ltv_max, ongoing_dscr_min, or ongoing_debt_yield_min on PermanentFacility."
+            )
+        
+        # Determine loan amount
+        if loan_amount is None:
+            if self.loan_amount is None:
+                raise ValueError(
+                    "Loan amount must be provided either as parameter or set on PermanentFacility "
+                    "for covenant monitoring calculations."
+                )
+            loan_amount = self.loan_amount
+        
+        # Generate amortization schedule to get outstanding balances
+        start_period = timeline.period_index[0]
+        amortization_schedule = self.generate_amortization(loan_amount, start_period, index_curve)
+        
+        # Initialize covenant monitoring DataFrame
+        covenant_results = pd.DataFrame(index=timeline.period_index)
+        
+        # Calculate covenant metrics for each period
+        for period in timeline.period_index:
+            # Get outstanding loan balance for this period
+            if period in amortization_schedule.index:
+                outstanding_balance = amortization_schedule.loc[period, "Begin Balance"]
+            else:
+                # For periods beyond loan term, balance is zero
+                outstanding_balance = 0.0
+            
+            # Get property value and NOI for this period
+            try:
+                property_value = property_value_series.loc[period]
+                noi = noi_series.loc[period]
+            except KeyError:
+                # Handle missing data by using forward fill
+                property_value = property_value_series.reindex([period], method='ffill').iloc[0]
+                noi = noi_series.reindex([period], method='ffill').iloc[0]
+            
+            # Calculate covenant metrics
+            ltv = outstanding_balance / property_value if property_value > 0 else 0.0
+            
+            # Calculate debt service for DSCR
+            debt_service = 0.0
+            if period in amortization_schedule.index:
+                # Get annual debt service (multiply monthly by 12)
+                monthly_debt_service = amortization_schedule.loc[period, "Payment"]
+                debt_service = monthly_debt_service * 12
+            
+            dscr = noi / debt_service if debt_service > 0 else float('inf')
+            debt_yield = noi / outstanding_balance if outstanding_balance > 0 else float('inf')
+            
+            # Store metrics
+            covenant_results.loc[period, "LTV"] = ltv
+            covenant_results.loc[period, "DSCR"] = dscr
+            covenant_results.loc[period, "Debt_Yield"] = debt_yield
+            covenant_results.loc[period, "Outstanding_Balance"] = outstanding_balance
+            covenant_results.loc[period, "Property_Value"] = property_value
+            covenant_results.loc[period, "NOI"] = noi
+            covenant_results.loc[period, "Debt_Service"] = debt_service
+            
+            # Check for covenant breaches
+            ltv_breach = self.ongoing_ltv_max is not None and ltv > self.ongoing_ltv_max
+            dscr_breach = self.ongoing_dscr_min is not None and dscr < self.ongoing_dscr_min
+            debt_yield_breach = self.ongoing_debt_yield_min is not None and debt_yield < self.ongoing_debt_yield_min
+            
+            covenant_results.loc[period, "LTV_Breach"] = ltv_breach
+            covenant_results.loc[period, "DSCR_Breach"] = dscr_breach
+            covenant_results.loc[period, "Debt_Yield_Breach"] = debt_yield_breach
+            
+            # Overall covenant status
+            if any([ltv_breach, dscr_breach, debt_yield_breach]):
+                covenant_status = "BREACH"
+            elif outstanding_balance == 0:
+                covenant_status = "PAID_OFF"
+            else:
+                covenant_status = "COMPLIANT"
+            
+            covenant_results.loc[period, "Covenant_Status"] = covenant_status
+        
+        return covenant_results
+    
+    def get_covenant_breach_summary(self, covenant_results: pd.DataFrame) -> pd.Series:
+        """
+        Generate a summary of covenant breaches from monitoring results.
+        
+        Args:
+            covenant_results: DataFrame from calculate_covenant_monitoring()
+            
+        Returns:
+            Series with breach summary statistics
+        """
+        breach_periods = covenant_results[covenant_results["Covenant_Status"] == "BREACH"]
+        
+        summary = pd.Series({
+            "Total_Periods": len(covenant_results),
+            "Breach_Periods": len(breach_periods),
+            "Breach_Rate": len(breach_periods) / len(covenant_results) if len(covenant_results) > 0 else 0.0,
+            "First_Breach_Period": breach_periods.index[0] if len(breach_periods) > 0 else None,
+            "Last_Breach_Period": breach_periods.index[-1] if len(breach_periods) > 0 else None,
+            "Max_LTV": covenant_results["LTV"].max(),
+            "Min_DSCR": covenant_results["DSCR"].min(),
+            "Min_Debt_Yield": covenant_results["Debt_Yield"].min(),
+            "LTV_Breach_Count": covenant_results["LTV_Breach"].sum(),
+            "DSCR_Breach_Count": covenant_results["DSCR_Breach"].sum(),
+            "Debt_Yield_Breach_Count": covenant_results["Debt_Yield_Breach"].sum(),
+        })
+        
+        return summary

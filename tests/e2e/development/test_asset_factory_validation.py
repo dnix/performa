@@ -64,9 +64,8 @@ from performa.core.primitives import AssetTypeEnum, GlobalSettings, Timeline
 from performa.debt import (
     ConstructionFacility,
     DebtTranche,
-    InterestRate,
-    InterestRateType,
 )
+from performa.debt.rates import FixedRate, InterestRate
 from performa.development import DevelopmentProject
 
 # Shared fixtures for asset factory validation tests
@@ -192,7 +191,7 @@ def equivalent_office_development_project() -> DevelopmentProject:
         tranches=[
             DebtTranche(
                 name="Construction Loan",
-                interest_rate=InterestRate(rate_type=InterestRateType.FIXED, base_rate=0.065),
+                interest_rate=InterestRate(details=FixedRate(rate=0.065)),
                 fee_rate=0.01,
                 ltc_threshold=0.75
             )
@@ -335,7 +334,7 @@ def equivalent_residential_development_project() -> DevelopmentProject:
         tranches=[
             DebtTranche(
                 name="Construction Loan",
-                interest_rate=InterestRate(rate_type=InterestRateType.FIXED, base_rate=0.065),
+                interest_rate=InterestRate(details=FixedRate(rate=0.065)),
                 fee_rate=0.01,
                 ltc_threshold=0.75
             )
@@ -420,7 +419,7 @@ def mixed_use_development_project(
         tranches=[
             DebtTranche(
                 name="Mixed-Use Construction Loan",
-                interest_rate=InterestRate(rate_type=InterestRateType.FIXED, base_rate=0.065),
+                interest_rate=InterestRate(details=FixedRate(rate=0.065)),
                 fee_rate=0.01,
                 ltc_threshold=0.75
             )

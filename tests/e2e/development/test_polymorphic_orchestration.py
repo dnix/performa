@@ -48,9 +48,8 @@ from performa.core.primitives import AssetTypeEnum, GlobalSettings, Timeline
 from performa.debt import (
     ConstructionFacility,
     DebtTranche,
-    InterestRate,
-    InterestRateType,
 )
+from performa.debt.rates import FixedRate, InterestRate
 from performa.development import DevelopmentAnalysisScenario, DevelopmentProject
 from performa.valuation import DispositionValuation
 
@@ -100,10 +99,7 @@ def simple_financing_plan() -> ConstructionFacility:
         tranches=[
             DebtTranche(
                 name="Construction Loan",
-                interest_rate=InterestRate(
-                    rate_type=InterestRateType.FIXED,
-                    base_rate=0.065
-                ),
+                interest_rate=InterestRate(details=FixedRate(rate=0.065)),
                 fee_rate=0.01,
                 ltc_threshold=0.75
             )
@@ -213,7 +209,7 @@ def comprehensive_project() -> DevelopmentProject:
         tranches=[
             DebtTranche(
                 name="Senior Construction Loan",
-                interest_rate=InterestRate(rate_type=InterestRateType.FIXED, base_rate=0.07),
+                interest_rate=InterestRate(details=FixedRate(rate=0.07)),
                 fee_rate=0.015,
                 ltc_threshold=0.75
             )

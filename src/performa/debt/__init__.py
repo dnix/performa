@@ -7,7 +7,13 @@ from .construction import ConstructionFacility, DebtTranche
 from .debt_facility import DebtFacility
 from .permanent import PermanentFacility
 from .plan import FinancingPlan
-from .rates import InterestRate, InterestRateType
+from .rates import (
+    FixedRate,
+    FloatingRate,
+    InterestRate,
+    InterestRateType,
+    RateIndexEnum,
+)
 from .types import AnyDebtFacility
 
 # Define __all__ to specify what gets imported with "from performa.debt import *"
@@ -23,7 +29,10 @@ __all__ = [
     
     # Rate mechanics
     "InterestRate",
-    "InterestRateType",
+    "InterestRateType",  # Backward compatibility
+    "RateIndexEnum",
+    "FixedRate",
+    "FloatingRate",
     
     # Payment calculations
     "LoanAmortization",

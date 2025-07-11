@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any, Dict, List
 
 import pandas as pd
 from pyxirr import xirr
@@ -185,10 +185,14 @@ class DealCalculator:
             )
             self.financing_analysis.facilities.append(facility_info)
             
-            # Calculate facility-specific cash flows
+            # Calculate facility-specific cash flows with enhanced features
             if hasattr(facility, 'calculate_debt_service'):
                 try:
-                    debt_service = facility.calculate_debt_service(self.timeline)
+                    # Enhanced debt service calculation for permanent facilities
+                    if hasattr(facility, 'kind') and facility.kind == 'permanent':
+                        debt_service = self._calculate_enhanced_debt_service(facility)
+                    else:
+                        debt_service = facility.calculate_debt_service(self.timeline)
                     self.financing_analysis.debt_service[facility_name] = debt_service
                 except Exception:
                     self.financing_analysis.debt_service[facility_name] = None
@@ -203,9 +207,24 @@ class DealCalculator:
         # Handle refinancing transactions if the plan supports them
         if self.deal.financing.has_refinancing:
             try:
-                refinancing_transactions = self.deal.financing.calculate_refinancing_transactions(self.timeline)
+                # Get property value and NOI series for intelligent sizing
+                property_value_series = self._extract_property_value_series()
+                noi_series = self._extract_noi_series()
+                
+                # Calculate refinancing transactions with enhanced data
+                refinancing_transactions = self.deal.financing.calculate_refinancing_transactions(
+                    timeline=self.timeline,
+                    property_value_series=property_value_series,
+                    noi_series=noi_series,
+                    financing_cash_flows=None  # Will be provided in future iterations
+                )
                 self.financing_analysis.refinancing_transactions = refinancing_transactions
+                
+                # Process refinancing cash flow impacts
+                self._process_refinancing_cash_flows(refinancing_transactions)
+                
             except Exception:
+                # Log the error but continue with empty transactions
                 self.financing_analysis.refinancing_transactions = []
     
 
@@ -759,8 +778,19 @@ class DealCalculator:
                 tranche_proportion = tranche_draws_to_date / total_draws_to_date
                 tranche_balance = previous_debt_balance * tranche_proportion
                 
-                # Calculate base interest
-                monthly_rate = tranche.interest_rate.effective_rate / 12
+                # Calculate base interest using enhanced rate calculation
+                current_period = self.timeline.period_index[period_idx]
+                try:
+                    # Use enhanced rate calculation for dynamic rates
+                    annual_rate = tranche.interest_rate.get_rate_for_period(
+                        current_period, 
+                        self._get_rate_index_curve()
+                    )
+                    monthly_rate = annual_rate / 12
+                except Exception:
+                    # Fallback to basic rate calculation
+                    monthly_rate = tranche.interest_rate.effective_rate / 12
+                
                 base_interest = tranche_balance * monthly_rate
                 
                 # Handle PIK interest (if tranche has PIK rate)
@@ -1720,6 +1750,297 @@ class DealCalculator:
         
         return loan_payoff
     
+    def _calculate_enhanced_debt_service(self, permanent_facility) -> pd.Series:
+        """
+        Calculate enhanced debt service for permanent facilities with institutional features.
+        
+        This method leverages the enhanced permanent facility features including:
+        - Interest-only periods
+        - Dynamic floating rates with index curves
+        - Proper amortization scheduling
+        
+        Args:
+            permanent_facility: PermanentFacility object with enhanced features
+            
+        Returns:
+            Enhanced debt service time series
+        """
+        import pandas as pd
+        
+        try:
+            # Check if this facility has dynamic refinancing
+            if hasattr(permanent_facility, 'refinance_timing') and permanent_facility.refinance_timing:
+                # For facilities that are originated via refinancing, we need to calculate
+                # debt service starting from the refinance timing
+                refinance_period_idx = permanent_facility.refinance_timing - 1
+                if refinance_period_idx < len(self.timeline.period_index):
+                    # Create a sub-timeline starting from refinancing
+                    refinance_start = self.timeline.period_index[refinance_period_idx]
+                    
+                    # Calculate loan amount from refinancing transaction
+                    loan_amount = self._get_refinanced_loan_amount(permanent_facility)
+                    
+                    if loan_amount > 0:
+                        # Create timeline for the permanent loan term
+                        from ..core.primitives import Timeline
+                        loan_timeline = Timeline(
+                            start_date=refinance_start,
+                            duration_months=permanent_facility.loan_term_years * 12
+                        )
+                        
+                        # Calculate enhanced amortization
+                        amortization = permanent_facility.calculate_amortization(
+                            timeline=loan_timeline,
+                            loan_amount=loan_amount,
+                            index_curve=self._get_rate_index_curve()
+                        )
+                        
+                        # Extract debt service from amortization
+                        schedule, _ = amortization.amortization_schedule
+                        debt_service_series = schedule['Total Payment']
+                        
+                        # Align with main timeline
+                        full_debt_service = pd.Series(0.0, index=self.timeline.period_index)
+                        for i, payment in enumerate(debt_service_series):
+                            timeline_idx = refinance_period_idx + i
+                            if timeline_idx < len(self.timeline.period_index):
+                                full_debt_service.iloc[timeline_idx] = payment
+                        
+                        return full_debt_service
+            
+            # Fallback to standard debt service calculation
+            return permanent_facility.calculate_debt_service(self.timeline)
+            
+        except Exception as e:
+            # Log warning and fallback to basic calculation
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Enhanced debt service calculation failed for {permanent_facility.name}: {e}")
+            return permanent_facility.calculate_debt_service(self.timeline)
+    
+    def _get_refinanced_loan_amount(self, permanent_facility) -> float:
+        """Get the loan amount from refinancing transactions for this facility."""
+        if hasattr(self.financing_analysis, 'refinancing_transactions'):
+            for transaction in self.financing_analysis.refinancing_transactions:
+                if transaction.get('new_facility') == permanent_facility.name:
+                    return transaction.get('new_loan_amount', 0.0)
+        
+        # Fallback to facility's specified loan amount
+        return getattr(permanent_facility, 'loan_amount', 0.0)
+    
+    def _get_rate_index_curve(self) -> pd.Series:
+        """
+        Get rate index curve for dynamic rate calculations.
+        
+        In a real implementation, this would come from market data or user input.
+        For now, we'll create a reasonable SOFR curve.
+        """
+        import numpy as np
+        import pandas as pd
+        
+        # Create a sample SOFR curve that starts at 4.5% and gradually rises to 5.5%
+        periods = len(self.timeline.period_index)
+        start_rate = 0.045  # 4.5%
+        end_rate = 0.055    # 5.5%
+        
+        # Linear interpolation
+        rates = np.linspace(start_rate, end_rate, periods)
+        
+        return pd.Series(rates, index=self.timeline.period_index)
+    
+    def _extract_property_value_series(self) -> pd.Series:
+        """
+        Extract property value time series for refinancing analysis.
+        
+        This method attempts to get property values from the asset analysis
+        or creates a reasonable estimate based on disposition valuation.
+        
+        Returns:
+            Time series of property values by period
+        """
+        import pandas as pd
+        
+        # Try to get property values from unlevered analysis
+        if self.unlevered_analysis.cash_flows is not None:
+            cash_flows = self.unlevered_analysis.cash_flows
+            
+            # Look for property value or asset value columns
+            if hasattr(cash_flows, 'columns'):
+                value_columns = [col for col in cash_flows.columns 
+                               if any(term in col.lower() for term in ['value', 'asset_value', 'property_value'])]
+                if value_columns:
+                    return cash_flows[value_columns[0]].reindex(self.timeline.period_index, method='ffill')
+        
+        # Fallback: Use disposition valuation if available
+        if self.deal.disposition:
+            try:
+                # Get stabilized NOI for valuation calculation
+                noi_series = self._extract_noi_series()
+                if not noi_series.empty:
+                    # Use a reasonable cap rate to estimate property value
+                    # This is a simplification - in practice, property value would come from appraisals
+                    cap_rate = 0.065  # 6.5% cap rate assumption
+                    estimated_values = noi_series / cap_rate
+                    return estimated_values.reindex(self.timeline.period_index, method='ffill')
+            except Exception:
+                pass
+        
+        # Final fallback: Use acquisition cost escalated over time
+        if hasattr(self.deal.acquisition, 'acquisition_cost'):
+            base_value = self.deal.acquisition.acquisition_cost
+            # Assume 3% annual appreciation
+            appreciation_rate = 0.03
+            
+            values = []
+            for i, period in enumerate(self.timeline.period_index):
+                years_elapsed = i / 12.0
+                escalated_value = base_value * (1 + appreciation_rate) ** years_elapsed
+                values.append(escalated_value)
+            
+            return pd.Series(values, index=self.timeline.period_index)
+        
+        # Ultimate fallback: Return zeros
+        return pd.Series(0.0, index=self.timeline.period_index)
+    
+    def _extract_noi_series(self) -> pd.Series:
+        """
+        Extract Net Operating Income time series for refinancing analysis.
+        
+        This method attempts to get NOI from the asset analysis results.
+        
+        Returns:
+            Time series of NOI by period
+        """
+        import pandas as pd
+        
+        if self.unlevered_analysis.cash_flows is not None:
+            cash_flows = self.unlevered_analysis.cash_flows
+            
+            # Look for NOI columns
+            if hasattr(cash_flows, 'columns'):
+                noi_columns = [col for col in cash_flows.columns 
+                             if any(term in col.lower() for term in ['noi', 'net operating income', 'operating_income'])]
+                if noi_columns:
+                    return cash_flows[noi_columns[0]].reindex(self.timeline.period_index, fill_value=0.0)
+                
+                # Fallback: Look for cash flow columns that might represent NOI
+                cf_columns = [col for col in cash_flows.columns 
+                            if any(term in col.lower() for term in ['cash', 'net', 'operating'])]
+                if cf_columns:
+                    return cash_flows[cf_columns[0]].reindex(self.timeline.period_index, fill_value=0.0)
+        
+        # Fallback: Return zeros
+        return pd.Series(0.0, index=self.timeline.period_index)
+    
+    def _process_refinancing_cash_flows(self, refinancing_transactions: List[Dict[str, Any]]) -> None:
+        """
+        Process refinancing transactions and integrate cash flow impacts.
+        
+        This method handles the cash flow events from refinancing:
+        - Loan payoffs (negative cash flow)
+        - New loan proceeds (positive cash flow)  
+        - Net proceeds to borrower
+        - Setup covenant monitoring for new loans
+        
+        Args:
+            refinancing_transactions: List of refinancing transaction dictionaries
+        """
+        if not refinancing_transactions:
+            return
+        
+        # Initialize refinancing cash flow tracking
+        if not hasattr(self.financing_analysis, 'refinancing_cash_flows'):
+            self.financing_analysis.refinancing_cash_flows = {
+                'loan_payoffs': pd.Series(0.0, index=self.timeline.period_index),
+                'new_loan_proceeds': pd.Series(0.0, index=self.timeline.period_index),
+                'closing_costs': pd.Series(0.0, index=self.timeline.period_index),
+                'net_refinancing_proceeds': pd.Series(0.0, index=self.timeline.period_index)
+            }
+        
+        for transaction in refinancing_transactions:
+            transaction_date = transaction.get('transaction_date')
+            
+            if transaction_date in self.timeline.period_index:
+                # Record cash flow events
+                payoff_amount = transaction.get('payoff_amount', 0.0)
+                new_loan_amount = transaction.get('new_loan_amount', 0.0)
+                closing_costs = transaction.get('closing_costs', 0.0)
+                net_proceeds = transaction.get('net_proceeds', 0.0)
+                
+                # Update cash flow series
+                self.financing_analysis.refinancing_cash_flows['loan_payoffs'][transaction_date] = -payoff_amount
+                self.financing_analysis.refinancing_cash_flows['new_loan_proceeds'][transaction_date] = new_loan_amount
+                self.financing_analysis.refinancing_cash_flows['closing_costs'][transaction_date] = -closing_costs
+                self.financing_analysis.refinancing_cash_flows['net_refinancing_proceeds'][transaction_date] = net_proceeds
+                
+                # Setup covenant monitoring for new permanent loans
+                covenant_monitoring = transaction.get('covenant_monitoring', {})
+                if covenant_monitoring.get('monitoring_enabled', False):
+                    self._setup_covenant_monitoring(transaction, transaction_date)
+    
+    def _setup_covenant_monitoring(self, transaction: Dict[str, Any], start_date: pd.Period) -> None:
+        """
+        Setup covenant monitoring for a new permanent loan from refinancing.
+        
+        This creates the covenant monitoring framework for ongoing risk management
+        of the new permanent loan throughout its lifecycle.
+        
+        Args:
+            transaction: Refinancing transaction dictionary
+            start_date: When covenant monitoring begins
+        """
+        # Get the new facility information
+        new_facility_name = transaction.get('new_facility', 'Unknown Facility')
+        covenant_params = transaction.get('covenant_monitoring', {})
+        
+        # Find the actual permanent facility object
+        permanent_facility = None
+        if self.deal.financing:
+            for facility in self.deal.financing.permanent_facilities:
+                if facility.name == new_facility_name:
+                    permanent_facility = facility
+                    break
+        
+        if permanent_facility and covenant_params.get('monitoring_enabled', False):
+            try:
+                # Create monitoring timeline starting from refinancing date
+                monitoring_periods = self.timeline.period_index[self.timeline.period_index >= start_date]
+                
+                if len(monitoring_periods) > 0:
+                    # Create mock timeline for covenant monitoring
+                    class MockMonitoringTimeline:
+                        def __init__(self, period_index):
+                            self.period_index = period_index
+                    
+                    monitoring_timeline = MockMonitoringTimeline(monitoring_periods)
+                    
+                    # Get property value and NOI series for monitoring
+                    property_value_series = self._extract_property_value_series()
+                    noi_series = self._extract_noi_series()
+                    
+                    # Calculate covenant monitoring results
+                    covenant_results = permanent_facility.calculate_covenant_monitoring(
+                        timeline=monitoring_timeline,
+                        property_value_series=property_value_series,
+                        noi_series=noi_series,
+                        loan_amount=transaction.get('new_loan_amount', 0.0)
+                    )
+                    
+                    # Store covenant monitoring results in financing analysis
+                    if not hasattr(self.financing_analysis, 'covenant_monitoring'):
+                        self.financing_analysis.covenant_monitoring = {}
+                    
+                    self.financing_analysis.covenant_monitoring[new_facility_name] = {
+                        'covenant_results': covenant_results,
+                        'breach_summary': permanent_facility.get_covenant_breach_summary(covenant_results),
+                        'monitoring_start_date': start_date,
+                        'facility_name': new_facility_name
+                    }
+                    
+            except Exception:
+                # Log warning but don't fail the analysis
+                pass
+    
     def _calculate_total_distributions(self) -> float:
         """
         Calculate total distributions from asset operations.
@@ -1772,12 +2093,21 @@ class DealCalculator:
         """
         import pandas as pd
         
-        # Calculate final levered cash flows
-        levered_cash_flows = (
+        # Calculate final levered cash flows including refinancing events
+        base_levered_cash_flows = (
             -funding_components["total_uses"] + 
             funding_components["equity_contributions"] + 
             funding_components["debt_draws"]
         )
+        
+        # Add refinancing events if they exist
+        levered_cash_flows = base_levered_cash_flows.copy()
+        if hasattr(self.financing_analysis, 'refinancing_cash_flows'):
+            refinancing_cf = self.financing_analysis.refinancing_cash_flows
+            # Add net refinancing proceeds (this is the key value for equity investors)
+            levered_cash_flows += refinancing_cf['net_refinancing_proceeds'].reindex(
+                self.timeline.period_index, fill_value=0.0
+            )
         
         # Assemble cash flow components
         from .results import (
@@ -1789,13 +2119,27 @@ class DealCalculator:
             PIKInterestDetails,
         )
         
+        # Enhanced cash flow components including refinancing events
+        enhanced_loan_proceeds = funding_components["loan_proceeds"].copy()
+        enhanced_loan_payoff = self._calculate_loan_payoff_series()
+        
+        # Add refinancing cash flows if they exist
+        if hasattr(self.financing_analysis, 'refinancing_cash_flows'):
+            refinancing_cf = self.financing_analysis.refinancing_cash_flows
+            enhanced_loan_proceeds += refinancing_cf['new_loan_proceeds'].reindex(
+                self.timeline.period_index, fill_value=0.0
+            )
+            enhanced_loan_payoff += refinancing_cf['loan_payoffs'].reindex(
+                self.timeline.period_index, fill_value=0.0
+            )
+        
         cash_flow_components = CashFlowComponents(
             unlevered_cash_flows=self._extract_unlevered_cash_flows(),
             acquisition_costs=uses_breakdown["Acquisition Costs"],
-            loan_proceeds=funding_components["loan_proceeds"],
+            loan_proceeds=enhanced_loan_proceeds,
             debt_service=self._calculate_debt_service_series(),
             disposition_proceeds=self._calculate_disposition_proceeds(),
-            loan_payoff=self._calculate_loan_payoff_series(),
+            loan_payoff=enhanced_loan_payoff,
             total_uses=funding_components["total_uses"],
             equity_contributions=funding_components["equity_contributions"],
             debt_draws=funding_components["debt_draws"],

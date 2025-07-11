@@ -69,7 +69,6 @@ class Timeline(Model):
     @property
     def end_date(self) -> pd.Period:
         """Calculate the end date based on duration (only for absolute timelines)."""
-        # FIXME: review this calculation
         start = self._get_absolute_start()
         if start is None:
             return None
