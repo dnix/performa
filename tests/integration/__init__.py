@@ -1,4 +1,3 @@
-# Integration Tests
 # Copyright 2024 David Gordon Nix
 # SPDX-License-Identifier: Apache-2.0
 
