@@ -937,33 +937,21 @@ class DealCalculator:
     
     def _extract_noi_time_series(self) -> pd.Series:
         """
-        Extract NOI time series from unlevered asset analysis.
+        Extract NOI time series from unlevered asset analysis using type-safe enum access.
+        
+        Uses the new get_series method for robust, enum-based data access that eliminates
+        brittle string matching. This implements the "Don't Ask, Tell" principle.
         
         Returns:
             NOI time series aligned with timeline periods
         """
-        import pandas as pd
-
         from ..core.primitives import UnleveredAggregateLineKey
         
-        noi_series = None
-        
-        if self.unlevered_analysis.cash_flows is not None:
-            cash_flows = self.unlevered_analysis.cash_flows
-            
-            if hasattr(cash_flows, 'columns') and UnleveredAggregateLineKey.NET_OPERATING_INCOME.value in cash_flows.columns:
-                # Extract NOI column from DataFrame
-                noi_series = cash_flows[UnleveredAggregateLineKey.NET_OPERATING_INCOME.value]
-            elif hasattr(cash_flows, 'index') and isinstance(cash_flows, pd.Series):
-                # If it's a Series, assume it's NOI or use as fallback
-                noi_series = cash_flows
-        
-        if noi_series is None:
-            # Fallback: Create zero series if NOI can't be extracted
-            noi_series = pd.Series(0.0, index=self.timeline.period_index)
-        
-        # Ensure alignment with timeline
-        return noi_series.reindex(self.timeline.period_index, fill_value=0.0)
+        # Use the new type-safe accessor method
+        return self.unlevered_analysis.get_series(
+            UnleveredAggregateLineKey.NET_OPERATING_INCOME,
+            self.timeline
+        )
     
     def _aggregate_debt_service(self) -> pd.Series:
         """
@@ -1167,17 +1155,11 @@ class DealCalculator:
             return
         
         try:
-            # Extract NOI time series from unlevered analysis
-            noi_series = None
-            if self.unlevered_analysis.cash_flows is not None:
-                cash_flows = self.unlevered_analysis.cash_flows
-                if hasattr(cash_flows, 'columns') and UnleveredAggregateLineKey.NET_OPERATING_INCOME.value in cash_flows.columns:
-                    noi_series = cash_flows[UnleveredAggregateLineKey.NET_OPERATING_INCOME.value]
-                elif hasattr(cash_flows, 'index'):
-                    noi_series = cash_flows
-            
-            if noi_series is None:
-                noi_series = pd.Series(0.0, index=self.timeline.period_index)
+            # Extract NOI time series using the new type-safe accessor
+            noi_series = self.unlevered_analysis.get_series(
+                UnleveredAggregateLineKey.NET_OPERATING_INCOME,
+                self.timeline
+            )
             
             # Aggregate all debt service from all facilities
             total_debt_service_series = pd.Series(0.0, index=self.timeline.period_index)
@@ -1850,46 +1832,59 @@ class DealCalculator:
     
     def _extract_property_value_series(self) -> pd.Series:
         """
-        Extract property value time series for refinancing analysis.
+        Extract property value time series for refinancing analysis using intelligent estimation.
         
-        This method attempts to get property values from the asset analysis
-        or creates a reasonable estimate based on disposition valuation.
+        Property values are typically not part of cash flow statements, so this method
+        uses a sophisticated estimation approach based on NOI and cap rates, or falls back
+        to acquisition cost appreciation modeling.
         
         Returns:
             Time series of property values by period
         """
         import pandas as pd
+
+        from ..core.primitives import UnleveredAggregateLineKey
         
-        # Try to get property values from unlevered analysis
-        if self.unlevered_analysis.cash_flows is not None:
-            cash_flows = self.unlevered_analysis.cash_flows
+        # First try: Check if cash flows contain any property value columns using the enum approach
+        # (This would be uncommon but some analyses might include asset value calculations)
+        if self.unlevered_analysis.cash_flows is not None and hasattr(self.unlevered_analysis.cash_flows, 'columns'):
+            # Look for any value-related columns in the actual data
+            value_columns = [col for col in self.unlevered_analysis.cash_flows.columns 
+                           if any(term in col.lower() for term in ['value', 'asset_value', 'property_value'])]
+            if value_columns:
+                return self.unlevered_analysis.cash_flows[value_columns[0]].reindex(
+                    self.timeline.period_index, method='ffill'
+                )
+        
+        # Primary approach: Calculate property value from NOI using market cap rate
+        try:
+            # Use the new type-safe NOI accessor
+            noi_series = self.unlevered_analysis.get_series(
+                UnleveredAggregateLineKey.NET_OPERATING_INCOME,
+                self.timeline
+            )
             
-            # Look for property value or asset value columns
-            if hasattr(cash_flows, 'columns'):
-                value_columns = [col for col in cash_flows.columns 
-                               if any(term in col.lower() for term in ['value', 'asset_value', 'property_value'])]
-                if value_columns:
-                    return cash_flows[value_columns[0]].reindex(self.timeline.period_index, method='ffill')
+            if not noi_series.empty and noi_series.sum() > 0:
+                # Use disposition cap rate if available, otherwise assume market rate
+                cap_rate = 0.065  # 6.5% default market cap rate
+                
+                if self.deal.disposition and hasattr(self.deal.disposition, 'cap_rate'):
+                    cap_rate = self.deal.disposition.cap_rate
+                
+                # Calculate property value as NOI / cap rate
+                estimated_values = noi_series / cap_rate
+                # Forward fill to handle any zero NOI periods
+                return estimated_values.reindex(self.timeline.period_index, method='ffill')
+                
+        except Exception:
+            # Continue to fallback approaches
+            pass
         
-        # Fallback: Use disposition valuation if available
-        if self.deal.disposition:
-            try:
-                # Get stabilized NOI for valuation calculation
-                noi_series = self._extract_noi_series()
-                if not noi_series.empty:
-                    # Use a reasonable cap rate to estimate property value
-                    # This is a simplification - in practice, property value would come from appraisals
-                    cap_rate = 0.065  # 6.5% cap rate assumption
-                    estimated_values = noi_series / cap_rate
-                    return estimated_values.reindex(self.timeline.period_index, method='ffill')
-            except Exception:
-                pass
-        
-        # Final fallback: Use acquisition cost escalated over time
-        if hasattr(self.deal.acquisition, 'acquisition_cost'):
+        # Fallback: Use acquisition cost escalated over time with market appreciation
+        if self.deal.acquisition and hasattr(self.deal.acquisition, 'acquisition_cost'):
             base_value = self.deal.acquisition.acquisition_cost
-            # Assume 3% annual appreciation
-            appreciation_rate = 0.03
+            # Use market appreciation rate (typically 2-4% annually)
+            appreciation_rate = 0.03  # 3% annual appreciation assumption
             
             values = []
             for i, period in enumerate(self.timeline.period_index):
@@ -1899,38 +1894,26 @@ class DealCalculator:
             
             return pd.Series(values, index=self.timeline.period_index)
         
-        # Ultimate fallback: Return zeros
+        # Ultimate fallback: Return zeros (prevents errors in downstream calculations)
         return pd.Series(0.0, index=self.timeline.period_index)
     
     def _extract_noi_series(self) -> pd.Series:
         """
-        Extract Net Operating Income time series for refinancing analysis.
+        Extract Net Operating Income time series for refinancing analysis using type-safe enum access.
         
-        This method attempts to get NOI from the asset analysis results.
+        Uses the new get_series method for robust, enum-based data access that eliminates
+        brittle string matching. This implements the "Don't Ask, Tell" principle.
         
         Returns:
             Time series of NOI by period
         """
-        import pandas as pd
+        from ..core.primitives import UnleveredAggregateLineKey
         
-        if self.unlevered_analysis.cash_flows is not None:
-            cash_flows = self.unlevered_analysis.cash_flows
-            
-            # Look for NOI columns
-            if hasattr(cash_flows, 'columns'):
-                noi_columns = [col for col in cash_flows.columns 
-                             if any(term in col.lower() for term in ['noi', 'net operating income', 'operating_income'])]
-                if noi_columns:
-                    return cash_flows[noi_columns[0]].reindex(self.timeline.period_index, fill_value=0.0)
-                
-                # Fallback: Look for cash flow columns that might represent NOI
-                cf_columns = [col for col in cash_flows.columns 
-                            if any(term in col.lower() for term in ['cash', 'net', 'operating'])]
-                if cf_columns:
-                    return cash_flows[cf_columns[0]].reindex(self.timeline.period_index, fill_value=0.0)
-        
-        # Fallback: Return zeros
-        return pd.Series(0.0, index=self.timeline.period_index)
+        # Use the new type-safe accessor method
+        return self.unlevered_analysis.get_series(
+            UnleveredAggregateLineKey.NET_OPERATING_INCOME,
+            self.timeline
+        )
     
     def _process_refinancing_cash_flows(self, refinancing_transactions: List[Dict[str, Any]]) -> None:
         """

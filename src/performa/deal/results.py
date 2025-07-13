@@ -19,6 +19,9 @@ from typing import Any, Dict, List, Literal, Optional, Union
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+# Add import for the enum
+from ..core.primitives import Timeline, UnleveredAggregateLineKey
+
 # =============================================================================
 # Base Result Model
 # =============================================================================
@@ -86,6 +89,42 @@ class UnleveredAnalysisResult(ResultModel):
         if v is not None and not isinstance(v, pd.DataFrame):
             raise ValueError('cash_flows must be a pandas DataFrame or None')
         return v
+
+    def get_series(self, key: UnleveredAggregateLineKey, timeline: Timeline) -> pd.Series:
+        """
+        Safely retrieves a cash flow series using a type-safe enum key.
+        
+        This provides a stable interface for other modules to access results
+        without knowing the internal column structure of the cash_flows DataFrame.
+        Implements the "Don't Ask, Tell" principle by encapsulating data access logic.
+        
+        Args:
+            key: UnleveredAggregateLineKey enum specifying which series to retrieve
+            timeline: Timeline object providing the target period index for alignment
+            
+        Returns:
+            pd.Series: The requested cash flow series, aligned to the timeline's period_index
+                      and filled with zeros for missing periods
+                      
+        Example:
+            >>> noi_series = result.get_series(
+            ...     UnleveredAggregateLineKey.NET_OPERATING_INCOME, 
+            ...     timeline
+            ... )
+            >>> property_value_series = result.get_series(
+            ...     UnleveredAggregateLineKey.EFFECTIVE_GROSS_REVENUE,
+            ...     timeline
+            ... )
+        """
+        if self.cash_flows is not None and hasattr(self.cash_flows, 'columns'):
+            # Check if the exact enum value exists as a column
+            if key.value in self.cash_flows.columns:
+                # Return the series, aligned to the provided timeline
+                return self.cash_flows[key.value].reindex(timeline.period_index, fill_value=0.0)
+        
+        # If the key is not found, return a zero-filled series with the correct index
+        # to prevent downstream errors. This provides graceful degradation.
+        return pd.Series(0.0, index=timeline.period_index, name=key.value)
 
 
 # =============================================================================
