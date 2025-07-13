@@ -1,13 +1,13 @@
 """
-Universal Disposition Valuation - Exit Strategy Modeling
+Universal Reversion Valuation - Exit Strategy Modeling
 
-Universal disposition valuation that works for any property type:
+Universal reversion valuation that works for any property type:
 office, residential, development projects, existing assets, etc.
 """
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Dict, Literal, Optional
 from uuid import UUID, uuid4
 
 from pydantic import Field, model_validator
@@ -15,32 +15,32 @@ from pydantic import Field, model_validator
 from ..core.primitives import Model, PositiveFloat
 
 
-class DispositionValuation(Model):
+class ReversionValuation(Model):
     """
     Universal exit strategy valuation for any property type.
     
-    Provides flexible disposition modeling using cap rate methodologies
+    Provides flexible reversion modeling using cap rate methodologies
     that work across all asset classes and scenarios.
     
     Attributes:
-        name: Human-readable name for the disposition scenario
-        cap_rate: Cap rate for property valuation at disposition
+        name: Human-readable name for the reversion scenario
+        cap_rate: Cap rate for property valuation at reversion
         transaction_costs_rate: Transaction costs as percentage of sale price
-        hold_period_months: Holding period to disposition (optional)
+        hold_period_months: Holding period to reversion (optional)
         cap_rates_by_use: Asset-specific cap rates for mixed-use properties
         uid: Unique identifier
         
     Example:
         ```python
-        # Simple disposition for any property type
-        disposition = DispositionValuation(
+        # Simple reversion for any property type
+        reversion = ReversionValuation(
             name="Standard Sale",
             cap_rate=0.065,
             transaction_costs_rate=0.025
         )
         
         # Mixed-use with different cap rates
-        disposition = DispositionValuation(
+        reversion = ReversionValuation(
             name="Mixed-Use Sale",
             cap_rate=0.06,  # Blended rate
             cap_rates_by_use={
@@ -56,16 +56,17 @@ class DispositionValuation(Model):
     # === CORE IDENTITY ===
     name: str = Field(...)
     uid: UUID = Field(default_factory=uuid4)
+    kind: Literal["reversion"] = Field(default="reversion", description="Discriminator field for polymorphic valuation")
     
-    # === DISPOSITION PARAMETERS ===
+    # === REVERSION PARAMETERS ===
     cap_rate: PositiveFloat = Field(
-        ..., description="Cap rate for property valuation at disposition"
+        ..., description="Cap rate for property valuation at reversion"
     )
     transaction_costs_rate: PositiveFloat = Field(
         default=0.025, description="Transaction costs as percentage of sale price"
     )
     hold_period_months: Optional[int] = Field(
-        default=None, description="Holding period to disposition (optional for modeling)"
+        default=None, description="Holding period to reversion (optional for modeling)"
     )
     
     # === ADVANCED PARAMETERS ===
@@ -76,8 +77,8 @@ class DispositionValuation(Model):
     # === VALIDATION ===
     
     @model_validator(mode="after")
-    def validate_disposition_parameters(self) -> "DispositionValuation":
-        """Validate disposition parameters are reasonable."""
+    def validate_reversion_parameters(self) -> "ReversionValuation":
+        """Validate reversion parameters are reasonable."""
         # Validate main cap rate
         if not (0.01 <= self.cap_rate <= 0.20):
             raise ValueError(
@@ -164,7 +165,7 @@ class DispositionValuation(Model):
         noi_by_use: Optional[Dict[str, float]] = None
     ) -> Dict[str, float]:
         """
-        Calculate key disposition metrics.
+        Calculate key reversion metrics.
         
         Args:
             stabilized_noi: Total stabilized NOI
@@ -172,18 +173,18 @@ class DispositionValuation(Model):
             noi_by_use: NOI breakdown by use type (for mixed-use properties)
             
         Returns:
-            Dictionary of disposition metrics
+            Dictionary of reversion metrics
         """
         gross_value = self.calculate_gross_value(stabilized_noi, noi_by_use)
         net_proceeds = self.calculate_net_proceeds(stabilized_noi, noi_by_use)
         
         return {
-            "gross_disposition_value": gross_value,
-            "net_disposition_proceeds": net_proceeds,
+            "gross_reversion_value": gross_value,
+            "net_reversion_proceeds": net_proceeds,
             "transaction_costs": gross_value - net_proceeds,
             "total_profit": net_proceeds - total_cost_basis,
             "profit_margin": (net_proceeds - total_cost_basis) / total_cost_basis if total_cost_basis > 0 else 0.0,
-            "disposition_cap_rate": self.cap_rate,
+            "reversion_cap_rate": self.cap_rate,
             "stabilized_yield_on_cost": stabilized_noi / total_cost_basis if total_cost_basis > 0 else 0.0,
         }
     
@@ -195,8 +196,8 @@ class DispositionValuation(Model):
         name: str = "Conservative Sale",
         cap_rate: float = 0.065,
         **kwargs
-    ) -> "DispositionValuation":
-        """Factory method for conservative disposition assumptions."""
+    ) -> "ReversionValuation":
+        """Factory method for conservative reversion assumptions."""
         return cls(
             name=name,
             cap_rate=cap_rate,
@@ -210,8 +211,8 @@ class DispositionValuation(Model):
         name: str = "Aggressive Sale",
         cap_rate: float = 0.055,
         **kwargs
-    ) -> "DispositionValuation":
-        """Factory method for aggressive disposition assumptions."""
+    ) -> "ReversionValuation":
+        """Factory method for aggressive reversion assumptions."""
         return cls(
             name=name,
             cap_rate=cap_rate,

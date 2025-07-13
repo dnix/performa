@@ -7,7 +7,7 @@ office, residential, development projects, existing assets, etc.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 from uuid import UUID, uuid4
 
 import pandas as pd
@@ -103,6 +103,7 @@ class SalesCompValuation(Model):
     # === CORE IDENTITY ===
     name: str = Field(...)
     uid: UUID = Field(default_factory=uuid4)
+    kind: Literal["sales_comp"] = Field(default="sales_comp", description="Discriminator field for polymorphic valuation")
     
     # === VALUATION PARAMETERS ===
     comparables: List[SalesComparable] = Field(

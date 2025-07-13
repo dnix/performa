@@ -7,7 +7,7 @@ office, residential, development projects, existing assets, etc.
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Dict, Literal, Optional
 from uuid import UUID, uuid4
 
 import pandas as pd
@@ -51,6 +51,7 @@ class DirectCapValuation(Model):
     # === CORE IDENTITY ===
     name: str = Field(...)
     uid: UUID = Field(default_factory=uuid4)
+    kind: Literal["direct_cap"] = Field(default="direct_cap", description="Discriminator field for polymorphic valuation")
     
     # === VALUATION PARAMETERS ===
     cap_rate: PositiveFloat = Field(

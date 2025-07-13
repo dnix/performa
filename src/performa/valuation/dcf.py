@@ -7,7 +7,7 @@ office, residential, development projects, existing assets, etc.
 
 from __future__ import annotations
 
-from typing import Dict, Optional, Union
+from typing import Dict, Literal, Optional, Union
 from uuid import UUID, uuid4
 
 import pandas as pd
@@ -56,6 +56,7 @@ class DCFValuation(Model):
     # === CORE IDENTITY ===
     name: str = Field(...)
     uid: UUID = Field(default_factory=uuid4)
+    kind: Literal["dcf"] = Field(default="dcf", description="Discriminator field for polymorphic valuation")
     
     # === DCF PARAMETERS ===
     discount_rate: PositiveFloat = Field(
