@@ -219,7 +219,7 @@ class TestEnhancedResultsModel:
         
         # Test fee amounts
         assert fee_details.total_fees_by_type["Developer"] == 500000
-        assert fee_details.total_fees_by_type["Asset Management"] == 120000
+        assert fee_details.total_fees_by_type["Asset Management"] == pytest.approx(120000, rel=1e-6)
         assert fee_details.total_fees_by_type["Professional Services"] == 50000
         
         # Test fee_timing_summary

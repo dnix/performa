@@ -15,7 +15,7 @@ import pandas as pd
 import pytest
 
 from performa.core.primitives import Timeline
-from performa.deal.distribution_calculator import DistributionCalculator
+from performa.deal.analysis.partnership import DistributionCalculator
 from performa.deal.partnership import (
     CarryPromote,
     Partner,

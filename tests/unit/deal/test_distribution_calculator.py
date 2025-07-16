@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 
 from performa.core.primitives import Timeline
-from performa.deal.distribution_calculator import (
+from performa.deal.analysis.partnership import (
     DistributionCalculator,
     calculate_partner_distributions_with_structure,
     create_simple_partnership,

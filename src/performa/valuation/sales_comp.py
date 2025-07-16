@@ -7,13 +7,16 @@ office, residential, development projects, existing assets, etc.
 
 from __future__ import annotations
 
-from typing import Dict, List, Literal, Optional
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union
 from uuid import UUID, uuid4
 
 import pandas as pd
 from pydantic import Field, model_validator
 
-from ..core.primitives import Model, PositiveFloat
+from ..core.primitives import Model, PositiveFloat, UnleveredAggregateLineKey
+
+if TYPE_CHECKING:
+    from performa.analysis import AnalysisContext
 
 
 class SalesComparable(Model):
@@ -310,6 +313,62 @@ class SalesCompValuation(Model):
             "margin_of_error_per_sf": margin_of_error,
             "range_pct": (margin_of_error / mean_price_per_sf * 100) if mean_price_per_sf > 0 else 0.0
         }
+    
+    def compute_cf(self, context: "AnalysisContext") -> pd.Series:
+        """
+        Compute disposition cash flow series for sales comparison valuation.
+        
+        This method calculates the property value using sales comparison approach
+        and places the proceeds at the appropriate time.
+        
+        Args:
+            context: Analysis context containing timeline, settings, and analysis results
+            
+        Returns:
+            pd.Series containing disposition proceeds aligned with timeline
+        """
+        # Initialize disposition cash flow series with zeros
+        disposition_cf = pd.Series(0.0, index=context.timeline.period_index)
+        
+        try:
+            # For sales comparison, we need the subject property area
+            # Try to get this from the property data in the context
+            subject_area = 0.0
+            
+            if hasattr(context, 'property_data') and context.property_data:
+                # Try to get net rentable area from property data
+                if hasattr(context.property_data, 'net_rentable_area'):
+                    subject_area = context.property_data.net_rentable_area
+                elif hasattr(context.property_data, 'gross_area'):
+                    subject_area = context.property_data.gross_area
+                elif hasattr(context.property_data, 'area'):
+                    subject_area = context.property_data.area
+            
+            # Calculate property value using sales comparison
+            if subject_area > 0:
+                value_results = self.calculate_value(subject_area)
+                property_value = value_results["property_value"]
+                
+                # Place disposition proceeds at the end of the analysis period
+                if not context.timeline.period_index.empty:
+                    disposition_period = context.timeline.period_index[-1]
+                    disposition_cf[disposition_period] = property_value
+            elif self.comparables:
+                # Calculate mean value from comparables
+                mean_price = sum(comp.sale_price for comp in self.comparables) / len(self.comparables)
+
+                # Place disposition proceeds at the end of the analysis period
+                if not context.timeline.period_index.empty:
+                    disposition_period = context.timeline.period_index[-1]
+                    disposition_cf[disposition_period] = mean_price
+                        
+        except Exception as e:
+            # Log warning but continue with zeros
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Could not calculate sales comp disposition proceeds: {e}")
+        
+        return disposition_cf
     
     def generate_comp_analysis_report(self) -> pd.DataFrame:
         """

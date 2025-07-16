@@ -151,7 +151,7 @@ class TestDualEntryFeeOrchestration:
         developer_fee_details = fee_details["fee_details_by_partner"]["Developer"]
         assert len(developer_fee_details) == 2  # Two fees
         
-        fee_names = [detail["fee_name"] for detail in developer_fee_details]
+        fee_names = list(developer_fee_details.keys())
         assert "Development Fee" in fee_names
         assert "Asset Management Fee" in fee_names
         
@@ -277,11 +277,11 @@ class TestDualEntryFeeOrchestration:
             "total_partner_fees": 740_000,
             "partner_fees_by_partner": {"Developer": 740_000, "Investor": 0.0},
             "fee_details_by_partner": {
-                "Developer": [
-                    {"fee_name": "Development Fee", "amount": 500_000, "fee_type": "Developer"},
-                    {"fee_name": "Asset Management Fee", "amount": 240_000, "fee_type": "Asset Management"}
-                ],
-                "Investor": []
+                "Developer": {
+                    "Development Fee": 500_000,
+                    "Asset Management Fee": 240_000
+                },
+                "Investor": {}
             },
             "fee_cash_flows_by_partner": {
                 "Developer": pd.Series([500_000] + [20_000] * 11, index=timeline.period_index),

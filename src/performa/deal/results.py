@@ -250,21 +250,7 @@ class InterestCompoundingDetails(ResultModel):
         return v
 
 
-class PIKInterestDetails(ResultModel):
-    """Payment-in-kind interest tracking."""
-    
-    cash_interest: pd.Series = Field(None, description="Cash interest payments")
-    pik_interest: pd.Series = Field(None, description="PIK interest additions")
-    total_interest: pd.Series = Field(None, description="Total interest (cash + PIK)")
-    outstanding_balance_with_pik: pd.Series = Field(None, description="Outstanding balance including PIK")
-
-    @field_validator('*')
-    @classmethod
-    def validate_series(cls, v):
-        """Validate all fields are pandas Series."""
-        if not isinstance(v, pd.Series):
-            raise ValueError('All PIK interest fields must be pandas Series')
-        return v
+    # NOTE: Advanced interest features not included in MVP
 
 
 class InterestReserveDetails(ResultModel):
@@ -299,7 +285,7 @@ class FundingCascadeDetails(ResultModel):
         ..., 
         description="Interest compounding analysis"
     )
-    pik_interest_details: PIKInterestDetails = Field(None, description="PIK interest tracking")
+    # NOTE: Advanced interest features not included in MVP
     interest_reserve_details: InterestReserveDetails = Field(None, description="Interest reserve details")
 
     @field_validator('uses_breakdown')
@@ -366,6 +352,10 @@ class FeeAccountingDetails(ResultModel):
     fee_details_by_partner: Dict[str, Dict[str, float]] = Field(
         default_factory=dict,
         description="Detailed fee breakdown by partner: {partner_name: {fee_name: amount}}"
+    )
+    detailed_fee_breakdown: Dict[str, List[Dict[str, Any]]] = Field(
+        default_factory=dict,
+        description="Comprehensive fee breakdown with full details: {partner_name: [fee_detail_dict]}"
     )
     fee_cash_flows_by_partner: Dict[str, pd.Series] = Field(
         default_factory=dict,
@@ -619,7 +609,7 @@ __all__ = [
     "CashFlowSummary",
     "FundingCascadeDetails",
     "InterestCompoundingDetails",
-    "PIKInterestDetails",
+    # Note: Advanced interest features not included in MVP
     "InterestReserveDetails",
     
     # Distribution analysis

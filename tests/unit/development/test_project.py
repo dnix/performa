@@ -50,7 +50,7 @@ from performa.debt import (
 )
 from performa.debt.rates import FixedRate, InterestRate
 from performa.development import AnyDevelopmentBlueprint, DevelopmentProject
-from performa.valuation import DispositionValuation
+from performa.valuation import ReversionValuation
 
 # Shared fixtures for development project tests
 
@@ -199,9 +199,9 @@ def residential_blueprint() -> ResidentialDevelopmentBlueprint:
     )
 
 @pytest.fixture
-def disposition_plan() -> DispositionValuation:
+def disposition_plan() -> ReversionValuation:
     """Standard disposition plan for development projects."""
-    return DispositionValuation(
+    return ReversionValuation(
         name="Mixed-Use Disposition",
         cap_rate=0.055,
         transaction_costs_rate=0.025,

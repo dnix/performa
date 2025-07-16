@@ -51,7 +51,7 @@ from performa.debt import (
 )
 from performa.debt.rates import FixedRate, InterestRate
 from performa.development import DevelopmentAnalysisScenario, DevelopmentProject
-from performa.valuation import DispositionValuation
+from performa.valuation import ReversionValuation
 
 # Shared fixtures for orchestrator tests
 
@@ -300,7 +300,7 @@ def comprehensive_project() -> DevelopmentProject:
     )
     
     # Create disposition plan
-    disposition_plan = DispositionValuation(
+    disposition_plan = ReversionValuation(
         name="Mixed-Use Exit Strategy",
         cap_rate=0.055,
         transaction_costs_rate=0.025,

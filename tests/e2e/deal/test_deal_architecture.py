@@ -139,7 +139,7 @@ class TestDealCentricArchitectureIntegration:
         # Deal should handle investment strategy
         assert hasattr(deal, 'acquisition')
         assert hasattr(deal, 'financing')
-        assert hasattr(deal, 'disposition')
+        assert hasattr(deal, 'exit_valuation')
         assert hasattr(deal, 'equity_partners')
         
         # Analysis should work on Deal level
@@ -257,7 +257,7 @@ class TestDealCentricArchitectureIntegration:
         
         # Architecture should be extensible
         assert hasattr(deal, 'financing')
-        assert hasattr(deal, 'disposition')
+        assert hasattr(deal, 'exit_valuation')
         assert hasattr(deal, 'equity_partners')
         
         # Should handle None values gracefully

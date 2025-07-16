@@ -7,13 +7,16 @@ office, residential, development projects, existing assets, etc.
 
 from __future__ import annotations
 
-from typing import Dict, Literal, Optional
+from typing import TYPE_CHECKING, Dict, Literal, Optional
 from uuid import UUID, uuid4
 
 import pandas as pd
 from pydantic import Field, model_validator
 
-from ..core.primitives import Model, PositiveFloat
+from ..core.primitives import Model, PositiveFloat, UnleveredAggregateLineKey
+
+if TYPE_CHECKING:
+    from performa.analysis import AnalysisContext
 
 
 class DirectCapValuation(Model):
@@ -247,6 +250,72 @@ class DirectCapValuation(Model):
             })
         
         return value_results
+    
+    def compute_cf(self, context: "AnalysisContext") -> pd.Series:
+        """
+        Compute disposition cash flow series for direct cap valuation.
+        
+        This method calculates the property value using direct capitalization of
+        first-year NOI and places the proceeds at the appropriate time.
+        
+        Args:
+            context: Analysis context containing timeline, settings, and analysis results
+            
+        Returns:
+            pd.Series containing disposition proceeds aligned with timeline
+        """
+        # Initialize disposition cash flow series with zeros
+        disposition_cf = pd.Series(0.0, index=context.timeline.period_index)
+        
+        try:
+            # Extract NOI series from unlevered analysis
+            if hasattr(context, 'unlevered_analysis') and context.unlevered_analysis:
+                # Get NOI series from the analysis
+                noi_series = context.unlevered_analysis.get_series(
+                    UnleveredAggregateLineKey.NET_OPERATING_INCOME,
+                    context.timeline
+                )
+                
+                # Use first year's NOI for direct cap calculation
+                if not noi_series.empty:
+                    # Get first 12 months of NOI and sum for first year
+                    first_year_periods = min(12, len(noi_series))
+                    first_year_noi = noi_series.iloc[:first_year_periods].sum()
+                    
+                    # Calculate property value using direct cap
+                    value_results = self.calculate_value(first_year_noi)
+                    property_value = value_results["property_value"]
+                    
+                    # Place disposition proceeds at the end of the analysis period
+                    if not context.timeline.period_index.empty:
+                        disposition_period = context.timeline.period_index[-1]
+                        disposition_cf[disposition_period] = property_value
+                        
+            else:
+                # Fallback: try to get from resolved lookups
+                noi_lookup = context.resolved_lookups.get(UnleveredAggregateLineKey.NET_OPERATING_INCOME.value)
+                if noi_lookup is not None and isinstance(noi_lookup, pd.Series):
+                    # Use first year's NOI
+                    if not noi_lookup.empty:
+                        first_year_periods = min(12, len(noi_lookup))
+                        first_year_noi = noi_lookup.iloc[:first_year_periods].sum()
+                        
+                        # Calculate property value using direct cap
+                        value_results = self.calculate_value(first_year_noi)
+                        property_value = value_results["property_value"]
+                        
+                        # Place disposition proceeds at the end of the analysis period
+                        if not context.timeline.period_index.empty:
+                            disposition_period = context.timeline.period_index[-1]
+                            disposition_cf[disposition_period] = property_value
+                            
+        except Exception as e:
+            # Log warning but continue with zeros
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Could not calculate direct cap disposition proceeds: {e}")
+        
+        return disposition_cf
     
     # === FACTORY METHODS ===
     

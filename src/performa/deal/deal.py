@@ -17,7 +17,7 @@ from ..asset.residential.property import ResidentialProperty
 from ..core.primitives import AssetTypeEnum, Model
 from ..debt.plan import FinancingPlan
 from ..development.project import DevelopmentProject
-from ..valuation.disposition import DispositionValuation
+from ..valuation import AnyValuation, DCFValuation, ReversionValuation
 from .acquisition import AcquisitionTerms
 from .fees import DealFee
 from .partnership import PartnershipStructure
@@ -54,7 +54,7 @@ class Deal(Model):
             asset=office_property,
             acquisition=AcquisitionTerms(...),
             financing=FinancingPlan([permanent_loan]),
-            disposition=DispositionValuation(...)
+            exit_valuation=ReversionValuation(...)
         )
         
         # Complex development project
@@ -63,7 +63,7 @@ class Deal(Model):
             asset=development_project,
             acquisition=AcquisitionTerms(...),  # Land acquisition
             financing=FinancingPlan([construction_loan, permanent_loan]),
-            disposition=DispositionValuation(...)
+            exit_valuation=DCFValuation(...)
         )
     """
     
@@ -79,8 +79,8 @@ class Deal(Model):
     # Financing - Complete debt structure over asset lifecycle
     financing: Optional[FinancingPlan] = Field(default=None, description="Debt facilities sequence")
     
-    disposition: Optional[DispositionValuation] = Field(
-        default=None, description="Exit strategy and disposition assumptions"
+    exit_valuation: Optional[AnyValuation] = Field(
+        default=None, description="Exit strategy and valuation assumptions"
     )
     
     # Equity Structure - Partnership structure for equity waterfall
@@ -137,4 +137,4 @@ class Deal(Model):
     @property
     def has_equity_partners(self) -> bool:
         """Check if this deal has equity partners."""
-        return self.equity_partners is not None and self.equity_partners.partner_count > 0 
+        return self.equity_partners is not None and self.equity_partners.partner_count > 0

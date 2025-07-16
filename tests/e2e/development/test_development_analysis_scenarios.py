@@ -39,7 +39,7 @@ from performa.debt import (
 )
 from performa.debt.rates import FixedRate, InterestRate
 from performa.development import DevelopmentAnalysisScenario, DevelopmentProject
-from performa.valuation import DispositionValuation
+from performa.valuation import ReversionValuation
 
 
 def test_development_analysis_scenario_instantiation():
@@ -460,7 +460,7 @@ def test_development_analysis_scenario_with_disposition():
         )
     )
     
-    disposition_plan = DispositionValuation(
+    disposition_plan = ReversionValuation(
         name="Investment Sale",
         cap_rate=0.055,
         transaction_costs_rate=0.025,
@@ -676,7 +676,7 @@ def test_development_analysis_end_to_end():
         )
     )
     
-    disposition_plan = DispositionValuation(
+    disposition_plan = ReversionValuation(
         name="Complete Sale",
         cap_rate=0.055,
         transaction_costs_rate=0.025

@@ -7,12 +7,16 @@ office, residential, development projects, existing assets, etc.
 
 from __future__ import annotations
 
-from typing import Dict, Literal, Optional
+from typing import TYPE_CHECKING, Dict, Literal, Optional
 from uuid import UUID, uuid4
 
+import pandas as pd
 from pydantic import Field, model_validator
 
-from ..core.primitives import Model, PositiveFloat
+from ..core.primitives import Model, PositiveFloat, UnleveredAggregateLineKey
+
+if TYPE_CHECKING:
+    from performa.analysis import AnalysisContext
 
 
 class ReversionValuation(Model):
@@ -187,6 +191,64 @@ class ReversionValuation(Model):
             "reversion_cap_rate": self.cap_rate,
             "stabilized_yield_on_cost": stabilized_noi / total_cost_basis if total_cost_basis > 0 else 0.0,
         }
+    
+    def compute_cf(self, context: "AnalysisContext") -> pd.Series:
+        """
+        Compute disposition cash flow series for reversion valuation.
+        
+        This method calculates the net disposition proceeds and places them at the 
+        appropriate time in the analysis timeline, typically at the end of the hold period.
+        
+        Args:
+            context: Analysis context containing timeline, settings, and analysis results
+            
+        Returns:
+            pd.Series containing disposition proceeds aligned with timeline
+        """
+        # Initialize disposition cash flow series with zeros
+        disposition_cf = pd.Series(0.0, index=context.timeline.period_index)
+        
+        try:
+            # Extract stabilized NOI from unlevered analysis
+            if hasattr(context, 'unlevered_analysis') and context.unlevered_analysis:
+                # Get NOI series from the analysis
+                noi_series = context.unlevered_analysis.get_series(
+                    UnleveredAggregateLineKey.NET_OPERATING_INCOME,
+                    context.timeline
+                )
+                
+                # Use the last period's NOI as stabilized NOI (annualized)
+                if not noi_series.empty:
+                    stabilized_monthly_noi = noi_series.iloc[-1]  # Last period NOI
+                    stabilized_annual_noi = stabilized_monthly_noi * 12  # Annualize
+                else:
+                    stabilized_annual_noi = 0.0
+            else:
+                # Fallback: try to get from resolved lookups
+                noi_lookup = context.resolved_lookups.get(UnleveredAggregateLineKey.NET_OPERATING_INCOME.value)
+                if noi_lookup is not None and isinstance(noi_lookup, pd.Series):
+                    stabilized_monthly_noi = noi_lookup.iloc[-1] if not noi_lookup.empty else 0.0
+                    stabilized_annual_noi = stabilized_monthly_noi * 12
+                else:
+                    stabilized_annual_noi = 0.0
+            
+            # Calculate net disposition proceeds using our existing logic
+            if stabilized_annual_noi > 0:
+                net_proceeds = self.calculate_net_proceeds(stabilized_annual_noi)
+                
+                # Place disposition proceeds at the end of the analysis period
+                # (typically the last month of the timeline)
+                if not context.timeline.period_index.empty:
+                    disposition_period = context.timeline.period_index[-1]
+                    disposition_cf[disposition_period] = net_proceeds
+                    
+        except Exception as e:
+            # Log warning but continue with zeros
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Could not calculate reversion disposition proceeds: {e}")
+        
+        return disposition_cf
     
     # === FACTORY METHODS ===
     

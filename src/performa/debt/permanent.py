@@ -104,7 +104,8 @@ class PermanentFacility(DebtFacility):
         description="Minimum debt yield that must be maintained during loan lifecycle (ongoing covenant)"
     )
 
-    # TODO: Add support for:
+    # TODO: Consider adding support for:
+    # - PIK (Payment-in-Kind) interest structures
     # - Lockout periods
     # - Defeasance calculations
     # - Yield maintenance calculations

@@ -21,7 +21,7 @@ class DebtTranche(Model):
         interest_rate (InterestRate): Interest rate configuration
         fee_rate (FloatBetween0And1): Upfront fee as percentage of tranche amount
         ltc_threshold (FloatBetween0And1): Maximum LTC for this tranche, used for stacking
-        pik_interest_rate (Optional[FloatBetween0And1]): PIK interest rate for advanced features
+        # NOTE: Advanced interest features not included in MVP
         commitment_fee_rate (Optional[FloatBetween0And1]): Commitment fee rate for advanced features
         exit_fee_rate (Optional[FloatBetween0And1]): Exit fee rate for advanced features
 
@@ -46,9 +46,7 @@ class DebtTranche(Model):
     )
     
     # Advanced features for institutional parity
-    pik_interest_rate: Optional[FloatBetween0And1] = Field(
-        None, description="Percentage of interest that is Payment-In-Kind (accrues to principal)"
-    )
+    # NOTE: Advanced interest features not included in MVP
     commitment_fee_rate: Optional[FloatBetween0And1] = Field(
         None, description="Annual fee on the undrawn loan commitment"
     )
@@ -150,7 +148,7 @@ class ConstructionFacility(DebtFacility):
     Key Features:
     - Multi-tranche construction financing
     - LTC-based draw controls
-    - Interest capitalization and payment-in-kind (PIK) options
+    - Interest capitalization and advanced payment options
     - Commitment fees and exit fees
     - Interest reserve funding capability with configurable reserve rate
     
