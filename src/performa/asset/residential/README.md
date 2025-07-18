@@ -1,9 +1,9 @@
 # Performa Residential Asset Models - Multifamily Property Analysis
 
-This module provides comprehensive modeling capabilities for multifamily residential
+This module provides modeling capabilities for multifamily residential
 properties, implementing the "unit-centric" paradigm where properties are modeled
 by unit mix rather than individual leases. Supports value-add scenarios, renovations,
-and sophisticated absorption modeling for developments.
+and absorption modeling for developments.
 
 ## Key Components
 
@@ -26,12 +26,12 @@ and sophisticated absorption modeling for developments.
 ### Rollover & Absorption
 - **ResidentialRolloverProfile**: Lease renewal and market rate transitions
 - **ResidentialRolloverLeaseTerms**: Terms for lease renewal scenarios
-- **ResidentialAbsorptionPlan**: Unit-based absorption for developments and lease-up
+- **ResidentialAbsorptionPlan**: Unit-based absorption with required operating assumptions
 
 ### Development Integration
 - **ResidentialDevelopmentBlueprint**: Development-to-operations transition
-- Capital planning integration for value-add renovations
-- Seamless construction-to-lease-up modeling
+- Capital planning integration for renovations
+- Construction-to-lease-up modeling with stabilized operating assumptions
 
 ## Architecture
 
@@ -61,7 +61,45 @@ The residential module follows the unit-centric paradigm with key principles:
 
 ## Example Usage
 
-### Basic Property Setup
+### Development Analysis
+
+```python
+from datetime import date
+from performa.asset.residential import (
+    ResidentialAbsorptionPlan, ResidentialDevelopmentBlueprint, ResidentialVacantUnit,
+    ResidentialUnitFilter, FixedQuantityPace, ResidentialDirectLeaseTerms
+)
+
+# Create absorption plan with standard assumptions
+absorption_plan = ResidentialAbsorptionPlan.with_typical_assumptions(
+    name="Apartment Lease-Up",
+    space_filter=ResidentialUnitFilter(unit_types=["1BR", "2BR"]),
+    pace=FixedQuantityPace(
+        type="FixedQuantity",
+        quantity=20,
+        unit="Units",
+        frequency_months=1
+    ),
+    leasing_assumptions=ResidentialDirectLeaseTerms(
+        monthly_rent=2800.0,
+        lease_term_months=12,
+        security_deposit_months=1.0
+    ),
+    start_date_anchor=date(2024, 6, 1)
+)
+
+# Create development blueprint
+blueprint = ResidentialDevelopmentBlueprint(
+    name="Apartment Development", 
+    vacant_inventory=[ResidentialVacantUnit(...)],
+    absorption_plan=absorption_plan
+)
+
+# Convert to stabilized property
+stabilized_property = blueprint.to_stabilized_asset(timeline)
+```
+
+### Asset Analysis
 
 ```python
 from performa.asset.residential import (

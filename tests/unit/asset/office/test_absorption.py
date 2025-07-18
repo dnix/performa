@@ -119,11 +119,12 @@ def test_fixed_quantity_sf_non_divisible(vacant_suites, analysis_timeline, base_
           5,000 SF and 3,000 SF suites to exactly meet the 8,000 SF target.
         - In the second period, it should lease the remaining 7,000 SF.
     """
-    plan = OfficeAbsorptionPlan(
+    # Use factory method to ensure required stabilized assumptions are provided
+    plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="Test Fixed Pace SF",
         space_filter=SpaceFilter(),
         start_date_anchor=date(2024, 1, 1),
-        pace=FixedQuantityPace(quantity=8000, unit="SF", frequency_months=3),
+        pace=FixedQuantityPace(type="FixedQuantity", quantity=8000, unit="SF", frequency_months=3),
         leasing_assumptions=base_direct_lease_terms
     )
     generated_specs = plan.generate_lease_specs(
@@ -160,11 +161,11 @@ def test_fixed_quantity_sf_with_subdivision(large_divisible_suite, analysis_time
           carving out chunks from the divisible suite: two of the average size
           (10k SF) and one of the remaining size (5k SF) to meet the target.
     """
-    plan = OfficeAbsorptionPlan(
+    plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="Test Fixed Pace Subdivision",
         space_filter=SpaceFilter(),
         start_date_anchor=date(2024, 1, 1),
-        pace=FixedQuantityPace(quantity=25000, unit="SF", frequency_months=6),
+        pace=FixedQuantityPace(type="FixedQuantity", quantity=25000, unit="SF", frequency_months=6),
         leasing_assumptions=base_direct_lease_terms
     )
     generated_specs = plan.generate_lease_specs(
@@ -192,11 +193,11 @@ def test_fixed_quantity_units_with_subdivision(large_divisible_suite, analysis_t
         - The strategy should generate exactly 3 new leases in the first period,
           each with the defined average lease area of 10,000 SF.
     """
-    plan = OfficeAbsorptionPlan(
+    plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="Test Fixed Pace Units Subdivision",
         space_filter=SpaceFilter(),
         start_date_anchor=date(2024, 1, 1),
-        pace=FixedQuantityPace(quantity=3, unit="Units", frequency_months=1),
+        pace=FixedQuantityPace(type="FixedQuantity", quantity=3, unit="Units", frequency_months=1),
         leasing_assumptions=base_direct_lease_terms
     )
     generated_specs = plan.generate_lease_specs(
@@ -226,11 +227,11 @@ def test_equal_spread_non_divisible(vacant_suites, analysis_timeline, base_direc
         - Deal 2: Leases the 4,000 SF and 1,000 SF suites.
         - Deal 3: Leases the 3,000 SF and 2,000 SF suites.
     """
-    plan = OfficeAbsorptionPlan(
+    plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="Test Equal Spread",
         space_filter=SpaceFilter(),
         start_date_anchor=date(2024, 1, 1),
-        pace=EqualSpreadPace(total_deals=3, frequency_months=4),
+        pace=EqualSpreadPace(type="EqualSpread", total_deals=3, frequency_months=4),
         leasing_assumptions=base_direct_lease_terms
     )
     # Total area = 15,000 SF. Target per deal = 5,000 SF.
@@ -273,11 +274,11 @@ def test_equal_spread_with_subdivision_top_off(mixed_suites, analysis_timeline, 
           and then create a new subdivided lease of ~10,667 SF to meet the
           deal's target.
     """
-    plan = OfficeAbsorptionPlan(
+    plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="Test Equal Spread Top Off",
         space_filter=SpaceFilter(),
         start_date_anchor=date(2024, 1, 1),
-        pace=EqualSpreadPace(total_deals=3, frequency_months=2),
+        pace=EqualSpreadPace(type="EqualSpread", total_deals=3, frequency_months=2),
         leasing_assumptions=base_direct_lease_terms
     )
     # Total area = 59,000 SF. Target per deal = 19,666.67 SF
@@ -316,11 +317,11 @@ def test_custom_schedule_pace_with_subdivision(mixed_suites, analysis_timeline, 
         - On the second date, the remaining 44k SF of the divisible suite is
           leased.
     """
-    plan = OfficeAbsorptionPlan(
+    plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="Test Custom Schedule",
         space_filter=SpaceFilter(),
         start_date_anchor=date(2024, 1, 1),
-        pace=CustomSchedulePace(schedule={date(2024, 6, 1): 15000, date(2025, 1, 1): 44000}),
+        pace=CustomSchedulePace(type="CustomSchedule", schedule={date(2024, 6, 1): 15000, date(2025, 1, 1): 44000}),
         leasing_assumptions=base_direct_lease_terms
     )
     generated_specs = plan.generate_lease_specs(
@@ -357,11 +358,11 @@ def test_absorption_target_exceeds_vacant(vacant_suites, analysis_timeline, base
           15,000 SF of leased area.
         - It should not error or create more leases than there is space.
     """
-    plan = OfficeAbsorptionPlan(
+    plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="Test Exceeds Vacant",
         space_filter=SpaceFilter(),
         start_date_anchor=date(2024, 1, 1),
-        pace=FixedQuantityPace(quantity=20000, unit="SF", frequency_months=3),
+        pace=FixedQuantityPace(type="FixedQuantity", quantity=20000, unit="SF", frequency_months=3),
         leasing_assumptions=base_direct_lease_terms
     )
     generated_specs = plan.generate_lease_specs(
@@ -394,11 +395,11 @@ def test_absorption_schedule_exceeds_analysis(vacant_suites, analysis_timeline, 
         date(2025, 1, 1): 5000,  # This one should be created
         date(2029, 1, 1): 4000,  # This one should be ignored
     }
-    plan = OfficeAbsorptionPlan(
+    plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="Test Schedule Exceeds Analysis",
         space_filter=SpaceFilter(),
         start_date_anchor=date(2024, 1, 1),
-        pace=CustomSchedulePace(schedule=schedule),
+        pace=CustomSchedulePace(type="CustomSchedule", schedule=schedule),
         leasing_assumptions=base_direct_lease_terms
     )
     generated_specs = plan.generate_lease_specs(
@@ -427,11 +428,11 @@ def test_absorption_indivisible_suite_too_large(vacant_suites, analysis_timeline
         - Since 750 SF is smaller than any available suite and there are
           no divisible suites, no leases should be generated at all.
     """
-    plan = OfficeAbsorptionPlan(
+    plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="Test Indivisible Too Large",
         space_filter=SpaceFilter(),
         start_date_anchor=date(2024, 1, 1),
-        pace=EqualSpreadPace(total_deals=20, frequency_months=1),
+        pace=EqualSpreadPace(type="EqualSpread", total_deals=20, frequency_months=1),
         leasing_assumptions=base_direct_lease_terms
     )
     generated_specs = plan.generate_lease_specs(

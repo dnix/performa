@@ -1,9 +1,9 @@
 # Performa `office` Asset Modeling
 
-This module provides comprehensive modeling capabilities for commercial office properties,
-from single-tenant buildings to complex multi-tenant office towers. It implements
-sophisticated commercial real estate features while maintaining usability for
-simpler scenarios.
+This module provides modeling capabilities for commercial office properties,
+from single-tenant buildings to multi-tenant office towers. It implements
+commercial real estate features while maintaining usability for
+various scenarios.
 
 ## Key Components
 
@@ -25,27 +25,67 @@ simpler scenarios.
 - **OfficeRolloverProfile**: Renewal vs. market rate transitions
 
 ### Absorption & Development
-- **OfficeAbsorptionPlan**: Vacant space lease-up modeling
+- **OfficeAbsorptionPlan**: Vacant space lease-up modeling with required operating assumptions
 - **OfficeDevelopmentBlueprint**: Development-to-operations transition
 - **OfficeVacantSuite**: Vacant space with subdivision capabilities
 
 ## Key Features
 
-- **Multi-escalation lease support** with complex timing
-- **Sophisticated expense recovery** with gross-up calculations
-- **TI/LC modeling** with realistic payment timing (signing vs. commencement)
+- **Multi-escalation lease support** with timing controls
+- **Expense recovery** with gross-up calculations
+- **TI/LC modeling** with payment timing (signing vs. commencement)
 - **Rollover analysis** with state transitions and capital planning
 - **Absorption modeling** with subdivision logic for large floorplates
-- **Development blueprint integration** for seamless construction-to-operations
+- **Development blueprint integration** for construction-to-operations
 
 ## Architecture
 
 The office module follows the commercial base class pattern with office-specific
-enhancements for complex lease structures, recovery methods, and rollover scenarios.
+enhancements for lease structures, recovery methods, and rollover scenarios.
 The assembler pattern enables zero-lookup performance during analysis.
 
 ## Example Usage
 
+### Development Analysis
+```python
+from datetime import date
+from performa.asset.office import (
+    OfficeAbsorptionPlan, OfficeDevelopmentBlueprint, OfficeVacantSuite,
+    SpaceFilter, FixedQuantityPace, DirectLeaseTerms
+)
+
+# Create absorption plan with standard assumptions
+absorption_plan = OfficeAbsorptionPlan.with_typical_assumptions(
+    name="Office Lease-Up",
+    space_filter=SpaceFilter(use_types=["office"]),
+    start_date_anchor=date(2024, 6, 1),
+    pace=FixedQuantityPace(
+        type="FixedQuantity",
+        quantity=25000,
+        unit="SF",
+        frequency_months=6
+    ),
+    leasing_assumptions=DirectLeaseTerms(
+        base_rent_value=45.0,
+        base_rent_unit_of_measure="per_unit",
+        base_rent_frequency="annual",
+        term_months=60,
+        upon_expiration="market"
+    )
+)
+
+# Create development blueprint
+blueprint = OfficeDevelopmentBlueprint(
+    name="Office Development",
+    vacant_inventory=[OfficeVacantSuite(...)],
+    absorption_plan=absorption_plan
+)
+
+# Convert to stabilized property
+stabilized_property = blueprint.to_stabilized_asset(timeline)
+```
+
+### Asset Analysis
 ```python
 from performa.asset.office import (
     OfficeProperty, OfficeLeaseSpec, OfficeRecoveryMethod

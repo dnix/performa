@@ -34,7 +34,7 @@ def test_office_blueprint_instantiation():
         is_divisible=False
     )
     
-    absorption_plan = OfficeAbsorptionPlan(
+    absorption_plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="Office Lease-Up Plan",
         space_filter=SpaceFilter(),
         pace=FixedQuantityPace(
@@ -85,7 +85,7 @@ def test_office_blueprint_vacant_inventory_aggregation():
         )
     ]
     
-    absorption_plan = OfficeAbsorptionPlan(
+    absorption_plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="Multi-Floor Plan",
         space_filter=SpaceFilter(),
         pace=FixedQuantityPace(
@@ -136,7 +136,7 @@ def test_office_blueprint_to_stabilized_asset():
         is_divisible=False
     )
     
-    absorption_plan = OfficeAbsorptionPlan(
+    absorption_plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="Premium Office Absorption",
         space_filter=SpaceFilter(),
         pace=FixedQuantityPace(
@@ -188,7 +188,7 @@ def test_office_blueprint_relative_timeline_validation():
         use_type="office"
     )
     
-    absorption_plan = OfficeAbsorptionPlan(
+    absorption_plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="Test Plan",
         space_filter=SpaceFilter(),
         pace=FixedQuantityPace(
@@ -233,7 +233,7 @@ def test_office_blueprint_absorption_plan_validation():
     )
     
     # Valid absorption plan
-    valid_plan = OfficeAbsorptionPlan(
+    valid_plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="Valid Plan",
         space_filter=SpaceFilter(),
         pace=FixedQuantityPace(
@@ -264,7 +264,7 @@ def test_office_blueprint_absorption_plan_validation():
 
 def test_office_blueprint_empty_inventory():
     """Test blueprint behavior with empty vacant inventory."""
-    absorption_plan = OfficeAbsorptionPlan(
+    absorption_plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="Empty Plan",
         space_filter=SpaceFilter(),
         pace=FixedQuantityPace(
@@ -309,7 +309,7 @@ def test_office_blueprint_pace_type_discriminator():
     )
     
     # Test FixedQuantityPace
-    fixed_pace_plan = OfficeAbsorptionPlan(
+    fixed_pace_plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="Fixed Pace Plan",
         space_filter=SpaceFilter(),
         pace=FixedQuantityPace(
@@ -354,7 +354,7 @@ def test_office_blueprint_name_inheritance():
         use_type="office"
     )
     
-    absorption_plan = OfficeAbsorptionPlan(
+    absorption_plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="HQ Absorption",
         space_filter=SpaceFilter(),
         pace=FixedQuantityPace(

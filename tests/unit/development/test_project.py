@@ -121,7 +121,7 @@ def office_blueprint() -> OfficeDevelopmentBlueprint:
                 subdivision_minimum_lease_area=5000.0
             )
         ],
-        absorption_plan=OfficeAbsorptionPlan(
+        absorption_plan=OfficeAbsorptionPlan.with_typical_assumptions(
             name="Office Lease-Up Strategy",
             space_filter=SpaceFilter(),
             pace=FixedQuantityPace(
@@ -180,7 +180,7 @@ def residential_blueprint() -> ResidentialDevelopmentBlueprint:
                 rollover_profile=rollover_profile
             )
         ],
-        absorption_plan=ResidentialAbsorptionPlan(
+        absorption_plan=ResidentialAbsorptionPlan.with_typical_assumptions(
             name="Residential Lease-Up Strategy",
             space_filter=ResidentialUnitFilter(),
             pace=ResidentialFixedQuantityPace(

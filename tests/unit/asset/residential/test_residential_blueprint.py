@@ -53,7 +53,7 @@ def test_residential_blueprint_instantiation():
     # Create absorption plan with proper pace structure
     from performa.core.base import FixedQuantityPace  # Import from common base
     
-    absorption_plan = ResidentialAbsorptionPlan(
+    absorption_plan = ResidentialAbsorptionPlan.with_typical_assumptions(
         name="Residential Lease-Up Plan",
         space_filter=ResidentialUnitFilter(),
         pace=FixedQuantityPace(
@@ -119,7 +119,7 @@ def test_residential_blueprint_unit_mix_aggregation():
     
     from performa.core.base import FixedQuantityPace
     
-    absorption_plan = ResidentialAbsorptionPlan(
+    absorption_plan = ResidentialAbsorptionPlan.with_typical_assumptions(
         name="Mixed Unit Plan",
         space_filter=ResidentialUnitFilter(),
         pace=FixedQuantityPace(
@@ -182,7 +182,7 @@ def test_residential_blueprint_to_stabilized_asset():
     
     from performa.core.base import FixedQuantityPace
     
-    absorption_plan = ResidentialAbsorptionPlan(
+    absorption_plan = ResidentialAbsorptionPlan.with_typical_assumptions(
         name="Luxury Residential Absorption",
         space_filter=ResidentialUnitFilter(),
         pace=FixedQuantityPace(
@@ -248,7 +248,7 @@ def test_residential_blueprint_relative_timeline_validation():
     
     from performa.core.base import FixedQuantityPace
     
-    absorption_plan = ResidentialAbsorptionPlan(
+    absorption_plan = ResidentialAbsorptionPlan.with_typical_assumptions(
         name="Test Plan",
         space_filter=ResidentialUnitFilter(),
         pace=FixedQuantityPace(
@@ -302,7 +302,7 @@ def test_residential_blueprint_absorption_plan_validation():
     from performa.core.base import FixedQuantityPace
     
     # Valid absorption plan
-    valid_plan = ResidentialAbsorptionPlan(
+    valid_plan = ResidentialAbsorptionPlan.with_typical_assumptions(
         name="Valid Residential Plan",
         space_filter=ResidentialUnitFilter(),
         pace=FixedQuantityPace(
@@ -334,7 +334,7 @@ def test_residential_blueprint_empty_inventory():
     """Test blueprint behavior with empty vacant inventory."""
     from performa.core.base import FixedQuantityPace
     
-    absorption_plan = ResidentialAbsorptionPlan(
+    absorption_plan = ResidentialAbsorptionPlan.with_typical_assumptions(
         name="Empty Plan",
         space_filter=ResidentialUnitFilter(),
         pace=FixedQuantityPace(
@@ -397,7 +397,7 @@ def test_residential_blueprint_unit_count_calculation():
     
     from performa.core.base import FixedQuantityPace
     
-    absorption_plan = ResidentialAbsorptionPlan(
+    absorption_plan = ResidentialAbsorptionPlan.with_typical_assumptions(
         name="Mixed Size Plan",
         space_filter=ResidentialUnitFilter(),
         pace=FixedQuantityPace(
@@ -456,7 +456,7 @@ def test_residential_blueprint_name_inheritance():
     
     from performa.core.base import FixedQuantityPace
     
-    absorption_plan = ResidentialAbsorptionPlan(
+    absorption_plan = ResidentialAbsorptionPlan.with_typical_assumptions(
         name="Waterfront Absorption",
         space_filter=ResidentialUnitFilter(),
         pace=FixedQuantityPace(

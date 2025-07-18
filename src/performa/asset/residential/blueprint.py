@@ -137,14 +137,12 @@ class ResidentialDevelopmentBlueprint(DevelopmentBlueprintBase):
             vacant_units=remaining_vacant_units,
         )
         
-        # Use default operating assumptions
-        # TODO: Extract operating assumptions from absorption plan when implemented
-        stabilized_expenses = ResidentialExpenses()
-        stabilized_losses = ResidentialLosses(
-            general_vacancy=ResidentialGeneralVacancyLoss(rate=0.05),  # Default 5% vacancy
-            collection_loss=ResidentialCollectionLoss(rate=0.01)       # Default 1% collection loss
-        )
-        stabilized_misc_income = []
+        # Extract stabilized operating assumptions from absorption plan
+        # This implements the "Asset Factory" pattern where the absorption plan
+        # serves as the complete business plan including operating characteristics
+        stabilized_expenses = self.absorption_plan.stabilized_expenses
+        stabilized_losses = self.absorption_plan.stabilized_losses
+        stabilized_misc_income = self.absorption_plan.stabilized_misc_income
         
         # Calculate total area from unit mix for NRA
         total_area = sum(unit.total_area for unit in self.vacant_inventory)
@@ -153,7 +151,7 @@ class ResidentialDevelopmentBlueprint(DevelopmentBlueprintBase):
         return ResidentialProperty(
             name=self.name,
             address=None,  # TODO: Add address support from development project
-            gross_area=total_area * 1.15,  # Assume 15% efficiency factor for residential (includes common areas)
+            gross_area=total_area * 1.15,  # FIXME: Assume 15% efficiency factor for residential (includes common areas)
             net_rentable_area=total_area,
             unit_mix=stabilized_rent_roll,
             expenses=stabilized_expenses,

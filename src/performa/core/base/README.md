@@ -37,10 +37,14 @@ contracts and common behaviors that asset-specific implementations extend.
 - **RolloverLeaseTermsBase**: Terms for rollover scenarios
 
 ### Absorption & Development
-- **AbsorptionPlanBase**: Vacant space lease-up modeling
+- **AbsorptionPlanBase**: Generic base with stabilized operating assumptions
+  - Bridges development analysis to deal analysis
+  - Type constraints ensure office plans accept office types, residential plans accept residential types
+  - Required stabilized assumptions (no default values)
+  - Factory methods provide standard assumptions
 - **DevelopmentBlueprintBase**: Development-to-operations transitions
 - **SpaceFilter**: Filtering criteria for absorption plans
-- **PaceStrategy**: Leasing velocity patterns
+- **PaceStrategy**: Leasing velocity patterns (Fixed, EqualSpread, CustomSchedule)
 
 ### Loss Modeling
 - **LossesBase**: Property-level loss configurations
@@ -49,11 +53,43 @@ contracts and common behaviors that asset-specific implementations extend.
 
 ## Architecture Principles
 
+### Core Design
 - **Abstract base classes** define contracts without implementation details
 - **Concrete base classes** provide reusable functionality
 - **Pydantic validation** ensures data integrity
 - **Timeline integration** for period-aware calculations
 - **Flexible unit-of-measure** support across all models
+
+### Generic Absorption Plans
+The absorption plan architecture uses generic types and required fields.
+
+#### Type Constraints
+- Generic constraints ensure office plans accept `OfficeExpenses`, not `ResidentialExpenses`
+- Residential plans accept `ResidentialExpenses`, not `OfficeExpenses`
+- Type checking occurs at validation time
+
+#### Required Fields
+- All stabilized operating assumptions are required with no default values
+- Forces explicit specification of financial assumptions
+
+#### Factory Methods
+```python
+# With standard assumptions
+plan = OfficeAbsorptionPlan.with_typical_assumptions(...)
+
+# With custom assumptions (all fields required)
+plan = OfficeAbsorptionPlan(
+    stabilized_expenses=custom_expenses,
+    stabilized_losses=custom_losses,
+    stabilized_misc_income=custom_income,
+    ...
+)
+```
+
+#### Development to Deal Analysis
+- Absorption plans bridge development analysis to deal analysis
+- Plans define leasing strategy and stabilized operating characteristics
+- Blueprints extract stabilized assumptions for property creation
 
 ## Example Usage
 

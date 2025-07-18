@@ -28,7 +28,8 @@ from performa.asset.office import (
     Recovery,
     SpaceFilter,
 )
-from performa.core.base import CommissionTier, FixedQuantityPace
+from performa.asset.office.absorption import FixedQuantityPace
+from performa.core.base import CommissionTier
 from performa.core.primitives import (
     GlobalSettings,
     Timeline,
@@ -123,11 +124,11 @@ def complex_property_fixture() -> dict:
     )
 
     # --- Define Absorption Plan ---
-    absorption_plan = OfficeAbsorptionPlan(
+    absorption_plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="Lease Up Vacancy",
         space_filter=SpaceFilter(use_types=["office"]),
         start_date_anchor=date(2026, 1, 1),
-        pace={"type": "FixedQuantity", "quantity": 10000, "unit": "SF", "frequency_months": 6},
+        pace=FixedQuantityPace(type="FixedQuantity", quantity=10000, unit="SF", frequency_months=6),
         leasing_assumptions="Standard Rollover" # Reference by name
     )
 

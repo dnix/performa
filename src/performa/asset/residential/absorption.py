@@ -42,6 +42,9 @@ from ...core.primitives import (
     GlobalSettings,
     StartDateAnchorEnum,
 )
+from .expense import ResidentialExpenses
+from .losses import ResidentialLosses
+from .misc_income import ResidentialMiscIncome
 from .rent_roll import ResidentialUnitSpec, ResidentialVacantUnit
 from .rollover import ResidentialRolloverLeaseTerms, ResidentialRolloverProfile
 
@@ -109,7 +112,7 @@ class ResidentialDirectLeaseTerms(DirectLeaseTerms):
     )
 
 
-class ResidentialAbsorptionPlan(AbsorptionPlanBase):
+class ResidentialAbsorptionPlan(AbsorptionPlanBase[ResidentialExpenses, ResidentialLosses, ResidentialMiscIncome]):
     """
     Defines and executes a complete plan for leasing up vacant residential units.
     
@@ -121,7 +124,19 @@ class ResidentialAbsorptionPlan(AbsorptionPlanBase):
     
     Example:
         ```python
+        # Create with required stabilized operating assumptions
         absorption_plan = ResidentialAbsorptionPlan(
+            name="Phase 1 Lease-Up",
+            space_filter=ResidentialUnitFilter(unit_types=["1BR", "2BR"]),
+            pace=FixedQuantityPace(quantity=10, unit="Units", frequency_months=1),
+            leasing_assumptions=ResidentialDirectLeaseTerms(monthly_rent=2500),
+            stabilized_expenses=ResidentialExpenses(...),
+            stabilized_losses=ResidentialLosses(...),
+            stabilized_misc_income=ResidentialMiscIncome(...)
+        )
+        
+        # Or use factory method with typical assumptions
+        absorption_plan = ResidentialAbsorptionPlan.with_typical_assumptions(
             name="Phase 1 Lease-Up",
             space_filter=ResidentialUnitFilter(unit_types=["1BR", "2BR"]),
             pace=FixedQuantityPace(quantity=10, unit="Units", frequency_months=1),
@@ -139,7 +154,183 @@ class ResidentialAbsorptionPlan(AbsorptionPlanBase):
     space_filter: ResidentialUnitFilter = Field(default_factory=ResidentialUnitFilter)
     leasing_assumptions: Union[str, ResidentialDirectLeaseTerms]
     
-    # FIXME: Add stabilized operating assumptions interface? expenses, losses, misc_income, etc.
+    # Required stabilized operating assumptions (no silent defaults)
+    stabilized_expenses: ResidentialExpenses = Field(
+        ..., 
+        description="Stabilized operating expenses for absorbed units"
+    )
+    stabilized_losses: ResidentialLosses = Field(
+        ..., 
+        description="Stabilized loss assumptions for absorbed units"
+    )
+    stabilized_misc_income: List[ResidentialMiscIncome] = Field(
+        ..., 
+        description="Stabilized miscellaneous income for absorbed units"
+    )
+
+    @classmethod
+    def with_typical_assumptions(
+        cls,
+        name: str,
+        space_filter: Optional[ResidentialUnitFilter] = None,
+        pace: Union[FixedQuantityPace, EqualSpreadPace, CustomSchedulePace] = None,
+        leasing_assumptions: Union[str, ResidentialDirectLeaseTerms] = None,
+        start_date_anchor: Union[date, StartDateAnchorEnum] = StartDateAnchorEnum.ANALYSIS_START,
+        **kwargs
+    ) -> "ResidentialAbsorptionPlan":
+        """
+        Create a ResidentialAbsorptionPlan with standard operating assumptions.
+        
+        This factory method creates an absorption plan with the following assumptions:
+        
+        Expenses (per unit per month):
+        - Property Management: $150/unit/month
+        - Maintenance & Repairs: $100/unit/month
+        - Utilities: $75/unit/month
+        - Insurance: $50/unit/month
+        - Property Taxes: $200/unit/month
+        
+        Capital Expenditures:
+        - Unit Turnover: $800/unit
+        - Building Improvements: $500/unit/year
+        
+        Losses:
+        - General Vacancy: 5%
+        - Collection Loss: 1%
+        
+        Miscellaneous Income:
+        - Empty list
+        
+        Example:
+            ```python
+            from datetime import date
+            from performa.asset.residential.absorption import (
+                ResidentialAbsorptionPlan, ResidentialUnitFilter, FixedQuantityPace, 
+                ResidentialDirectLeaseTerms
+            )
+            
+            plan = ResidentialAbsorptionPlan.with_typical_assumptions(
+                name="Apartment Lease-Up",
+                space_filter=ResidentialUnitFilter(unit_types=["1BR", "2BR"]),
+                pace=FixedQuantityPace(
+                    type="FixedQuantity",
+                    quantity=20,
+                    unit="Units",
+                    frequency_months=1
+                ),
+                leasing_assumptions=ResidentialDirectLeaseTerms(
+                    monthly_rent=2800.0,
+                    lease_term_months=12,
+                    security_deposit_months=1.0
+                ),
+                start_date_anchor=date(2024, 6, 1)
+            )
+            ```
+        
+        For custom operating assumptions, use the direct constructor:
+            ```python
+            plan = ResidentialAbsorptionPlan(
+                stabilized_expenses=custom_residential_expenses,
+                stabilized_losses=custom_residential_losses,
+                stabilized_misc_income=custom_misc_income,
+                ...
+            )
+            ```
+        
+        Args:
+            name: Name for the absorption plan
+            space_filter: Criteria for which vacant units to include
+            pace: Leasing velocity strategy
+            leasing_assumptions: Financial terms for new leases
+            start_date_anchor: When leasing begins
+            **kwargs: Additional arguments passed to constructor
+            
+        Returns:
+            ResidentialAbsorptionPlan with standard operating assumptions
+        """
+        from datetime import date
+
+        from ...core.primitives import PercentageGrowthRate, Timeline, UnitOfMeasureEnum
+        from .expense import ResidentialCapExItem, ResidentialOpExItem
+        from .losses import ResidentialCollectionLoss, ResidentialGeneralVacancyLoss
+        
+        # Create a basic timeline for the expense items
+        timeline = Timeline(
+            start_date=date(2024, 1, 1),
+            duration_months=120  # 10 years
+        )
+        
+        # Create typical residential operating assumptions
+        typical_expenses = ResidentialExpenses(
+            operating_expenses=[
+                ResidentialOpExItem(
+                    name="Property Management",
+                    category="Expense",
+                    timeline=timeline,
+                    value=150.0,
+                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                    growth_rate=PercentageGrowthRate(name="Property Management Growth", value=0.03)
+                ),
+                ResidentialOpExItem(
+                    name="Maintenance & Repairs",
+                    category="Expense",
+                    timeline=timeline,
+                    value=100.0,
+                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                    growth_rate=PercentageGrowthRate(name="Maintenance Growth", value=0.035)
+                ),
+                ResidentialOpExItem(
+                    name="Utilities",
+                    category="Expense",
+                    timeline=timeline,
+                    value=75.0,
+                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                    growth_rate=PercentageGrowthRate(name="Utilities Growth", value=0.04)
+                )
+            ],
+            capital_expenses=[
+                ResidentialCapExItem(
+                    name="Maintenance Reserve",
+                    category="Expense",
+                    timeline=timeline,
+                    value=300.0,
+                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                    growth_rate=PercentageGrowthRate(name="CapEx Growth", value=0.03)
+                )
+            ]
+        )
+        
+        typical_losses = ResidentialLosses(
+            general_vacancy=ResidentialGeneralVacancyLoss(
+                vacancy_rate=0.05,  # 5% residential vacancy
+                applied_to_base_rent=True
+            ),
+            collection_loss=ResidentialCollectionLoss(
+                loss_rate=0.02,  # 2% collection loss
+                applied_to_base_rent=True
+            )
+        )
+        
+        typical_misc_income = ResidentialMiscIncome(
+            name="Ancillary Income",
+            category="Revenue", 
+            timeline=timeline,
+            value=50.0,  # $50/unit/month (parking, laundry, etc.)
+            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            growth_rate=PercentageGrowthRate(name="Misc Income Growth", value=0.025)
+        )
+        
+        return cls(
+            name=name,
+            space_filter=space_filter or ResidentialUnitFilter(),
+            pace=pace or FixedQuantityPace(quantity=5, unit="Units", frequency_months=1),
+            leasing_assumptions=leasing_assumptions or ResidentialDirectLeaseTerms(),
+            start_date_anchor=start_date_anchor,
+            stabilized_expenses=typical_expenses,
+            stabilized_losses=typical_losses,
+            stabilized_misc_income=[typical_misc_income],
+            **kwargs
+        )
 
     def generate_lease_specs(
         self,

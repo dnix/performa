@@ -209,7 +209,7 @@ def equivalent_office_development_project() -> DevelopmentProject:
                 is_divisible=False
             )
         ],
-        absorption_plan=OfficeAbsorptionPlan(
+        absorption_plan=OfficeAbsorptionPlan.with_typical_assumptions(
             name="Office Lease-Up",
             space_filter=SpaceFilter(),
             pace=FixedQuantityPace(
@@ -361,7 +361,7 @@ def equivalent_residential_development_project() -> DevelopmentProject:
                 rollover_profile=rollover_profile
             )
         ],
-        absorption_plan=ResidentialAbsorptionPlan(
+        absorption_plan=ResidentialAbsorptionPlan.with_typical_assumptions(
             name="Residential Lease-Up",
             space_filter=ResidentialUnitFilter(),
             pace=ResidentialFixedQuantityPace(

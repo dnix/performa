@@ -121,7 +121,7 @@ def office_blueprint() -> OfficeDevelopmentBlueprint:
                 is_divisible=False
             )
         ],
-        absorption_plan=OfficeAbsorptionPlan(
+        absorption_plan=OfficeAbsorptionPlan.with_typical_assumptions(
             name="Office Absorption",
             space_filter=SpaceFilter(),
             pace=OfficeFixedQuantityPace(
@@ -164,7 +164,7 @@ def residential_blueprint() -> ResidentialDevelopmentBlueprint:
                 rollover_profile=rollover_profile
             )
         ],
-        absorption_plan=ResidentialAbsorptionPlan(
+        absorption_plan=ResidentialAbsorptionPlan.with_typical_assumptions(
             name="Residential Absorption",
             space_filter=ResidentialUnitFilter(),
             pace=ResidentialFixedQuantityPace(
@@ -230,7 +230,7 @@ def comprehensive_project() -> DevelopmentProject:
                 subdivision_minimum_lease_area=2000.0
             )
         ],
-        absorption_plan=OfficeAbsorptionPlan(
+        absorption_plan=OfficeAbsorptionPlan.with_typical_assumptions(
             name="Premium Office Absorption",
             space_filter=SpaceFilter(),
             pace=OfficeFixedQuantityPace(
@@ -281,7 +281,7 @@ def comprehensive_project() -> DevelopmentProject:
                 rollover_profile=rollover_profile
             )
         ],
-        absorption_plan=ResidentialAbsorptionPlan(
+        absorption_plan=ResidentialAbsorptionPlan.with_typical_assumptions(
             name="Luxury Residential Absorption",
             space_filter=ResidentialUnitFilter(),
             pace=ResidentialFixedQuantityPace(

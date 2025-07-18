@@ -78,7 +78,7 @@ def test_development_analysis_scenario_instantiation():
                 use_type="office"
             )
         ],
-        absorption_plan=OfficeAbsorptionPlan(
+        absorption_plan=OfficeAbsorptionPlan.with_typical_assumptions(
             name="Test Absorption",
             space_filter=SpaceFilter(),
             pace=OfficeFixedQuantityPace(
@@ -168,7 +168,7 @@ def test_development_analysis_scenario_prepare_models():
                 is_divisible=False
             )
         ],
-        absorption_plan=OfficeAbsorptionPlan(
+        absorption_plan=OfficeAbsorptionPlan.with_typical_assumptions(
             name="Office Absorption Plan",
             space_filter=SpaceFilter(),
             pace=OfficeFixedQuantityPace(
@@ -260,7 +260,7 @@ def test_development_analysis_scenario_mixed_use():
                 use_type="office"
             )
         ],
-        absorption_plan=OfficeAbsorptionPlan(
+        absorption_plan=OfficeAbsorptionPlan.with_typical_assumptions(
             name="Office Absorption",
             space_filter=SpaceFilter(),
             pace=OfficeFixedQuantityPace(
@@ -300,7 +300,7 @@ def test_development_analysis_scenario_mixed_use():
                 rollover_profile=rollover_profile
             )
         ],
-        absorption_plan=ResidentialAbsorptionPlan(
+        absorption_plan=ResidentialAbsorptionPlan.with_typical_assumptions(
             name="Residential Absorption",
             space_filter=ResidentialUnitFilter(),
             pace=ResidentialFixedQuantityPace(
@@ -440,7 +440,7 @@ def test_development_analysis_scenario_with_disposition():
                 use_type="office"
             )
         ],
-        absorption_plan=OfficeAbsorptionPlan(
+        absorption_plan=OfficeAbsorptionPlan.with_typical_assumptions(
             name="Pre-Sale Absorption",
             space_filter=SpaceFilter(),
             pace=OfficeFixedQuantityPace(
@@ -536,7 +536,7 @@ def test_development_analysis_scenario_polymorphic_iteration():
                 use_type="office"
             )
         ],
-        absorption_plan=OfficeAbsorptionPlan(
+        absorption_plan=OfficeAbsorptionPlan.with_typical_assumptions(
             name="Office Absorption",
             space_filter=SpaceFilter(),
             pace=OfficeFixedQuantityPace(
@@ -576,7 +576,7 @@ def test_development_analysis_scenario_polymorphic_iteration():
                 rollover_profile=rollover_profile
             )
         ],
-        absorption_plan=ResidentialAbsorptionPlan(
+        absorption_plan=ResidentialAbsorptionPlan.with_typical_assumptions(
             name="Residential Absorption",
             space_filter=ResidentialUnitFilter(),
             pace=ResidentialFixedQuantityPace(
@@ -656,7 +656,7 @@ def test_development_analysis_end_to_end():
                 use_type="office"
             )
         ],
-        absorption_plan=OfficeAbsorptionPlan(
+        absorption_plan=OfficeAbsorptionPlan.with_typical_assumptions(
             name="Complete Absorption",
             space_filter=SpaceFilter(),
             pace=OfficeFixedQuantityPace(

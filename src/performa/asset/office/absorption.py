@@ -67,6 +67,7 @@ from ...core.base import (
 from ...core.base import (
     SpaceFilter as CoreSpaceFilter,
 )
+from ...core.base.absorption import AnchorLogic
 from ...core.primitives import (
     GlobalSettings,
     LeaseTypeEnum,
@@ -75,7 +76,10 @@ from ...core.primitives import (
     UnitOfMeasureEnum,
     UponExpirationEnum,
 )
+from .expense import OfficeExpenses, OfficeOpExItem
 from .lease_spec import OfficeLeaseSpec
+from .losses import OfficeCollectionLoss, OfficeGeneralVacancyLoss, OfficeLosses
+from .misc_income import OfficeMiscIncome
 from .rollover import OfficeRolloverProfile
 
 if TYPE_CHECKING:
@@ -517,7 +521,7 @@ class CustomSchedulePaceStrategy(PaceStrategy):
         return generated_specs
 
 
-class OfficeAbsorptionPlan(AbsorptionPlanBase):
+class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, OfficeMiscIncome]):
     """
     Defines and executes a complete plan for leasing up vacant office space.
 
@@ -535,7 +539,160 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase):
     ]
     leasing_assumptions: Union[str, DirectLeaseTerms]
 
-    # FIXME: Add stabilized operating assumptions interface? expenses, losses, misc_income, etc.
+    # Required stabilized operating assumptions (no silent defaults)
+    stabilized_expenses: OfficeExpenses = Field(
+        ..., 
+        description="Stabilized operating expenses for absorbed units"
+    )
+    stabilized_losses: OfficeLosses = Field(
+        ..., 
+        description="Stabilized loss assumptions for absorbed units"
+    )
+    stabilized_misc_income: List[OfficeMiscIncome] = Field(
+        ..., 
+        description="Stabilized miscellaneous income for absorbed units"
+    )
+
+    @classmethod
+    def with_typical_assumptions(
+        cls,
+        name: str,
+        space_filter: SpaceFilter,
+        start_date_anchor: Union[date, StartDateAnchorEnum, AnchorLogic], 
+        pace: Annotated[Union[FixedQuantityPace, EqualSpreadPace, CustomSchedulePace], Field(discriminator="type")],
+        leasing_assumptions: Union[str, DirectLeaseTerms]
+    ) -> "OfficeAbsorptionPlan":
+        """
+        Create an OfficeAbsorptionPlan with standard operating assumptions.
+        
+        This factory method creates an absorption plan with the following assumptions:
+        
+        Expenses:
+        - Management Fee: 5% of Effective Gross Income
+        - Operating Costs: $8.00/SF/year
+        - Taxes & Insurance: $2.00/SF/year
+        
+        Losses:
+        - General Vacancy: 5%
+        - Collection Loss: 1%
+        
+        Miscellaneous Income:
+        - Empty list
+        
+        Example:
+            ```python
+            from datetime import date
+            from performa.asset.office.absorption import (
+                OfficeAbsorptionPlan, SpaceFilter, FixedQuantityPace, DirectLeaseTerms
+            )
+            
+            plan = OfficeAbsorptionPlan.with_typical_assumptions(
+                name="Office Lease-Up",
+                space_filter=SpaceFilter(use_types=["office"]),
+                start_date_anchor=date(2024, 6, 1),
+                pace=FixedQuantityPace(
+                    type="FixedQuantity",
+                    quantity=25000,
+                    unit="SF", 
+                    frequency_months=6
+                ),
+                leasing_assumptions=DirectLeaseTerms(
+                    base_rent_value=45.0,
+                    base_rent_unit_of_measure="per_unit",
+                    base_rent_frequency="annual",
+                    term_months=60,
+                    upon_expiration="market"
+                )
+            )
+            ```
+        
+        For custom operating assumptions, use the direct constructor:
+            ```python
+            plan = OfficeAbsorptionPlan(
+                stabilized_expenses=custom_office_expenses,
+                stabilized_losses=custom_office_losses,
+                stabilized_misc_income=custom_misc_income,
+                ...
+            )
+            ```
+        
+        Args:
+            name: Name for the absorption plan
+            space_filter: Criteria for which vacant suites to include
+            start_date_anchor: When leasing begins
+            pace: Leasing velocity strategy
+            leasing_assumptions: Financial terms for new leases
+        
+        Returns:
+            OfficeAbsorptionPlan with standard operating assumptions
+        """
+        return cls(
+            name=name,
+            space_filter=space_filter,
+            start_date_anchor=start_date_anchor,
+            pace=pace,
+            leasing_assumptions=leasing_assumptions,
+            stabilized_expenses=cls._create_typical_expenses(),
+            stabilized_losses=cls._create_typical_losses(),
+            stabilized_misc_income=[]  # No misc income by default
+        )
+
+    @classmethod
+    def _create_typical_expenses(cls) -> OfficeExpenses:
+        """Create typical office operating expenses."""
+        from datetime import date
+
+        from ...core.primitives import PercentageGrowthRate, Timeline
+        
+        # Create a basic timeline for the expense items
+        timeline = Timeline(
+            start_date=date(2024, 1, 1),
+            duration_months=120  # 10 years
+        )
+        
+        # Create typical office operating expenses
+        return OfficeExpenses(
+            operating_expenses=[
+                OfficeOpExItem(
+                    name="Property Management",
+                    category="Expense",
+                    timeline=timeline,
+                    value=5.0,  # $5/SF annually
+                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                    growth_rate=PercentageGrowthRate(name="Property Management Growth", value=0.03)
+                ),
+                OfficeOpExItem(
+                    name="Operating Costs",
+                    category="Expense",
+                    timeline=timeline,
+                    value=8.0,  # $8/SF annually
+                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                    growth_rate=PercentageGrowthRate(name="OpEx Growth", value=0.035)
+                ),
+                OfficeOpExItem(
+                    name="Taxes & Insurance",
+                    category="Expense",
+                    timeline=timeline,
+                    value=2.0,  # $2/SF annually
+                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                    growth_rate=PercentageGrowthRate(name="Tax Growth", value=0.025)
+                )
+            ]
+        )
+
+    @classmethod
+    def _create_typical_losses(cls) -> OfficeLosses:
+        """Create typical office loss assumptions."""
+        return OfficeLosses(
+            general_vacancy=OfficeGeneralVacancyLoss(
+                vacancy_rate=0.05,  # 5% office vacancy
+                applied_to_base_rent=True
+            ),
+            collection_loss=OfficeCollectionLoss(
+                loss_rate=0.01,  # 1% collection loss
+                applied_to_base_rent=True
+            )
+        )
 
     def generate_lease_specs(
         self,
