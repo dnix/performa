@@ -12,12 +12,10 @@ from datetime import date
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID, uuid4
 
-from pydantic import Field
-
-from ..core.primitives import Model
+from pydantic import BaseModel, Field
 
 
-class ReportTemplate(Model):
+class ReportTemplate(BaseModel):
     """
     Template configuration for report generation.
     
@@ -43,7 +41,7 @@ class ReportTemplate(Model):
     styling: Dict[str, Any] = Field(default_factory=dict)
 
 
-class Report(Model, ABC):
+class Report(BaseModel, ABC):
     """
     Base class for all industry-standard reports.
     
@@ -64,6 +62,10 @@ class Report(Model, ABC):
     
     # Template and formatting
     template: Optional[ReportTemplate] = None
+    
+    # Project reference (for report classes that need to store the project)
+    project: Optional[Any] = None
+    period: Optional[Any] = None  # For period-specific reports
     
     @abstractmethod
     def generate_data(self) -> Dict[str, Any]:
