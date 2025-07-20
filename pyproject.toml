@@ -52,10 +52,11 @@ dependencies = [
     "squarify",
 ]
 
-[tool.uv]
-dev-dependencies = [
+[project.optional-dependencies]
+dev = [
     "ruff",
     "pytest",
+    "pytest-cov",
     "deptry",
     "marimo",
     "streamlit",
