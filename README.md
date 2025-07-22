@@ -1,5 +1,5 @@
 > [!CAUTION]
-> **Pre-Alpha Status:** This project is under active development with validation testing ongoing. Breaking changes are expected; APIs and data structures may change significantly. Not recommended for production use (yet!). 🚧
+> **Pre-Alpha Status:** This project is under active development. Breaking changes are expected; APIs and data structures may change significantly. We are working toward an initial release. Comments and feedback are most welcome! 🚧
 
 <br>
 <br>
@@ -152,4 +152,4 @@ Our inspiration comes from countless sources, but especially [Pydantic](https://
 
 ---
 
-_This project is underpinned by the power of data-driven decision-making and the open source movement._
+_This project is underpinned by the power of data-driven decision-making and the open source movement._ 🚀
