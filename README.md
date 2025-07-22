@@ -15,40 +15,47 @@
   <em>An open standard for real estate financial modeling — transparent, composable, and AI-ready</em>
 </p>
 
-<p align="center">
-  <a href="https://img.shields.io/badge/License-Apache%202.0-blue.svg"><img src="https://img.shields.io/badge/License-Apache%202.0-red.svg" alt="Apache 2.0 License" /></a>
-  <a href="https://pydantic.dev"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/pydantic/pydantic/main/docs/badge/v2.json" alt="Pydantic v2" /></a>
-  <a href="https://github.com/performa-dev/performa/blob/main/CODE_OF_CONDUCT.md"><img src="https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg" alt="Contributor Covenant" /></a>
-</p>
+  <p align="center">
+    <img src="https://img.shields.io/badge/Status-Pre--Alpha-red" alt="pre-alpha" />
+    <a href="https://img.shields.io/badge/License-Apache%202.0-blue.svg"><img src="https://img.shields.io/badge/License-Apache%202.0-yellow.svg" alt="Apache 2.0 License" /></a>
+    <a href="https://pydantic.dev"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/pydantic/pydantic/main/docs/badge/v2.json" alt="Pydantic v2" /></a>
+    <a href="https://github.com/performa-dev/performa/blob/main/CODE_OF_CONDUCT.md"><img src="https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg" alt="Contributor Covenant" /></a>
+    <img src="https://img.shields.io/badge/Python-3.10+-blue" alt="Python 3.10+" />
+  </p>
 
-**Performa** is an open-source Python library that provides transparent, composable, and rigorously tested building blocks for real estate financial modeling. It serves as a protocol designed to be the common language for the next generation of analysts, developers, investors, financiers, and AI assistants.
+---
+
+> [!CAUTION]
+> **Pre-Alpha Software:** This project is under active development with ongoing validation. Breaking changes are expected; APIs and data structures may change significantly. Not recommended for production use (yet).
+
+---
+
+**Performa** is an open-source Python library that provides transparent, composable, and rigorously tested building blocks for real estate financial modeling. It serves as a protocol designed to be the common language for the next generation of analysts, developers, investors, financiers, and AI assistants to serve them all.
 
 For decades, real estate finance has been powered by spreadsheets and proprietary "black box" software. But today, our industry stands at an inflection point. The dawn of the AI era demands models that are not just human-readable, but also machine-executable — a "glass box" approach that is transparent, auditable, and extensible by any and all.
 
 Highlights:
 
-- 🏗️ **Asset-centric modeling**: Deep expertise for office, residential, retail, etc.
-- 🔄 **Development lifecycle**: Full project modeling from construction to stabilization
+- 💎 **Glass box transparency**: Every calculation is explicit and auditable—no hidden formulae
+- 🏢 **Asset-centric modeling**: Deep expertise for office, residential, retail, etc.
 - 🤝 **Deal structuring**: Partnership waterfalls, debt facilities, and acquisition modeling
-- 💎 **Glass box transparency**: Every calculation is explicit and auditable—no hidden formulas
-- 🧩 **Lego brick composability**: Seamlessly connect components for simple to complex scenarios
-- 🤖 **Purpose-built for AI**: Structured data models that speak the native language of LLMs
-- 📊 **Industry standards**: Built on real-world practices and terminology
-- ⚡ **Pydantic-powered**: Robust data validation and type safety throughout
-- 🔬 **Rigorously tested**: Comprehensive test suite for institutional-grade accuracy
-- 📈 **Comprehensive valuation**: DCF, direct cap, and sales comparison methods
 - 💰 **Financing facilities**: Construction loans, permanent debt, and complex structures
+- 📈 **Comprehensive valuation**: DCF, direct cap, and sales comparison methods
+- 🏗️ **Development lifecycle**: Full project modeling from construction to stabilization
 - 📋 **Professional reporting**: Industry-standard financial statements and analysis
 - 🐍 **Fully Pythonic**: modern language for data science and financial modeling
 - ⏳ **Git-friendly**: version control for your models and assumptions
+- 🤖 **Purpose-built for AI**: Structured data models that speak the native language of LLMs
+
+<br>
 
 ## Why Performa? An Industry at an Inflection Point
 
-For decades, real estate finance has been powered by two remarkable tools: the infinite flexibility of the spreadsheet and the institutional acceptance of proprietary "black box" software. These tools built the modern real estate world. But today, our industry stands at an inflection point, much like the derivatives market did before the [ISDA Common Domain Model (CDM)](https://github.com/finos/common-domain-model) created a universal language for complex trades.
+For decades, real estate finance has been powered by two remarkable tools: the infinite flexibility of the [spreadsheet](https://www.hyperindexed.com/blog/2018/7/31/visicalcs-enduring-vision) and the institutional acceptance of proprietary "black box" software. These tools built the modern real estate world. But today, our industry stands at an inflection point, much like the derivatives market did before the [ISDA Common Domain Model (CDM)](https://github.com/finos/common-domain-model) created a universal language for complex trades.
 
-Every transaction involves the same frustrating dance: developer, lender, and investor each rebuild the financial model in their own format just to trust the numbers. This creates friction, wastes valuable time, introduces risk, and makes the market less liquid.
+Every transaction involves the same frustrating dance: sponsor, lender, and investor each rebuild the financial model in their own format just to trust the numbers and logic. This creates friction, wastes valuable time, introduces risk, and makes the market less liquid.
 
-**`performa` aims to be the lingua franca for real estate.**
+**`performa` aims to be the lingua franca for real estate project economics.**
 
 This comes at a pivotal moment: the _dawn of the AI era_ and the _maturation of data science tooling_. We can speak plain language to create complex models with rules, and with `performa` we get guardrails and reproducibility - not ad hoc AI slop or hallucinations. And now, with breakthrough work in [Pyodide](https://pyodide.org/) and [WASM](https://webassembly.org/), we can run Python - the stalwart language of data science - trivially, in a web browser.
 
@@ -56,9 +63,11 @@ This comes at a pivotal moment: the _dawn of the AI era_ and the _maturation of 
 
 `performa` provides "Lego brick" components where each piece — a lease, expense, loan — is a validated Pydantic data model that connects seamlessly with others. Every input is validated and every calculation is explicit Python code you can audit and trust.
 
-- **For Analysts & Developers:** Spend less time on boilerplate logic and debugging formulas, and more time on what matters: the assumptions, the strategy, and the deal itself. Move from being a "spreadsheet jockey" to an architect of value.
-- **For Institutions & Stakeholders:** Drastically reduce transaction friction. When a developer, a lender, and an investor all speak the same language, diligence becomes faster, risk is minimized, and capital can move more efficiently.
-- **For the AI-Powered Future:** Stop trying to teach AI how to decipher a spreadsheet. Also don't have it reinvent the wheel! Instead, give it the native building blocks it understands. `performa` is the "math co-processor" for real estate AI, turning natural language requests into institutional-grade, auditable financial models.
+**For Analysts & Developers:** Spend less time on boilerplate logic and debugging formulas, and more time on what matters: the assumptions, the strategy, and the deal itself. Move from being a "spreadsheet jockey" to an architect of value.
+
+**For Institutions & Stakeholders:** Drastically reduce transaction friction. When a developer, a lender, and an investor all speak the same language, diligence becomes faster, risk is minimized, and capital can move more efficiently.
+
+**For the AI-Powered Future:** Stop trying to teach AI how to decipher a spreadsheet. Also don't have it reinvent the wheel! Instead, give it the native building blocks it understands. `performa` is the "math co-processor" for real estate AI, turning natural language requests into institutional-grade, auditable financial models.
 
 _Spend less time building models and more time creating value._
 
@@ -137,12 +146,10 @@ This project is in active development. Feedback from real estate professionals, 
 
 ## Inspiration ✨
 
-Performa is a reinvention of the real estate financial model as a reproducible, interactive, auditable, shareable application instead of an error-prone spreadsheet. It is a protocol designed to be the common language for the next generation of analysts, developers, investors, and AI assistants.
+Performa is a **reinvention** of the real estate financial model as a reproducible, interactive, auditable, shareable application instead of an error-prone spreadsheet. It is a protocol designed to be the common language for the next generation of analysts, developers, investors, and AI assistants.
 
 Tooling matters; the tools we use shape the way we think - better tools, better minds, better outcomes. With Performa, we hope to provide the real estate community with a better structure with which to imagine the built future and to communicate it, to experiment with code and to share it; to learn financial modeling and to teach it.
 
-Our inspiration comes from countless sources, but especially [Pydantic](https://docs.pydantic.dev/)'s data modeling standard, Observable and Plot and D3js, [marimo](https://marimo.io/), [Pandas](https://pandas.pydata.org/), streamlit, airflow and DAGs, R statistical analysis, and more esoteric terrain like geospatial FOSS (maps and geoprocessing), and EnergyPlus (building energy modeling). We are sustained by the power of data-driven decision-making and the open source movement.
+Our inspiration comes from countless sources, but especially [Pydantic](https://docs.pydantic.dev/)'s data modeling standards, dataviz and abstractions in [Observable](https://observablehq.com/) + [Plot](https://observablehq.com/plot/) + [D3](https://d3js.org/), [marimo](https://marimo.io/), array math in [Numpy](https://numpy.org/) and [Pandas](https://pandas.pydata.org/), data apps in [streamlit](https://github.com/streamlit/streamlit), data ETL in [Airflow](https://airflow.apache.org/) and [DAG](https://en.wikipedia.org/wiki/Directed_acyclic_graph)s, statistics in [R](https://www.r-project.org/), configuration and convention in [Kubernetes](https://kubernetes.io/), and more esoteric terrain like [geospatial FOSS](https://www.osgeo.org/) (maps and geoprocessing), and [EnergyPlus](https://energyplus.net/) (building energy modeling).
 
----
-
-*Real estate is the world's largest asset class. It's time it had an open-source foundation worthy of its importance.*
+_This project is underpinned by the power of data-driven decision-making and the open source movement._
