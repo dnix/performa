@@ -18,19 +18,10 @@
   <em>An open standard for real estate financial modeling — transparent, composable, and AI-ready</em>
 </p>
 
-<!-- <p align="center">
-  <a href="https://marimo.app/l/c7h6pz" target="_blank"><strong>Demo</strong></a> ·
-  <a href="/src/performa/README.md" target="_blank"><strong>Docs</strong></a> ·
-  <a href="/examples/" target="_blank"><strong>Examples</strong></a> ·
-  <a href="/notebooks/" target="_blank"><strong>Notebooks</strong></a> ·
-  <a href="https://github.com/performa-dev/performa" target="_blank"><strong>GitHub</strong></a>
-</p> -->
-
   <p align="center">
     <img src="https://img.shields.io/badge/Status-Pre--Alpha-red" alt="pre-alpha" />
     <a href="https://img.shields.io/badge/License-Apache%202.0-blue.svg"><img src="https://img.shields.io/badge/License-Apache%202.0-yellow.svg" alt="Apache 2.0 License" /></a>
     <a href="https://pydantic.dev"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/pydantic/pydantic/main/docs/badge/v2.json" alt="Pydantic v2" /></a>
-    <!-- <a href="https://marimo.app/l/c7h6pz"><img src="https://marimo.io/shield.svg" alt="marimo" /></a> -->
     <a href="https://github.com/performa-dev/performa/blob/main/CODE_OF_CONDUCT.md"><img src="https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg" alt="Contributor Covenant" /></a>
     <img src="https://img.shields.io/badge/Python-3.10+-blue" alt="Python 3.10+" />
   </p>
@@ -43,7 +34,6 @@ For decades, real estate finance has been powered by spreadsheets and proprietar
 
 Highlights:
 
-<!-- - 📊 **Industry standards**: Built on real-world practices and terminology -->
 - 💎 **Glass box transparency**: Every calculation is explicit and auditable—no hidden formulae
 - 🏢 **Asset-centric modeling**: Deep expertise for office, residential, retail, etc.
 - 🤝 **Deal structuring**: Partnership waterfalls, debt facilities, and acquisition modeling
@@ -55,8 +45,6 @@ Highlights:
 - 🐍 **Fully Pythonic**: modern language for data science and financial modeling
 - ⏳ **Git-friendly**: version control for your models and assumptions
 - 🤖 **Purpose-built for AI**: Structured data models that speak the native language of LLMs
-<!-- - ⚡ **Pydantic-powered**: Robust data validation and type safety throughout -->
-<!-- - 🔬 **Rigorously tested**: Comprehensive test suite for institutional-grade accuracy -->
 
 <br>
 
@@ -149,27 +137,11 @@ cash_flows = scenario.get_cash_flow_summary()
 
 No installation, just batteries-included notebooks. Coming soon!
 
-<!-- Open one of the below links to a [marimo](https://marimo.io/l/c7h6pz) in web broswer. That's it! If you want to customize one of the examples, fork the notebook and use the documentation as a guide.
-
-- [Office Property](https://marimo.app/l/c7h6pz)
-- [Residential Property](https://marimo.app/l/c7h6pz)
-- [Retail Property](https://marimo.app/l/c7h6pz)
-- [Hotel Property](https://marimo.app/l/c7h6pz)
-- [Industrial Property](https://marimo.app/l/c7h6pz) -->
-
 ## Contributing & Call for Feedback
 
 This project is in active development. Feedback from real estate professionals, developers, and academics is essential.
 
 [Development Guide](DEVELOPMENT.md) • [Contributing](CONTRIBUTING.md) • [License](LICENSE)
-
-<!-- ## Join the Mission
-
-Let's build the future of real estate finance, together. In the open.
-
-- **Explore the Demo:** [Interactive Marimo Notebook](https://marimo.app/l/c7h6pz)
-- **Dive into the Code:** [GitHub Repository](https://github.com/performa-dev/performa)
-- **Join the Community:** [Coming Soon] -->
 
 ## Inspiration ✨
 
