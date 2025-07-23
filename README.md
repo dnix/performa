@@ -41,7 +41,6 @@ Highlights:
 - 📈 **Comprehensive valuation**: DCF, direct cap, and sales comparison methods
 - 🏗️ **Development lifecycle**: Full project modeling from construction to stabilization
 - 🧩 **Composable and extensible**: Connect components for quick scripts or complex apps
-- 📋 **Professional reporting**: Industry-standard financial statements and analysis
 - 🐍 **Fully Pythonic**: modern language for data science and financial modeling
 - ⏳ **Git-friendly**: version control for your models and assumptions
 - 🤖 **Purpose-built for AI**: Structured data models that speak the native language of LLMs
