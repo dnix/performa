@@ -48,7 +48,7 @@ Highlights:
 <br>
 
 <p align="center">
-  <img src="docs/teaser.gif" alt="Performa Interactive Demo" width="550" />
+  <img src="docs/teaser.gif" alt="Performa Interactive Demo" width="600" />
 </p>
 
 <p align="center">
