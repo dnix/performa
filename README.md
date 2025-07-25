@@ -48,11 +48,11 @@ Highlights:
 <br>
 
 <p align="center">
-  <img src="docs/teaser.gif" alt="Performa Interactive Demo" width="550" style="border-bottom: 1px solid #d1d9e0b3;" />
+  <img src="docs/teaser.gif" alt="Performa Interactive Demo" width="550" />
 </p>
 
 <p align="center">
-  <em>Demo notebooks visually exploring individual Performa concepts</em>
+  <sup><em>Demo notebooks visually exploring individual Performa concepts</em></sup>
 </p>
 
 <br>
