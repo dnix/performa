@@ -45,12 +45,14 @@ Highlights:
 - ⏳ **Git-friendly**: version control for your models and assumptions
 - 🤖 **Purpose-built for AI**: Structured data models that speak the native language of LLMs
 
-<p align="center" style="margin-top: 20px;">
+<br>
+
+<p align="center">
   <img src="docs/teaser.gif" alt="Performa Interactive Demo" width="550" style="border-bottom: 1px solid #d1d9e0b3;" />
 </p>
 
-<p align="center" style="margin-top: -10px;">
-  <em style="color:#cccccc;">Demo notebooks visually exploring individual Performa concepts</em>
+<p align="center">
+  <em>Demo notebooks visually exploring individual Performa concepts</em>
 </p>
 
 <br>
