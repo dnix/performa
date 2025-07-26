@@ -28,9 +28,9 @@
 
 <br>
 
-**Performa** is an open-source Python library that provides transparent, composable, and rigorously tested building blocks for real estate financial modeling. It serves as a protocol designed to be the common language for the next generation of analysts, developers, investors, financiers, and AI assistants to serve them all.
+**Performa** is an open-source Python library that provides transparent, composable, and rigorously tested building blocks for real estate financial modeling. It serves as a protocol designed to be the common language for the next generation of analysts, developers, investors, financiers, and AI assistants.
 
-For decades, real estate finance has been powered by spreadsheets and proprietary "black box" software. But today, our industry stands at an inflection point. The dawn of the AI era demands models that are not just human-readable, but also machine-executable — a "glass box" approach that is transparent, auditable, and extensible by any and all.
+For decades, real estate finance has been powered by spreadsheets and proprietary "black box" software. But today, our industry stands at an inflection point. The dawn of the AI era demands models that are not just human-readable, but also machine-executable — a "glass box" approach that is transparent, auditable, and extensible.
 
 Highlights:
 
@@ -52,7 +52,7 @@ Highlights:
 </p>
 
 <p align="center">
-  <sup><em>Demo notebooks visually exploring individual Performa concepts</em></sup>
+  <sup><em>Demo notebooks visually exploring real estate concepts using Performa building blocks</em></sup>
 </p>
 
 <br>
@@ -84,7 +84,7 @@ _Spend less time building models and more time creating value._
 
 `performa` is organized into logical modules that reflect the natural structure of real estate finance:
 
-🏢 **[Asset Models](/src/performa/asset/README.md)**: Property-specific modeling with deep expertise for each asset class. Includes mature [office](/src/performa/asset/office/README.md) modeling with complex lease structures and recovery methods, [residential](/src/performa/asset/residential/README.md) multifamily properties with unit-centric modeling and value-add capabilities, and shared [commercial](/src/performa/asset/commercial/) logic. Retail, industrial, and hotel modules coming soon.
+🏢 **[Asset Models](/src/performa/asset/README.md)**: Property-specific modeling with deep expertise for each asset class. Includes mature [office](/src/performa/asset/office/README.md) modeling with complex lease structures and recovery methods, [residential](/src/performa/asset/residential/README.md) multifamily properties with unit-centric modeling and value-add capabilities, and shared [commercial](/src/performa/asset/commercial/) logic. Retail, industrial, hotel modules (and more!) coming soon.
 
 ⚙️ **[Core Framework](/src/performa/core/README.md)**: The foundational building blocks that power everything. Contains [primitives](/src/performa/core/primitives/README.md) for timeline management and cash flow models, [base classes](/src/performa/core/base/README.md) that provide abstract foundations for all property types, and [capital planning](/src/performa/core/capital/README.md) tools for sophisticated project/construction management with flexible timing (linear, s-curve, upfront, etc.).
 
