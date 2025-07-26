@@ -1,5 +1,5 @@
 > [!CAUTION]
-> **Pre-Alpha Status:** This project is under active development. Breaking changes are expected; APIs and data structures may change significantly. Validation testing is in progress. We are working doggedly toward an initial release. Comments and feedback are most welcome! 🚧
+> **Pre-Alpha Status:** This project is under active development. Breaking changes are expected; APIs and data structures may change significantly. Validation testing is in progress. We are working doggedly toward an initial release. Comments, feedback, and contributions are most welcome! 🚧
 
 <br>
 <br>
