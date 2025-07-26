@@ -1,3 +1,6 @@
+# Copyright 2024-2025 David Gordon Nix
+# SPDX-License-Identifier: Apache-2.0
+
 """Common types used across debt module"""
 
 from typing import Union

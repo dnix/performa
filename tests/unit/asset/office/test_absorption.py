@@ -1,3 +1,6 @@
+# Copyright 2024-2025 David Gordon Nix
+# SPDX-License-Identifier: Apache-2.0
+
 """
 This test module provides comprehensive coverage for the office absorption logic
 defined in `performa.asset.office.absorption`. The tests are designed to

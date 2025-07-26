@@ -1,3 +1,6 @@
+# Copyright 2024-2025 David Gordon Nix
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Basic lease components that can be used throughout the base modules without circular dependencies.
 

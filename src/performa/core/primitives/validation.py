@@ -1,3 +1,6 @@
+# Copyright 2024-2025 David Gordon Nix
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Reusable Pydantic validation utilities for common patterns across the codebase.
 

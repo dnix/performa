@@ -1,3 +1,6 @@
+# Copyright 2024-2025 David Gordon Nix
+# SPDX-License-Identifier: Apache-2.0
+
 """Construction loan facilities"""
 
 from datetime import date
