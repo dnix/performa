@@ -1,10 +1,11 @@
 title: "performa - open-source real estate financial modeling"
 abstract: >-
-  Performa is a modern Python library designed for real estate 
-  financial modeling, providing standardized models based on 
-  Pydantic structures. It emphasizes robust data validation and 
-  offers a flexible, extensible architecture with a comprehensive 
-  set of tools for financial analysis in the real estate sector.
+  Performa is an open-source real estate financial modeling framework 
+  designed as a common language for analysts, developers, investors, and 
+  AI systems. It provides transparent, composable building blocks for 
+  institutional-grade real estate analysis, offering a "glass box" 
+  alternative to proprietary software with auditable calculations and 
+  machine-executable models.
 cff-version: 1.2.0
 message: 'If you use this software, please cite it as below.'
 type: software
@@ -13,7 +14,6 @@ authors:
     given-names: David Gordon
     orcid: https://orcid.org/0009-0000-6784-8485
 repository-code: https://github.com/dnix/performa
-url: https://docs.performa.dev/latest/
 keywords:
   - python
   - "real estate"
@@ -32,17 +32,3 @@ keywords:
   - analytics
 license: Apache-2.0
 license-url: https://github.com/dnix/performa/blob/main/LICENSE
-# FIXME: date-released: TBD
-
-identifiers:
-  - description: "The collection of all versions of performa"
-    type: doi
-    value: 10.5281/zenodo.12735329
-# FIXME: a la 10.5281/zenodo.8368368 for all versions
-# integrate releases with zenodo
-# https://docs.github.com/en/repositories/archiving-a-github-repository/referencing-and-citing-content
-
-# examples
-# https://github.com/pandas-dev/pandas/blob/main/CITATION.cff
-# https://github.com/pydantic/pydantic/blob/main/CITATION.cff
-# https://github.com/marimo-team/marimo/blob/main/CITATION.cff
