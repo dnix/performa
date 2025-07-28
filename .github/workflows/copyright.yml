@@ -1,0 +1,240 @@
+name: Copyright Management
+
+on:
+  # Check copyright on PRs and pushes
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  
+  # Annual copyright update
+  schedule:
+    # Runs at 08:00 UTC on January 1st
+    - cron: '0 8 1 1 *'
+  
+  # Manual trigger
+  workflow_dispatch:
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # JOB 1: COPYRIGHT CHECK (For Pull Requests and Pushes)
+  # ---------------------------------------------------------------------------
+  check-copyright:
+    name: Check Copyright Headers
+    runs-on: ubuntu-latest
+    # Only run this job for push/PR events, not scheduled
+    if: github.event_name != 'schedule'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Ruff
+        run: pip install ruff
+
+      - name: Check Copyright Headers
+        run: |
+          echo "Checking copyright headers..."
+          ruff check . --select CPY001
+          echo "✅ All copyright headers are present and correct!"
+
+  # ---------------------------------------------------------------------------
+  # JOB 2: ANNUAL COPYRIGHT UPDATE (For Scheduled & Manual Runs)
+  # ---------------------------------------------------------------------------
+  update-copyright:
+    name: Annual Copyright Update
+    runs-on: ubuntu-latest
+    # Only run for scheduled events or manual dispatch
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Need to use a PAT to trigger other workflows
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install ruff tomli tomli-w
+
+      - name: Get current year
+        id: date
+        run: echo "year=$(date +'%Y')" >> $GITHUB_OUTPUT
+
+      - name: Update pyproject.toml copyright year
+        run: |
+          python << 'EOF'
+          import tomli
+          import tomli_w
+          from datetime import datetime
+          import re
+
+          current_year = datetime.now().year
+          pyproject_path = "pyproject.toml"
+
+          print(f"Current year: {current_year}")
+
+          with open(pyproject_path, "rb") as f:
+              config = tomli.load(f)
+
+          # Navigate to the copyright section
+          copyright_section = config["tool"]["ruff"]["lint"]["flake8-copyright"]
+          old_rgx = copyright_section["notice-rgx"]
+          
+          print(f"Current regex: {old_rgx}")
+          
+          # Update the year range in the regex (e.g., from '2024-2025' to '2024-2026')
+          new_rgx = re.sub(r'2024-\d{4}', f'2024-{current_year}', old_rgx)
+          
+          if old_rgx != new_rgx:
+              print(f"Updating copyright regex to: {new_rgx}")
+              copyright_section["notice-rgx"] = new_rgx
+              
+              with open(pyproject_path, "wb") as f:
+                  tomli_w.dump(config, f)
+              print("✅ pyproject.toml updated successfully!")
+          else:
+              print("✅ Copyright regex is already up to date.")
+          EOF
+
+      - name: Update copyright headers in source files
+        run: |
+          echo "Updating copyright headers in all Python files..."
+          
+          # Create the header update script
+          cat << 'EOF' > update_headers.py
+          #!/usr/bin/env python3
+          import os
+          import re
+          from pathlib import Path
+          from datetime import datetime
+
+          def update_copyright_header(file_path):
+              """Update copyright header in a Python file."""
+              current_year = datetime.now().year
+              new_header = f"# Copyright 2024-{current_year} David Gordon Nix\n# SPDX-License-Identifier: Apache-2.0\n"
+              
+              with open(file_path, 'r', encoding='utf-8') as f:
+                  content = f.read()
+              
+              # Pattern to match existing copyright header
+              copyright_pattern = r'^# Copyright \d{4}(?:-\d{4})? David Gordon Nix\n# SPDX-License-Identifier: Apache-2.0\n'
+              
+              if re.match(copyright_pattern, content, re.MULTILINE):
+                  # Replace existing header
+                  updated_content = re.sub(copyright_pattern, new_header, content)
+                  if updated_content != content:
+                      with open(file_path, 'w', encoding='utf-8') as f:
+                          f.write(updated_content)
+                      print(f"Updated: {file_path}")
+                      return True
+              else:
+                  # Check if it's a file that should have copyright (not in excluded dirs)
+                  if not any(excluded in str(file_path) for excluded in ['scripts/', 'examples/']):
+                      # Add header at the top (handle shebangs and encoding declarations)
+                      lines = content.split('\n')
+                      insert_pos = 0
+                      
+                      # Skip shebang if present
+                      if lines and lines[0].startswith('#!'):
+                          insert_pos = 1
+                      
+                      # Skip encoding declaration if present
+                      if (insert_pos < len(lines) and 
+                          lines[insert_pos].strip() and 
+                          ('coding' in lines[insert_pos] or 'encoding' in lines[insert_pos])):
+                          insert_pos += 1
+                      
+                      # Insert header
+                      header_lines = new_header.rstrip().split('\n')
+                      for i, header_line in enumerate(header_lines):
+                          lines.insert(insert_pos + i, header_line)
+                      
+                      # Add blank line after header if not present
+                      if insert_pos + len(header_lines) < len(lines) and lines[insert_pos + len(header_lines)].strip():
+                          lines.insert(insert_pos + len(header_lines), '')
+                      
+                      updated_content = '\n'.join(lines)
+                      with open(file_path, 'w', encoding='utf-8') as f:
+                          f.write(updated_content)
+                      print(f"Added header to: {file_path}")
+                      return True
+              
+              return False
+
+          def main():
+              """Main function to update all Python files."""
+              updated_files = []
+              
+              for py_file in Path('.').rglob('*.py'):
+                  # Skip virtual environments and build directories
+                  if any(part in py_file.parts for part in ['.venv', 'venv', '__pycache__', '.git', 'build', 'dist']):
+                      continue
+                  
+                  if update_copyright_header(py_file):
+                      updated_files.append(str(py_file))
+              
+              if updated_files:
+                  print(f"\n✅ Updated {len(updated_files)} files")
+                  for file in updated_files:
+                      print(f"  - {file}")
+              else:
+                  print("\n✅ All files already have up-to-date copyright headers")
+
+          if __name__ == '__main__':
+              main()
+          EOF
+          
+          python update_headers.py
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes detected"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Changes detected"
+            git diff --name-only
+          fi
+
+      - name: Create Pull Request
+        if: steps.changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update copyright year to ${{ steps.date.outputs.year }}"
+          title: "🤖 Automated Copyright Year Update for ${{ steps.date.outputs.year }}"
+          body: |
+            ## Automated Copyright Year Update
+
+            This PR automatically updates the copyright year in:
+            - `pyproject.toml` copyright notice regex
+            - All Python source file headers
+
+            **Year updated to:** ${{ steps.date.outputs.year }}
+
+            This action runs annually on January 1st or can be triggered manually.
+            
+            Please review and merge when ready! 🚀
+          branch: "chore/copyright-update-${{ steps.date.outputs.year }}"
+          delete-branch: true
+          labels: |
+            maintenance
+            automated
+            copyright
+
+      - name: No updates needed
+        if: steps.changes.outputs.changed == 'false'
+        run: |
+          echo "✅ No copyright updates needed - all files are already current!"
