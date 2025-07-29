@@ -57,7 +57,7 @@ class DebtTranche(Model):
         None, description="Fee as a percentage of loan amount, paid at exit/refinancing"
     )
 
-    # TODO: Add support for:
+    # TODO: Add support for more advanced features (?):
     # - Interest rate caps/floors
     # - DSCR covenant threshold
     # - Prepayment penalties/yield maintenance
@@ -98,10 +98,13 @@ class DebtTranche(Model):
         max_tranche_amount = total_cost * tranche_ltc
 
         # Calculate available capacity
-        available = min(
-            max_tranche_amount - cumulative_tranche,  # Remaining in tranche
-            (cumulative_cost * tranche_ltc) - cumulative_tranche,  # LTC limit
-        )
+        remaining_in_tranche = max_tranche_amount - cumulative_tranche
+        ltc_limit = (cumulative_cost * tranche_ltc) - cumulative_tranche
+        
+        # Ensure LTC limit is not negative (can't draw negative amounts)
+        ltc_limit = max(0.0, ltc_limit)
+        
+        available = min(remaining_in_tranche, ltc_limit)
 
         # Return draw amount
         return min(remaining_cost, available)
