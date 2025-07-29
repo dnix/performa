@@ -150,7 +150,7 @@ class TestLargeScaleProperties:
                     value=0.055,  # 5.5% management fee
                     unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
                     frequency=FrequencyEnum.MONTHLY,
-                    reference="Effective Gross Revenue",
+                    reference="Effective Gross Income",
                 ),
                 ResidentialOpExItem(
                     name="Maintenance & Repairs",
@@ -366,7 +366,7 @@ class TestLargeScaleProperties:
                     value=0.05,
                     unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
                     frequency=FrequencyEnum.MONTHLY,
-                    reference="Effective Gross Revenue",
+                    reference="Effective Gross Income",
                 ),
             ]
         )
@@ -524,7 +524,7 @@ class TestComplexScenarios:
                     value=0.06,  # Higher fee during transition
                     unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
                     frequency=FrequencyEnum.MONTHLY,
-                    reference="Effective Gross Revenue",
+                    reference="Effective Gross Income",
                 ),
                 ResidentialOpExItem(
                     name="Maintenance & Repairs",

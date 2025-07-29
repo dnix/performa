@@ -443,7 +443,9 @@ class CashFlowOrchestrator:
         self._apply_property_losses(agg_flows)
 
         # 4. Calculate derived summary lines (NOI, UCF, etc.)
-        agg_flows[UnleveredAggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME] = (
+        
+        # Calculate canonical Effective Gross Income (industry standard)
+        agg_flows[UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME] = (
             agg_flows[UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE] 
             - agg_flows[UnleveredAggregateLineKey.RENTAL_ABATEMENT] 
             - agg_flows[UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS]
@@ -451,7 +453,7 @@ class CashFlowOrchestrator:
             + agg_flows[UnleveredAggregateLineKey.MISCELLANEOUS_INCOME] 
             + agg_flows[UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS]
         )
-        agg_flows[UnleveredAggregateLineKey.NET_OPERATING_INCOME] = agg_flows[UnleveredAggregateLineKey.TOTAL_EFFECTIVE_GROSS_INCOME] - agg_flows[UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES]
+        agg_flows[UnleveredAggregateLineKey.NET_OPERATING_INCOME] = agg_flows[UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME] - agg_flows[UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES]
         agg_flows[UnleveredAggregateLineKey.UNLEVERED_CASH_FLOW] = agg_flows[UnleveredAggregateLineKey.NET_OPERATING_INCOME] - agg_flows[UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES] - agg_flows[UnleveredAggregateLineKey.TOTAL_TENANT_IMPROVEMENTS] - agg_flows[UnleveredAggregateLineKey.TOTAL_LEASING_COMMISSIONS]
         
         # 5. Store aggregate results in resolved_lookups for cross-reference
@@ -559,6 +561,32 @@ class CashFlowOrchestrator:
                     intermediate_agg_flows[target_key] = intermediate_agg_flows[target_key].add(
                         result.reindex(analysis_periods, fill_value=0.0), fill_value=0.0
                     )
+        
+        # Calculate derived aggregates that dependent models need to reference
+        # Calculate canonical Effective Gross Income for dependent models
+        intermediate_agg_flows[UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME] = (
+            intermediate_agg_flows[UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE]
+            - intermediate_agg_flows[UnleveredAggregateLineKey.RENTAL_ABATEMENT] 
+            - intermediate_agg_flows[UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS]
+            - intermediate_agg_flows[UnleveredAggregateLineKey.COLLECTION_LOSS]
+            + intermediate_agg_flows[UnleveredAggregateLineKey.MISCELLANEOUS_INCOME] 
+            + intermediate_agg_flows[UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS]
+        )
+        
+        # CRITICAL: Calculate other derived aggregates that dependent models need
+        # Net Operating Income = EGI - Total OpEx  
+        intermediate_agg_flows[UnleveredAggregateLineKey.NET_OPERATING_INCOME] = (
+            intermediate_agg_flows[UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME] - 
+            intermediate_agg_flows[UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES]
+        )
+        
+        # Unlevered Cash Flow = NOI - CapEx - TI - LC
+        intermediate_agg_flows[UnleveredAggregateLineKey.UNLEVERED_CASH_FLOW] = (
+            intermediate_agg_flows[UnleveredAggregateLineKey.NET_OPERATING_INCOME] - 
+            intermediate_agg_flows[UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES] - 
+            intermediate_agg_flows[UnleveredAggregateLineKey.TOTAL_TENANT_IMPROVEMENTS] - 
+            intermediate_agg_flows[UnleveredAggregateLineKey.TOTAL_LEASING_COMMISSIONS]
+        )
         
         # Store intermediate aggregate results in resolved_lookups for dependent models
         for key, series in intermediate_agg_flows.items():

@@ -301,7 +301,7 @@ class UponExpirationEnum(str, Enum):
 class VacancyLossMethodEnum(str, Enum):
     """How General Vacancy is calculated and applied in the waterfall."""
     POTENTIAL_GROSS_REVENUE = "Potential Gross Revenue" # % of PGR line
-    EFFECTIVE_GROSS_REVENUE = "Effective Gross Revenue" # % of (PGR + Misc Inc - Abatement)
+    EFFECTIVE_GROSS_INCOME = "Effective Gross Income" # % of (PGR + Misc Inc - Abatement)
 
 
 class UnleveredAggregateLineKey(str, Enum):
@@ -320,11 +320,10 @@ class UnleveredAggregateLineKey(str, Enum):
     POTENTIAL_GROSS_REVENUE = "Potential Gross Revenue"           # Sum of potential base rent (often contractual)
     RENTAL_ABATEMENT = "Rental Abatement / Concessions"           # Free rent periods
     MISCELLANEOUS_INCOME = "Miscellaneous Income"                 # Parking, laundry, fees, etc.
-    EFFECTIVE_GROSS_REVENUE = "Effective Gross Revenue"           # Potential + Misc - Abatement (BEFORE Vacancy/Recoveries)
     GENERAL_VACANCY_LOSS = "General Vacancy & Credit Loss"        # Allowance based on market/assumptions
     COLLECTION_LOSS = "Collection Loss"                           # Allowance for uncollectible income
     EXPENSE_REIMBURSEMENTS = "Expense Reimbursements"             # Recoveries from tenants
-    TOTAL_EFFECTIVE_GROSS_INCOME = "Total Effective Gross Income" # EGR - Vacancy + Recoveries (often called EGI)
+    EFFECTIVE_GROSS_INCOME = "Effective Gross Income"             # PGR + Misc - Abatement - Vacancy + Recoveries (industry standard EGI)
 
     # --- Expense Side ---
     TOTAL_OPERATING_EXPENSES = "Total Operating Expenses"  # Sum of all OpEx items

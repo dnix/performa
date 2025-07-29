@@ -268,7 +268,7 @@ def test_architectural_improvement_summary():
     cash_flows = pd.DataFrame({
         UnleveredAggregateLineKey.NET_OPERATING_INCOME.value: [1000 + i*100 for i in range(12)],
         UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value: [600] * 12,
-        UnleveredAggregateLineKey.EFFECTIVE_GROSS_REVENUE.value: [1600 + i*100 for i in range(12)],
+        UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME.value: [1600 + i*100 for i in range(12)],
     }, index=timeline.period_index)
     
     # Create a minimal DealCalculator setup

@@ -40,6 +40,12 @@ class CashFlowModel(Model):
     called by subclasses via `super().compute_cf(context)` to get a base,
     grown cash flow series. Subclasses can then apply their own specific
     adjustments (like occupancy-based adjustments).
+    
+    Notes:
+        - ANNUAL frequency: Value divided by 12 and applied evenly each month
+        - One-time expenses: Use CapitalItem, or pd.Series/dict with specific timing
+        
+    TODO: Add more comprehensive documentation to parity for all fields (unit_of_measure, growth_rate, reference, etc.)
     """
 
     uid: UUID = Field(
@@ -141,11 +147,24 @@ class CashFlowModel(Model):
     def _convert_frequency(
         self, value: Union[float, pd.Series]
     ) -> Union[float, pd.Series]:
+        """
+        Convert value from specified frequency to monthly frequency.
+        
+        Annual values are evenly distributed across all months (value / 12).
+        For one-time expenses, use CapitalItem, pd.Series, or dict instead.
+        """
         if self.frequency == FrequencyEnum.ANNUAL:
-            return value / 12.0
-        return value
+            return value / 12.0  # Evenly distribute annual amount across 12 months
+        return value  # Monthly frequency requires no conversion
 
     def _cast_to_flow(self, value: Union[float, pd.Series, Dict, List]) -> pd.Series:
+        """
+        Cast value into a pandas Series spanning the model's timeline.
+        
+        - Scalar: Applied uniformly to each month (post frequency conversion)
+        - pd.Series/Dict: Custom timing for one-time or irregular expenses
+        - List: Values applied sequentially to timeline periods
+        """
         periods = self.timeline.period_index
         if isinstance(value, dict):
             try:
@@ -158,6 +177,7 @@ class CashFlowModel(Model):
                 ) from e
             return flow_series.reindex(periods, fill_value=0)
         elif isinstance(value, (int, float)):
+            # Apply the monthly value to each period in timeline
             return pd.Series([value] * len(periods), index=periods)
         elif isinstance(value, pd.Series):
             return self._align_flow_series(value) # Align series to the model's timeline

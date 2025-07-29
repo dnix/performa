@@ -115,7 +115,7 @@ class UnleveredAnalysisResult(ResultModel):
             ...     timeline
             ... )
             >>> property_value_series = result.get_series(
-            ...     UnleveredAggregateLineKey.EFFECTIVE_GROSS_REVENUE,
+            ...     UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME,
             ...     timeline
             ... )
         """

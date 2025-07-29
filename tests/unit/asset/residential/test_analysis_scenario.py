@@ -102,7 +102,7 @@ def sample_residential_property(analysis_timeline, sample_rollover_profile):
                 value=0.05,  # 5% of revenue
                 unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
                 frequency=FrequencyEnum.MONTHLY,
-                reference="Effective Gross Revenue",
+                reference="Effective Gross Income",
             ),
         ]
     )
