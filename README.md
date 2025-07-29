@@ -106,8 +106,27 @@ _Spend less time building models and more time creating value._
 
 ### Local Python Installation
 
-This assumes you have Python installed. If not, see [python.org](https://www.python.org/downloads/). We recommend using Homebrew and ASDF to install Python to a supported version. From there, use a virtual environment to install `performa` and its dependencies.
+This assumes you have Python installed. If not, see [python.org](https://www.python.org/downloads/). We recommend using Homebrew and ASDF to install Python to a supported version. From there, use our Makefile for streamlined setup.
 
+```bash
+# Clone the repository
+git clone https://github.com/performa-dev/performa.git
+cd performa
+
+# Complete development setup (includes asdf, uv, venv, and dependencies)
+make dev-setup
+
+# Verify everything is working
+make check
+```
+
+For production installation only:
+```bash
+# Setup without development dependencies
+make install-prod
+```
+
+Alternative manual installation:
 ```bash
 # Install ASDF and a supported version of Python
 brew install asdf
@@ -125,7 +144,7 @@ pip install performa
 
 For development installation, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
-#### Quick Start
+#### Python Quick Start
 
 ```python
 from performa.asset.office import OfficeProperty
