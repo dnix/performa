@@ -26,6 +26,39 @@ class Timeline(Model):
         start_date: Analysis start date (for absolute timelines).
         start_offset_months: Month offset from a master timeline start (for relative timelines).
         duration_months: Length of timeline in months.
+        
+    Examples:
+        Create an absolute timeline (most common usage):
+        
+        >>> import pandas as pd
+        >>> from performa.core.primitives import Timeline
+        >>> 
+        >>> # 24-month analysis starting January 2024
+        >>> timeline = Timeline(
+        ...     start_date=pd.Timestamp("2024-01-01"),
+        ...     duration_months=24
+        ... )
+        >>> print(f"Timeline: {timeline.duration_months} months")
+        Timeline: 24 months
+        
+        Create a relative timeline (for sub-analysis):
+        
+        >>> # 12-month period starting 6 months into master timeline
+        >>> sub_timeline = Timeline(
+        ...     start_offset_months=6,
+        ...     duration_months=12
+        ... )
+        >>> print(f"Sub-timeline: offset {sub_timeline.start_offset_months}")
+        Sub-timeline: offset 6
+        
+        IMPORTANT: Cannot specify both start_date and start_offset_months:
+        
+        >>> # This will raise ValueError
+        >>> try:
+        ...     Timeline(start_date=pd.Timestamp("2024-01-01"), start_offset_months=6)
+        ... except ValueError as e:
+        ...     print("Error:", str(e)[:50] + "...")
+        Error: Timeline must be initialized with either 'start_...
     """
 
     start_date: Optional[pd.Period] = None

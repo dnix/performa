@@ -6,7 +6,7 @@ Partnership Models for Equity Waterfall and Distribution
 
 This module defines partner structures and distribution logic for equity partnerships
 in real estate deals. It supports both simple pari passu distributions and
-sophisticated waterfall structures with promote rates based on IRR hurdles.
+sophisticated EUROPEAN-STYLE waterfall structures with IRR-based promotes.
 
 Key Features:
 - Partner modeling with GP/LP classification and ownership percentages

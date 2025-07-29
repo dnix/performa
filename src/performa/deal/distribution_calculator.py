@@ -4,7 +4,7 @@
 """
 Partnership Distribution Calculator
 
-This module implements the equity waterfall distribution logic using the partner models.
+This module implements the European-style equity waterfall distribution logic using the partner models.
 It calculates how equity returns are distributed among partners based on their ownership
 structure and any promote/waterfall agreements.
 """
@@ -26,7 +26,7 @@ BINARY_SEARCH_ITERATIONS = 30  # Iterations for binary search precision
 @dataclass
 class DistributionCalculator:
     """
-    Calculates equity distributions for partnerships based on cash flows and waterfall logic.
+    Calculates equity distributions using European-style waterfall logic.
     
     This class implements the distribution algorithms that determine how equity returns
     are allocated among partners based on their ownership structure and any promote agreements.
@@ -136,7 +136,31 @@ class DistributionCalculator:
             timeline: Analysis timeline for cash flow indexing
             
         Returns:
-            Dictionary containing distribution results for each partner
+            Dictionary with same structure as waterfall distribution but simpler logic:
+            
+            {
+                "distribution_method": str,  # "pari_passu"
+                "partner_distributions": {
+                    "<partner_name>": {
+                        "partner_info": Partner,              # Partner object
+                        "cash_flows": pd.Series,              # Partner's period cash flows
+                        "total_investment": float,            # Partner's proportional investment
+                        "total_distributions": float,         # Partner's proportional distributions
+                        "net_profit": float,                  # Partner's proportional profit
+                        "equity_multiple": float,             # Distributions / Investment
+                        "irr": float,                         # Partner's IRR (same for all)
+                        "ownership_percentage": float         # Partner's ownership share
+                    }
+                },
+                "total_metrics": {...},     # Same as waterfall
+                "partnership_summary": {...} # Same as waterfall
+            }
+            
+            Note: In pari passu, all partners have the same IRR and equity multiple.
+            
+            Example access:
+                results = calc.calculate_pari_passu_distribution(cash_flows, timeline)
+                lp_distributions = results["partner_distributions"]["LP"]["total_distributions"]
         """
         # Initialize partner cash flows
         partner_cash_flows = {}
@@ -176,7 +200,8 @@ class DistributionCalculator:
         timeline: Timeline
     ) -> Dict[str, Any]:
         """
-        Calculate waterfall distribution with sophisticated IRR-based promote logic.
+        Calculate waterfall distribution using European-style IRR-based logic. GPs receive promote
+        only after LPs achieve their preferred return.
         
         This method implements the complex waterfall algorithm that:
         1. Tracks running IRR for each partner throughout the distribution period
@@ -189,7 +214,43 @@ class DistributionCalculator:
             timeline: Analysis timeline
             
         Returns:
-            Dictionary containing waterfall distribution results
+            Dictionary with detailed distribution results containing:
+            
+            {
+                "distribution_method": str,  # "waterfall"
+                "partner_distributions": {
+                    "<partner_name>": {
+                        "partner_info": Partner,              # Partner object
+                        "cash_flows": pd.Series,              # Partner's period cash flows
+                        "total_investment": float,            # Partner's total investment
+                        "total_distributions": float,         # Partner's total distributions
+                        "net_profit": float,                  # Partner's net profit
+                        "equity_multiple": float,             # Distributions / Investment
+                        "irr": float,                         # Partner's IRR (decimal)
+                        "ownership_percentage": float,        # Partner's ownership share
+                        "promote_distributions": float        # Promote received (GP only)
+                    }
+                },
+                "total_metrics": {
+                    "total_investment": float,                # All partners' investment
+                    "total_distributions": float,             # All partners' distributions
+                    "net_profit": float,                      # Total profit
+                    "equity_multiple": float,                 # Overall equity multiple
+                    "irr": float                              # Blended IRR
+                },
+                "partnership_summary": {
+                    "partner_count": int,                     # Number of partners
+                    "gp_total_share": float,                  # Total GP ownership
+                    "lp_total_share": float,                  # Total LP ownership
+                    "gp_count": int,                          # Number of GPs
+                    "lp_count": int                           # Number of LPs
+                }
+            }
+            
+            Example access:
+                results = calc.calculate_waterfall_distribution(cash_flows, timeline)
+                lp_irr = results["partner_distributions"]["LP"]["irr"]
+                total_profit = results["total_metrics"]["net_profit"]
         """
         if not self.partnership.has_promote:
             raise ValueError("Waterfall distribution requires a promote structure")
@@ -400,15 +461,17 @@ class DistributionCalculator:
         """
         Calculate distributions based on the partnership structure.
         
+        NOTE: "waterfall" method implements EUROPEAN-STYLE waterfall logic.
+        
         This is the main entry point that determines which distribution method to use
         based on the partnership configuration.
         
         Args:
-            cash_flows: Series of levered cash flows
-            timeline: Analysis timeline
+            cash_flows: Series of levered cash flows (negative=investment, positive=returns)
+            timeline: Analysis timeline for period indexing
             
         Returns:
-            Distribution results dictionary
+            Distribution results dictionary with partner-level metrics and cash flows
         """
         if self.partnership.distribution_method == "pari_passu":
             return self.calculate_pari_passu_distribution(cash_flows, timeline)
