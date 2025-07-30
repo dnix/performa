@@ -13,7 +13,7 @@ import pandas as pd
 import pytest
 
 from performa.core.primitives import Timeline
-from performa.deal.analysis.partnership import (
+from performa.deal.distribution_calculator import (
     DistributionCalculator,
     calculate_partner_distributions_with_structure,
     create_simple_partnership,
@@ -360,6 +360,169 @@ class TestConvenienceFunctions:
 
 class TestEdgeCases:
     """Test edge cases and error handling."""
+    
+    def test_waterfall_without_promote_structure(self):
+        """Test that waterfall distribution requires a promote structure."""
+        # Create partnership without promote structure
+        gp = Partner(name="GP", kind="GP", share=0.20)
+        lp = Partner(name="LP", kind="LP", share=0.80)
+        partnership = PartnershipStructure(
+            partners=[gp, lp],
+            distribution_method="waterfall"  # No promote specified
+        )
+        
+        # Create timeline and cash flows
+        timeline = Timeline(
+            start_date=datetime(2024, 1, 1),
+            duration_months=2
+        )
+        cash_flows = pd.Series([-1000000, 1200000], index=timeline.period_index)
+        
+        # Should raise ValueError when trying waterfall without promote
+        calculator = DistributionCalculator(partnership)
+        with pytest.raises(ValueError, match="Waterfall distribution requires a promote structure"):
+            calculator.calculate_waterfall_distribution(cash_flows, timeline)
+    
+    def test_waterfall_without_gp_partners(self):
+        """Test that waterfall distribution requires at least one GP partner."""
+        from performa.deal.partnership import CarryPromote
+        
+        # Create partnership with only LP partners (no GPs)
+        lp1 = Partner(name="LP1", kind="LP", share=0.60)
+        lp2 = Partner(name="LP2", kind="LP", share=0.40)
+        partnership = PartnershipStructure(
+            partners=[lp1, lp2],
+            distribution_method="waterfall",
+            promote=CarryPromote(pref_hurdle_rate=0.08, promote_rate=0.20)
+        )
+        
+        # Create timeline and cash flows  
+        timeline = Timeline(
+            start_date=datetime(2024, 1, 1),
+            duration_months=2
+        )
+        cash_flows = pd.Series([-1000000, 1200000], index=timeline.period_index)
+        
+        # Should raise ValueError when no GP partners exist
+        calculator = DistributionCalculator(partnership)
+        with pytest.raises(ValueError, match="Waterfall distribution requires at least one GP partner"):
+            calculator.calculate_waterfall_distribution(cash_flows, timeline)
+    
+    def test_unknown_distribution_method_error(self):
+        """Test error handling for unknown distribution method."""
+        from unittest.mock import Mock
+        
+        # Create a mock partnership with invalid distribution method
+        gp = Partner(name="GP", kind="GP", share=0.20)
+        lp = Partner(name="LP", kind="LP", share=0.80)
+        
+        # Create a mock partnership that bypasses Pydantic validation
+        mock_partnership = Mock()
+        mock_partnership.partners = [gp, lp]
+        mock_partnership.distribution_method = "invalid_method"
+        mock_partnership.has_promote = False
+        
+        # Create timeline and cash flows
+        timeline = Timeline(
+            start_date=datetime(2024, 1, 1),
+            duration_months=2
+        )
+        cash_flows = pd.Series([-1000000, 1200000], index=timeline.period_index)
+        
+        # Should raise ValueError for unknown method
+        calculator = DistributionCalculator(mock_partnership)
+        with pytest.raises(ValueError, match="Unknown distribution method: invalid_method"):
+            calculator.calculate_distributions(cash_flows, timeline)
+    
+    def test_irr_calculation_edge_cases(self):
+        """Test IRR calculation edge cases that can return None."""
+        from performa.deal.partnership import CarryPromote
+        import numpy as np
+        
+        # Create partnership for waterfall testing
+        gp = Partner(name="GP", kind="GP", share=0.20)
+        lp = Partner(name="LP", kind="LP", share=0.80)
+        partnership = PartnershipStructure(
+            partners=[gp, lp],
+            distribution_method="waterfall",
+            promote=CarryPromote(pref_hurdle_rate=0.08, promote_rate=0.20)
+        )
+        
+        # Create timeline
+        timeline = Timeline(
+            start_date=datetime(2024, 1, 1),
+            duration_months=3
+        )
+        
+        # Test case 1: Only positive cash flows (no investment) - should not crash
+        only_positive_flows = pd.Series([1000000, 500000, 300000], index=timeline.period_index)
+        
+        calculator = DistributionCalculator(partnership)
+        # This should complete without error even though IRR calculation may fail
+        result1 = calculator.calculate_waterfall_distribution(only_positive_flows, timeline)
+        assert result1 is not None
+        assert "partner_distributions" in result1
+        
+        # Test case 2: Only negative cash flows (no returns) - should not crash  
+        only_negative_flows = pd.Series([-1000000, -500000, -300000], index=timeline.period_index)
+        
+        # This should complete without error even though IRR calculation may fail
+        result2 = calculator.calculate_waterfall_distribution(only_negative_flows, timeline)
+        assert result2 is not None
+        assert "partner_distributions" in result2
+        
+        # Test case 3: Extreme values that might cause XIRR to fail - should not crash
+        # Create cash flows with very large numbers that might cause numerical issues
+        extreme_flows = pd.Series([-1e15, 1e15, 1e15], index=timeline.period_index)
+        
+        # This should complete without error even if XIRR calculation throws an exception
+        result3 = calculator.calculate_waterfall_distribution(extreme_flows, timeline)
+        assert result3 is not None
+        assert "partner_distributions" in result3
+        
+        # Test case 4: Zero and NaN values that might cause XIRR to fail
+        problematic_flows = pd.Series([-1000000, 0, np.inf], index=timeline.period_index)
+        
+        # This should complete without error even if XIRR calculation throws an exception
+        result4 = calculator.calculate_waterfall_distribution(problematic_flows, timeline)
+        assert result4 is not None
+        assert "partner_distributions" in result4
+    
+    def test_irr_calculation_exception_handling(self):
+        """Test IRR calculation with forced exception to cover exception handling."""
+        from performa.deal.partnership import CarryPromote
+        from unittest.mock import patch
+        
+        # Create partnership for waterfall testing
+        gp = Partner(name="GP", kind="GP", share=0.20)
+        lp = Partner(name="LP", kind="LP", share=0.80)
+        partnership = PartnershipStructure(
+            partners=[gp, lp],
+            distribution_method="waterfall",
+            promote=CarryPromote(pref_hurdle_rate=0.08, promote_rate=0.20)
+        )
+        
+        # Create timeline
+        timeline = Timeline(
+            start_date=datetime(2024, 1, 1),
+            duration_months=3
+        )
+        
+        # Create normal cash flows that would normally work
+        normal_flows = pd.Series([-1000000, 500000, 600000], index=timeline.period_index)
+        
+        calculator = DistributionCalculator(partnership)
+        
+        # Mock the xirr function to raise an exception
+        with patch('performa.deal.distribution_calculator.xirr', side_effect=Exception("Forced IRR failure")):
+            # This should complete without error even when XIRR throws an exception
+            result = calculator.calculate_waterfall_distribution(normal_flows, timeline)
+            assert result is not None
+            assert "partner_distributions" in result
+            
+            # The calculation should still complete but IRR values might be None or 0
+            gp_results = result["partner_distributions"]["GP"]
+            assert gp_results is not None
     
     def test_zero_cash_flows(self):
         """Test handling of zero cash flows."""
