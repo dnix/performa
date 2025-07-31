@@ -18,7 +18,7 @@ from performa.core.primitives import (
     GlobalSettings,
     GrowthRate,
     Timeline,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
 )
 
 
@@ -55,14 +55,14 @@ def test_blend_lease_terms(sample_timeline):
         market_rent=60.0,
         ti_allowance=OfficeRolloverTenantImprovement(
             value=20.0, 
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA
         )
     )
     renewal_terms = OfficeRolloverLeaseTerms(
         market_rent=50.0,
         ti_allowance=OfficeRolloverTenantImprovement(
             value=10.0, 
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA
         )
     )
     profile = OfficeRolloverProfile(

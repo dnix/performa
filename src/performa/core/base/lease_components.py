@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Dict, Literal, Optional, Union
 import pandas as pd
 from pydantic import field_validator, model_validator
 
-from ..primitives.enums import UnitOfMeasureEnum
+from ..primitives.cash_flow import ReferenceKey
 from ..primitives.growth_rates import FixedGrowthRate, PercentageGrowthRate
 from ..primitives.model import Model
 from ..primitives.types import FloatBetween0And1, PositiveFloat, PositiveInt
@@ -44,7 +44,7 @@ class RentEscalationBase(Model):
     """
     type: Literal["fixed", "percentage"]
     rate: Union[PositiveFloat, PercentageGrowthRate, FixedGrowthRate]
-    unit_of_measure: UnitOfMeasureEnum
+    reference: Optional[ReferenceKey] = None
     is_relative: bool
     
     # Timing: exactly one must be provided

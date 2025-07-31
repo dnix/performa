@@ -22,8 +22,8 @@ from performa.core.base.cost import (
 )
 from performa.core.primitives import (
     GlobalSettings,
+    PropertyAttributeKey,
     Timeline,
-    UnitOfMeasureEnum,
 )
 
 
@@ -37,7 +37,6 @@ def test_leasing_commission_base_instantiation(sample_timeline: Timeline):
         name="Standard LC",
         timeline=sample_timeline,
         value=0, # Simplified for base test
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         tiers=[CommissionTier(year_start=1, year_end=5, rate=0.06)],
     )
     assert item.name == "Standard LC"
@@ -48,7 +47,7 @@ def test_tenant_improvement_allowance_base_instantiation(sample_timeline: Timeli
         name="Standard TI",
         timeline=sample_timeline,
         value=50.0,
-        unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+        reference=PropertyAttributeKey.NET_RENTABLE_AREA,
     )
     assert item.name == "Standard TI"
 
@@ -64,7 +63,6 @@ def test_payment_timing(sample_context):
         name="Test TI Signing",
         timeline=context.timeline,
         value=10000.0,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         payment_timing="signing",
     )
     cf_signing = ti_signing.compute_cf(context=context)
@@ -77,7 +75,6 @@ def test_payment_timing(sample_context):
         name="Test TI Commencement",
         timeline=context.timeline,
         value=20000.0,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         payment_timing="commencement",
     )
     cf_commencement = ti_commencement.compute_cf(context=context)
@@ -90,7 +87,6 @@ def test_payment_timing(sample_context):
         name="Test LC Signing",
         timeline=context.timeline,
         value=5000.0,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         payment_timing="signing",
     )
     cf_lc_signing = lc_signing.compute_cf(context=context)
@@ -102,7 +98,6 @@ def test_payment_timing(sample_context):
         name="Test LC Commencement",
         timeline=context.timeline,
         value=6000.0,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         payment_timing="commencement",
     )
     cf_lc_commencement = lc_commencement.compute_cf(context=context)

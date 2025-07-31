@@ -7,7 +7,7 @@ from performa.core.primitives import (
     AssetTypeEnum,
     FrequencyEnum,
     LeveredAggregateLineKey,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
     UnleveredAggregateLineKey,
 )
 
@@ -15,7 +15,7 @@ from performa.core.primitives import (
 def test_enum_member_values():
     """Test that some key enum members have the correct string value."""
     assert FrequencyEnum.ANNUAL == "annual"
-    assert UnitOfMeasureEnum.PER_UNIT == "per_unit"
+    assert PropertyAttributeKey.UNIT_COUNT == "unit_count"
     assert AssetTypeEnum.OFFICE == "office"
     assert UnleveredAggregateLineKey.NET_OPERATING_INCOME == "Net Operating Income"
 

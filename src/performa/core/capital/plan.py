@@ -24,9 +24,10 @@ from ..primitives import (
     FrequencyEnum,
     Model,
     PositiveFloat,
+    PropertyAttributeKey,
     Timeline,
     UniformDrawSchedule,
-    UnitOfMeasureEnum,
+    UnleveredAggregateLineKey,
 )
 
 
@@ -75,29 +76,44 @@ class CapitalItem(CashFlowModel):
         This overrides the base CashFlowModel implementation to apply
         draw schedule distributions instead of uniform spreading.
         """
-        # Get the base value (handles unit conversions if needed)
+        # Handle reference resolution directly without calling super().compute_cf()
+        # to avoid the monthly repetition issue in _cast_value_to_flow
         base_value = self.value
-        
-        if self.unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
-            # Property-level reference for PER_UNIT is NRA
-            nra = context.property_data.net_rentable_area
-            if nra > 0:
-                base_value = self.value * nra
-            else:
-                base_value = 0.0
-        elif self.unit_of_measure == UnitOfMeasureEnum.BY_PERCENT and self.reference:
-            # Reference to an aggregate line
-            dependency_cf = context.resolved_lookups.get(self.reference.value)
-            if dependency_cf is None:
-                raise ValueError(f"Unresolved aggregate dependency for '{self.name}': {self.reference.value}")
-            base_value = dependency_cf * self.value
+
+        # New unified reference-based calculation system (copied from CashFlowModel)
+        if self.reference is None:
+            # Direct currency amount - no multiplication needed
+            pass
             
-        # Convert to scalar for draw schedule calculation
-        if isinstance(base_value, pd.Series):
-            # If base_value is already a series, sum it to get total
-            total_cost = base_value.sum()
+        elif isinstance(self.reference, PropertyAttributeKey):
+            # Property attribute calculation (replaces PER_UNIT)
+            if hasattr(context.property_data, self.reference.value):
+                multiplier = getattr(context.property_data, self.reference.value)
+                base_value = self.value * float(multiplier) if multiplier else 0.0
+            else:
+                raise AttributeError(
+                    f"Property '{getattr(context.property_data, 'name', 'Unknown')}' "
+                    f"missing attribute '{self.reference.value}' for calculation '{self.name}'. "
+                    f"Available attributes: {[attr for attr in dir(context.property_data) if not attr.startswith('_')]}"
+                )
+                
+        elif isinstance(self.reference, UnleveredAggregateLineKey):
+            # Aggregate reference calculation (% of NOI, Total OpEx, etc.)
+            if self.reference.value in context.resolved_lookups:
+                aggregate_series = context.resolved_lookups[self.reference.value]
+                # For capital items, use the mean of the aggregate as the base
+                aggregate_value = aggregate_series.mean() if isinstance(aggregate_series, pd.Series) else aggregate_series
+                base_value = self.value * float(aggregate_value) if aggregate_value else 0.0
+            else:
+                raise KeyError(f"Aggregate reference '{self.reference.value}' not found in resolved lookups for calculation '{self.name}'")
         else:
-            total_cost = float(base_value)
+            raise TypeError(f"Unsupported reference type: {type(self.reference)} for calculation '{self.name}'")
+
+        # Apply frequency conversion
+        base_value = self._convert_frequency(base_value)
+        
+        # Use the raw base_value as total cost (not summed from inflated series)
+        total_cost = float(base_value)
             
         # Apply draw schedule - now much simpler with template method pattern!
         # Defensive check: ensure draw_schedule is not None
@@ -205,7 +221,6 @@ class CapitalPlan(Model):
                 work_type=work_type,
                 timeline=timeline,  # Same timeline for all items
                 value=cost,
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                 description=f"{work_type} work for {name}",
                 draw_schedule=draw_schedule,  # Apply same draw schedule to all items
             )
@@ -280,7 +295,6 @@ class CapitalPlan(Model):
                 work_type=work_type,
                 timeline=timeline,
                 value=cost,
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                 description=f"{work_type} phase for {name}",
                 draw_schedule=phase_draw_schedule,  # Phase-specific draw schedule
             )
@@ -366,7 +380,6 @@ class CapitalPlan(Model):
                 work_type=f"Unit Renovation Wave {wave_number}",
                 timeline=timeline,
                 value=wave_cost,
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                 description=f"Wave {wave_number}: {units_in_wave} units @ ${cost_per_unit:,.0f}/unit",
                 draw_schedule=draw_schedule,  # Apply draw schedule to each wave
             )

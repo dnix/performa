@@ -17,7 +17,7 @@ from performa.core.primitives import (
     LeaseStatusEnum,
     ProgramUseEnum,
     Timeline,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
     UponExpirationEnum,
 )
 
@@ -33,7 +33,7 @@ def test_lease_spec_base_valid_instantiation():
         start_date=date(2024, 1, 1),
         end_date=date(2024, 12, 31),
         base_rent_value=50.0,
-        base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+        base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
     )
     assert spec.tenant_name == "Test Tenant"
 
@@ -100,7 +100,6 @@ def sample_lease() -> LeaseBase:
         floor="1",
         upon_expiration=UponExpirationEnum.MARKET,
         value=50 * 1000 / 12, # Monthly amount
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         frequency=FrequencyEnum.MONTHLY,
     )
 

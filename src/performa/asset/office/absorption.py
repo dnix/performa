@@ -76,7 +76,7 @@ from ...core.primitives import (
     LeaseTypeEnum,
     ProgramUseEnum,
     StartDateAnchorEnum,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
     UponExpirationEnum,
 )
 from .expense import OfficeExpenses, OfficeOpExItem
@@ -601,7 +601,7 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
                 ),
                 leasing_assumptions=DirectLeaseTerms(
                     base_rent_value=45.0,
-                    base_rent_unit_of_measure="per_unit",
+                    base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                     base_rent_frequency="annual",
                     term_months=60,
                     upon_expiration="market"
@@ -661,7 +661,7 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
                     category="Expense",
                     timeline=timeline,
                     value=5.0,  # $5/SF annually
-                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                    reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                     growth_rate=PercentageGrowthRate(name="Property Management Growth", value=0.03)
                 ),
                 OfficeOpExItem(
@@ -669,7 +669,7 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
                     category="Expense",
                     timeline=timeline,
                     value=8.0,  # $8/SF annually
-                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                    reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                     growth_rate=PercentageGrowthRate(name="OpEx Growth", value=0.035)
                 ),
                 OfficeOpExItem(
@@ -677,7 +677,7 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
                     category="Expense",
                     timeline=timeline,
                     value=2.0,  # $2/SF annually
-                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                    reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                     growth_rate=PercentageGrowthRate(name="Tax Growth", value=0.025)
                 )
             ]
@@ -815,7 +815,7 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
             start_date=start_date,
             term_months=final_terms.term_months,
             base_rent_value=final_terms.base_rent_value,
-            base_rent_unit_of_measure=final_terms.base_rent_unit_of_measure,
+            base_rent_reference=final_terms.base_rent_reference,
             upon_expiration=final_terms.upon_expiration,
             rent_escalation=final_terms.rent_escalation,
             rent_abatement=final_terms.rent_abatement,
@@ -871,7 +871,7 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
             start_date=start_date,
             term_months=final_terms.term_months,
             base_rent_value=final_terms.base_rent_value,
-            base_rent_unit_of_measure=final_terms.base_rent_unit_of_measure,
+            base_rent_reference=final_terms.base_rent_reference,
             upon_expiration=final_terms.upon_expiration,
             rent_escalation=final_terms.rent_escalation,
             rent_abatement=final_terms.rent_abatement,

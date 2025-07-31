@@ -22,7 +22,7 @@ from performa.core.primitives import (
     GlobalSettings,
     LeaseStatusEnum,
     Timeline,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
     UponExpirationEnum,
 )
 
@@ -47,7 +47,7 @@ def sample_lease(sample_timeline: Timeline) -> OfficeLease:
         status=LeaseStatusEnum.CONTRACT,
         area=1000.0,
         value=50.0,
-        unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+        reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         frequency=FrequencyEnum.ANNUAL,
         upon_expiration=UponExpirationEnum.MARKET,
     )
@@ -60,7 +60,6 @@ def sample_opex_items(sample_timeline: Timeline) -> dict[str, OfficeOpExItem]:
         name="Taxes",
         timeline=sample_timeline,
         value=300000.0,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         frequency=FrequencyEnum.ANNUAL,
         recoverable_ratio=1.0,
         growth_rate=None,
@@ -69,7 +68,7 @@ def sample_opex_items(sample_timeline: Timeline) -> dict[str, OfficeOpExItem]:
         name="CAM",
         timeline=sample_timeline,
         value=5.0,
-        unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+        reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         frequency=FrequencyEnum.ANNUAL,
         variable_ratio=0.5,
         recoverable_ratio=1.0,

@@ -92,8 +92,9 @@ from performa.core.primitives import (
     GrowthRate,
     LeaseTypeEnum,
     ProgramUseEnum,
+    PropertyAttributeKey,
     Timeline,
-    UnitOfMeasureEnum,
+    UnleveredAggregateLineKey,
     UponExpirationEnum,
 )
 from performa.core.primitives.growth_rates import PercentageGrowthRate
@@ -120,7 +121,7 @@ def test_office_fundamental_sanity() -> bool:
         start_date=date(2024, 1, 1),
         term_months=12,
         base_rent_value=30.0,
-        base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+        base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         base_rent_frequency=FrequencyEnum.ANNUAL,
         lease_type=LeaseTypeEnum.NET,
         upon_expiration=UponExpirationEnum.MARKET,
@@ -187,7 +188,7 @@ def test_small_office_building() -> Dict[str, Any]:
         start_date=date(2023, 1, 1),
         term_months=60,  # 5-year lease
         base_rent_value=35.0,
-        base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+        base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         base_rent_frequency=FrequencyEnum.ANNUAL,
         lease_type=LeaseTypeEnum.NET,
         upon_expiration=UponExpirationEnum.MARKET,
@@ -202,8 +203,8 @@ def test_small_office_building() -> Dict[str, Any]:
                 name="CAM",
                 timeline=timeline,
                 value=8.0,
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
                 frequency=FrequencyEnum.ANNUAL,
+                reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             ),
         ]
     )
@@ -290,7 +291,7 @@ def test_multi_tenant_office() -> Dict[str, Any]:
             start_date=date(2023, 1 + (i % 12), 1),  # Stagger start dates
             term_months=term_months,
             base_rent_value=rent_psf,
-            base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL,
             lease_type=LeaseTypeEnum.NET,
             upon_expiration=UponExpirationEnum.MARKET,
@@ -314,23 +315,22 @@ def test_multi_tenant_office() -> Dict[str, Any]:
                 name="CAM",
                 timeline=timeline,
                 value=12.0,
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
                 frequency=FrequencyEnum.ANNUAL,
+                reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             ),
             OfficeOpExItem(
                 name="Property Management",
                 timeline=timeline,
                 value=0.04,
-                unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
                 frequency=FrequencyEnum.MONTHLY,
-                reference="Effective Gross Revenue",
+                reference=UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME,
             ),
             OfficeOpExItem(
                 name="Insurance",
                 timeline=timeline,
                 value=85000.0,
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                 frequency=FrequencyEnum.ANNUAL,
+                # reference=None (direct currency amount)
             ),
         ]
     )
@@ -435,7 +435,7 @@ def test_institutional_office_complex() -> Dict[str, Any]:
             start_date=date(2022 + (i % 3), 1 + (i % 12), 1),  # Stagger start dates across years
             term_months=term_months,
             base_rent_value=rent_psf,
-            base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL,
             lease_type=LeaseTypeEnum.NET,
             upon_expiration=UponExpirationEnum.MARKET,
@@ -460,37 +460,36 @@ def test_institutional_office_complex() -> Dict[str, Any]:
                 name="CAM",
                 timeline=timeline,
                 value=15.0,
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
                 frequency=FrequencyEnum.ANNUAL,
+                reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             ),
             OfficeOpExItem(
                 name="Property Management",
                 timeline=timeline,
                 value=0.035,
-                unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
                 frequency=FrequencyEnum.MONTHLY,
-                reference="Effective Gross Revenue",
+                reference=UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME,
             ),
             OfficeOpExItem(
                 name="Insurance",
                 timeline=timeline,
                 value=450000.0,
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                 frequency=FrequencyEnum.ANNUAL,
+                # reference=None (direct currency amount)
             ),
             OfficeOpExItem(
                 name="Utilities - Common Areas",
                 timeline=timeline,
                 value=3.50,
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
                 frequency=FrequencyEnum.ANNUAL,
+                reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             ),
             OfficeOpExItem(
                 name="Security",
                 timeline=timeline,
                 value=250000.0,
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                 frequency=FrequencyEnum.ANNUAL,
+                # reference=None (direct currency amount)
             ),
         ]
     )
@@ -501,15 +500,15 @@ def test_institutional_office_complex() -> Dict[str, Any]:
             name="Parking Revenue",
             timeline=timeline,
             value=18500.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             frequency=FrequencyEnum.MONTHLY,
+            # reference=None (direct currency amount)
         ),
         OfficeMiscIncome(
             name="Conference Room Rentals",
             timeline=timeline,
             value=8500.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             frequency=FrequencyEnum.MONTHLY,
+            # reference=None (direct currency amount)
         ),
     ]
     
@@ -616,7 +615,7 @@ def complex_office_stress_test():
     # Operating expenses with realistic growth
     base_operating = OfficeOpExItem(
         name="Base Building Operating", timeline=timeline,
-        value=8.50, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL,
+        value=8.50, frequency=FrequencyEnum.ANNUAL, reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         recoverable_ratio=1.0, variable_ratio=0.7,  # 70% variable with occupancy
         growth_rate=PercentageGrowthRate(name="OpEx Inflation", value=0.04)  # 4% annual
     )
@@ -624,7 +623,7 @@ def complex_office_stress_test():
     # Utilities - high growth, variable with occupancy
     utilities = OfficeOpExItem(
         name="Utilities", timeline=timeline,
-        value=4.25, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL,
+        value=4.25, frequency=FrequencyEnum.ANNUAL, reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         recoverable_ratio=1.0, variable_ratio=0.9,  # 90% variable
         growth_rate=PercentageGrowthRate(name="Utility Inflation", value=0.06)  # 6% annual
     )
@@ -632,7 +631,7 @@ def complex_office_stress_test():
     # Real estate taxes - moderate growth, fixed
     taxes = OfficeOpExItem(
         name="Real Estate Taxes", timeline=timeline,
-        value=6.75, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL,
+        value=6.75, frequency=FrequencyEnum.ANNUAL, reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         recoverable_ratio=1.0, variable_ratio=0.0,  # Fixed regardless of occupancy
         growth_rate=PercentageGrowthRate(name="Tax Assessment Growth", value=0.03)  # 3% annual
     )
@@ -640,7 +639,7 @@ def complex_office_stress_test():
     # Insurance - low growth
     insurance = OfficeOpExItem(
         name="Property Insurance", timeline=timeline,
-        value=1.80, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL,
+        value=1.80, frequency=FrequencyEnum.ANNUAL, reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         recoverable_ratio=1.0, variable_ratio=0.0,
         growth_rate=PercentageGrowthRate(name="Insurance Growth", value=0.025)  # 2.5% annual
     )
@@ -648,7 +647,7 @@ def complex_office_stress_test():
     # Management fees - percentage of revenue, not recoverable
     management = OfficeOpExItem(
         name="Management Fees", timeline=timeline,
-        value=2.50, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL,
+        value=2.50, frequency=FrequencyEnum.ANNUAL, reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         recoverable_ratio=0.0,  # Not recoverable from tenants
         growth_rate=PercentageGrowthRate(name="Management Growth", value=0.035)
     )
@@ -657,13 +656,13 @@ def complex_office_stress_test():
     capital_items = [
         OfficeCapExItem(
             name="HVAC Upgrade", timeline=timeline,
-            value={"2025-06-01": 500000}, 
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY
+            value={"2025-06-01": 500000}
+            # reference=None (direct currency amount)
         ),
         OfficeCapExItem(
             name="Elevator Modernization", timeline=timeline,
-            value={"2027-03-01": 750000},
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY
+            value={"2027-03-01": 750000}
+            # reference=None (direct currency amount)
         )
     ]
     
@@ -749,7 +748,7 @@ def complex_office_stress_test():
             term_months=84,
             growth_rate=PercentageGrowthRate(name="Conservative Growth", value=0.025),
             ti_allowance=OfficeRolloverTenantImprovement(
-                value=25.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT
+                value=25.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA
             ),
             leasing_commission=OfficeRolloverLeasingCommission(
                 tiers=[0.04]  # 4% commission rate
@@ -759,7 +758,7 @@ def complex_office_stress_test():
             market_rent=47.0,  # Slightly lower for renewals
             term_months=84,
             ti_allowance=OfficeRolloverTenantImprovement(
-                value=15.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT
+                value=15.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA
             )
         )
     )
@@ -775,7 +774,7 @@ def complex_office_stress_test():
             term_months=60,
             growth_rate=PercentageGrowthRate(name="Standard Growth", value=0.035),
             ti_allowance=OfficeRolloverTenantImprovement(
-                value=35.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT
+                value=35.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA
             ),
             leasing_commission=OfficeRolloverLeasingCommission(
                 tiers=[0.06]  # 6% commission rate
@@ -785,7 +784,7 @@ def complex_office_stress_test():
             market_rent=52.0,  # Slightly lower for renewals
             term_months=60,
             ti_allowance=OfficeRolloverTenantImprovement(
-                value=20.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT
+                value=20.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA
             )
         )
     )
@@ -801,7 +800,7 @@ def complex_office_stress_test():
             term_months=36,
             growth_rate=PercentageGrowthRate(name="Aggressive Growth", value=0.05),
             ti_allowance=OfficeRolloverTenantImprovement(
-                value=55.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT
+                value=55.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA
             ),
             leasing_commission=OfficeRolloverLeasingCommission(
                 tiers=[0.08]  # 8% commission rate
@@ -811,7 +810,7 @@ def complex_office_stress_test():
             market_rent=60.0,  # Competitive renewal rate
             term_months=36,
             ti_allowance=OfficeRolloverTenantImprovement(
-                value=30.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT
+                value=30.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA
             )
         )
     )
@@ -827,7 +826,7 @@ def complex_office_stress_test():
         area=120000, use_type=ProgramUseEnum.OFFICE,
         signing_date=date(2019, 10, 1),  # Signed 3 months before commencement
         start_date=date(2020, 1, 1), term_months=180,  # 15-year lease
-        base_rent_value=42.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+        base_rent_value=42.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
         recovery_method=anchor_method, rollover_profile=conservative_rollover,
         upon_expiration=UponExpirationEnum.MARKET,
@@ -836,7 +835,7 @@ def complex_office_stress_test():
             OfficeRentEscalation(
                 type="percentage",
                 rate=0.025,  # 2.5% annual increase
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+                # reference=None (direct currency amount)
                 is_relative=True,
                 start_date=date(2025, 1, 1),
                 recurring=True,
@@ -848,7 +847,7 @@ def complex_office_stress_test():
             name="Anchor TI", 
             timeline=timeline,
             value=5000000, 
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+            # reference=None (direct currency amount)
             payment_timing="commencement"
         ),
         # Complex commission structure with realistic payment timing
@@ -856,7 +855,7 @@ def complex_office_stress_test():
             name="Anchor Commission",
             timeline=timeline,
             value=5040000,  # Annual rent: 42 * 120,000
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+            # reference=None (direct currency amount)
             tiers=[
                 CommissionTier(year_start=1, year_end=5, rate=0.03, signing_percentage=0.5, commencement_percentage=0.5),  # 3% years 1-5, 50/50 split
                 CommissionTier(year_start=6, year_end=10, rate=0.02, signing_percentage=0.5, commencement_percentage=0.5), # 2% years 6-10, 50/50 split  
@@ -873,7 +872,7 @@ def complex_office_stress_test():
             suite=f"Floor {9+i}", floor=f"{9+i}",
             area=25000, use_type=ProgramUseEnum.OFFICE,
             start_date=date(2022 + i%3, 6, 1), term_months=60,  # 5-year leases
-            base_rent_value=52.0 + i*2, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=52.0 + i*2, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=aggressive_method, rollover_profile=aggressive_rollover,
             upon_expiration=UponExpirationEnum.MARKET,
@@ -882,7 +881,7 @@ def complex_office_stress_test():
                 OfficeRentEscalation(
                     type="percentage",
                     rate=0.04,  # 4% annual increase
-                    unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+                    # reference=None (direct currency amount)
                     is_relative=True,
                     start_date=date(2023 + i%3, 6, 1),
                     recurring=True,
@@ -894,7 +893,7 @@ def complex_office_stress_test():
                 name=f"Tech TI {i+1}", 
                 timeline=timeline,
                 value=1500000, 
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+                # reference=None (direct currency amount)
                 payment_timing="commencement"
             )
         )
@@ -907,7 +906,7 @@ def complex_office_stress_test():
             suite=f"Suite {1400+i*10}", floor=f"{14+i//4}",
             area=8500, use_type=ProgramUseEnum.OFFICE,
             start_date=date(2021 + i%4, 1, 1), term_months=120,  # 10-year leases
-            base_rent_value=38.0 + i, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=38.0 + i, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=standard_method, rollover_profile=standard_rollover,
             upon_expiration=UponExpirationEnum.MARKET,
@@ -916,7 +915,7 @@ def complex_office_stress_test():
                 OfficeRentEscalation(
                     type="percentage",
                     rate=0.03,  # 3% annual increase
-                    unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+                    # reference=None (direct currency amount)
                     is_relative=True,
                     start_date=date(2024, 1, 1),
                     recurring=True,
@@ -940,7 +939,7 @@ def complex_office_stress_test():
             suite=f"Suite {2000+i*5}", floor=f"{20+i//8}",
             area=3200, use_type=ProgramUseEnum.OFFICE,
             start_date=date(2022 + i%3, 1, 1), term_months=60,  # 5-year leases
-            base_rent_value=32.0 + i%8, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=32.0 + i%8, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=conservative_method, rollover_profile=aggressive_rollover,
             upon_expiration=UponExpirationEnum.MARKET,
@@ -949,7 +948,7 @@ def complex_office_stress_test():
                 OfficeRentEscalation(
                     type="percentage",
                     rate=0.025,  # 2.5% annual increase
-                    unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+                    # reference=None (direct currency amount)
                     is_relative=True,
                     start_date=date(2025, 1, 1),
                     recurring=True,
@@ -981,7 +980,7 @@ def complex_office_stress_test():
         leasing_assumptions=DirectLeaseTerms(
             term_months=84,  # 7-year terms
             base_rent_value=48.0, 
-            base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, 
             lease_type=LeaseTypeEnum.NET,
             recovery_method=standard_method, 
@@ -996,7 +995,7 @@ def complex_office_stress_test():
             name="Parking Revenue", 
             timeline=timeline,
             value=180000, 
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+            # reference=None (direct currency amount)
             frequency=FrequencyEnum.ANNUAL,
             growth_rate=PercentageGrowthRate(name="Parking Growth", value=0.03)
         ),
@@ -1004,7 +1003,7 @@ def complex_office_stress_test():
             name="Retail Concessions", 
             timeline=timeline,
             value=240000, 
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+            # reference=None (direct currency amount)
             frequency=FrequencyEnum.ANNUAL,
             growth_rate=PercentageGrowthRate(name="Retail Growth", value=0.04)
         ),
@@ -1012,7 +1011,7 @@ def complex_office_stress_test():
             name="Conference Center", 
             timeline=timeline,
             value=120000, 
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
+            # reference=None (direct currency amount)
             frequency=FrequencyEnum.ANNUAL,
             growth_rate=PercentageGrowthRate(name="Conference Growth", value=0.025)
         )

@@ -29,7 +29,7 @@ from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     Timeline,
-    UnitOfMeasureEnum,
+
     UnleveredAggregateLineKey,
 )
 from performa.development.disposition import DispositionCashFlow
@@ -74,14 +74,13 @@ class TestDispositionCashFlowInstantiation:
             subcategory="Sale Proceeds",
             timeline=sample_timeline,
             value=1000000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY
         )
         
         assert disposition.name == "Project Sale"
         assert disposition.category == "Disposition"
         assert disposition.subcategory == "Sale Proceeds"
         assert disposition.value == 1000000.0
-        assert disposition.unit_of_measure == UnitOfMeasureEnum.CURRENCY
+        assert disposition.reference is None  # Default for currency amounts
         assert disposition.timeline == sample_timeline
         assert disposition.frequency == FrequencyEnum.MONTHLY  # Default
     
@@ -95,7 +94,6 @@ class TestDispositionCashFlowInstantiation:
             account="4100-Disposition",
             timeline=sample_timeline,
             value=25000000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             frequency=FrequencyEnum.ANNUAL,
             reference=UnleveredAggregateLineKey.NET_OPERATING_INCOME
         )
@@ -113,7 +111,6 @@ class TestDispositionCashFlowInstantiation:
             subcategory="Proceeds",
             timeline=sample_timeline,
             value=500000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY
         )
         
         assert isinstance(disposition, CashFlowModel)
@@ -131,7 +128,6 @@ class TestDispositionCashFlowInstantiation:
                 subcategory="Proceeds",
                 timeline=sample_timeline,
                 value=100000.0,
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY
             )
         
         # Test negative value (should be rejected by PositiveFloat)
@@ -142,7 +138,6 @@ class TestDispositionCashFlowInstantiation:
                 subcategory="Proceeds",
                 timeline=sample_timeline,
                 value=-100000.0,  # Negative value
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY
             )
 
 
@@ -157,7 +152,6 @@ class TestDispositionCashFlowComputation:
             subcategory="Proceeds",
             timeline=sample_timeline,
             value=2000000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY
         )
         
         cash_flow = disposition.compute_cf(sample_context)
@@ -194,7 +188,6 @@ class TestDispositionCashFlowComputation:
             subcategory="Proceeds", 
             timeline=single_period_timeline,
             value=750000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY
         )
         
         cash_flow = disposition.compute_cf(context)
@@ -216,7 +209,6 @@ class TestDispositionCashFlowComputation:
             subcategory="Proceeds",
             timeline=empty_timeline,
             value=1000000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY
         )
         
         cash_flow = disposition.compute_cf(context)
@@ -234,7 +226,6 @@ class TestDispositionCashFlowComputation:
             subcategory="Proceeds",
             timeline=sample_timeline,
             value=0.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY
         )
         
         cash_flow = disposition.compute_cf(sample_context)
@@ -253,7 +244,6 @@ class TestDispositionCashFlowComputation:
             subcategory="Proceeds",
             timeline=sample_timeline,
             value=large_value,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY
         )
         
         cash_flow = disposition.compute_cf(sample_context)
@@ -276,7 +266,6 @@ class TestDispositionCashFlowIntegration:
             subcategory="Proceeds",
             timeline=sample_timeline,
             value=500000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY
         )
         
         # Test with None context (should still work)
@@ -303,7 +292,6 @@ class TestDispositionCashFlowIntegration:
             subcategory="Proceeds",
             timeline=sample_timeline,
             value=300000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY
         )
         
         cash_flow = disposition.compute_cf(sample_context)
@@ -325,7 +313,6 @@ class TestDispositionCashFlowIntegration:
             subcategory="Proceeds",
             timeline=sample_timeline,
             value=1000000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY
         )
         
         disposition2 = DispositionCashFlow(
@@ -334,7 +321,6 @@ class TestDispositionCashFlowIntegration:
             subcategory="Proceeds",
             timeline=sample_timeline,
             value=2000000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY
         )
         
         assert disposition1.uid != disposition2.uid
@@ -354,7 +340,6 @@ class TestDispositionCashFlowEdgeCases:
             subcategory="Proceeds",
             timeline=long_timeline,
             value=5000000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY
         )
         
         cash_flow = disposition.compute_cf(sample_context)
@@ -372,7 +357,6 @@ class TestDispositionCashFlowEdgeCases:
             subcategory="Proceeds", 
             timeline=sample_timeline,
             value=1234567.89,  # Fractional value
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY
         )
         
         cash_flow = disposition.compute_cf(sample_context)
@@ -393,8 +377,7 @@ class TestDispositionDocumentationExamples:
             timeline=sample_timeline,  # Using fixture instead of sale_timeline
             value=10000000.0,  # net_proceeds equivalent  
             category="Disposition",
-            subcategory="Sale Proceeds",
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,  # Added required field
+            subcategory="Sale Proceeds",  # Added required field
             frequency=FrequencyEnum.MONTHLY  # Added for completeness
         )
         

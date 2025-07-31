@@ -17,7 +17,7 @@ from datetime import date
 import pytest
 
 from performa.core.capital import CapitalItem, CapitalPlan
-from performa.core.primitives import AssetTypeEnum, Timeline, UnitOfMeasureEnum
+from performa.core.primitives import AssetTypeEnum, Timeline
 from performa.deal import Deal, analyze
 from performa.deal.acquisition import AcquisitionTerms
 from performa.development.project import DevelopmentProject

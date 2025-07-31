@@ -12,7 +12,7 @@ import pandas as pd
 from pydantic import model_validator
 
 from ..primitives.cash_flow import CashFlowModel
-from ..primitives.enums import UnitOfMeasureEnum
+from ..primitives import PropertyAttributeKey
 from ..primitives.model import Model
 from ..primitives.types import FloatBetween0And1, PositiveFloat, PositiveInt
 
@@ -112,16 +112,43 @@ class TenantImprovementAllowanceBase(CashFlowModel):
         Default implementation: Simple upfront payment at timeline start.
         """
         total_amount = self.value
-        if self.unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
-            # Get area from lease context if available, otherwise use area field
-            area = self.area
-            if context.current_lease and hasattr(context.current_lease, 'area'):
-                area = context.current_lease.area
+        
+        # New unified reference-based calculation system
+        if self.reference is None:
+            # Direct currency amount - no multiplication needed
+            pass
+        elif isinstance(self.reference, PropertyAttributeKey):
+            # DYNAMIC RESOLUTION: TI calculations with lease context priority
+            # For TI allowances, prefer lease-specific values over property-level values
             
-            if area:
-                total_amount = self.value * area
+            if self.reference == PropertyAttributeKey.NET_RENTABLE_AREA:
+                # Special case: For area-based TI, prefer lease area over property area
+                area = self.area
+                if context.current_lease and hasattr(context.current_lease, 'area'):
+                    area = context.current_lease.area
+                
+                if area:
+                    total_amount = self.value * area
+                else:
+                    raise ValueError("Area required for NET_RENTABLE_AREA TI calculation but not available from lease context or TI model")
             else:
-                raise ValueError("Area required for PER_UNIT TI but not available from lease context or TI model")
+                # FIXME: check this logic for dynamic resolution
+                # DYNAMIC RESOLUTION: Use enum value as attribute name for other PropertyAttributeKeys
+                attribute_name = self.reference.value
+                property_value = None
+                
+                # Try lease context first (if available), then property level
+                if context.current_lease and hasattr(context.current_lease, attribute_name):
+                    property_value = getattr(context.current_lease, attribute_name)
+                elif hasattr(context.property_data, attribute_name):
+                    property_value = getattr(context.property_data, attribute_name)
+                
+                if property_value is not None:
+                    total_amount = self.value * property_value
+                else:
+                    raise ValueError(f"Property attribute '{attribute_name}' not available for TI calculation")
+        else:
+            raise NotImplementedError(f"Reference type {type(self.reference)} not implemented for TI calculations")
         
         if self.payment_method == "upfront":
             ti_cf = pd.Series(0.0, index=self.timeline.period_index)

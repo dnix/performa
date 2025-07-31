@@ -40,8 +40,9 @@ from performa.asset.residential import (
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
+    PropertyAttributeKey,
     Timeline,
-    UnitOfMeasureEnum,
+    UnleveredAggregateLineKey,
 )
 from performa.core.primitives.growth_rates import PercentageGrowthRate
 
@@ -148,31 +149,30 @@ class TestLargeScaleProperties:
                     name="Property Management",
                     timeline=timeline,
                     value=0.055,  # 5.5% management fee
-                    unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
                     frequency=FrequencyEnum.MONTHLY,
-                    reference="Effective Gross Income",
+                    reference=UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME,
                 ),
                 ResidentialOpExItem(
                     name="Maintenance & Repairs",
                     timeline=timeline,
                     value=550.0,  # $550 per unit annually
-                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
                     frequency=FrequencyEnum.ANNUAL,
+                    reference=PropertyAttributeKey.UNIT_COUNT,
                 ),
                 ResidentialOpExItem(
                     name="Utilities",
                     timeline=timeline,
                     value=180000.0,  # $180k annually for common areas
-                    unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                     frequency=FrequencyEnum.ANNUAL,
+                    # reference=None (direct currency amount)
                     growth_rate=PercentageGrowthRate(name="Utility Growth", value=0.04),  # 4% utility inflation
                 ),
                 ResidentialOpExItem(
                     name="Insurance & Taxes",
                     timeline=timeline,
                     value=2.85,  # $2.85 per SF annually
-                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
                     frequency=FrequencyEnum.ANNUAL,
+                    reference=PropertyAttributeKey.UNIT_COUNT,
                     growth_rate=PercentageGrowthRate(name="Tax Growth", value=0.025),  # 2.5% tax growth
                 ),
             ],
@@ -181,15 +181,15 @@ class TestLargeScaleProperties:
                     name="Capital Reserves",
                     timeline=timeline,
                     value=450.0,  # $450 per unit annually
-                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
                     frequency=FrequencyEnum.ANNUAL,
+                    reference=PropertyAttributeKey.UNIT_COUNT,
                 ),
                 ResidentialCapExItem(
                     name="Facility Improvements",
                     timeline=timeline,
                     value=125000.0,  # $125k annually for amenities/common areas
-                    unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                     frequency=FrequencyEnum.ANNUAL,
+                    # reference=None (direct currency amount)
                 ),
             ],
         )
@@ -206,29 +206,29 @@ class TestLargeScaleProperties:
                 name="Parking Revenue",
                 timeline=timeline,
                 value=125.0,  # $125 per unit annually (assuming 80% take-up)
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
                 frequency=FrequencyEnum.ANNUAL,
+                reference=PropertyAttributeKey.UNIT_COUNT,
             ),
             ResidentialMiscIncome(
                 name="Laundry & Vending",
                 timeline=timeline,
                 value=85.0,  # $85 per unit annually
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
                 frequency=FrequencyEnum.ANNUAL,
+                reference=PropertyAttributeKey.UNIT_COUNT,
             ),
             ResidentialMiscIncome(
                 name="Pet Fees",
                 timeline=timeline,
                 value=35.0,  # $35 per unit per month (assuming 40% have pets)
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
                 frequency=FrequencyEnum.MONTHLY,
+                reference=PropertyAttributeKey.UNIT_COUNT,
             ),
             ResidentialMiscIncome(
                 name="Application & Admin Fees",
                 timeline=timeline,
                 value=150.0,  # $150 per unit annually
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
                 frequency=FrequencyEnum.ANNUAL,
+                reference=PropertyAttributeKey.UNIT_COUNT,
             ),
         ]
         
@@ -364,9 +364,8 @@ class TestLargeScaleProperties:
                     name="Property Management",
                     timeline=timeline,
                     value=0.05,
-                    unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
                     frequency=FrequencyEnum.MONTHLY,
-                    reference="Effective Gross Income",
+                    reference=UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME,
                 ),
             ]
         )
@@ -522,16 +521,15 @@ class TestComplexScenarios:
                     name="Property Management",
                     timeline=timeline,
                     value=0.06,  # Higher fee during transition
-                    unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
                     frequency=FrequencyEnum.MONTHLY,
-                    reference="Effective Gross Income",
+                    reference=UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME,
                 ),
                 ResidentialOpExItem(
                     name="Maintenance & Repairs",
                     timeline=timeline,
                     value=650.0,  # Higher maintenance during transition
-                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
                     frequency=FrequencyEnum.ANNUAL,
+                    reference=PropertyAttributeKey.UNIT_COUNT,
                 ),
             ],
             capital_expenses=[
@@ -539,15 +537,15 @@ class TestComplexScenarios:
                     name="Capital Reserves",
                     timeline=timeline,
                     value=400.0,
-                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
                     frequency=FrequencyEnum.ANNUAL,
+                    reference=PropertyAttributeKey.UNIT_COUNT,
                 ),
                 ResidentialCapExItem(
                     name="Value-Add Improvements",
                     timeline=timeline,
                     value=180000.0,  # Ongoing improvement program
-                    unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                     frequency=FrequencyEnum.ANNUAL,
+                    # reference=None (direct currency amount)
                 ),
             ],
         )

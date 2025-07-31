@@ -253,7 +253,7 @@ class ResidentialAbsorptionPlan(AbsorptionPlanBase[ResidentialExpenses, Resident
         """
         from datetime import date
 
-        from ...core.primitives import PercentageGrowthRate, Timeline, UnitOfMeasureEnum
+        from ...core.primitives import PercentageGrowthRate, PropertyAttributeKey, Timeline
         from .expense import ResidentialCapExItem, ResidentialOpExItem
         from .losses import ResidentialCollectionLoss, ResidentialGeneralVacancyLoss
         
@@ -271,7 +271,7 @@ class ResidentialAbsorptionPlan(AbsorptionPlanBase[ResidentialExpenses, Resident
                     category="Expense",
                     timeline=timeline,
                     value=150.0,
-                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                    reference=PropertyAttributeKey.UNIT_COUNT,
                     growth_rate=PercentageGrowthRate(name="Property Management Growth", value=0.03)
                 ),
                 ResidentialOpExItem(
@@ -279,7 +279,7 @@ class ResidentialAbsorptionPlan(AbsorptionPlanBase[ResidentialExpenses, Resident
                     category="Expense",
                     timeline=timeline,
                     value=100.0,
-                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                    reference=PropertyAttributeKey.UNIT_COUNT,
                     growth_rate=PercentageGrowthRate(name="Maintenance Growth", value=0.035)
                 ),
                 ResidentialOpExItem(
@@ -287,7 +287,7 @@ class ResidentialAbsorptionPlan(AbsorptionPlanBase[ResidentialExpenses, Resident
                     category="Expense",
                     timeline=timeline,
                     value=75.0,
-                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                    reference=PropertyAttributeKey.UNIT_COUNT,
                     growth_rate=PercentageGrowthRate(name="Utilities Growth", value=0.04)
                 )
             ],
@@ -297,7 +297,7 @@ class ResidentialAbsorptionPlan(AbsorptionPlanBase[ResidentialExpenses, Resident
                     category="Expense",
                     timeline=timeline,
                     value=300.0,
-                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                    reference=PropertyAttributeKey.UNIT_COUNT,
                     growth_rate=PercentageGrowthRate(name="CapEx Growth", value=0.03)
                 )
             ]
@@ -319,7 +319,7 @@ class ResidentialAbsorptionPlan(AbsorptionPlanBase[ResidentialExpenses, Resident
             category="Revenue", 
             timeline=timeline,
             value=50.0,  # $50/unit/month (parking, laundry, etc.)
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             growth_rate=PercentageGrowthRate(name="Misc Income Growth", value=0.025)
         )
         

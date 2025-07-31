@@ -4,10 +4,11 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import List, Union
+from typing import List, Optional, Union
 
 from ...core.base import RentEscalationBase
-from ...core.primitives import UnitOfMeasureEnum
+from ...core.primitives import PropertyAttributeKey
+from ...core.primitives.cash_flow import ReferenceKey
 from ...core.primitives.growth_rates import FixedGrowthRate, PercentageGrowthRate
 
 
@@ -53,7 +54,6 @@ def create_stepped_percentage_escalations(
         escalation = OfficeRentEscalation(
             type="percentage",
             rate=rate,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             is_relative=True,
             start_month=current_month,
             recurring=is_final,  # Only the final rate should be recurring
@@ -70,7 +70,7 @@ def create_stepped_percentage_escalations(
 def create_stepped_fixed_escalations(
     start_month: int,
     annual_amounts: List[float],
-    unit_of_measure: UnitOfMeasureEnum = UnitOfMeasureEnum.PER_UNIT,
+    reference: Optional[ReferenceKey] = PropertyAttributeKey.NET_RENTABLE_AREA,
     years_per_step: int = 1
 ) -> List[OfficeRentEscalation]:
     """
@@ -90,7 +90,7 @@ def create_stepped_fixed_escalations(
         escalations = create_stepped_fixed_escalations(
             start_month=13,
             annual_amounts=[1.50, 1.75, 2.00],
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA
         )
     """
     escalations = []
@@ -102,7 +102,7 @@ def create_stepped_fixed_escalations(
         escalation = OfficeRentEscalation(
             type="fixed",
             rate=amount,
-            unit_of_measure=unit_of_measure,
+            reference=reference,
             is_relative=False,
             start_month=current_month,
             recurring=is_final,  # Only the final amount should be recurring
@@ -120,7 +120,7 @@ def create_simple_annual_escalation(
     rate: float,
     escalation_type: str = "percentage",
     start_month: int = 13,
-    unit_of_measure: UnitOfMeasureEnum = UnitOfMeasureEnum.CURRENCY
+    reference: Optional[ReferenceKey] = None
 ) -> OfficeRentEscalation:
     """
     Create a simple recurring annual escalation.
@@ -129,7 +129,7 @@ def create_simple_annual_escalation(
         rate: The escalation rate (0-1 for percentage, dollar amount for fixed)
         escalation_type: "percentage" or "fixed"
         start_month: Month when escalations begin (default: 13 = year 2)
-        unit_of_measure: Unit of measure for the escalation
+        reference: Reference for the escalation (PropertyAttributeKey, UnleveredAggregateLineKey, or None)
         
     Returns:
         Single OfficeRentEscalation object
@@ -141,7 +141,7 @@ def create_simple_annual_escalation(
     return OfficeRentEscalation(
         type=escalation_type,
         rate=rate,
-        unit_of_measure=unit_of_measure,
+        reference=reference,
         is_relative=(escalation_type == "percentage"),
         start_month=start_month,
         recurring=True,
@@ -151,7 +151,7 @@ def create_simple_annual_escalation(
 
 def create_escalations_from_absolute_dates(
     escalation_schedule: List[tuple[date, float, str]],
-    unit_of_measure: UnitOfMeasureEnum = UnitOfMeasureEnum.CURRENCY
+    reference: Optional[ReferenceKey] = None
 ) -> List[OfficeRentEscalation]:
     """
     Create escalations based on absolute dates (less common, but supported).
@@ -179,7 +179,7 @@ def create_escalations_from_absolute_dates(
         escalation = OfficeRentEscalation(
             type=escalation_type,
             rate=rate,
-            unit_of_measure=unit_of_measure,
+            reference=reference,
             is_relative=(escalation_type == "percentage"),
             start_date=escalation_date,
             recurring=is_final,  # Only the final escalation should be recurring

@@ -21,7 +21,7 @@ from unittest.mock import Mock
 
 from performa.core.primitives import (
     Timeline, GlobalSettings, CashFlowModel, UnleveredAggregateLineKey, 
-    UnitOfMeasureEnum, RevenueSubcategoryEnum, ExpenseSubcategoryEnum
+    PropertyAttributeKey, RevenueSubcategoryEnum, ExpenseSubcategoryEnum
 )
 from performa.analysis.orchestrator import CashFlowOrchestrator, AnalysisContext
 
@@ -65,7 +65,6 @@ class TestCashFlowOrchestratorMathematical:
             subcategory=RevenueSubcategoryEnum.LEASE,
             timeline=context.timeline,
             value=10000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             reference=None  # Independent
         )
         
@@ -76,7 +75,6 @@ class TestCashFlowOrchestratorMathematical:
             subcategory=ExpenseSubcategoryEnum.OPEX,
             timeline=context.timeline,
             value=0.05,  # 5%
-            unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
             reference=UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME  # CRITICAL: Dependent on EGI
         )
         
@@ -118,7 +116,6 @@ class TestCashFlowOrchestratorMathematical:
             subcategory=ExpenseSubcategoryEnum.OPEX,
             timeline=context.timeline,
             value=3000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             reference=None  # Independent
         )
         
@@ -129,7 +126,6 @@ class TestCashFlowOrchestratorMathematical:
             subcategory=ExpenseSubcategoryEnum.OPEX,
             timeline=context.timeline,
             value=0.10,  # 10%
-            unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
             reference=UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES  # Dependent
         )
         
@@ -165,7 +161,6 @@ class TestCashFlowOrchestratorMathematical:
             subcategory=ExpenseSubcategoryEnum.OPEX, 
             timeline=context.timeline,
             value=2000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             reference=None
         )
         
@@ -174,8 +169,7 @@ class TestCashFlowOrchestratorMathematical:
             category="Expense", 
             subcategory=ExpenseSubcategoryEnum.OPEX,
             timeline=context.timeline,
-            value=1500.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY, 
+            value=1500.0, 
             reference=None
         )
         
@@ -186,7 +180,6 @@ class TestCashFlowOrchestratorMathematical:
             subcategory=ExpenseSubcategoryEnum.OPEX,
             timeline=context.timeline, 
             value=0.05,  # 5%
-            unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
             reference=UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES
         )
         
@@ -226,7 +219,6 @@ class TestCashFlowOrchestratorMathematical:
             subcategory=RevenueSubcategoryEnum.LEASE,
             timeline=context.timeline,
             value=15000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             reference=None
         )
         
@@ -237,7 +229,6 @@ class TestCashFlowOrchestratorMathematical:
             subcategory=ExpenseSubcategoryEnum.OPEX,
             timeline=context.timeline,
             value=4000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             reference=None
         )
         
@@ -248,7 +239,6 @@ class TestCashFlowOrchestratorMathematical:
             subcategory=ExpenseSubcategoryEnum.OPEX,
             timeline=context.timeline,
             value=0.04,  # 4%
-            unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
             reference=UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME
         )
         
@@ -299,7 +289,6 @@ class TestCashFlowOrchestratorMathematical:
             subcategory=RevenueSubcategoryEnum.LEASE, 
             timeline=context.timeline,
             value=5000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             reference=None
         )
         
@@ -309,7 +298,6 @@ class TestCashFlowOrchestratorMathematical:
             subcategory=ExpenseSubcategoryEnum.OPEX,
             timeline=context.timeline,
             value=2000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             reference=None
         )
         
@@ -337,7 +325,6 @@ class TestCashFlowOrchestratorMathematical:
             subcategory=ExpenseSubcategoryEnum.OPEX,
             timeline=context.timeline,
             value=0.05,
-            unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
             reference=UnleveredAggregateLineKey.MISCELLANEOUS_INCOME  # No misc income created
         )
         
@@ -419,7 +406,6 @@ def test_effective_gross_income_bug_reproduction():
         subcategory=RevenueSubcategoryEnum.LEASE,
         timeline=timeline,
         value=10000.0,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         reference=None
     )
     
@@ -429,7 +415,6 @@ def test_effective_gross_income_bug_reproduction():
         subcategory=ExpenseSubcategoryEnum.OPEX,
         timeline=timeline,
         value=3000.0,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         reference=None
     )
     
@@ -439,7 +424,6 @@ def test_effective_gross_income_bug_reproduction():
         subcategory=ExpenseSubcategoryEnum.OPEX,
         timeline=timeline,
         value=0.05,
-        unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
         reference=UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME
     )
     

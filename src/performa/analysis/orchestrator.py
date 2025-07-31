@@ -67,6 +67,7 @@ import pandas as pd
 
 from performa.core.primitives import (
     CalculationPass,
+    PropertyAttributeKey,
     UnleveredAggregateLineKey,
     UponExpirationEnum,
 )
@@ -352,15 +353,16 @@ class CashFlowOrchestrator:
         graph = {}
         for m in model_subset:
             deps = set()
-            # Handle UnleveredAggregateLineKey references for dependency resolution
+            # Handle reference types for dependency resolution
             if m.reference is not None:
-                if isinstance(m.reference, UnleveredAggregateLineKey):
-                    # UnleveredAggregateLineKey references are resolved from previous phases
-                    # No intra-phase dependency needed since aggregates are computed after phases
+                if isinstance(m.reference, (UnleveredAggregateLineKey, PropertyAttributeKey)):
+                    # UnleveredAggregateLineKey: resolved from previous phases (aggregates)
+                    # PropertyAttributeKey: resolved from property data directly
+                    # No intra-phase dependency needed for either
                     pass
                 else:
-                    # Unsupported reference type - should not happen with Pydantic validator
-                    raise ValueError(f"Unsupported reference type in model '{m.name}': {type(m.reference)}. Expected UnleveredAggregateLineKey.")
+                    # Unsupported reference type - only type-safe enums allowed
+                    raise ValueError(f"Unsupported reference type in model '{m.name}': {type(m.reference)}. Expected PropertyAttributeKey or UnleveredAggregateLineKey.")
             graph[m.uid] = deps
 
         try:
@@ -505,22 +507,31 @@ class CashFlowOrchestrator:
             collection_loss = basis * collection_rate
             agg_flows[UnleveredAggregateLineKey.COLLECTION_LOSS] = collection_loss
 
-    def _get_aggregate_key(self, category: str, subcategory: str, component: str = 'value') -> Optional[UnleveredAggregateLineKey]:
+    def _get_aggregate_key(self, category: str, subcategory: Union[str, Any], component: str = 'value') -> Optional[UnleveredAggregateLineKey]:
         # Mapping logic from raw categories to summary lines
         from performa.core.primitives import (
             ExpenseSubcategoryEnum,
             RevenueSubcategoryEnum,
         )
         if category == "Revenue":
-            if subcategory == RevenueSubcategoryEnum.LEASE:
+            # Handle both enum values and string values for subcategory
+            if (subcategory == RevenueSubcategoryEnum.LEASE or 
+                (hasattr(subcategory, 'value') and subcategory == RevenueSubcategoryEnum.LEASE) or
+                subcategory == "Lease"):
                 if component == "base_rent": return UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE
                 if component == "recoveries": return UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS
                 if component == "abatement": return UnleveredAggregateLineKey.RENTAL_ABATEMENT
-            elif subcategory == RevenueSubcategoryEnum.MISC:
+            elif (subcategory == RevenueSubcategoryEnum.MISC or 
+                  (hasattr(subcategory, 'value') and subcategory == RevenueSubcategoryEnum.MISC)):
                 return UnleveredAggregateLineKey.MISCELLANEOUS_INCOME
-        elif category == "Expense":
-            if subcategory == ExpenseSubcategoryEnum.OPEX: return UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES
-            if subcategory == ExpenseSubcategoryEnum.CAPEX: return UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES
+        elif category == "Expense" or category == "Operating Expense":
+            # Handle both enum values and string representations  
+            if (subcategory == ExpenseSubcategoryEnum.OPEX or 
+                str(subcategory) == str(ExpenseSubcategoryEnum.OPEX)):
+                return UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES
+            if (subcategory == ExpenseSubcategoryEnum.CAPEX or 
+                str(subcategory) == str(ExpenseSubcategoryEnum.CAPEX)):
+                return UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES
             # Handle special leasing costs from lease object
             if subcategory == "Lease" and component == "ti_allowance": return UnleveredAggregateLineKey.TOTAL_TENANT_IMPROVEMENTS
             if subcategory == "Lease" and component == "leasing_commission": return UnleveredAggregateLineKey.TOTAL_LEASING_COMMISSIONS
@@ -633,8 +644,8 @@ class CashFlowOrchestrator:
             )
             max_depth = 2
         
-        # Validate each model with aggregate references
-        models_with_references = [m for m in self.models if m.reference]
+        # Validate each model with aggregate references (not property attribute references)
+        models_with_references = [m for m in self.models if isinstance(m.reference, UnleveredAggregateLineKey)]
         logger.debug(f"Validating {len(models_with_references)} models with aggregate references")
         
         for model in models_with_references:
@@ -717,6 +728,11 @@ class CashFlowOrchestrator:
         # Base case: models without aggregate references are independent
         if not model.reference:
             logger.debug(f"Model '{model.name}' is independent (no reference)")
+            return 0
+        
+        # PropertyAttributeKey references are direct property lookups, not aggregate dependencies
+        if isinstance(model.reference, PropertyAttributeKey):
+            logger.debug(f"Model '{model.name}' uses direct property attribute '{model.reference.value}' → depth 0")
             return 0
         
         # Find all models that contribute to the aggregate this model depends on

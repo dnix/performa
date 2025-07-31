@@ -301,7 +301,7 @@ class TestAcquisitionTermsIntegration:
         assert hasattr(acquisition, 'subcategory')
         assert hasattr(acquisition, 'timeline')
         assert hasattr(acquisition, 'value')
-        assert hasattr(acquisition, 'unit_of_measure')
+        assert hasattr(acquisition, 'reference')
         assert hasattr(acquisition, 'frequency')
 
     def test_uses_inherited_cast_to_flow_method(self):

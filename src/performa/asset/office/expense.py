@@ -11,7 +11,7 @@ import pandas as pd
 from pydantic import Field
 
 from ...core.base import CapExItemBase, OpExItemBase
-from ...core.primitives import GrowthRate, Model, Timeline, UnitOfMeasureEnum
+from ...core.primitives import GrowthRate, Model, Timeline
 
 if TYPE_CHECKING:
     from performa.analysis import AnalysisContext

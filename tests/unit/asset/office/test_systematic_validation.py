@@ -43,7 +43,7 @@ from performa.core.primitives import (
     LeaseTypeEnum,
     ProgramUseEnum,
     Timeline,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
     UnleveredAggregateLineKey,
     UponExpirationEnum,
 )
@@ -80,7 +80,7 @@ class TestSystematicValidation:
         # Simple operating expense
         opex = OfficeOpExItem(
             name="Building OpEx", timeline=timeline,
-            value=8.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL
+            value=8.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL
         )
         
         # Single tenant - perfect baseline
@@ -88,7 +88,7 @@ class TestSystematicValidation:
             tenant_name="Single Tenant", suite="100", floor="1",
             area=10000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=30.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=30.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.GROSS,
             upon_expiration=UponExpirationEnum.MARKET
         )
@@ -149,11 +149,11 @@ class TestSystematicValidation:
         # Operating expenses
         cam = OfficeOpExItem(
             name="CAM", timeline=timeline,
-            value=6.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL
+            value=6.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL
         )
         taxes = OfficeOpExItem(
             name="Taxes", timeline=timeline,
-            value=4.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL
+            value=4.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL
         )
         
         # Recovery method (net = tenant pays all expenses)
@@ -172,7 +172,7 @@ class TestSystematicValidation:
             tenant_name="Recovering Tenant", suite="100", floor="1",
             area=10000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=25.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=25.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=recovery_method,
             upon_expiration=UponExpirationEnum.MARKET
@@ -239,7 +239,7 @@ class TestSystematicValidation:
         # Operating expenses
         opex = OfficeOpExItem(
             name="Building OpEx", timeline=timeline,
-            value=8.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL
+            value=8.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL
         )
         
         # Recovery method for Tenant B
@@ -258,7 +258,7 @@ class TestSystematicValidation:
             tenant_name="Tenant A", suite="100", floor="1",
             area=10000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=30.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=30.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.GROSS,
             upon_expiration=UponExpirationEnum.MARKET
         )
@@ -268,7 +268,7 @@ class TestSystematicValidation:
             tenant_name="Tenant B", suite="200", floor="2",
             area=8000, use_type="office", 
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=28.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=28.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=recovery_method,
             upon_expiration=UponExpirationEnum.MARKET
@@ -339,7 +339,7 @@ class TestSystematicValidation:
         # Operating expenses
         opex = OfficeOpExItem(
             name="Building OpEx", timeline=timeline,
-            value=8.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL
+            value=8.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL
         )
         
         # Recovery method for Tenant B
@@ -358,7 +358,7 @@ class TestSystematicValidation:
             tenant_name="Tenant A", suite="100", floor="1",
             area=10000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=30.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=30.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.GROSS,
             upon_expiration=UponExpirationEnum.MARKET
         )
@@ -368,7 +368,7 @@ class TestSystematicValidation:
             tenant_name="Tenant B", suite="200", floor="2",
             area=8000, use_type="office", 
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=28.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=28.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=recovery_method,
             upon_expiration=UponExpirationEnum.MARKET
@@ -455,7 +455,7 @@ class TestSystematicValidation:
             tenant_name="Renewing Tenant", suite="100", floor="1",
             area=10000, use_type="office",
             start_date=date(2020, 1, 1), term_months=60,  # Expires Dec 2024
-            base_rent_value=25.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=25.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.GROSS,
             upon_expiration=UponExpirationEnum.RENEW,
             rollover_profile=rollover_profile
@@ -511,16 +511,16 @@ class TestSystematicValidation:
         # Realistic operating expenses
         cam_expense = OfficeOpExItem(
             name="CAM", timeline=timeline,
-            value=6.50, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL,
+            value=6.50, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL,
             variable_ratio=0.3  # 30% variable with occupancy
         )
         tax_expense = OfficeOpExItem(
             name="Real Estate Taxes", timeline=timeline,
-            value=275000, unit_of_measure=UnitOfMeasureEnum.CURRENCY, frequency=FrequencyEnum.ANNUAL
+            value=275000, frequency=FrequencyEnum.ANNUAL
         )
         insurance = OfficeOpExItem(
             name="Insurance", timeline=timeline,
-            value=1.25, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL
+            value=1.25, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL
         )
         
         # Recovery methods with gross-up
@@ -542,7 +542,7 @@ class TestSystematicValidation:
                 tenant_name="ABC Corp", suite="200-300", floor="2-3",
                 area=20000, use_type="office",
                 start_date=date(2022, 3, 1), term_months=84,  # 7-year lease
-                base_rent_value=32.00, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                base_rent_value=32.00, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
                 recovery_method=full_recovery,
                 upon_expiration=UponExpirationEnum.MARKET
@@ -553,7 +553,7 @@ class TestSystematicValidation:
                 tenant_name="XYZ Law Firm", suite="400-450", floor="4",
                 area=15000, use_type="office",
                 start_date=date(2019, 1, 1), term_months=72,
-                base_rent_value=28.50, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                base_rent_value=28.50, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
                 recovery_method=full_recovery,
                 upon_expiration=UponExpirationEnum.MARKET
@@ -564,7 +564,7 @@ class TestSystematicValidation:
                 tenant_name="Tech Startup", suite="500", floor="5",
                 area=8000, use_type="office",
                 start_date=date(2023, 6, 1), term_months=36,
-                base_rent_value=38.00, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                base_rent_value=38.00, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.GROSS,  # No recovery
                 upon_expiration=UponExpirationEnum.MARKET
             )
@@ -655,14 +655,13 @@ class TestSystematicValidation:
         # Base operating expense
         base_opex = OfficeOpExItem(
             name="Base OpEx", timeline=timeline,
-            value=8.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL
+            value=8.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL
         )
         
         # Admin fee as percentage of Total Operating Expenses
         admin_fee = OfficeOpExItem(
             name="Admin Fee", timeline=timeline,
-            value=0.05, unit_of_measure=UnitOfMeasureEnum.BY_PERCENT, frequency=FrequencyEnum.MONTHLY,
-            reference=UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES
+            value=0.05, reference=UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES, frequency=FrequencyEnum.MONTHLY,
         )
         
         # Single tenant
@@ -670,7 +669,7 @@ class TestSystematicValidation:
             tenant_name="Test Tenant", suite="100", floor="1",
             area=10000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=30.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=30.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.GROSS,
             upon_expiration=UponExpirationEnum.MARKET
         )
@@ -731,14 +730,13 @@ class TestSystematicValidation:
         # Base operating expense (Level 0 - Independent)
         base_opex = OfficeOpExItem(
             name="Base OpEx", timeline=timeline,
-            value=8.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL
+            value=8.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL
         )
         
         # Admin fee (Level 1 - depends on Total OpEx aggregate)
         admin_fee = OfficeOpExItem(
             name="Admin Fee", timeline=timeline,
-            value=0.05, unit_of_measure=UnitOfMeasureEnum.BY_PERCENT, frequency=FrequencyEnum.MONTHLY,
-            reference=UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES
+            value=0.05, reference=UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES, frequency=FrequencyEnum.MONTHLY,
         )
         
         # Single tenant to create revenue
@@ -746,7 +744,7 @@ class TestSystematicValidation:
             tenant_name="Test Tenant", suite="100", floor="1",
             area=10000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=30.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=30.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.GROSS,
             upon_expiration=UponExpirationEnum.MARKET
         )
@@ -825,20 +823,19 @@ class TestSystematicValidation:
         # Models for testing
         base_opex = OfficeOpExItem(
             name="Base OpEx", timeline=timeline,
-            value=8.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL
+            value=8.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL
         )
         
         admin_fee = OfficeOpExItem(  # Level 1 dependency
             name="Admin Fee", timeline=timeline,
-            value=0.05, unit_of_measure=UnitOfMeasureEnum.BY_PERCENT, frequency=FrequencyEnum.MONTHLY,
-            reference=UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES
+            value=0.05, reference=UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES, frequency=FrequencyEnum.MONTHLY,
         )
         
         tenant = OfficeLeaseSpec(
             tenant_name="Test Tenant", suite="100", floor="1",
             area=10000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=30.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=30.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.GROSS,
             upon_expiration=UponExpirationEnum.MARKET
         )
@@ -903,7 +900,7 @@ class TestSystematicValidation:
             name="Base Operating Expenses",
             timeline=timeline,
             value=8.0,  # $8/SF/year
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             frequency=FrequencyEnum.ANNUAL,
             growth_rate=GrowthRate(name="OpEx Growth", value=0.03),  # 3% annual growth
             recoverable_ratio=1.0  # 100% recoverable
@@ -931,7 +928,7 @@ class TestSystematicValidation:
             start_date=date(2024, 1, 1),
             term_months=60,
             base_rent_value=25.0,
-            base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL,
             lease_type=LeaseTypeEnum.NET,
             recovery_method=recovery_method,
@@ -1037,7 +1034,6 @@ class TestSystematicValidation:
             name="Management Fee",
             timeline=timeline,
             value=5000,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             frequency=FrequencyEnum.MONTHLY,
             recoverable_ratio=0.0  # Not recoverable
         )
@@ -1050,7 +1046,6 @@ class TestSystematicValidation:
             name="Utilities",
             timeline=timeline,
             value=3000,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             frequency=FrequencyEnum.MONTHLY,
             recoverable_ratio=0.8  # 80% recoverable
         )
@@ -1063,7 +1058,7 @@ class TestSystematicValidation:
             name="CAM",
             timeline=timeline,
             value=8.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             frequency=FrequencyEnum.ANNUAL,
             recoverable_ratio=1.0  # 100% recoverable
         )
@@ -1121,7 +1116,7 @@ class TestSystematicValidation:
         # Operating expenses - current year at $9/SF (grew from $8/SF in 2023 at 12.5% rate)
         opex = OfficeOpExItem(
             name="Operating Expenses", timeline=timeline,
-            value=9.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL,
+            value=9.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL,
             recoverable_ratio=1.0,
             growth_rate=GrowthRate(name="OpEx Growth", value=0.125)  # 12.5% growth from 2023 to 2024
         )
@@ -1143,7 +1138,7 @@ class TestSystematicValidation:
             tenant_name="Base Year Tenant", suite="100", floor="1",
             area=10000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=30.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=30.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=recovery_method,
             upon_expiration=UponExpirationEnum.MARKET
@@ -1219,7 +1214,7 @@ class TestSystematicValidation:
         # Operating expenses - current year at $9/SF (grew from $8/SF in 2023)
         opex = OfficeOpExItem(
             name="Operating Expenses", timeline=timeline,
-            value=9.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL,
+            value=9.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL,
             recoverable_ratio=1.0,
             growth_rate=GrowthRate(name="OpEx Growth", value=0.125)  # 12.5% growth (to get $8/SF base year)
         )
@@ -1241,7 +1236,7 @@ class TestSystematicValidation:
             tenant_name="Escalating Tenant", suite="100", floor="1",
             area=15000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=28.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=28.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=recovery_method,
             upon_expiration=UponExpirationEnum.MARKET
@@ -1317,7 +1312,7 @@ class TestSystematicValidation:
         # Operating expenses - current at $10/SF, grew from ~$8/SF in 2023
         opex = OfficeOpExItem(
             name="Operating Expenses", timeline=timeline,
-            value=10.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL,
+            value=10.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL,
             recoverable_ratio=1.0,
             growth_rate=GrowthRate(name="OpEx Growth", value=0.25)  # 25% growth from 2023 to 2024
         )
@@ -1339,7 +1334,7 @@ class TestSystematicValidation:
             tenant_name="Grossed Tenant", suite="100-300", floor="1-3",
             area=15000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=32.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=32.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=recovery_method,
             upon_expiration=UponExpirationEnum.MARKET
@@ -1390,7 +1385,7 @@ class TestSystematicValidation:
             tenant_name="No Gross-Up Tenant", suite="100-300", floor="1-3",
             area=15000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=32.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=32.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=recovery_method_no_gross_up,
             upon_expiration=UponExpirationEnum.MARKET
@@ -1468,7 +1463,7 @@ class TestSystematicValidation:
         # Operating expenses - current at $10/SF, grew from lower amounts in 2022/2023
         opex = OfficeOpExItem(
             name="Building OpEx", timeline=timeline,
-            value=10.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL,
+            value=10.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL,
             recoverable_ratio=1.0,
             growth_rate=GrowthRate(name="OpEx Growth", value=0.20)  # 20% growth to create meaningful base years
         )
@@ -1501,7 +1496,7 @@ class TestSystematicValidation:
             tenant_name="Tenant A (2022 Base)", suite="100-150", floor="1",
             area=15000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=30.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=30.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=method_2022,
             upon_expiration=UponExpirationEnum.MARKET
@@ -1511,7 +1506,7 @@ class TestSystematicValidation:
             tenant_name="Tenant B (2023 Base)", suite="200-230", floor="2",
             area=10000, use_type="office",
             start_date=date(2021, 1, 1), term_months=120,
-            base_rent_value=32.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=32.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=method_2023,
             upon_expiration=UponExpirationEnum.MARKET
@@ -1521,7 +1516,7 @@ class TestSystematicValidation:
             tenant_name="Tenant C (Gross)", suite="300", floor="3",
             area=5000, use_type="office",
             start_date=date(2022, 1, 1), term_months=120,
-            base_rent_value=38.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=38.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.GROSS,  # No recovery
             upon_expiration=UponExpirationEnum.MARKET
         )
@@ -1672,7 +1667,7 @@ class TestSystematicValidation:
         # Recoverable operating expenses - current at $8/SF, grew from ~$7/SF in 2023
         recoverable_opex = OfficeOpExItem(
             name="Recoverable OpEx", timeline=timeline,
-            value=8.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL,
+            value=8.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL,
             recoverable_ratio=1.0,  # 100% recoverable
             growth_rate=GrowthRate(name="Recoverable Growth", value=0.143)  # ~14.3% growth (to get $7/SF base year)
         )
@@ -1680,7 +1675,7 @@ class TestSystematicValidation:
         # Non-recoverable capital expenses
         capital_expense = OfficeOpExItem(
             name="Capital Improvements", timeline=timeline,
-            value=2.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL,
+            value=2.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL,
             recoverable_ratio=0.0  # Not recoverable
         )
         
@@ -1702,7 +1697,7 @@ class TestSystematicValidation:
             tenant_name="Capped Recovery Tenant", suite="Floors 1-3", floor="1",
             area=25000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=29.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=29.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=recovery_method,
             upon_expiration=UponExpirationEnum.MARKET
@@ -1750,7 +1745,7 @@ class TestSystematicValidation:
             tenant_name="Uncapped Tenant", suite="Floors 1-3", floor="1",
             area=25000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=29.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=29.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=uncapped_recovery_method,
             upon_expiration=UponExpirationEnum.MARKET
@@ -1879,7 +1874,7 @@ class TestSystematicValidation:
         # Realistic operating expenses with market-rate growth
         realistic_opex = OfficeOpExItem(
             name="Building Operating Expenses", timeline=timeline,
-            value=7.74, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL,
+            value=7.74, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL,
             recoverable_ratio=1.0,
             # Back-calculate to get $6.50/SF in 2021: $7.74 / (1.06^3) = $6.50
             growth_rate=GrowthRate(name="Market Inflation", value=0.06)  # 6% annual market inflation
@@ -1931,7 +1926,7 @@ class TestSystematicValidation:
             tenant_name="Conservative Corp (3% Cap)", suite="100-200", floor="1-2",
             area=15000, use_type="office",
             start_date=date(2019, 1, 1), term_months=120,  # Signed before inflation surge
-            base_rent_value=28.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=28.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=method_3pct_cap,
             upon_expiration=UponExpirationEnum.MARKET
@@ -1941,7 +1936,7 @@ class TestSystematicValidation:
             tenant_name="Standard LLC (5% Cap)", suite="300-400", floor="3-4", 
             area=20000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=30.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=30.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=method_5pct_cap,
             upon_expiration=UponExpirationEnum.MARKET
@@ -1951,7 +1946,7 @@ class TestSystematicValidation:
             tenant_name="Market Tenant (No Cap)", suite="500", floor="5",
             area=15000, use_type="office",
             start_date=date(2022, 1, 1), term_months=60,  # Recent lease, no cap protection
-            base_rent_value=35.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=35.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=method_no_cap,
             upon_expiration=UponExpirationEnum.MARKET
@@ -2112,7 +2107,7 @@ class TestSystematicValidation:
         # Demonstrate the cap functionality we've actually implemented
         realistic_opex = OfficeOpExItem(
             name="Portfolio Standard OpEx", timeline=timeline,
-            value=8.0, unit_of_measure=UnitOfMeasureEnum.PER_UNIT, frequency=FrequencyEnum.ANNUAL,
+            value=8.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL,
             recoverable_ratio=1.0,
             growth_rate=GrowthRate(name="Market Growth", value=0.06)  # 6% market growth
         )
@@ -2149,7 +2144,7 @@ class TestSystematicValidation:
         tenant_conservative = OfficeLeaseSpec(
             tenant_name="Conservative Tenant", suite="100", floor="1", area=10000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=30.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=30.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=method_conservative, upon_expiration=UponExpirationEnum.MARKET
         )
@@ -2157,7 +2152,7 @@ class TestSystematicValidation:
         tenant_standard = OfficeLeaseSpec(
             tenant_name="Standard Tenant", suite="200", floor="2", area=10000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=32.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=32.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=method_standard, upon_expiration=UponExpirationEnum.MARKET
         )
@@ -2165,7 +2160,7 @@ class TestSystematicValidation:
         tenant_liberal = OfficeLeaseSpec(
             tenant_name="Liberal Tenant", suite="300", floor="3", area=10000, use_type="office",
             start_date=date(2020, 1, 1), term_months=120,
-            base_rent_value=28.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_value=28.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=method_liberal, upon_expiration=UponExpirationEnum.MARKET
         )
@@ -2265,7 +2260,7 @@ class TestSystematicValidation:
                     OfficeLeaseSpec(
                         tenant_name="Tenant A", suite="100", floor="1", area=10000, use_type="office",
                         start_date=date(2020, 1, 1), term_months=120,
-                        base_rent_value=30.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                        base_rent_value=30.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                         base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.GROSS,
                         upon_expiration=UponExpirationEnum.MARKET
                     )
@@ -2297,7 +2292,7 @@ class TestSystematicValidation:
                     OfficeLeaseSpec(
                         tenant_name="Tenant B", suite="300", floor="3", area=10000, use_type="office",
                         start_date=date(2020, 1, 1), term_months=120,
-                        base_rent_value=32.0, base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                        base_rent_value=32.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                         base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.GROSS,
                         upon_expiration=UponExpirationEnum.MARKET
                     )

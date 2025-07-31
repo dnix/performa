@@ -18,7 +18,7 @@ from performa.core.primitives import (
     LeaseTypeEnum,
     ProgramUseEnum,
     Timeline,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
     UponExpirationEnum,
 )
 
@@ -52,7 +52,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             start_date=date(2024, 1, 1),
             term_months=24,
             base_rent_value=30.0,  # $30/SF/year
-            base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL,
             upon_expiration=UponExpirationEnum.MARKET,
         )
@@ -62,7 +62,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             name="CAM",
             timeline=self.timeline,
             value=5.0,  # $5/SF/year
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             frequency=FrequencyEnum.ANNUAL,
         )
 

@@ -95,7 +95,7 @@ from .primitives import (
     RevenueSubcategoryEnum,
     StartDateAnchorEnum,
     Timeline,
-    UnitOfMeasureEnum,
+
     UponExpirationEnum,
     VacancyLossMethodEnum,
     # Validation
@@ -186,7 +186,7 @@ __all__ = [
     "ProgramUseEnum",
     "RevenueSubcategoryEnum",
     "StartDateAnchorEnum",
-    "UnitOfMeasureEnum",
+
     "UponExpirationEnum",
     "VacancyLossMethodEnum",
     

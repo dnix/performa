@@ -26,7 +26,7 @@ from performa.core.primitives import (
     LeaseStatusEnum,
     ProgramUseEnum,
     Timeline,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
     UponExpirationEnum,
 )
 
@@ -39,7 +39,7 @@ class TestOfficeLease(unittest.TestCase):
         # Mock lookup function
         self.ti = OfficeRolloverTenantImprovement(
             value=10.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         )
         self.lc = OfficeRolloverLeasingCommission(
             tiers=[0.03],  # Commission tiers as percentages
@@ -76,7 +76,7 @@ class TestOfficeLease(unittest.TestCase):
             start_date=date(2022, 1, 1),
             term_months=36,
             base_rent_value=42.5,
-            base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL,
             upon_expiration=UponExpirationEnum.MARKET,
             rollover_profile=self.rollover_profile,
@@ -113,7 +113,6 @@ class TestOfficeLease(unittest.TestCase):
             start_date=date(2023, 1, 1),
             term_months=12,
             base_rent_value=60000.0,
-            base_rent_unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             base_rent_frequency=FrequencyEnum.ANNUAL,
             upon_expiration=UponExpirationEnum.MARKET,
         )
@@ -161,7 +160,7 @@ class TestOfficeLease(unittest.TestCase):
             start_date=date(2022, 1, 1),
             term_months=24,  # Expires Dec 2023
             base_rent_value=40.0,
-            base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL,
             upon_expiration=UponExpirationEnum.MARKET,
             rollover_profile=rollover_profile_no_costs,
@@ -217,7 +216,7 @@ class TestOfficeLease(unittest.TestCase):
             start_date=date(2022, 1, 1),
             term_months=24,  # Expires Dec 2023
             base_rent_value=40.0,
-            base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL,
             upon_expiration=UponExpirationEnum.MARKET,
             rollover_profile=self.rollover_profile,
@@ -267,7 +266,7 @@ class TestOfficeLease(unittest.TestCase):
             start_date=date(2022, 1, 1),
             term_months=24,  # Expires Dec 2023
             base_rent_value=48.0,
-            base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL,
             upon_expiration=UponExpirationEnum.RENEW, # Explicitly set to RENEW
             rollover_profile=self.rollover_profile,
@@ -335,7 +334,7 @@ class TestOfficeLease(unittest.TestCase):
             start_date=date(2022, 1, 1),
             term_months=24,  # Expires Dec 2023
             base_rent_value=50.0,
-            base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL,
             upon_expiration=UponExpirationEnum.REABSORB, # Explicitly set to REABSORB
             rollover_profile=self.rollover_profile,
@@ -371,7 +370,7 @@ class TestOfficeLease(unittest.TestCase):
             start_date=date(2023, 12, 1),
             term_months=12,
             base_rent_value=50.0,
-            base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL,
             upon_expiration=UponExpirationEnum.MARKET,
         )
@@ -398,7 +397,7 @@ class TestOfficeLease(unittest.TestCase):
             start_date=date(2023, 12, 1),
             term_months=12,
             base_rent_value=50.0,
-            base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL,
             upon_expiration=UponExpirationEnum.MARKET,
         )
@@ -426,7 +425,7 @@ class TestOfficeLease(unittest.TestCase):
                 start_date=date(2023, 12, 1),    # Before signing_date - should fail validation
                 term_months=12,
                 base_rent_value=50.0,
-                base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 upon_expiration=UponExpirationEnum.MARKET,
             )
         
@@ -435,7 +434,6 @@ class TestOfficeLease(unittest.TestCase):
             name="TI at Signing",
             timeline=Timeline(start_date=date(2023, 12, 1), duration_months=12),
             value=5000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             payment_timing="signing",
         )
         
@@ -465,7 +463,6 @@ class TestOfficeLease(unittest.TestCase):
             name="TI at Commencement", 
             timeline=Timeline(start_date=date(2023, 12, 1), duration_months=12),
             value=3000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             payment_timing="commencement",
         )
         

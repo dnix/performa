@@ -16,7 +16,7 @@ from performa.core.primitives import (
     GlobalSettings,
     RevenueSubcategoryEnum,
     Timeline,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
 )
 
 
@@ -40,7 +40,6 @@ def test_office_misc_income_compute_cf(sample_context: AnalysisContext):
         name="Parking Income",
         timeline=sample_context.timeline,
         value=12000.0,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         frequency=FrequencyEnum.ANNUAL,
         subcategory=RevenueSubcategoryEnum.MISC,
     )

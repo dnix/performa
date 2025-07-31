@@ -37,26 +37,22 @@ class TestFundingCascade:
     def sample_development_project(self):
         """Create a sample development project with known construction costs."""
         from performa.core.capital import CapitalItem
-        from performa.core.primitives import UnitOfMeasureEnum
         
         # Create construction plan with known costs
         construction_items = [
             CapitalItem(
                 name="Site Work",
                 value=Decimal("1000000"),
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                 timeline=Timeline.from_dates(datetime(2024, 1, 1), datetime(2024, 6, 30))
             ),
             CapitalItem(
                 name="Building Construction", 
                 value=Decimal("5000000"),
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                 timeline=Timeline.from_dates(datetime(2024, 4, 1), datetime(2025, 10, 31))
             ),
             CapitalItem(
                 name="Tenant Improvements",
                 value=Decimal(2000000.0),
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                 timeline=Timeline.from_dates(datetime(2025, 8, 1), datetime(2026, 3, 31))
             ),
         ]
@@ -481,21 +477,18 @@ class TestFundingCascade:
         """
         # Create a deal with gaps in Uses (no construction for some periods)
         from performa.core.capital import CapitalItem
-        from performa.core.primitives import UnitOfMeasureEnum
         
         # Create construction plan with gaps
         construction_items = [
             CapitalItem(
                 name="Initial Site Work",
                 value=Decimal("1000000"),
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                 timeline=Timeline.from_dates(datetime(2024, 1, 1), datetime(2024, 2, 29))  # 2 months
             ),
             # Gap: March-May 2024 (no construction)
             CapitalItem(
                 name="Final Construction",
                 value=Decimal(2000000.0),
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                 timeline=Timeline.from_dates(datetime(2024, 6, 1), datetime(2024, 7, 31))  # 2 months
             ),
         ]

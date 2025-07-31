@@ -38,7 +38,7 @@ from performa.asset.office.absorption import (
 from performa.asset.office.rent_roll import OfficeVacantSuite
 from performa.core.primitives import (
     Timeline,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
     UponExpirationEnum,
 )
 
@@ -91,7 +91,7 @@ def base_direct_lease_terms():
     """
     return DirectLeaseTerms(
         base_rent_value=50.0,
-        base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+        base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         term_months=60,
         upon_expiration=UponExpirationEnum.MARKET,
     )

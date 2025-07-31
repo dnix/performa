@@ -101,7 +101,7 @@ from performa.core.primitives import (
     LeaseTypeEnum,
     ProgramUseEnum,
     Timeline,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
     UponExpirationEnum,
 )
 from performa.deal import (
@@ -143,7 +143,6 @@ def create_sample_development_deal():
             name="Land Acquisition",
             work_type="land",
             value=5_000_000,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             draw_schedule=FirstOnlyDrawSchedule(),
             timeline=timeline
         ),
@@ -151,7 +150,6 @@ def create_sample_development_deal():
             name="Construction - Core & Shell",
             work_type="construction",
             value=15_000_000,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             draw_schedule=FirstOnlyDrawSchedule(),
             timeline=timeline
         ),
@@ -159,7 +157,6 @@ def create_sample_development_deal():
             name="Professional Fees",
             work_type="soft_costs",
             value=1_500_000,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             draw_schedule=FirstOnlyDrawSchedule(),
             timeline=timeline
         ),
@@ -167,7 +164,6 @@ def create_sample_development_deal():
             name="Developer Fee",
             work_type="developer",
             value=2_000_000,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             draw_schedule=FirstOnlyDrawSchedule(),
             timeline=timeline
         ),
@@ -215,13 +211,12 @@ def create_sample_development_deal():
         ),
         start_date_anchor=date(2025, 6, 1),  # Start leasing 6 months after construction start
         pace=EqualSpreadPace(
-            type="EqualSpread",
             total_deals=9,       # 9 deals over lease-up period
             frequency_months=2   # New deal every 2 months (18 months / 9 deals)
         ),
         leasing_assumptions=DirectLeaseTerms(
             base_rent_value=35.0,  # $35/SF
-            base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             term_months=84,  # 7-year leases
             upon_expiration=UponExpirationEnum.MARKET
         )

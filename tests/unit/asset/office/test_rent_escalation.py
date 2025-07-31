@@ -16,7 +16,7 @@ from performa.core.primitives import (
     LeaseTypeEnum,
     ProgramUseEnum,
     Timeline,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
     UponExpirationEnum,
 )
 
@@ -51,7 +51,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             start_date=date(2024, 1, 1),
             term_months=36,
             base_rent_value=30.0,  # $30/SF/year
-            base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL,
             upon_expiration=UponExpirationEnum.MARKET,
         )
@@ -66,7 +66,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="fixed",
             rate=2.0,  # $2/SF/year increase
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             is_relative=False,
             start_date=date(2025, 1, 1),  # Year 2
             recurring=False,
@@ -115,7 +115,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="fixed",
             rate=1.0,  # $1/SF/year increase
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             is_relative=False,
             start_date=date(2025, 1, 1),  # Year 2
             recurring=True,
@@ -171,7 +171,6 @@ class TestOfficeRentEscalation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="percentage",
             rate=0.10,  # 10% increase (0.10 for 10%)
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,  # Not used for percentage
             is_relative=True,  # Multiplicative
             start_date=date(2025, 1, 1),  # Year 2
             recurring=False,
@@ -220,7 +219,6 @@ class TestOfficeRentEscalation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="percentage",
             rate=0.10,  # 10% increase (0.10 for 10%)
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,  # Not used for percentage
             is_relative=False,  # Additive
             start_date=date(2025, 1, 1),  # Year 2
             recurring=False,
@@ -269,7 +267,6 @@ class TestOfficeRentEscalation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="percentage",
             rate=0.03,  # 3% increase (0.03 for 3%)
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,  # Not used for percentage
             is_relative=True,  # Compound growth
             start_date=date(2025, 1, 1),  # Year 2
             recurring=True,
@@ -325,7 +322,6 @@ class TestOfficeRentEscalation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="fixed",
             rate=12000.0,  # $12,000/year = $1,000/month
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             is_relative=False,
             start_date=date(2025, 1, 1),  # Year 2
             recurring=False,
@@ -374,7 +370,6 @@ class TestOfficeRentEscalation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="percentage",
             rate=0.05,  # 5% increase (0.05 for 5%)
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             is_relative=True,
             start_date=date(2024, 7, 1),  # July Year 1
             recurring=False,
@@ -451,7 +446,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="fixed",
             rate=0.25,  # $0.25/SF/quarter
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             is_relative=False,
             start_date=date(2025, 1, 1),  # Year 2
             recurring=True,
@@ -519,7 +514,6 @@ class TestOfficeRentEscalation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="percentage",
             rate=growth_rate,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,  # Not used for percentage
             is_relative=True,  # Compound growth
             start_date=date(2025, 1, 1),  # Year 2
             recurring=True,
@@ -580,7 +574,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="fixed",
             rate=escalation_rate,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             is_relative=False,
             start_date=date(2025, 1, 1),  # Year 2
             recurring=True,
@@ -668,7 +662,6 @@ class TestOfficeRentEscalation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="percentage",
             rate=growth_rate,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             is_relative=True,  # Compound growth
             start_date=date(2025, 1, 1),  # Year 2
             recurring=True,
@@ -736,7 +729,6 @@ class TestOfficeRentEscalation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="percentage",
             rate=growth_rate,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             is_relative=True,  # Compound growth
             start_date=date(2025, 1, 1),  # Year 2
             recurring=True,
@@ -792,7 +784,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="fixed",
             rate=2.0,  # $2/SF increase
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             is_relative=False,
             start_date=date(2023, 1, 1),  # Before lease start
             recurring=False,
@@ -836,7 +828,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="fixed",
             rate=5.0,  # $5/SF increase
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             is_relative=False,
             start_date=date(2026, 1, 1),  # After lease ends
             recurring=False,

@@ -21,7 +21,6 @@ from ..core.primitives import (
     FloatBetween0And1,
     FrequencyEnum,
     Timeline,
-    UnitOfMeasureEnum,
 )
 
 if TYPE_CHECKING:
@@ -68,7 +67,6 @@ class AcquisitionTerms(CashFlowModel):
     category: str = "Acquisition"
     subcategory: str = "Purchase"
     frequency: FrequencyEnum = FrequencyEnum.MONTHLY
-    unit_of_measure: UnitOfMeasureEnum = UnitOfMeasureEnum.CURRENCY
     
     # Acquisition-specific fields
     closing_costs_rate: FloatBetween0And1 = Field(

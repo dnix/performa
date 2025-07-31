@@ -240,12 +240,19 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
                     if expense_item.frequency == FrequencyEnum.MONTHLY:
                         annual_value *= 12
                 
-                # Apply unit of measure adjustments
-                if hasattr(expense_item, 'unit_of_measure'):
-                    from performa.core.primitives.enums import UnitOfMeasureEnum
-                    if expense_item.unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
-                        # Multiply by property area for per-unit expenses
-                        annual_value *= self.model.net_rentable_area
+                # Apply reference-based adjustments (PropertyAttributeKey multiplication)
+                if hasattr(expense_item, 'reference') and expense_item.reference:
+                    from performa.core.primitives import PropertyAttributeKey
+                    
+                    # DYNAMIC RESOLUTION: Use enum value as attribute name
+                    # This approach is extensible and not brittle - works for ANY PropertyAttributeKey
+                    if isinstance(expense_item.reference, PropertyAttributeKey):
+                        attribute_name = expense_item.reference.value  # e.g., "unit_count", "net_rentable_area"
+                        
+                        if hasattr(self.model, attribute_name):
+                            property_value = getattr(self.model, attribute_name)
+                            if property_value is not None:
+                                annual_value *= property_value
                 
                 # Apply growth from model year to target year if growth rate exists
                 if hasattr(expense_item, 'growth_rate') and expense_item.growth_rate:

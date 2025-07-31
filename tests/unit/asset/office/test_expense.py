@@ -21,7 +21,7 @@ from performa.core.primitives import (
     GlobalSettings,
     GrowthRate,
     Timeline,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
 )
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,6 @@ def test_office_opex_item_compute_cf(sample_context: AnalysisContext):
         name="Test Expense",
         timeline=sample_context.timeline,
         value=1200.0,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         frequency=FrequencyEnum.ANNUAL,
     )
     cf = opex.compute_cf(context=sample_context)
@@ -65,7 +64,7 @@ def test_opex_with_nra_reference(sample_context: AnalysisContext):
         name="Test Expense PSF",
         timeline=sample_context.timeline,
         value=1.5,  # $/sf/yr
-        unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+        reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         frequency=FrequencyEnum.ANNUAL,
     )
     cf = opex.compute_cf(context=sample_context)
@@ -80,7 +79,6 @@ def test_opex_with_growth(sample_context: AnalysisContext):
         name="Test Growing Expense",
         timeline=sample_context.timeline,
         value=100.0,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         frequency=FrequencyEnum.MONTHLY,
         growth_rate=GrowthRate(name="Test Growth", value=0.12),  # 12% annual -> 1% monthly
     )
@@ -92,7 +90,7 @@ def test_opex_with_growth(sample_context: AnalysisContext):
 
 def test_expenses_container(sample_timeline: Timeline):
     opex1 = OfficeOpExItem(name="CAM", value=10, unit_of_measure="per_unit", frequency="annual", timeline=sample_timeline)
-    capex1 = OfficeCapExItem(name="Roof", value={"2024-06-01": 50000}, unit_of_measure=UnitOfMeasureEnum.CURRENCY, timeline=sample_timeline)
+    capex1 = OfficeCapExItem(name="Roof", value={"2024-06-01": 50000}, timeline=sample_timeline)
     expenses = OfficeExpenses(
         operating_expenses=[opex1],
         capital_expenses=[capex1]

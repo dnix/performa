@@ -21,7 +21,7 @@ from performa.core.primitives import (
     AssetTypeEnum,
     FrequencyEnum,
     LeaseTypeEnum,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
     UponExpirationEnum,
 )
 
@@ -41,7 +41,7 @@ def test_office_lease_spec_creation():
         start_date=date(2024, 1, 1),
         end_date=date(2025, 12, 31),
         base_rent_value=25.0,
-        base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+        base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         base_rent_frequency=FrequencyEnum.ANNUAL,
         upon_expiration=UponExpirationEnum.MARKET,
     )

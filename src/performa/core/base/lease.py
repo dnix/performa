@@ -12,13 +12,13 @@ import numpy as np
 import pandas as pd
 from pydantic import computed_field, field_validator, model_validator
 
-from ..primitives.cash_flow import CashFlowModel
+from ..primitives.cash_flow import CashFlowModel, ReferenceKey
 from ..primitives.enums import (
     CalculationPass,
     FrequencyEnum,
     LeaseStatusEnum,
     ProgramUseEnum,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
     UponExpirationEnum,
 )
 from ..primitives.model import Model
@@ -54,7 +54,7 @@ class LeaseSpecBase(Model, ABC):
 
     # Base rent terms
     base_rent_value: float
-    base_rent_unit_of_measure: UnitOfMeasureEnum
+    base_rent_reference: Optional[ReferenceKey] = None
     base_rent_frequency: FrequencyEnum = FrequencyEnum.MONTHLY
 
     @field_validator("signing_date")
@@ -110,8 +110,34 @@ class LeaseBase(CashFlowModel, ABC):
     @computed_field
     @property
     def calculation_pass(self) -> CalculationPass:
-        """Overrides the default pass. Leases are dependent calculations."""
-        return CalculationPass.DEPENDENT_VALUES
+        """
+        Determines the calculation phase for this lease based on its dependencies.
+        
+        FIXED: Previously all leases were hardcoded as DEPENDENT_VALUES, which caused
+        a critical bug where basic leases were processed in Phase 2 instead of Phase 1.
+        This prevented proper EGI calculation for dependent expenses like Property Management.
+        
+        Now uses smart dependency detection:
+        - INDEPENDENT_VALUES: Basic leases with no dependencies (simple base rent)
+        - DEPENDENT_VALUES: Complex leases with dependencies:
+          * Leases with aggregate references (% rent, etc.)
+          * Leases with recovery methods (need expense calculations first)
+        
+        This ensures proper sequencing:
+        1. Phase 1: Basic leases + expenses generate base cash flows
+        2. Intermediate: EGI calculated from Phase 1 revenue
+        3. Phase 2: Complex leases (with recoveries) + dependent expenses (Property Management)
+        """
+        # Check for direct aggregate references (% rent, etc.)
+        if self.reference is not None:
+            return CalculationPass.DEPENDENT_VALUES
+            
+        # Check for recovery method dependencies (office leases)
+        if hasattr(self, 'recovery_method') and self.recovery_method is not None:
+            return CalculationPass.DEPENDENT_VALUES
+            
+        # Simple base rent leases can be calculated independently
+        return CalculationPass.INDEPENDENT_VALUES
 
     @abstractmethod
     def compute_cf(self, context: "AnalysisContext") -> Dict[str, pd.Series]:
@@ -144,7 +170,7 @@ class RolloverLeaseTermsBase(Model, ABC):
     current leases expire and need to be renewed or replaced.
     """
     term_months: Optional[int] = None
-    unit_of_measure: UnitOfMeasureEnum = UnitOfMeasureEnum.PER_UNIT
+    reference: Optional[ReferenceKey] = None
     frequency: FrequencyEnum = FrequencyEnum.MONTHLY
 
 

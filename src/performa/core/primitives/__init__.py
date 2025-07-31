@@ -31,9 +31,10 @@ from .enums import (
     LeaseTypeEnum,
     LeveredAggregateLineKey,
     ProgramUseEnum,
+    PropertyAttributeKey,
     RevenueSubcategoryEnum,
     StartDateAnchorEnum,
-    UnitOfMeasureEnum,
+
     UnleveredAggregateLineKey,
     UponExpirationEnum,
     VacancyLossMethodEnum,
@@ -79,9 +80,10 @@ __all__ = [
     "LeaseStatusEnum",
     "LeaseTypeEnum",
     "ProgramUseEnum",
+    "PropertyAttributeKey",
     "RevenueSubcategoryEnum",
     "StartDateAnchorEnum",
-    "UnitOfMeasureEnum",
+
     "UponExpirationEnum",
     "VacancyLossMethodEnum",
     "UnleveredAggregateLineKey",

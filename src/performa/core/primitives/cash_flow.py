@@ -13,7 +13,7 @@ from pydantic import Field, computed_field, field_validator
 from .enums import (
     CalculationPass,
     FrequencyEnum,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
     UnleveredAggregateLineKey,
 )
 from .growth_rates import GrowthRate
@@ -25,6 +25,11 @@ from .validation import validate_monthly_period_index
 
 if TYPE_CHECKING:
     from performa.analysis import AnalysisContext
+
+
+# Union type for all possible calculation references
+# Deliberately type-safe: only explicit enum values allowed
+ReferenceKey = Union[PropertyAttributeKey, UnleveredAggregateLineKey]
 
 
 class CashFlowModel(Model):
@@ -45,7 +50,24 @@ class CashFlowModel(Model):
         - ANNUAL frequency: Value divided by 12 and applied evenly each month
         - One-time expenses: Use CapitalItem, or pd.Series/dict with specific timing
         
-    TODO: Add more comprehensive documentation to parity for all fields (unit_of_measure, growth_rate, reference, etc.)
+    Reference Field:
+        The `reference` field supports three types of calculations:
+        - PropertyAttributeKey: Multiply by property attributes (e.g., unit_count, net_rentable_area)
+        - UnleveredAggregateLineKey: Calculate percentage of financial aggregates (e.g., % of EGI)
+        - None: Direct currency amount (no multiplication)
+        
+    Examples:
+        # Per dwelling unit calculation
+        reference=PropertyAttributeKey.UNIT_COUNT
+        
+        # Per square foot calculation  
+        reference=PropertyAttributeKey.NET_RENTABLE_AREA
+        
+        # Percentage of effective gross income
+        reference=UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME
+        
+        # Direct currency amount
+        reference=None
     """
 
     uid: UUID = Field(
@@ -59,9 +81,8 @@ class CashFlowModel(Model):
     account: Optional[str] = None
     timeline: Timeline
     value: Union[PositiveFloat, pd.Series, Dict, List]
-    unit_of_measure: UnitOfMeasureEnum
     frequency: FrequencyEnum = FrequencyEnum.MONTHLY
-    reference: Optional[UnleveredAggregateLineKey] = None
+    reference: Optional[ReferenceKey] = None
     settings: GlobalSettings = Field(default_factory=GlobalSettings)
     growth_rate: Optional[GrowthRate] = None
     
@@ -139,7 +160,7 @@ class CashFlowModel(Model):
             admin_fee = OpExItem(name="Admin Fee", value=0.05, reference=UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES)
             assert admin_fee.calculation_pass == CalculationPass.DEPENDENT_VALUES
         """
-        if self.reference is not None:
+        if self.reference is not None and isinstance(self.reference, UnleveredAggregateLineKey):
             # Models with UnleveredAggregateLineKey references depend on aggregated values
             return CalculationPass.DEPENDENT_VALUES
         return CalculationPass.INDEPENDENT_VALUES
@@ -245,8 +266,10 @@ class CashFlowModel(Model):
 
         This base implementation serves as the primary engine for most cash flow
         calculations. It performs the following steps:
-        1.  Determines the base value of the cash flow, resolving dependencies
-            if necessary (`PER_UNIT` or `BY_PERCENT`).
+        1.  Determines the base value by resolving the reference:
+            - PropertyAttributeKey: Multiply by property attribute (e.g., unit_count)
+            - UnleveredAggregateLineKey: Calculate percentage of aggregate (e.g., % of EGI)
+            - None: Use direct currency amount
         2.  Converts the value to a monthly frequency.
         3.  Casts the value into a pandas Series spanning the item's timeline.
         4.  Applies compounding growth if a `growth_rate` is present.
@@ -257,19 +280,35 @@ class CashFlowModel(Model):
         """
         base_value = self.value
 
-        if self.unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
-            # Property-level reference for PER_UNIT is NRA
-            nra = context.property_data.net_rentable_area
-            if nra > 0:
-                base_value = self.value * nra
+        # New unified reference-based calculation system
+        if self.reference is None:
+            # Direct currency amount - no multiplication needed
+            pass
+            
+        elif isinstance(self.reference, PropertyAttributeKey):
+            # Property attribute calculation (replaces PER_UNIT)
+            if hasattr(context.property_data, self.reference.value):
+                multiplier = getattr(context.property_data, self.reference.value)
+                base_value = self.value * float(multiplier) if multiplier else 0.0
             else:
-                base_value = 0.0
-        elif self.unit_of_measure == UnitOfMeasureEnum.BY_PERCENT and self.reference:
-            # Reference to an aggregate line (e.g., "5% of Total OpEx")
+                raise AttributeError(
+                    f"Property '{getattr(context.property_data, 'name', 'Unknown')}' "
+                    f"missing attribute '{self.reference.value}' for calculation '{self.name}'. "
+                    f"Available attributes: {[attr for attr in dir(context.property_data) if not attr.startswith('_')]}"
+                )
+                
+        elif isinstance(self.reference, UnleveredAggregateLineKey):
+            # Financial aggregate calculation (replaces BY_PERCENT)
             dependency_cf = context.resolved_lookups.get(self.reference.value)
             if dependency_cf is None:
                 raise ValueError(f"Unresolved aggregate dependency for '{self.name}': {self.reference.value}")
             base_value = dependency_cf * self.value
+            
+        else:
+            raise TypeError(
+                f"Unsupported reference type for '{self.name}': {type(self.reference)}. "
+                f"Expected PropertyAttributeKey, UnleveredAggregateLineKey, or None."
+            )
         
         monthly_value = self._convert_frequency(base_value)
         base_series = self._cast_to_flow(monthly_value)

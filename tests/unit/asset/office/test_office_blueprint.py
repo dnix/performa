@@ -18,7 +18,7 @@ from performa.asset.office.absorption import (
     SpaceFilter,
 )
 from performa.core.base import DevelopmentBlueprintBase
-from performa.core.primitives import Timeline, UnitOfMeasureEnum, UponExpirationEnum
+from performa.core.primitives import Timeline, PropertyAttributeKey, UponExpirationEnum
 
 
 def test_office_blueprint_inheritance():

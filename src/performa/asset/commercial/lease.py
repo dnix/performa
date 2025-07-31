@@ -17,8 +17,8 @@ from performa.core.primitives import (
     FrequencyEnum,
     LeaseStatusEnum,
     LeaseTypeEnum,
+    PropertyAttributeKey,
     Timeline,
-    UnitOfMeasureEnum,
     UponExpirationEnum,
 )
 
@@ -182,20 +182,20 @@ class CommercialLeaseBase(LeaseBase, ABC):
             if escalation.uses_rate_object:
                 # For fixed escalations with rate objects, treat as dollar amounts
                 rate = _extract_rate_value(escalation.rate, start_period)
-                if escalation.unit_of_measure == UnitOfMeasureEnum.CURRENCY:
+                if escalation.reference is None:
                     monthly_amount = rate / 12
-                elif escalation.unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
+                elif escalation.reference == PropertyAttributeKey.NET_RENTABLE_AREA:
                     monthly_amount = (rate * self.area) / 12
                 else:
-                    raise NotImplementedError(f"Escalation unit {escalation.unit_of_measure} not implemented")
+                    raise NotImplementedError(f"Escalation reference {escalation.reference} not implemented")
             else:
                 rate = escalation.rate
-                if escalation.unit_of_measure == UnitOfMeasureEnum.CURRENCY:
+                if escalation.reference is None:
                     monthly_amount = rate / 12
-                elif escalation.unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
+                elif escalation.reference == PropertyAttributeKey.NET_RENTABLE_AREA:
                     monthly_amount = (rate * self.area) / 12
                 else:
-                    raise NotImplementedError(f"Escalation unit {escalation.unit_of_measure} not implemented")
+                    raise NotImplementedError(f"Escalation reference {escalation.reference} not implemented")
             
             if escalation.recurring:
                 freq = escalation.frequency_months or 12
@@ -257,12 +257,24 @@ class CommercialLeaseBase(LeaseBase, ABC):
             initial_monthly_value = self.value
             if self.frequency == FrequencyEnum.ANNUAL:
                 initial_monthly_value /= 12
-            if self.unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
-                initial_monthly_value *= self.area
-            elif self.unit_of_measure == UnitOfMeasureEnum.CURRENCY:
+            # New unified reference-based calculation system for leases
+            if self.reference is None:
+                # Direct currency amount - no multiplication needed
                 pass
+            elif isinstance(self.reference, PropertyAttributeKey):
+                # DYNAMIC RESOLUTION: Property attribute calculation
+                if self.reference == PropertyAttributeKey.NET_RENTABLE_AREA:
+                    # Special case: Use lease area for per-SF calculations
+                    initial_monthly_value *= self.area
+                elif self.reference == PropertyAttributeKey.UNIT_COUNT:
+                    # For office suites, this would be 1 (one suite)
+                    initial_monthly_value *= 1
+                else:
+                    # EXTENSIBLE: Could be enhanced to handle other PropertyAttributeKey types
+                    # For now, assume unit-based (1x multiplier)
+                    initial_monthly_value *= 1
             else:
-                raise NotImplementedError(f"Base rent unit {self.unit_of_measure} not implemented")
+                raise NotImplementedError(f"Reference type {type(self.reference)} not implemented for leases")
             base_rent = pd.Series(initial_monthly_value, index=self.timeline.period_index)
         elif isinstance(self.value, pd.Series):
             base_rent = self.value.copy()

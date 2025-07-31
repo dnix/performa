@@ -11,7 +11,7 @@ from performa.core.base import (
 )
 from performa.core.primitives import (
     FrequencyEnum,
-    UnitOfMeasureEnum,
+
     UponExpirationEnum,
 )
 
@@ -21,7 +21,6 @@ def test_rollover_profile_base_instantiation():
     market_terms = RolloverLeaseTermsBase(
         term_months=120,
         market_rent=65.0,
-        unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
         frequency=FrequencyEnum.ANNUAL,
     )
     

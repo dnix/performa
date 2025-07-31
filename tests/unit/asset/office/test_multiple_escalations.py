@@ -29,7 +29,7 @@ from performa.core.primitives import (
     GlobalSettings,
     LeaseTypeEnum,
     Timeline,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
     UponExpirationEnum,
 )
 from performa.core.primitives.growth_rates import (
@@ -53,7 +53,7 @@ class TestMultipleEscalations:
             area=1000.0,
             lease_type=LeaseTypeEnum.NET,
             base_rent_value=30.0,
-            base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL,
             upon_expiration=UponExpirationEnum.MARKET,
         )
@@ -78,7 +78,7 @@ class TestMultipleEscalations:
             OfficeRentEscalation(
                 type="percentage",
                 rate=0.05,  # 5% at month 13
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 is_relative=True,
                 start_month=13,
                 recurring=False,
@@ -86,7 +86,7 @@ class TestMultipleEscalations:
             OfficeRentEscalation(
                 type="percentage", 
                 rate=0.03,  # 3% at month 7 (earlier)
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 is_relative=True,
                 start_month=7,
                 recurring=False,
@@ -114,7 +114,7 @@ class TestMultipleEscalations:
             OfficeRentEscalation(
                 type="fixed",
                 rate=1.0,  # $1/SF increase
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 is_relative=False,
                 start_month=7,  # Relative timing
                 recurring=False,
@@ -122,7 +122,7 @@ class TestMultipleEscalations:
             OfficeRentEscalation(
                 type="percentage",
                 rate=0.04,  # 4% increase
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 is_relative=True,
                 start_date=date(2024, 12, 1),  # Absolute timing (month 12)
                 recurring=False,
@@ -171,7 +171,7 @@ class TestMultipleEscalations:
         escalations = create_stepped_fixed_escalations(
             start_month=13,  # Start in year 2
             annual_amounts=[1.0, 1.5, 2.0],  # $1, $1.50, $2 per SF
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         )
         
         spec = base_spec.model_copy(update={"rent_escalations": escalations})
@@ -194,7 +194,7 @@ class TestMultipleEscalations:
         escalation = create_simple_annual_escalation(
             rate=0.03,  # 3% annually
             start_month=1,  # Start immediately
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         )
         
         spec = base_spec.model_copy(update={"rent_escalations": [escalation]})
@@ -216,7 +216,7 @@ class TestMultipleEscalations:
                 (date(2024, 7, 1), 0.03, "percentage"),
                 (date(2024, 12, 1), 1.5, "fixed"),
             ],
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         )
         
         spec = base_spec.model_copy(update={"rent_escalations": escalations})
@@ -253,7 +253,7 @@ class TestMultipleEscalations:
             OfficeRentEscalation(
                 type="percentage",
                 rate=time_varying_rate,
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 is_relative=True,
                 start_date=date(2024, 7, 1),
                 recurring=False,
@@ -261,7 +261,6 @@ class TestMultipleEscalations:
             OfficeRentEscalation(
                 type="fixed",
                 rate=fixed_rate_obj,
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                 is_relative=False,
                 start_date=date(2024, 12, 1),
                 recurring=False,

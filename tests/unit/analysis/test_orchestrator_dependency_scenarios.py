@@ -25,7 +25,7 @@ from unittest.mock import Mock
 
 from performa.core.primitives import (
     Timeline, GlobalSettings, CashFlowModel, UnleveredAggregateLineKey, 
-    UnitOfMeasureEnum, RevenueSubcategoryEnum, ExpenseSubcategoryEnum, FrequencyEnum
+    PropertyAttributeKey, RevenueSubcategoryEnum, ExpenseSubcategoryEnum, FrequencyEnum
 )
 from performa.analysis.orchestrator import CashFlowOrchestrator, AnalysisContext
 
@@ -63,7 +63,6 @@ class TestSystematicDependencyScenarios:
             subcategory=RevenueSubcategoryEnum.LEASE,
             timeline=context.timeline,
             value=10000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             reference=None
         )
         
@@ -73,7 +72,6 @@ class TestSystematicDependencyScenarios:
             subcategory=RevenueSubcategoryEnum.MISC,
             timeline=context.timeline,
             value=500.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             reference=None
         )
         
@@ -88,7 +86,6 @@ class TestSystematicDependencyScenarios:
             subcategory=ExpenseSubcategoryEnum.OPEX,
             timeline=context.timeline,
             value=2000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             reference=None
         )
         
@@ -106,7 +103,6 @@ class TestSystematicDependencyScenarios:
             subcategory=ExpenseSubcategoryEnum.OPEX,
             timeline=context.timeline,
             value=0.04,
-            unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
             reference=UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE
         )
         
@@ -137,7 +133,6 @@ class TestSystematicDependencyScenarios:
             subcategory=ExpenseSubcategoryEnum.OPEX,
             timeline=context.timeline,
             value=0.10,
-            unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
             reference=UnleveredAggregateLineKey.MISCELLANEOUS_INCOME
         )
         
@@ -168,7 +163,6 @@ class TestSystematicDependencyScenarios:
             subcategory=ExpenseSubcategoryEnum.OPEX,
             timeline=context.timeline,
             value=0.01,
-            unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
             reference=UnleveredAggregateLineKey.NET_OPERATING_INCOME
         )
         
@@ -207,7 +201,6 @@ class TestSystematicDependencyScenarios:
             subcategory=ExpenseSubcategoryEnum.CAPEX,
             timeline=context.timeline,
             value=1000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             reference=None
         )
         
@@ -218,7 +211,6 @@ class TestSystematicDependencyScenarios:
             subcategory=ExpenseSubcategoryEnum.OPEX, 
             timeline=context.timeline,
             value=0.05,
-            unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
             reference=UnleveredAggregateLineKey.UNLEVERED_CASH_FLOW
         )
         
@@ -253,7 +245,6 @@ class TestSystematicDependencyScenarios:
             subcategory=ExpenseSubcategoryEnum.OPEX,
             timeline=context.timeline,
             value=0.03,
-            unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
             reference=UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME
         )
         
@@ -264,7 +255,6 @@ class TestSystematicDependencyScenarios:
             subcategory=ExpenseSubcategoryEnum.OPEX,
             timeline=context.timeline,
             value=0.08,
-            unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
             reference=UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES
         )
         
@@ -275,7 +265,6 @@ class TestSystematicDependencyScenarios:
             subcategory=ExpenseSubcategoryEnum.OPEX,
             timeline=context.timeline,
             value=0.015,
-            unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
             reference=UnleveredAggregateLineKey.NET_OPERATING_INCOME
         )
         
@@ -316,7 +305,6 @@ class TestSystematicDependencyScenarios:
             subcategory=ExpenseSubcategoryEnum.OPEX,
             timeline=context.timeline,
             value=0.10,
-            unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
             reference=UnleveredAggregateLineKey.MISCELLANEOUS_INCOME  # No misc income models
         )
         
@@ -346,7 +334,6 @@ class TestSystematicDependencyScenarios:
             subcategory=ExpenseSubcategoryEnum.CAPEX,
             timeline=context.timeline,
             value=50000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             frequency=FrequencyEnum.ANNUAL,  # ← CRITICAL: Annual, not monthly
             reference=None
         )
@@ -358,7 +345,6 @@ class TestSystematicDependencyScenarios:
             subcategory=ExpenseSubcategoryEnum.CAPEX,
             timeline=context.timeline, 
             value=0.08,
-            unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
             reference=UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES
         )
         

@@ -20,7 +20,7 @@ from performa.core.primitives import (
     GlobalSettings,
     LeaseStatusEnum,
     Timeline,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
     UponExpirationEnum,
 )
 
@@ -57,7 +57,7 @@ def create_base_lease_for_rollover_test(
         area=1000.0,
         upon_expiration=upon_expiration,
         value=50.0,  # $50/sf
-        unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+        reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         frequency=FrequencyEnum.ANNUAL,
         rollover_profile=rollover_profile,
     )
@@ -232,7 +232,7 @@ def test_rollover_stops_at_analysis_end(sample_global_settings: GlobalSettings):
         area=1000.0,
         upon_expiration=UponExpirationEnum.VACATE,
         value=50.0,
-        unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+        reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         frequency=FrequencyEnum.ANNUAL,
         rollover_profile=rollover_profile,
     )

@@ -10,7 +10,7 @@ import pandas as pd
 
 from ...analysis import AnalysisContext
 from ...core.base import TenantImprovementAllowanceBase
-from ...core.primitives import UnitOfMeasureEnum
+from ...core.primitives import PropertyAttributeKey
 
 if TYPE_CHECKING:
     from .lease import OfficeLease
@@ -34,7 +34,12 @@ class OfficeTenantImprovement(TenantImprovementAllowanceBase):
         Returns:
             Cash flow series for TI payments
         """
-        total_amount = self.value * self.area if self.unit_of_measure == UnitOfMeasureEnum.PER_UNIT else self.value
+        # DYNAMIC RESOLUTION: Handle any PropertyAttributeKey reference
+        total_amount = self.value
+        if isinstance(self.reference, PropertyAttributeKey):
+            if self.reference == PropertyAttributeKey.NET_RENTABLE_AREA:
+                total_amount = self.value * self.area
+            # Could be extended for other PropertyAttributeKey types as needed
 
         if self.payment_method == "upfront":
             ti_cf = pd.Series(0.0, index=self.timeline.period_index)

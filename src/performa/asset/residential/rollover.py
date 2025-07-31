@@ -18,7 +18,7 @@ from ...core.primitives import (
     GrowthRate,
     PositiveFloat,
     PositiveInt,
-    UnitOfMeasureEnum,
+
 )
 
 logger = logging.getLogger(__name__)
@@ -61,8 +61,7 @@ class ResidentialRolloverLeaseTerms(RolloverLeaseTermsBase):
         description="Absolute market rent override after renovation (takes precedence over percentage premium)"
     )
     
-    # Override base class defaults for residential
-    unit_of_measure: UnitOfMeasureEnum = UnitOfMeasureEnum.CURRENCY  # Monthly rent is currency
+    # Override base class defaults for residential rent
     frequency: FrequencyEnum = FrequencyEnum.MONTHLY  # Residential rent is monthly
     
     @computed_field
@@ -283,7 +282,7 @@ class ResidentialRolloverProfile(RolloverProfileBase):
 
         return ResidentialRolloverLeaseTerms(
             market_rent=blended_rent,
-            unit_of_measure=market_terms.unit_of_measure,
+            reference=market_terms.reference,
             frequency=market_terms.frequency,
             market_rent_growth=blended_growth,
             renewal_rent_increase_percent=blended_renewal_increase,

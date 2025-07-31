@@ -31,7 +31,7 @@ from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     Timeline,
-    UnitOfMeasureEnum,
+    UnleveredAggregateLineKey,
 )
 from performa.core.primitives.growth_rates import PercentageGrowthRate
 
@@ -100,9 +100,8 @@ def sample_residential_property(analysis_timeline, sample_rollover_profile):
                 name="Property Management",
                 timeline=analysis_timeline,
                 value=0.05,  # 5% of revenue
-                unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
+                reference=UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME,
                 frequency=FrequencyEnum.MONTHLY,
-                reference="Effective Gross Income",
             ),
         ]
     )

@@ -32,7 +32,7 @@ from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     Timeline,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
 )
 
 
@@ -151,56 +151,56 @@ def test_e2e_institutional_scale_residential():
             name="Property Management",
             timeline=timeline,
             value=155.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.MONTHLY
         ),
         ResidentialOpExItem(
             name="On-Site Staff",
             timeline=timeline,
             value=85.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.MONTHLY
         ),
         ResidentialOpExItem(
             name="Utilities - Common Areas",
             timeline=timeline,
             value=32.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.MONTHLY
         ),
         ResidentialOpExItem(
             name="Repairs & Maintenance",
             timeline=timeline,
             value=95.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.MONTHLY
         ),
         ResidentialOpExItem(
             name="Landscaping & Grounds",
             timeline=timeline,
             value=22.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.MONTHLY
         ),
         ResidentialOpExItem(
             name="Insurance",
             timeline=timeline,
             value=2.75,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.ANNUAL
         ),
         ResidentialOpExItem(
             name="Property Taxes",
             timeline=timeline,
             value=8.50,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.ANNUAL
         ),
         ResidentialOpExItem(
             name="Marketing & Advertising",
             timeline=timeline,
             value=18.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.MONTHLY
         )
     ]
@@ -210,14 +210,13 @@ def test_e2e_institutional_scale_residential():
             name="Capital Reserves",
             timeline=timeline,
             value=525.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.ANNUAL
         ),
         ResidentialCapExItem(
             name="Amenity Upgrades",
             timeline=timeline,
             value=150000.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             frequency=FrequencyEnum.ANNUAL
         )
     ]
@@ -228,35 +227,34 @@ def test_e2e_institutional_scale_residential():
             name="Parking Income",
             timeline=timeline,
             value=45.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.MONTHLY
         ),
         ResidentialMiscIncome(
             name="Storage Unit Fees",
             timeline=timeline,
             value=25.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.MONTHLY
         ),
         ResidentialMiscIncome(
             name="Pet Fees",
             timeline=timeline,
             value=18.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.MONTHLY
         ),
         ResidentialMiscIncome(
             name="Laundry & Vending",
             timeline=timeline,
             value=12.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.MONTHLY
         ),
         ResidentialMiscIncome(
             name="Application & Admin Fees",
             timeline=timeline,
             value=8500.0,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             frequency=FrequencyEnum.MONTHLY
         )
     ]
@@ -363,7 +361,7 @@ def test_e2e_performance_stress_test():
             name="Property Management",
             timeline=timeline,
             value=150.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.MONTHLY
         )
     ]
@@ -495,21 +493,21 @@ def test_e2e_value_add_positioning_strategy():
             name="Property Management",
             timeline=timeline,
             value=165.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.MONTHLY
         ),
         ResidentialOpExItem(
             name="Maintenance & Repairs",
             timeline=timeline,
             value=125.0,  # Higher for older property
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.MONTHLY
         ),
         ResidentialOpExItem(
             name="Property Taxes",
             timeline=timeline,
             value=7.25,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.ANNUAL
         )
     ]
@@ -519,7 +517,7 @@ def test_e2e_value_add_positioning_strategy():
             name="Capital Reserves",
             timeline=timeline,
             value=600.0,  # Higher reserves for value-add
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.ANNUAL
         )
     ]
@@ -741,42 +739,42 @@ def test_e2e_vacant_units_lease_up_scenario():
             name="Property Management", 
             timeline=timeline,
             value=175.0, 
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.MONTHLY
         ),
         ResidentialOpExItem(
             name="Utilities - Common Areas",
             timeline=timeline,
             value=45.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.MONTHLY
         ),
         ResidentialOpExItem(
             name="Repairs & Maintenance",
             timeline=timeline,
             value=85.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.MONTHLY
         ),
         ResidentialOpExItem(
             name="Insurance",
             timeline=timeline,
             value=2.50,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.ANNUAL
         ),
         ResidentialOpExItem(
             name="Property Taxes",
             timeline=timeline,
             value=6.85,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.ANNUAL
         ),
         ResidentialOpExItem(
             name="Marketing & Leasing",
             timeline=timeline,
             value=25.0,  # Higher during lease-up
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.MONTHLY
         )
     ]
@@ -786,7 +784,7 @@ def test_e2e_vacant_units_lease_up_scenario():
             name="Capital Reserves",
             timeline=timeline,
             value=450.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.UNIT_COUNT,
             frequency=FrequencyEnum.ANNUAL
         )
     ]
@@ -810,21 +808,21 @@ def test_e2e_vacant_units_lease_up_scenario():
                 name="Laundry Income",
                 timeline=timeline,
                 value=18.0,
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                reference=PropertyAttributeKey.UNIT_COUNT,
                 frequency=FrequencyEnum.MONTHLY
             ),
             ResidentialMiscIncome(
                 name="Parking Fees",
                 timeline=timeline,
                 value=35.0,
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                reference=PropertyAttributeKey.UNIT_COUNT,
                 frequency=FrequencyEnum.MONTHLY
             ),
             ResidentialMiscIncome(
                 name="Pet Fees",
                 timeline=timeline,
                 value=12.0,
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                reference=PropertyAttributeKey.UNIT_COUNT,
                 frequency=FrequencyEnum.MONTHLY
             )
         ]

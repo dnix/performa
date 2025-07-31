@@ -35,6 +35,7 @@ from performa.asset.office.absorption import FixedQuantityPace
 from performa.core.base import CommissionTier
 from performa.core.primitives import (
     GlobalSettings,
+    PropertyAttributeKey,
     Timeline,
     UnleveredAggregateLineKey,
     UponExpirationEnum,
@@ -61,7 +62,7 @@ def complex_property_fixture() -> dict:
         market_terms=OfficeRolloverLeaseTerms(
             market_rent=65.0, term_months=60,
             ti_allowance=OfficeRolloverTenantImprovement(
-                value=25.0, unit_of_measure="per_unit"
+                value=25.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA
             ),
             leasing_commission=OfficeRolloverLeasingCommission(
                 tiers=[0.04]  # 4% commission rate
@@ -70,7 +71,7 @@ def complex_property_fixture() -> dict:
         renewal_terms=OfficeRolloverLeaseTerms(
             market_rent=60.0, term_months=60,
             ti_allowance=OfficeRolloverTenantImprovement(
-                value=10.0, unit_of_measure="per_unit"
+                value=10.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA
             ),
         )
     )
@@ -78,11 +79,11 @@ def complex_property_fixture() -> dict:
     # Expenses that will be recovered
     cam_expense = OfficeOpExItem(
         name="CAM", timeline=analysis_timeline, value=5.0,
-        unit_of_measure="per_unit", frequency="annual", variable_ratio=0.5, recoverable_ratio=1.0
+        reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency="annual", variable_ratio=0.5, recoverable_ratio=1.0
     )
     tax_expense = OfficeOpExItem(
         name="Taxes", timeline=analysis_timeline, value=150000.0,
-        unit_of_measure="currency", frequency="annual", recoverable_ratio=1.0
+        frequency="annual", recoverable_ratio=1.0
     )
 
     # Recovery Method that uses the expenses
@@ -102,21 +103,21 @@ def complex_property_fixture() -> dict:
             OfficeLeaseSpec(
                 tenant_name="Stable Tenant", suite="100", floor="1", area=10000, use_type="office",
                 start_date=date(2022, 1, 1), term_months=120, base_rent_value=62.0,
-                base_rent_unit_of_measure="per_unit", base_rent_frequency="annual", lease_type="net",
+                base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA, base_rent_frequency="annual", lease_type="net",
                 upon_expiration=UponExpirationEnum.MARKET, 
                 recovery_method=recovery_method
             ),
             OfficeLeaseSpec(
                 tenant_name="Renewing Tenant", suite="200", floor="2", area=5000, use_type="office",
                 start_date=date(2021, 6, 1), term_months=42, # Expires Nov 2024
-                base_rent_value=58.0, base_rent_unit_of_measure="per_unit", base_rent_frequency="annual", lease_type="net",
+                base_rent_value=58.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA, base_rent_frequency="annual", lease_type="net",
                 upon_expiration=UponExpirationEnum.RENEW, 
                 rollover_profile=rollover_profile
             ),
             OfficeLeaseSpec(
                 tenant_name="Departing Tenant", suite="300", floor="3", area=7500, use_type="office",
                 start_date=date(2022, 1, 1), term_months=48, # Expires Dec 2025
-                base_rent_value=60.0, base_rent_unit_of_measure="per_unit", base_rent_frequency="annual", lease_type="net",
+                base_rent_value=60.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA, base_rent_frequency="annual", lease_type="net",
                 upon_expiration=UponExpirationEnum.REABSORB, 
                 rollover_profile=rollover_profile
             ),

@@ -11,7 +11,7 @@ from performa.core.base import MiscIncomeBase
 from performa.core.primitives import (
     RevenueSubcategoryEnum,
     Timeline,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
 )
 
 
@@ -25,7 +25,6 @@ def test_misc_income_base_instantiation(sample_timeline: Timeline):
         name="Parking Income",
         timeline=sample_timeline,
         value=5000,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
     )
     assert item.name == "Parking Income"
     assert item.subcategory == RevenueSubcategoryEnum.MISC

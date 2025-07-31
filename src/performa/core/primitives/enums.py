@@ -111,6 +111,75 @@ class AssetTypeEnum(str, Enum):
     MIXED_USE = "mixed_use"
 
 
+class PropertyAttributeKey(str, Enum):
+    """
+    Property attributes that can be used as calculation bases.
+    
+    This enum provides explicit references to property characteristics
+    that cash flow models can multiply against, replacing the ambiguous
+    UnitOfMeasureEnum.PER_UNIT system.
+    
+    Industry Standard Measurements:
+    - UNIT_COUNT: Dwelling units (residential), office suites, retail spaces
+    - NET_RENTABLE_AREA: Leasable square footage (most common)  
+    - GROSS_AREA: Total building area including common areas
+    - PARKING_SPACES: Parking stalls/spaces
+    - FLOORS: Building floors (for certain building-level expenses)
+    
+    Usage Examples:
+        # Residential maintenance: $400 per dwelling unit
+        expense = ResidentialOpExItem(value=400, reference=PropertyAttributeKey.UNIT_COUNT)
+        
+        # Office insurance: $2.50 per square foot
+        expense = OfficeOpExItem(value=2.50, reference=PropertyAttributeKey.NET_RENTABLE_AREA)
+        
+        # Parking income: $100 per parking space  
+        income = MiscIncomeItem(value=100, reference=PropertyAttributeKey.PARKING_SPACES)
+    """
+    
+    # === UNIT-BASED ATTRIBUTES ===
+    UNIT_COUNT = "unit_count"
+    """
+    Number of units in the property.
+    - Residential: Dwelling units (apartments, condos, etc.)
+    - Office: Suite count or office spaces
+    - Retail: Individual retail spaces
+    - Industrial: Warehouse bays or tenant spaces
+    """
+    
+    # === AREA-BASED ATTRIBUTES ===  
+    NET_RENTABLE_AREA = "net_rentable_area"
+    """
+    Net rentable square footage - the most common calculation base.
+    - Excludes common areas, mechanical spaces, etc.
+    - Industry standard for most per-SF calculations
+    - Available on all property types via PropertyBaseModel
+    """
+    
+    GROSS_AREA = "gross_area"
+    """
+    Total building area including all space.
+    - Includes common areas, mechanical, circulation, etc.
+    - Used for certain building-level expenses (utilities, cleaning)
+    - Available on all property types via PropertyBaseModel
+    """
+    
+    # === ADDITIONAL ATTRIBUTES ===
+    PARKING_SPACES = "parking_spaces"
+    """
+    Number of parking stalls/spaces.
+    - Used for parking-related income or expenses
+    - Not all properties have parking (will be 0 or None)
+    """
+    
+    FLOORS = "floors"
+    """
+    Number of building floors.
+    - Used for floor-based expenses (elevator maintenance, etc.)
+    - Available through computed fields on property models
+    """
+
+
 class ProgramUseEnum(str, Enum):
     """
     Specific program use type within an asset.
@@ -213,36 +282,45 @@ class CapExCategoryEnum(str, Enum):
 
 class UnitOfMeasureEnum(str, Enum):
     """
-    Units for amounts.
+    FIXME: remove this now-deprecated enum
+    DEPRECATED: Unit of measure enumeration for cash flow models.
+    
+    This enum is being phased out in favor of the new PropertyAttributeKey and 
+    ReferenceKey system which provides more explicit and type-safe references.
+    
+    Migration Guide:
+    - UnitOfMeasureEnum.CURRENCY -> reference=None  
+    - UnitOfMeasureEnum.PER_UNIT -> reference=PropertyAttributeKey.UNIT_COUNT (residential) 
+                                    or PropertyAttributeKey.NET_RENTABLE_AREA (office)
+    - UnitOfMeasureEnum.BY_PERCENT -> reference=UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME
+    - UnitOfMeasureEnum.BY_FACTOR -> reference=UnleveredAggregateLineKey.* (specific aggregate)
+    
+    Do not use in new code. Use CashFlowModel.reference field instead.
+    
+    IMPORTANT: PER_UNIT behavior changed in Phase 1 bug fix (Dec 2024).
+    See: validation_results/2-1-1_per_unit_calculation_fix_plan.md
 
     Options:
         CURRENCY: Absolute currency amount (e.g., total dollars)
-        PER_UNIT: Amount per defined unit (e.g., $/sqft, $/unit)
+        PER_UNIT: Smart property-type detection for unitized calculations:
+            - Residential properties: per dwelling unit (unit_count)  
+            - Office properties: per square foot (net_rentable_area)
         BY_FACTOR: Factor relative to a reference amount (e.g., 1.1x)
         BY_PERCENT: Percentage relative to a reference amount (e.g., 5% of EGI)
+        
+    Migration Plan:
+        Phase 1 (CURRENT): Smart defaults fix critical calculation bug
+        Phase 2 (FUTURE): Full migration to PropertyAttributeKey reference system
     """
 
     # amount (direct amt, as in $/yr or $/mo)
     CURRENCY = "currency"  # Formerly AMOUNT / $
-    # unitized (usually, $/sf or $/DU  or $/space)
-    PER_UNIT = "per_unit"  # "$/Unit"
+    # Smart defaults: per dwelling unit for residential, per SF for office
+    PER_UNIT = "per_unit"  # TODO: Replace with PropertyAttributeKey system (Phase 2)
     # by factor (compared to a reference) or percentage
     BY_FACTOR = "factor"
     BY_PERCENT = "percent"
 
-
-class UnitOfMeasureTypeEnum(str, Enum):
-    """
-    Type of unit of measure.
-
-    Options:
-        AREA: Square footage, area, etc.
-        UNIT: Number of units, parking spaces, etc.
-    """
-
-    AREA = "area"
-    UNIT = "unit"
-    # TODO: parking space, storage space, etc.
 
 
 class LeaseStatusEnum(str, Enum):

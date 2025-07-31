@@ -13,7 +13,7 @@ from performa.core.base import (
     RecoveryBase,
     RecoveryMethodBase,
 )
-from performa.core.primitives import Timeline, UnitOfMeasureEnum
+from performa.core.primitives import Timeline
 
 
 @pytest.fixture
@@ -22,7 +22,6 @@ def sample_expense(sample_timeline: Timeline) -> OpExItemBase:
         name="Test Expense",
         timeline=sample_timeline,
         value=10000,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY
     )
 
 @pytest.fixture

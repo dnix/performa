@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from performa.asset.office.rent_escalation import OfficeRentEscalation
-from performa.core.primitives import UnitOfMeasureEnum
+from performa.core.primitives import PropertyAttributeKey
 from performa.core.primitives.growth_rates import (
     FixedGrowthRate,
     PercentageGrowthRate,
@@ -38,7 +38,6 @@ class TestRentEscalationValidation(unittest.TestCase):
             escalation = OfficeRentEscalation(
                 type="percentage",
                 rate=rate,
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                 is_relative=True,
                 start_date=date(2024, 1, 1),
             )
@@ -54,7 +53,6 @@ class TestRentEscalationValidation(unittest.TestCase):
                 OfficeRentEscalation(
                     type="percentage",
                     rate=rate,
-                    unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                     is_relative=True,
                     start_date=date(2024, 1, 1),
                 )
@@ -75,7 +73,7 @@ class TestRentEscalationValidation(unittest.TestCase):
             escalation = OfficeRentEscalation(
                 type="fixed",
                 rate=rate,
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 is_relative=False,
                 start_date=date(2024, 1, 1),
             )
@@ -92,7 +90,7 @@ class TestRentEscalationValidation(unittest.TestCase):
                 OfficeRentEscalation(
                     type="fixed",
                     rate=rate,
-                    unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                    reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                     is_relative=False,
                     start_date=date(2024, 1, 1),
                 )
@@ -112,7 +110,6 @@ class TestRentEscalationValidation(unittest.TestCase):
             OfficeRentEscalation(
                 type="percentage",
                 rate=fixed_rate,
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                 is_relative=True,
                 start_date=date(2024, 1, 1),
             )
@@ -126,7 +123,7 @@ class TestRentEscalationValidation(unittest.TestCase):
             OfficeRentEscalation(
                 type="fixed",
                 rate=percentage_rate,
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 is_relative=False,
                 start_date=date(2024, 1, 1),
             )
@@ -139,7 +136,6 @@ class TestRentEscalationValidation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="percentage",
             rate=percentage_rate,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             is_relative=True,
             start_date=date(2024, 1, 1),
         )
@@ -153,7 +149,7 @@ class TestRentEscalationValidation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="fixed",
             rate=fixed_rate,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             is_relative=False,
             start_date=date(2024, 1, 1),
         )
@@ -165,7 +161,6 @@ class TestRentEscalationValidation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="percentage",
             rate=0.03,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             is_relative=True,
             start_date=date(2024, 1, 1),
         )
@@ -177,7 +172,6 @@ class TestRentEscalationValidation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="percentage",
             rate=percentage_rate,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             is_relative=True,
             start_date=date(2024, 1, 1),
         )
@@ -188,7 +182,6 @@ class TestRentEscalationValidation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="percentage",
             rate=0.03,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             is_relative=True,
             start_date=date(2024, 1, 1),
         )
@@ -200,7 +193,6 @@ class TestRentEscalationValidation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="percentage",
             rate=percentage_rate,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             is_relative=True,
             start_date=date(2024, 1, 1),
         )
@@ -211,7 +203,6 @@ class TestRentEscalationValidation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="percentage",
             rate=0.03,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             is_relative=True,
             start_date=date(2024, 1, 1),
         )
@@ -223,7 +214,6 @@ class TestRentEscalationValidation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="percentage",
             rate=percentage_rate,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             is_relative=True,
             start_date=date(2024, 1, 1),
         )
@@ -267,7 +257,7 @@ class TestRentEscalationValidation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="fixed",
             rate=fixed_rate,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             is_relative=False,
             start_date=date(2025, 1, 1),
             recurring=True,
@@ -289,7 +279,7 @@ class TestRentEscalationValidation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="fixed",
             rate=fixed_rate,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             is_relative=False,
             start_date=date(2025, 1, 1),
             recurring=True,
@@ -304,7 +294,6 @@ class TestRentEscalationValidation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="percentage",
             rate=0.03,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             is_relative=True,
             start_date=date(2024, 1, 1),
             recurring=True,
@@ -328,7 +317,6 @@ class TestRentEscalationValidation(unittest.TestCase):
         escalation = OfficeRentEscalation(
             type="percentage",
             rate=percentage_rate,
-            unit_of_measure=UnitOfMeasureEnum.CURRENCY,
             is_relative=True,
             start_date=date(2024, 1, 1),
             recurring=True,

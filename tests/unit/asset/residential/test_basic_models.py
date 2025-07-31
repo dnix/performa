@@ -32,7 +32,7 @@ from performa.core.primitives import (
     AssetTypeEnum,
     GrowthRate,
     Timeline,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
 )
 
 # Test Step 1.1: Basic model creation and inheritance
@@ -60,7 +60,6 @@ def test_residential_misc_income_creation():
         name="Parking Fees",
         value=50.0,  # $50/month per space
         timeline=Timeline.from_dates(date(2024, 1, 1), end_date=date(2024, 12, 31)),
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY  # Required by CashFlowModel base
     )
     assert misc_income.name == "Parking Fees"
     assert misc_income.value == 50.0

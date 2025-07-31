@@ -17,8 +17,8 @@ from ...core.primitives import (
     Model,
     PositiveFloat,
     PositiveInt,
-    UnitOfMeasureEnum,
 )
+from ...core.primitives.cash_flow import ReferenceKey
 from .lc import OfficeLeasingCommission
 from .recovery import OfficeRecoveryMethod
 from .rent_abatement import OfficeRentAbatement
@@ -33,7 +33,7 @@ class OfficeRolloverTenantImprovement(Model):
     Configuration for tenant improvements in rollover scenarios.
     """
     value: PositiveFloat
-    unit_of_measure: UnitOfMeasureEnum
+    reference: Optional[ReferenceKey] = None
     payment_timing: Literal["signing", "commencement"] = "commencement"
 
 
@@ -218,7 +218,7 @@ class OfficeRolloverProfile(RolloverProfileBase):
 
         return OfficeRolloverLeaseTerms(
             market_rent=blended_rent,
-            unit_of_measure=market_terms.unit_of_measure,
+            reference=market_terms.reference,
             frequency=market_terms.frequency,
             growth_rate=blended_growth,
             rent_escalations=blended_escalations,

@@ -11,7 +11,7 @@ import pytest
 from performa.analysis import AnalysisContext
 from performa.asset.office.property import OfficeProperty
 from performa.asset.office.ti import OfficeTenantImprovement
-from performa.core.primitives import GlobalSettings, Timeline, UnitOfMeasureEnum
+from performa.core.primitives import GlobalSettings, PropertyAttributeKey, Timeline
 
 
 @pytest.fixture
@@ -34,7 +34,6 @@ def test_ti_compute_cf_upfront(sample_context: AnalysisContext):
         name="Test TI",
         timeline=sample_context.timeline,
         value=10000.0,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         payment_timing="signing",
     )
     cf = ti.compute_cf(context=sample_context)
@@ -49,7 +48,6 @@ def test_ti_compute_cf_amortized(sample_context: AnalysisContext):
         name="Amortized TI",
         timeline=sample_context.timeline,
         value=12000.0,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         payment_method="amortized",
         payment_timing="commencement",
         interest_rate=0.0,
@@ -71,7 +69,6 @@ def test_ti_payment_timing(sample_context: AnalysisContext):
         name="Test TI Signing",
         timeline=sample_context.timeline,
         value=10000.0,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         payment_timing="signing",
     )
     cf_signing = ti_signing.compute_cf(context=sample_context)
@@ -84,7 +81,6 @@ def test_ti_payment_timing(sample_context: AnalysisContext):
         name="Test TI Commencement",
         timeline=sample_context.timeline,
         value=20000.0,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         payment_timing="commencement",
     )
     cf_commencement = ti_commencement.compute_cf(context=sample_context)

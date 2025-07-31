@@ -310,6 +310,11 @@ class DistributionCalculator:
             Returns:
                 Array of cash flows per partner
             """
+            # Handle edge cases with non-finite values to avoid RuntimeWarnings
+            if not np.isfinite(cf_amount) or not np.isfinite(promote_rate):
+                # Return zeros for all partners if we have invalid inputs
+                return np.zeros_like(partner_shares)
+            
             # Base distribution to all partners based on their shares
             base_dist = cf_amount * partner_shares * (1 - promote_rate)
             

@@ -12,7 +12,7 @@ from performa.analysis import AnalysisContext
 from performa.asset.office.lc import CommissionTier, OfficeLeasingCommission
 from performa.asset.office.lease import OfficeLease
 from performa.asset.office.property import OfficeProperty
-from performa.core.primitives import GlobalSettings, Timeline, UnitOfMeasureEnum
+from performa.core.primitives import GlobalSettings, PropertyAttributeKey, Timeline
 
 
 @pytest.fixture
@@ -50,7 +50,7 @@ def sample_lease() -> OfficeLease:
         start_date=date(2024, 1, 1),     # Commencement date
         term_months=60,
         base_rent_value=50.0,
-        base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+        base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         lease_type=LeaseTypeEnum.GROSS,
         upon_expiration=UponExpirationEnum.RENEW
     )
@@ -68,7 +68,6 @@ def test_lc_tiered_calculation(sample_context: AnalysisContext):
         name="Test Tiered LC",
         timeline=sample_context.timeline, # Extended timeline (Nov 2023 - Dec 2028)
         value=100000.0, # Annual rent
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         landlord_broker_percentage=0.5,
         tenant_broker_percentage=0.5,
         tiers=[
@@ -105,7 +104,6 @@ def test_lc_partial_term(sample_context: AnalysisContext):
         name="Test Partial Term LC",
         timeline=timeline,
         value=100000.0, # Annual rent
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         landlord_broker_percentage=0.5,
         tenant_broker_percentage=0.5,
         tiers=[
@@ -153,7 +151,6 @@ def test_lc_split_payment_timing(sample_context: AnalysisContext, sample_lease: 
         name="Split Payment LC",
         timeline=sample_context.timeline,  # Use the extended timeline
         value=100000.0,  # Annual rent
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         landlord_broker_percentage=0.5,
         tenant_broker_percentage=0.5,
         tiers=[
@@ -194,7 +191,6 @@ def test_lc_multiple_tiers_different_payment_schedules(sample_context: AnalysisC
         name="Multi-Tier Split LC",
         timeline=sample_context.timeline,  # Use the extended timeline
         value=100000.0,  # Annual rent
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         landlord_broker_percentage=0.5,
         tenant_broker_percentage=0.5,
         tiers=[
@@ -232,7 +228,6 @@ def test_lc_split_payment_without_signing_date_error(sample_context: AnalysisCon
         name="Signing Required LC",
         timeline=sample_context.timeline,
         value=100000.0,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         landlord_broker_percentage=0.5,
         tenant_broker_percentage=0.5,
         tiers=[
@@ -263,7 +258,7 @@ def test_lc_split_payment_without_signing_date_error(sample_context: AnalysisCon
         start_date=date(2024, 1, 1),
         term_months=60,
         base_rent_value=50.0,
-        base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+        base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         lease_type=LeaseTypeEnum.GROSS,
         upon_expiration=UponExpirationEnum.RENEW
     )
@@ -286,7 +281,6 @@ def test_lc_backward_compatibility_without_lease_context(sample_context: Analysi
         name="Traditional LC",
         timeline=sample_context.timeline,
         value=100000.0,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         landlord_broker_percentage=0.5,
         tenant_broker_percentage=0.5,
         tiers=[

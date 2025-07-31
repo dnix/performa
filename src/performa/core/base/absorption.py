@@ -25,10 +25,10 @@ from uuid import UUID
 import pandas as pd
 from pydantic import Field
 
+from ..primitives.cash_flow import ReferenceKey
 from ..primitives.enums import (
     ProgramUseEnum,
     StartDateAnchorEnum,
-    UnitOfMeasureEnum,
     UponExpirationEnum,
 )
 from ..primitives.growth_rates import GrowthRate
@@ -128,7 +128,7 @@ RolloverProfileIdentifier = str
 
 class DirectLeaseTerms(Model):
     base_rent_value: Optional[PositiveFloat] = None
-    base_rent_unit_of_measure: Optional[UnitOfMeasureEnum] = None
+    base_rent_reference: Optional[ReferenceKey] = None
     term_months: Optional[PositiveInt] = None
     upon_expiration: Optional[UponExpirationEnum] = None
     rent_escalation: Optional["RentEscalationBase"] = None

@@ -35,8 +35,9 @@ from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     LeaseStatusEnum,
+    PropertyAttributeKey,
     Timeline,
-    UnitOfMeasureEnum,
+    UnleveredAggregateLineKey,
     UponExpirationEnum,
 )
 from performa.core.primitives.growth_rates import PercentageGrowthRate
@@ -202,16 +203,15 @@ def test_regional_investor_scale() -> Dict[str, Any]:
                 name="Property Management",
                 timeline=timeline,
                 value=0.06,
-                unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
                 frequency=FrequencyEnum.MONTHLY,
-                reference="Effective Gross Revenue",
+                reference=UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME,
             ),
             ResidentialOpExItem(
                 name="Maintenance & Repairs",
                 timeline=timeline,
                 value=450.0,
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
                 frequency=FrequencyEnum.ANNUAL,
+                reference=PropertyAttributeKey.UNIT_COUNT,
             ),
         ]
     )
@@ -327,23 +327,22 @@ def test_institutional_scale() -> Dict[str, Any]:
                 name="Property Management",
                 timeline=timeline,
                 value=0.055,
-                unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
                 frequency=FrequencyEnum.MONTHLY,
-                reference="Effective Gross Revenue",
+                reference=UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME,
             ),
             ResidentialOpExItem(
                 name="Maintenance & Repairs",
                 timeline=timeline,
                 value=525.0,
-                unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
                 frequency=FrequencyEnum.ANNUAL,
+                reference=PropertyAttributeKey.UNIT_COUNT,
             ),
             ResidentialOpExItem(
                 name="Utilities & Common Areas",
                 timeline=timeline,
                 value=350000.0,
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                 frequency=FrequencyEnum.ANNUAL,
+                # reference=None (direct currency amount)
             ),
         ]
     )
@@ -354,15 +353,15 @@ def test_institutional_scale() -> Dict[str, Any]:
             name="Parking Revenue",
             timeline=timeline,
             value=95.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
             frequency=FrequencyEnum.MONTHLY,
+            reference=PropertyAttributeKey.UNIT_COUNT,
         ),
         ResidentialMiscIncome(
             name="Pet Fees",
             timeline=timeline,
             value=35.0,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
             frequency=FrequencyEnum.MONTHLY,
+            reference=PropertyAttributeKey.UNIT_COUNT,
         ),
     ]
     
@@ -449,7 +448,6 @@ def test_fundamental_sanity() -> bool:
         name="Test Lease",
         timeline=timeline,
         value=2000.0,
-        unit_of_measure=UnitOfMeasureEnum.CURRENCY,
         frequency=FrequencyEnum.MONTHLY,
         status=LeaseStatusEnum.CONTRACT,
         area=800.0,
@@ -744,16 +742,15 @@ def test_comprehensive_performance_suite() -> List[Dict[str, Any]]:
                         name="Property Management",
                         timeline=timeline,
                         value=0.055,
-                        unit_of_measure=UnitOfMeasureEnum.BY_PERCENT,
                         frequency=FrequencyEnum.MONTHLY,
-                        reference="Effective Gross Revenue",
+                        reference=UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME,
                     ),
                     ResidentialOpExItem(
                         name="Maintenance & Repairs",
                         timeline=timeline,
                         value=400.0 + (scenario['units'] * 2),  # Scale with size
-                        unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
                         frequency=FrequencyEnum.ANNUAL,
+                        reference=PropertyAttributeKey.UNIT_COUNT,
                     ),
                 ]
             )

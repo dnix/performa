@@ -24,7 +24,7 @@ from performa.core.primitives import (
     GlobalSettings,
     LeaseTypeEnum,
     Timeline,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
     UnleveredAggregateLineKey,
     UponExpirationEnum,
 )
@@ -60,7 +60,7 @@ def test_end_to_end_analysis(analysis_timeline: Timeline, global_settings: Globa
                 start_date=date(2022, 1, 1),
                 term_months=48, # Expires Dec 2025
                 base_rent_value=40.0,
-                base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 base_rent_frequency=FrequencyEnum.ANNUAL,
                 lease_type=LeaseTypeEnum.NET,
                 upon_expiration=UponExpirationEnum.MARKET,
@@ -77,7 +77,6 @@ def test_end_to_end_analysis(analysis_timeline: Timeline, global_settings: Globa
                 timeline=analysis_timeline,
                 value=120000,
                 frequency=FrequencyEnum.ANNUAL,
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY
             )
         ]
     )

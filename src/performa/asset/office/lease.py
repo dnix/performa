@@ -19,7 +19,7 @@ from ...core.primitives import (
     GlobalSettings,
     LeaseStatusEnum,
     Timeline,
-    UnitOfMeasureEnum,
+    PropertyAttributeKey,
     UponExpirationEnum,
 )
 from ..commercial.lease import CommercialLeaseBase
@@ -117,7 +117,7 @@ class OfficeLease(CommercialLeaseBase):
         if spec.leasing_commission:
             # Calculate annual rent for leasing commission
             annual_rent = spec.base_rent_value
-            if spec.base_rent_unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
+            if spec.base_rent_reference == PropertyAttributeKey.NET_RENTABLE_AREA:
                 annual_rent *= spec.area
             # Clone LC with updated timeline and value
             lc_instance = spec.leasing_commission.model_copy(
@@ -134,7 +134,7 @@ class OfficeLease(CommercialLeaseBase):
             signing_date=spec.signing_date,
             upon_expiration=spec.upon_expiration,
             value=spec.base_rent_value,
-            unit_of_measure=spec.base_rent_unit_of_measure,
+            reference=spec.base_rent_reference,
             frequency=spec.base_rent_frequency,
             rent_escalations=spec.rent_escalations,
             rent_abatement=spec.rent_abatement,
@@ -185,7 +185,7 @@ class OfficeLease(CommercialLeaseBase):
             timeline=new_timeline,
             signing_date=speculative_signing_date,
             value=rent_rate,
-            unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
+                            reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             frequency=FrequencyEnum.MONTHLY,
             rent_escalations=lease_terms.rent_escalations,
             rent_abatement=lease_terms.rent_abatement,
@@ -209,7 +209,7 @@ class OfficeLease(CommercialLeaseBase):
         if lease_terms.ti_allowance:
             ti_config = lease_terms.ti_allowance
             ti_value = ti_config.value
-            if ti_config.unit_of_measure == UnitOfMeasureEnum.PER_UNIT:
+            if ti_config.reference == PropertyAttributeKey.NET_RENTABLE_AREA:
                  ti_value = ti_config.value * area
             
             ti_allowance = OfficeTenantImprovement(
@@ -217,7 +217,7 @@ class OfficeLease(CommercialLeaseBase):
                 timeline=timeline,
                 area=area,
                 value=ti_value,
-                unit_of_measure=ti_config.unit_of_measure,
+                reference=ti_config.reference,
                 payment_timing=ti_config.payment_timing,
             )
 
@@ -242,7 +242,6 @@ class OfficeLease(CommercialLeaseBase):
                 name=f"LC for {timeline.start_date}",
                 timeline=timeline,
                 value=annual_rent,
-                unit_of_measure=UnitOfMeasureEnum.CURRENCY,
                 tiers=commission_tiers
             )
 
