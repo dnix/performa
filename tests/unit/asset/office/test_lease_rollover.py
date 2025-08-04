@@ -76,7 +76,7 @@ def test_rollover_renew(sample_analysis_context: AnalysisContext):
         name="Test Renew Profile",
         term_months=24,
         renewal_probability=1.0,  # Not directly used by RENEW, but good practice
-        downtime_months=3,  # Should be ignored for RENEW
+        downtime_months=0,  # RENEW profiles must have 0 downtime (enforced by validator)
         market_terms=market_terms,
         renewal_terms=renewal_terms,
         upon_expiration=UponExpirationEnum.RENEW,

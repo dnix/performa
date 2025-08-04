@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Union
 from uuid import UUID, uuid4
 
 import pandas as pd
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from ..primitives.enums import FrequencyEnum, UponExpirationEnum
 from ..primitives.cash_flow import ReferenceKey
@@ -37,7 +37,7 @@ class RolloverLeaseTermsBase(Model):
     
     @field_validator("market_rent")
     @classmethod
-    def validate_market_rent(cls, v: Optional[Union[PositiveFloat, pd.Series, Dict, List]]) -> Optional[Union[PositiveFloat, pd.Series, Dict, List]]:
+    def _validate_market_rent(cls, v: Optional[Union[PositiveFloat, pd.Series, Dict, List]]) -> Optional[Union[PositiveFloat, pd.Series, Dict, List]]:
         """Validate market rent format and constraints."""
         if v is None:
             return v
@@ -83,4 +83,16 @@ class RolloverProfileBase(Model):
     renewal_terms: RolloverLeaseTermsBase
     option_terms: Optional[RolloverLeaseTermsBase] = None
     upon_expiration: UponExpirationEnum = UponExpirationEnum.MARKET
-    next_profile: Optional[str] = None 
+    next_profile: Optional[str] = None
+    
+    @model_validator(mode='after')
+    def _validate_renew_downtime(self):
+        """
+        Validate that RENEW profiles have zero downtime.
+        
+        Business Rule: When a tenant renews their lease, there should be no 
+        downtime period since they continue occupying the unit.
+        """
+        if self.upon_expiration == UponExpirationEnum.RENEW and self.downtime_months != 0:
+            raise ValueError("RENEW upon_expiration requires downtime_months=0 (tenant stays, no vacancy)")
+        return self
