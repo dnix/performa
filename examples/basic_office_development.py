@@ -151,6 +151,7 @@ def create_sample_development_deal():
             work_type="construction",
             value=15_000_000,
             draw_schedule=FirstOnlyDrawSchedule(),
+            # FIXME: conistruction is an s-curve, not a single draw
             timeline=timeline
         ),
         CapitalItem(
@@ -159,6 +160,7 @@ def create_sample_development_deal():
             value=1_500_000,
             draw_schedule=FirstOnlyDrawSchedule(),
             timeline=timeline
+            # FIXME: professional fees should be evenly paid over the construction period
         ),
         CapitalItem(
             name="Developer Fee",
@@ -166,6 +168,7 @@ def create_sample_development_deal():
             value=2_000_000,
             draw_schedule=FirstOnlyDrawSchedule(),
             timeline=timeline
+            # FIXME: developer fee should be evenly paid over the construction period
         ),
     ]
     
