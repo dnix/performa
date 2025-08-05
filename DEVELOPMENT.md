@@ -2,9 +2,44 @@
 
 This guide covers everything you need to know for developing with and contributing to Performa.
 
+## Quick Start
+
+The fastest way to get started with development:
+
+```bash
+git clone https://github.com/performa-dev/performa.git
+cd performa
+make dev-setup
+```
+
+This single command will:
+
+- Set up asdf and install the correct Python version
+- Create a virtual environment using uv
+- Install all dependencies (including dev dependencies)
+- Install the package in editable mode
+
+Verify everything is working:
+
+```bash
+make check
+```
+
 ## Installation for Development
 
-### From Source (Recommended for Development)
+### Recommended: Using the Makefile
+
+```bash
+# Complete development environment setup
+make dev-setup
+
+# Or step by step:
+make asdf-bootstrap  # Set up asdf and Python
+make venv           # Create virtual environment
+make install        # Install dependencies
+```
+
+### From Source (Alternative Method)
 
 ```bash
 git clone https://github.com/performa-dev/performa.git
@@ -16,34 +51,58 @@ This installs Performa in editable mode, allowing you to make changes to the sou
 
 ### Development Environment Setup
 
-#### Using `uv` (Recommended)
+#### Using `uv` with Makefile (Recommended)
 
-`uv` is a fast Python package installer and resolver. To install all development dependencies:
+Our Makefile provides convenient targets for all development tasks:
+
+```bash
+# Install dev dependencies (recommended for most development)
+make install
+
+# Install ALL dependency groups (current and future: docs, viz, etc.)
+make install-all
+
+# Install only production dependencies
+make install-prod
+
+# Update all dependencies to latest compatible versions
+make update
+```
+
+#### Manual Setup with `uv`
+
+If you prefer manual setup, `uv` is a fast Python package installer and resolver:
 
 ```bash
 # Install all dependency groups (recommended for full development setup)
 pip install uv
-uv pip install -r pyproject.toml --all-extras
+uv sync --all-extras
+
+# Or install only specific groups
+uv sync --extra dev  # Development tools only
 ```
 
 #### Individual Dependency Groups
 
-You can also install specific dependency groups based on your needs:
+You can install specific dependency groups based on your needs:
 
 ```bash
 # Core dependencies only
-uv pip install -e .
+uv sync
 
 # Development tools (linting, formatting, testing, etc.)
-uv pip install -e .[dev]
+uv sync --extra dev
 
-# Documentation dependencies
-uv pip install -e .[docs]
+# All extras (current: dev; future: docs, viz, etc.)
+uv sync --all-extras
 ```
+
+**Note:** Additional dependency groups like `docs`, `viz`, and others may be added in the future. Use `--all-extras` to ensure you get everything.
 
 #### Alternative Setup Methods
 
 **Coming Soon**: Additional setup options for:
+
 - `asdf` for Python version management
 - Virtual environment configuration (`venv`, `conda`, etc.)
 - Pre-commit hooks and code formatting
@@ -51,7 +110,7 @@ uv pip install -e .[docs]
 
 ## Project Structure
 
-```
+```bash
 performa/
 ├── src/performa/     # Main library code
 │   ├── analysis/     # Analysis engine and orchestration
@@ -158,6 +217,22 @@ Performa uses a hierarchical logger structure:
 
 ### Running Tests
 
+Use the Makefile for convenient testing:
+
+```bash
+# Run all tests
+make test
+
+# Run tests with coverage report
+make test-cov
+
+# Manual testing with pytest
+uv run pytest
+uv run pytest --cov=performa --cov-report=html
+```
+
+### Running Tests Manually
+
 ```bash
 # Run all tests
 pytest
@@ -190,6 +265,30 @@ class TestOfficeProperty:
 ```
 
 ## Code Standards
+
+### Linting and Formatting
+
+Use the Makefile for code quality checks:
+
+```bash
+# Check code style and formatting
+make lint
+
+# Automatically fix code style issues
+make lint-fix
+```
+
+Manual commands:
+
+```bash
+# Check with ruff
+uv run ruff check .
+uv run ruff format --check .
+
+# Auto-fix with ruff
+uv run ruff check --fix .
+uv run ruff format .
+```
 
 ### Python Style Guide
 
@@ -231,22 +330,38 @@ from performa.core.base import PropertyBaseModel
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally
 3. **Create a feature branch** from `main`
-4. **Install in development mode**: `pip install -e .`
-5. **Make your changes**
-6. **Run tests** to ensure nothing breaks
-7. **Submit a pull request**
+4. **Set up development environment**: `make dev-setup`
+5. **Verify setup**: `make check`
+6. **Make your changes**
+7. **Run quality checks**: `make lint test`
+8. **Submit a pull request**
 
 ### Pull Request Guidelines
 
 - **Clear description** of what the PR accomplishes
 - **Reference any issues** being addressed
-- **Include tests** for new functionality
+- **Include tests** for new functionality: `make test`
+- **Ensure code quality**: `make lint-fix`
 - **Update documentation** as needed
 - **Follow the established code style**
+
+### Development Workflow Commands
+
+```bash
+# Daily development workflow
+make lint-fix    # Fix any style issues
+make test        # Run tests
+make check       # Verify setup
+
+# Clean up when needed
+make clean       # Remove temporary files
+make clean-all   # Full cleanup including venv
+```
 
 ### Release Process
 
 **Coming Soon**: Detailed release procedures including:
+
 - Version bumping strategy
 - Changelog maintenance
 - PyPI deployment process
@@ -287,7 +402,7 @@ class ExampleModel(Model):
         return self.value * 1.1
     
     @model_validator(mode='after')
-    def validate_business_rules(self) -> 'ExampleModel':
+    def _validate_business_rules(self) -> 'ExampleModel':
         """Custom validation for business logic."""
         if self.value > 1000:
             raise ValueError("Value cannot exceed 1000")
@@ -306,4 +421,4 @@ class ExampleModel(Model):
 
 - **License**: Apache 2.0 (see [LICENSE](LICENSE))
 - **Contributing Agreement**: CLA process (coming soon)
-- **Code of Conduct**: See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) 
+- **Code of Conduct**: See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
