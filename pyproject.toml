@@ -100,6 +100,8 @@ unfixable = ["F401"]  # e.g., unused imports not autofixed
 ignore = ["E501"]  # Ignore line length errors
 
 [tool.ruff.lint.per-file-ignores]
+# Marimo notebooks often need empty returns for display cells
+"examples/marimo/**/*.py" = ["PLR1711"]
 # Scripts and examples need to be runnable (shebang first line), so ignore the copyright header.
 "scripts/**/*.py" = ["CPY001"]
 "examples/**/*.py" = ["CPY001"]

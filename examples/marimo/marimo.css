@@ -1,0 +1,34 @@
+/* Load Inter from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Red+Hat+Mono:ital,wght@0,300..700;1,300..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Red+Hat+Mono:ital,wght@0,300..700;1,300..700&display=swap');
+
+:root {
+  --marimo-heading-font: 'Instrument Serif', serif;
+  --marimo-monospace-font: 'Red Hat Mono', monospace;
+  --marimo-text-font: 'Inter', sans-serif;
+}
+/* Increase paragraph font size and change color */
+html {
+  font-size: 15px;
+}
+.markdown h1 {
+  font-size: 4.75rem;
+}
+.markdown h2  {
+  font-size: 1.75rem;
+  font-weight: 500;
+  font-family: var(--marimo-text-font);
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+.markdown h3 {
+  font-size: 1.1rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  font-family: var(--marimo-text-font);
+  margin-top: 0.75rem;
+}
+.markdown p, .markdown li, .paragraph {
+  font-family: var(--marimo-text-font);
+}
