@@ -63,6 +63,7 @@ dev = [
     "streamlit-extras",
     "streamlit-pydantic @ git+https://github.com/HIL340/streamlit-pydantic.git@pydantic-2.7",
     "watchdog",
+    "complexipy",
 ]
 
 [project.urls]
