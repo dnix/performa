@@ -56,8 +56,7 @@ def sample_rollover_profile():
         market_rent_growth=PercentageGrowthRate(name="Market Growth", value=0.03),
         renewal_rent_increase_percent=0.025,
         concessions_months=0,
-        # Note: capital_plan_id is None for basic testing
-        capital_plan_id=None,
+        # Capital planning now handled at property level
         term_months=12,
     )
     

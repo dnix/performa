@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date
-from typing import Optional
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 from pydantic import Field, computed_field
@@ -32,7 +32,6 @@ class ResidentialRolloverLeaseTerms(RolloverLeaseTermsBase):
     - No TI/LC per square foot (use CapitalPlan for all costs)
     - No complex recovery methods (residents don't pay building expenses)
     - No rent escalations during term (typically flat rent)
-    - Optional post-renovation rent premiums for value-add scenarios
     - Universal CapitalPlan primitive for all capital outlays
     """
     
@@ -44,114 +43,35 @@ class ResidentialRolloverLeaseTerms(RolloverLeaseTermsBase):
     # === CONCESSIONS ===
     concessions_months: PositiveInt = 0  # Free rent months
     
-    # === UUID-BASED CAPITAL PLAN REFERENCE ===
-    # REPLACES: turnover_plan field - now uses lightweight UUID reference
-    capital_plan_id: Optional[UUID] = Field(
-        default=None,
-        description="UUID reference to CapitalPlan for turnover costs (make-ready, leasing, etc.)"
-    )
-    
-    # === VALUE-ADD CAPABILITIES ===
-    post_renovation_rent_premium: PositiveFloat = Field(
-        default=0.0,
-        description="Rent premium percentage (as decimal) to apply after renovation (e.g., 0.15 for 15% increase)"
-    )
-    post_renovation_market_rent: Optional[PositiveFloat] = Field(
-        default=None,
-        description="Absolute market rent override after renovation (takes precedence over percentage premium)"
-    )
+
     
     # Override base class defaults for residential rent
     frequency: FrequencyEnum = FrequencyEnum.MONTHLY  # Residential rent is monthly
     
-    @computed_field
-    @property
-    def effective_market_rent(self) -> float:
-        """
-        Calculate the effective market rent accounting for renovations.
-        
-        Priority order:
-        1. post_renovation_market_rent (absolute override)
-        2. market_rent + post_renovation_rent_premium (percentage increase)
-        3. market_rent (base case)
-        """
-        if self.post_renovation_market_rent is not None:
-            return self.post_renovation_market_rent
-        elif self.post_renovation_rent_premium > 0:
-            return self.market_rent * (1 + self.post_renovation_rent_premium)
-        else:
-            return self.market_rent
 
-    @classmethod
-    def with_simple_turnover(
-        cls,
-        market_rent: float,
-        make_ready_cost: float = 1500.0,
-        leasing_fee: float = 500.0,
-        duration_months: int = 1,
-        **kwargs,
-    ) -> "ResidentialRolloverLeaseTerms":
-        """
-        Convenience factory for creating lease terms with simple turnover costs.
-        
-        This method provides backward compatibility and ease of use for common scenarios
-        where turnover costs are simple make-ready and leasing fees.
-        
-        Args:
-            market_rent: Market rent for this unit type
-            make_ready_cost: Unit preparation costs (painting, cleaning, repairs)
-            leasing_fee: Leasing commission and marketing costs
-            duration_months: Timeline for turnover work (default: 1 month)
-            **kwargs: Additional fields for ResidentialRolloverLeaseTerms
-            
-        Returns:
-            ResidentialRolloverLeaseTerms instance with CapitalPlan for turnover costs
-            
-        Example:
-            terms = ResidentialRolloverLeaseTerms.with_simple_turnover(
-                market_rent=2500.0,
-                make_ready_cost=1200.0,
-                leasing_fee=400.0,
-                renewal_rent_increase_percent=0.035
-            )
-        """
-        # Create CapitalPlan for turnover costs using concurrent pattern
-        turnover_plan = None
-        if make_ready_cost > 0 or leasing_fee > 0:
-            costs = {}
-            if make_ready_cost > 0:
-                costs["Make-Ready"] = make_ready_cost
-            if leasing_fee > 0:
-                costs["Leasing Fee"] = leasing_fee
-                
-            turnover_plan = CapitalPlan.create_concurrent_renovation(
-                name="Standard Unit Turnover",
-                start_date=date(2000, 1, 1),  # Placeholder date - will be shifted by lease logic
-                duration_months=duration_months,
-                costs=costs,
-                description=f"Turnover costs: Make-ready ${make_ready_cost:,.0f}, Leasing ${leasing_fee:,.0f}"
-            )
-        
-        return cls(
-            market_rent=market_rent,
-            capital_plan_id=turnover_plan.uid if turnover_plan else None,
-            **kwargs
-        )
+
 
 
 class ResidentialRolloverProfile(RolloverProfileBase):
     """
     Residential-specific profile for lease rollovers and renewals.
-    
-    STATE MACHINE ARCHITECTURE:
-    Each profile represents a state a unit can be in (e.g., "Classic Unit", "Renovated Unit").
-    The next_rollover_profile_id field enables declarative state transitions.
-    
+
+    ROLLOVER MODELING:
+    Each profile represents a complete set of assumptions for a unit type.
+    State transitions are modeled through development scenarios using blueprints and absorption plans.
+
     Captures the typical multifamily leasing patterns:
     - Higher renewal probability than commercial (60-70% typical)
     - Shorter downtime (1-2 months vs. 3-6 for commercial)
     - Simplified cost structures
-    - Declarative state transitions for value-add scenarios
+    
+    TODO: FUTURE ENHANCEMENT - ROLLOVER CHAIN OVERRIDES:
+    The optional override_config field provides a future extension point for:
+    - Time-based assumption schedules (e.g., declining renewal rates as building ages)
+    - Property-type specific behaviors (student housing, senior housing, etc.)
+    - Scenario-based modeling (economic cycles, market stress tests)
+    - Stochastic analysis integration (Monte Carlo, unit-level variability)
+    - Manual rollover chain specification for special cases
     """
     
     # Residential-specific defaults
@@ -162,13 +82,23 @@ class ResidentialRolloverProfile(RolloverProfileBase):
     # Typed terms for residential
     market_terms: ResidentialRolloverLeaseTerms
     renewal_terms: ResidentialRolloverLeaseTerms
+    
+    # TODO: Future enhancement - Rollover chain override capabilities
+    # This field will enable:
+    # - Time-based assumption evolution (renewal rates declining with building age)
+    # - Property-type specialization (student housing, senior housing behaviors)
+    # - Scenario-based overrides (economic cycles, stress testing)
+    # - Unit-level variability for Monte Carlo analysis
+    # - Manual rollover chain specification for complex modeling scenarios
+    override_config: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Optional configuration for overriding default rollover behavior"
+    )
     option_terms: Optional[ResidentialRolloverLeaseTerms] = None
     
-    # === STATE MACHINE TRANSITION ===
-    next_rollover_profile_id: Optional[UUID] = Field(
-        default=None,
-        description="UUID of the rollover profile to use for the NEXT turnover (enables state transitions)"
-    )
+    # === STATE TRANSITIONS ===
+    # Note: State transitions can be modeled through development scenarios
+    # using ResidentialDevelopmentBlueprint + ResidentialAbsorptionPlan
 
     def _calculate_rent(
         self,
@@ -255,16 +185,7 @@ class ResidentialRolloverProfile(RolloverProfileBase):
         # Blend concessions (round to whole months)
         blended_concessions = round((renewal_terms.concessions_months * renewal_prob) + (market_terms.concessions_months * market_prob))
         
-        # Blend turnover costs - use weighted selection approach
-        blended_turnover = None
-        if market_terms.capital_plan_id and renewal_terms.capital_plan_id:
-            # For simplicity, use market terms plan when both exist (market rate turnovers typically more expensive)
-            # Future enhancement: Could implement weighted blending of individual CapitalItems
-            blended_turnover = market_terms.capital_plan_id
-        elif market_terms.capital_plan_id:
-            blended_turnover = market_terms.capital_plan_id
-        elif renewal_terms.capital_plan_id:
-            blended_turnover = renewal_terms.capital_plan_id
+
 
         # Blend term length - ensure we always have a valid term_months
         blended_term_months = self.term_months  # Use profile default as fallback
@@ -287,6 +208,5 @@ class ResidentialRolloverProfile(RolloverProfileBase):
             market_rent_growth=blended_growth,
             renewal_rent_increase_percent=blended_renewal_increase,
             concessions_months=blended_concessions,
-            capital_plan_id=blended_turnover,
             term_months=blended_term_months
         ) 

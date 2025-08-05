@@ -16,7 +16,6 @@ logic while maintaining consistency through shared base classes and patterns.
 ### Residential (`performa.asset.residential`)
 - Multifamily residential properties
 - Unit-centric modeling approach (unit mix vs. individual leases)
-- Value-add renovation scenarios with capital planning integration
 - Residential-specific rollover and absorption modeling
 - Simplified lease structures appropriate for residential
 

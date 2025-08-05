@@ -356,17 +356,20 @@ class UponExpirationEnum(str, Enum):
     Defines behavior when a lease expires, controlling how the space is treated in rollover scenarios.
 
     Options:
-        MARKET: Weighted average approach based on market conditions, reflecting both new tenant and
-               renewal probabilities. Creates a speculative lease with blended terms.
-        RENEW: Assumes 100% renewal probability, extending the lease under predetermined terms.
-               Creates a renewal lease using either contractual terms or renewal market assumptions.
-        VACATE: Assumes 0% renewal probability, with space immediately available for new tenant.
-                Creates a new speculative lease at current market rates after downtime.
-        OPTION: Models a contractual renewal option as a distinct lease. Treats the option terms
-                as a separate lease record that activates upon expiration if exercised.
-        REABSORB: Space remains vacant without automatic re-tenanting, pending either manual
-                  re-leasing input or processing through a space absorption model. No speculative
-                  lease is created automatically.
+        MARKET:   Weighted average approach based on market conditions, reflecting both new tenant and
+                  renewal probabilities. Creates a speculative lease with blended terms.
+        RENEW:    Assumes 100% renewal probability, extending the lease under predetermined terms.
+                  Creates a renewal lease using either contractual terms or renewal market assumptions.
+        VACATE:   Assumes 0% renewal probability, with space immediately available for new tenant.
+                  Creates a new speculative lease at current market rates after downtime.
+        OPTION:   Models a contractual renewal option as a distinct lease. Treats the option terms
+                  as a separate lease record that activates upon expiration if exercised.
+        REABSORB: Triggers a unit transformation workflow. The unit is taken offline and made 
+                  available to an AbsorptionPlan for re-leasing, typically after renovation.
+                  When used with optional RolloverProfile.target_absorption_plan_id, this enables 
+                  modeling of rolling value-add scenarios where units are sequentially 
+                  renovated and re-leased at premium rents. No speculative lease is created 
+                  automatically - the transformation is handled by the specified AbsorptionPlan.
     """
 
     MARKET = "market"  # Weighted average approach using market conditions

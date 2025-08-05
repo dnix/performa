@@ -42,6 +42,10 @@ from .rollover import ResidentialRolloverLeaseTerms, ResidentialRolloverProfile
 # This ensures CapitalPlan is properly recognized in ResidentialLease
 ResidentialLease.model_rebuild()
 
+# Resolve forward references for ResidentialAbsorptionPlan  
+# This ensures ResidentialAbsorptionPlan is properly recognized in ResidentialProperty
+ResidentialProperty.model_rebuild()
+
 __all__ = [
     # Property and container models
     "ResidentialProperty",
@@ -62,7 +66,7 @@ __all__ = [
     
     # Rollover and absorption models
     "ResidentialRolloverProfile",
-    "ResidentialRolloverLeaseTerms",
+    "ResidentialRolloverLeaseTerms", 
     "ResidentialAbsorptionPlan",
     
     # Development models

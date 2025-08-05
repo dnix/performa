@@ -177,11 +177,9 @@ def test_residential_rollover_lease_terms():
     """Test that ResidentialRolloverLeaseTerms captures simplified residential logic"""
     market_growth = GrowthRate(name="Market Growth", value=0.04)
 
-    # Test new CapitalPlan-based approach
-    terms = ResidentialRolloverLeaseTerms.with_simple_turnover(
+    # Test CapitalPlan-based approach (costs handled at property level)
+    terms = ResidentialRolloverLeaseTerms(
         market_rent=2500.0,
-        make_ready_cost=1200.0,
-        leasing_fee=400.0,
         market_rent_growth=market_growth,
         renewal_rent_increase_percent=0.035,  # 3.5% renewal increase
         concessions_months=1,  # 1 month free
@@ -192,33 +190,23 @@ def test_residential_rollover_lease_terms():
     assert terms.renewal_rent_increase_percent == 0.035
     assert terms.concessions_months == 1
     
-    # Test UUID-based CapitalPlan reference (new architecture)
-    assert terms.capital_plan_id is not None
-    assert isinstance(terms.capital_plan_id, UUID)
-    
-    # The factory method creates the plan and stores its UUID
-    # We can't directly test the plan content since it's not stored on the terms
-    # Instead, we validate that the UUID reference is properly set
-    assert terms.effective_market_rent == 2500.0  # No renovation premium
+    # Capital planning is now handled at the property level (not in lease terms)
 
 
 def test_residential_rollover_profile_blending():
     """Test that ResidentialRolloverProfile properly blends market vs renewal terms"""
     market_growth = GrowthRate(name="Market Growth", value=0.04)
     
-    # Use factory method for market terms with CapitalPlan
-    market_terms = ResidentialRolloverLeaseTerms.with_simple_turnover(
+    # Market terms (costs handled at property level via CapitalPlan)
+    market_terms = ResidentialRolloverLeaseTerms(
         market_rent=2600.0,  # Higher market rent
-        make_ready_cost=1500.0,
-        leasing_fee=500.0,
         market_rent_growth=market_growth,
     )
     
-    # Renewal terms with no turnover costs (UUID-based architecture)
+    # Renewal terms with no turnover costs
     renewal_terms = ResidentialRolloverLeaseTerms(
         market_rent=2400.0,  # Lower renewal rent (current + increase)
         renewal_rent_increase_percent=0.04,
-        capital_plan_id=None  # No costs for renewals
     )
     
     profile = ResidentialRolloverProfile(
@@ -237,11 +225,7 @@ def test_residential_rollover_profile_blending():
     expected_blended_rent = (2400.0 * 0.65) + (2600.0 * 0.35)
     assert blended_terms.market_rent == pytest.approx(expected_blended_rent, rel=1e-2)
     
-    # With new UUID-based approach, market terms capital_plan_id should be used when both exist
-    # Since we have market_terms.capital_plan_id and renewal_terms.capital_plan_id is None,
-    # the blended result should use the market terms capital plan ID
-    assert blended_terms.capital_plan_id is not None
-    assert blended_terms.capital_plan_id == market_terms.capital_plan_id
+    # Capital planning is now handled at the property level
 
 
 # Integration test: All components working together
@@ -251,10 +235,8 @@ def test_complete_residential_property_creation():
     # Create all required components
     market_growth = GrowthRate(name="Market Growth", value=0.04)
     
-    market_terms = ResidentialRolloverLeaseTerms.with_simple_turnover(
+    market_terms = ResidentialRolloverLeaseTerms(
         market_rent=2500.0,
-        make_ready_cost=1500.0,
-        leasing_fee=500.0,
         market_rent_growth=market_growth,
     )
     

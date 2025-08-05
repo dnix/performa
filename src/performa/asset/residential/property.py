@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import TYPE_CHECKING, List
 
 from pydantic import Field, computed_field, model_validator
 
@@ -16,6 +16,10 @@ from .misc_income import ResidentialMiscIncome
 
 # Now we can import ResidentialRentRoll directly
 from .rent_roll import ResidentialRentRoll
+
+if TYPE_CHECKING:
+    from .absorption import ResidentialAbsorptionPlan
+
 
 
 class ResidentialProperty(PropertyBaseModel):
@@ -43,11 +47,18 @@ class ResidentialProperty(PropertyBaseModel):
     losses: ResidentialLosses = Field(default_factory=ResidentialLosses)
     miscellaneous_income: List[ResidentialMiscIncome] = Field(default_factory=list)
     
-    # === VALUE-ADD CAPABILITIES ===
+    # === CAPITAL PLANNING ===
     capital_plans: List[CapitalPlan] = Field(
         default_factory=list,
-        description="Renovation projects that can be triggered during lease turnover or other events"
+        description="Capital projects (e.g., roof replacement, HVAC upgrade, major renovations)"
     )
+    
+    # === ABSORPTION PLANNING ===
+    absorption_plans: List["ResidentialAbsorptionPlan"] = Field(
+        default_factory=list,
+        description="Absorption plans for leasing vacant units (e.g., post-renovation, new development)"
+    )
+
     
     # === REQUIRED BASE FIELDS ===
     # These are required by PropertyBaseModel - must be provided explicitly

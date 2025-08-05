@@ -12,7 +12,6 @@ integration with existing analysis workflows and timeline management.
 - Integration with DrawSchedule for sophisticated cost distribution patterns
 
 ### Capital Planning Features
-- Factory methods for common renovation scenarios (value-add, modernization, etc.)
 - Flexible timing with start dates, duration, and completion triggers
 - Multiple draw schedule patterns (uniform, S-curve, front-loaded, back-loaded)
 - Integration with property timelines and development phases
@@ -36,7 +35,6 @@ The capital module follows the composable design pattern:
 
 ## Key Features
 
-- Value-add renovation scenario modeling
 - Capital improvement planning with phased execution
 - Integration with lease rollover and absorption plans
 - Sophisticated draw schedule patterns for realistic cash flow timing
@@ -72,12 +70,15 @@ modernization_plan = CapitalPlan(
     ]
 )
 
-# Factory method for value-add scenario
-value_add_plan = CapitalPlan.create_residential_value_add(
-    target_units=75,
+# Factory method for systematic renovations
+staggered_plan = CapitalPlan.create_staggered_renovation(
+    name="Unit Renovation Program",
+    start_date=date(2024, 3, 1),
+    unit_count=75,
     cost_per_unit=15_000,
-    renovation_duration_months=18,
-    start_date=date(2024, 3, 1)
+    units_per_wave=5,
+    wave_spacing_months=1,
+    unit_duration_months=2
 )
 ```
 
@@ -115,11 +116,10 @@ capital_item = CapitalItem(
 ## Factory Methods
 
 The module provides factory methods for common scenarios:
-- **create_residential_value_add()**: Multifamily renovation programs
-- **create_office_modernization()**: Office building improvements
-- **create_retail_tenant_improvements()**: Retail space improvements
-- **create_mixed_use_capital_plan()**: Complex mixed-use scenarios
+- **create_staggered_renovation()**: Multifamily renovation programs
+- **create_sequential_renovation()**: Sequential work phases
+- **create_concurrent_renovation()**: Simultaneous capital items
 
 This capital planning system enables sophisticated renovation and improvement
 modeling while maintaining simplicity for straightforward capital expenditures,
-supporting everything from single-item replacements to complex value-add programs. 
+supporting everything from single-item replacements to complex renovation programs. 

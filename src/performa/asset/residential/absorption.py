@@ -113,6 +113,14 @@ class ResidentialDirectLeaseTerms(DirectLeaseTerms):
         default=0,
         description="Free rent months as concession"
     )
+    stabilized_renewal_probability: Optional[float] = Field(
+        default=0.7,
+        description="Renewal probability for stabilized post-renovation units (0.0-1.0)"
+    )
+    stabilized_downtime_months: Optional[int] = Field(
+        default=1,
+        description="Downtime months for stabilized post-renovation units on turnover"
+    )
 
 
 class ResidentialAbsorptionPlan(AbsorptionPlanBase[ResidentialExpenses, ResidentialLosses, ResidentialMiscIncome]):
@@ -473,18 +481,50 @@ class ResidentialAbsorptionPlan(AbsorptionPlanBase[ResidentialExpenses, Resident
             units_per_period = int(self.pace.quantity)
             current_date = start_date
             
-            while remaining_units and current_date <= end_date:
-                # Take up to the target quantity for this period
-                units_this_period = min(units_per_period, len(remaining_units))
+            # Create a working copy with unit counts to track remaining inventory
+            working_inventory = []
+            for vacant_unit in remaining_units:
+                working_inventory.append({
+                    'vacant_unit': vacant_unit,
+                    'remaining_count': vacant_unit.unit_count
+                })
+            
+            while current_date <= end_date:
+                # Check if any units remain
+                total_remaining = sum(item['remaining_count'] for item in working_inventory)
+                if total_remaining == 0:
+                    break
                 
-                for i in range(units_this_period):
-                    if remaining_units:
-                        vacant_unit = remaining_units.pop(0)
-                        unit_spec = self._create_unit_spec_from_vacant(
-                            vacant_unit, lease_terms, current_date
+                # Absorb up to the target quantity for this period
+                units_to_absorb_this_period = min(units_per_period, total_remaining)
+                units_absorbed_this_period = 0
+                
+                # Absorb units from available inventory
+                for item in working_inventory:
+                    if units_absorbed_this_period >= units_to_absorb_this_period:
+                        break
+                    
+                    if item['remaining_count'] > 0:
+                        # Determine how many units to absorb from this type
+                        units_from_this_type = min(
+                            item['remaining_count'],
+                            units_to_absorb_this_period - units_absorbed_this_period
                         )
-                        if unit_spec:
-                            absorbed_specs.append(unit_spec)
+                        
+                        if units_from_this_type > 0:
+                            # Create unit spec for absorbed units
+                            unit_spec = self._create_unit_spec_from_vacant(
+                                item['vacant_unit'], 
+                                lease_terms, 
+                                current_date,
+                                units_from_this_type
+                            )
+                            if unit_spec:
+                                absorbed_specs.append(unit_spec)
+                            
+                            # Update remaining count
+                            item['remaining_count'] -= units_from_this_type
+                            units_absorbed_this_period += units_from_this_type
                 
                 # Move to next period
                 current_date = date(
@@ -504,28 +544,62 @@ class ResidentialAbsorptionPlan(AbsorptionPlanBase[ResidentialExpenses, Resident
     ) -> List[ResidentialUnitSpec]:
         """Execute equal spread pace absorption for residential units."""
         absorbed_specs = []
-        total_units = len(remaining_units)
+        
+        # Calculate total available units across all vacant unit types
+        total_units = sum(vacant_unit.unit_count for vacant_unit in remaining_units)
         
         if total_units == 0 or self.pace.total_deals == 0:
             return []
+        
+        # Create a working copy with unit counts to track remaining inventory
+        working_inventory = []
+        for vacant_unit in remaining_units:
+            working_inventory.append({
+                'vacant_unit': vacant_unit,
+                'remaining_count': vacant_unit.unit_count
+            })
         
         units_per_deal = max(1, total_units // self.pace.total_deals)
         current_date = start_date
         
         for deal_num in range(self.pace.total_deals):
-            if not remaining_units or current_date > end_date:
+            if current_date > end_date:
+                break
+            
+            # Check if any units remain
+            total_remaining = sum(item['remaining_count'] for item in working_inventory)
+            if total_remaining == 0:
                 break
                 
-            units_this_deal = min(units_per_deal, len(remaining_units))
+            units_to_absorb_this_deal = min(units_per_deal, total_remaining)
+            units_absorbed_this_deal = 0
             
-            for i in range(units_this_deal):
-                if remaining_units:
-                    vacant_unit = remaining_units.pop(0)
-                    unit_spec = self._create_unit_spec_from_vacant(
-                        vacant_unit, lease_terms, current_date
+            # Absorb units from available inventory
+            for item in working_inventory:
+                if units_absorbed_this_deal >= units_to_absorb_this_deal:
+                    break
+                
+                if item['remaining_count'] > 0:
+                    # Determine how many units to absorb from this type
+                    units_from_this_type = min(
+                        item['remaining_count'],
+                        units_to_absorb_this_deal - units_absorbed_this_deal
                     )
-                    if unit_spec:
-                        absorbed_specs.append(unit_spec)
+                    
+                    if units_from_this_type > 0:
+                        # Create unit spec for absorbed units
+                        unit_spec = self._create_unit_spec_from_vacant(
+                            item['vacant_unit'], 
+                            lease_terms, 
+                            current_date,
+                            units_from_this_type
+                        )
+                        if unit_spec:
+                            absorbed_specs.append(unit_spec)
+                        
+                        # Update remaining count
+                        item['remaining_count'] -= units_from_this_type
+                        units_absorbed_this_deal += units_from_this_type
             
             # Move to next deal period
             current_date = date(
@@ -540,12 +614,19 @@ class ResidentialAbsorptionPlan(AbsorptionPlanBase[ResidentialExpenses, Resident
         self,
         vacant_unit: ResidentialVacantUnit,
         lease_terms: Union[ResidentialRolloverLeaseTerms, ResidentialDirectLeaseTerms],
-        lease_start_date: date
+        lease_start_date: date,
+        unit_count: int = 1
     ) -> Optional[ResidentialUnitSpec]:
         """
         Create a ResidentialUnitSpec from a vacant unit and lease terms.
         
         This converts absorbed vacant units into leased unit specifications.
+        
+        Args:
+            vacant_unit: The vacant unit template to convert
+            lease_terms: Lease terms to apply
+            lease_start_date: When the lease starts (CRITICAL for progressive absorption)
+            unit_count: Number of units to include in this spec (default: 1)
         """
         # Determine rent from lease terms
         if isinstance(lease_terms, ResidentialDirectLeaseTerms):
@@ -553,11 +634,12 @@ class ResidentialAbsorptionPlan(AbsorptionPlanBase[ResidentialExpenses, Resident
         else:
             current_rent = lease_terms.market_rent
         
-        # Create unit spec - typically one unit at a time for residential
+        # Create unit spec with progressive lease start date (THE FIX!)
         return ResidentialUnitSpec(
             unit_type_name=vacant_unit.unit_type_name,
-            unit_count=1,  # Absorb one unit at a time
+            unit_count=unit_count,  # Use the specified unit count
             avg_area_sf=vacant_unit.avg_area_sf,
             current_avg_monthly_rent=current_rent,
-            rollover_profile=vacant_unit.rollover_profile
+            rollover_profile=vacant_unit.rollover_profile,
+            lease_start_date=lease_start_date  # Store the progressive date!
         ) 

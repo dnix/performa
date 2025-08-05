@@ -32,7 +32,7 @@ Commercial Recovery (CommercialRecoveryMethodBase):
 Commercial Rollover (CommercialRolloverProfileBase):
 - Market vs. renewal rate blending logic
 - Complex term negotiations and cost structures
-- State machine transitions for value-add scenarios
+- State machine transitions for complex scenarios
 
 Architecture:
 Commercial properties share common patterns:

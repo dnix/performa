@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import List, Optional
 from uuid import UUID
 
@@ -31,7 +32,7 @@ class ResidentialUnitSpec(Model):
     - avg_area_sf: Average square footage per unit
     - current_avg_monthly_rent: Current average rent per unit per month
     - rollover_profile: Assumptions for turnover, rent growth, costs
-    - capital_plan_id: UUID reference to renovation project for value-add scenarios
+    - lease_start_date: When leases for these units begin (for progressive absorption)
     
     The analysis engine will "unroll" this specification into individual
     ResidentialLease instances - one for each physical unit.
@@ -42,9 +43,9 @@ class ResidentialUnitSpec(Model):
     avg_area_sf: PositiveFloat
     current_avg_monthly_rent: PositiveFloat
     rollover_profile: ResidentialRolloverProfile
-    capital_plan_id: Optional[UUID] = Field(
+    lease_start_date: Optional[date] = Field(
         default=None,
-        description="UUID reference to CapitalPlan for value-add renovations when units turn over"
+        description="Start date for leases in this unit spec (for progressive absorption)"
     )
     
     @computed_field

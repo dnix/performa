@@ -2,7 +2,7 @@
 
 This module provides modeling capabilities for multifamily residential
 properties, implementing the "unit-centric" paradigm where properties are modeled
-by unit mix rather than individual leases. Supports value-add scenarios, renovations,
+by unit mix rather than individual leases. Supports renovations
 and absorption modeling for developments.
 
 ## Key Components
@@ -40,20 +40,19 @@ The residential module follows the unit-centric paradigm with key principles:
 1. **Unit Mix Organization**: Properties modeled by unit types, not individual leases
 2. **Explicit Vacancy Pattern**: Occupancy emerges from occupied vs vacant unit composition
 3. **Efficiency Focus**: Avoids individual lease tracking for hundreds of units
-4. **Value-Add Integration**: Capital planning for unit renovations and improvements
+4. **Capital Integration**: Capital planning for unit renovations and improvements
 
 ## Design Principles
 
 - Unit-centric modeling appropriate for multifamily scale
 - Simplified lease structures suitable for residential properties
-- Integration with capital planning for value-add scenarios
+- Integration with capital planning for renovation scenarios
 - Efficient modeling for properties with hundreds of units
 - Industry-standard residential terminology and practices
 
 ## Key Features
 
 - Unit mix modeling with flexible unit type definitions
-- Value-add renovation scenarios with capital planning integration
 - Residential-specific rollover and absorption modeling
 - Simplified lease structures appropriate for multifamily
 - Development blueprint integration for construction-to-operations
@@ -139,23 +138,3 @@ property = ResidentialProperty(
 scenario = run(property, timeline, settings)
 results = scenario.get_cash_flow_summary()
 ```
-
-### Value-Add Scenarios
-
-```python
-from performa.core.capital import CapitalPlan
-
-# Value-add renovation program
-renovation_plan = CapitalPlan.create_residential_value_add(
-    target_units=75,
-    cost_per_unit=15_000,
-    rent_increase_per_unit=300,
-    renovation_timeline=timeline.slice('2024-01-01', '2025-12-31')
-)
-
-property.renovation_plan = renovation_plan
-```
-
-The residential module enables sophisticated multifamily analysis while maintaining
-efficiency for properties with large unit counts, supporting everything from
-simple buy-and-hold scenarios to complex value-add development projects. 

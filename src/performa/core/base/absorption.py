@@ -20,7 +20,7 @@ from typing import (
     TypeVar,
     Union,
 )
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pandas as pd
 from pydantic import Field
@@ -139,7 +139,7 @@ class DirectLeaseTerms(Model):
     market_rent_growth: Optional[GrowthRate] = None  # Allows rents to escalate during multi-year lease-up
     # FIXME: review this for internal consistency
 
-AnchorLogic = Any
+AnchorLogic = Any  # FIXME: address Any typing
 
 
 @dataclass
@@ -232,6 +232,7 @@ class AbsorptionPlanBase(Model, Generic[ExpenseType, LossesType, MiscIncomeType]
         losses = plan.stabilized_losses
     """
     # Core absorption plan fields (unchanged)
+    uid: UUID = Field(default_factory=uuid4, description="Unique identifier for the absorption plan")
     name: str
     space_filter: SpaceFilter
     start_date_anchor: Union[date, StartDateAnchorEnum, AnchorLogic]

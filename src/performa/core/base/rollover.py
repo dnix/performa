@@ -84,15 +84,34 @@ class RolloverProfileBase(Model):
     option_terms: Optional[RolloverLeaseTermsBase] = None
     upon_expiration: UponExpirationEnum = UponExpirationEnum.MARKET
     next_profile: Optional[str] = None
+    target_absorption_plan_id: Optional[UUID] = Field(
+        default=None,
+        description="If specified, upon 'reabsorb', the vacating unit becomes available "
+                    "for the Absorption Plan with this unique ID. This is the primary "
+                    "mechanism for modeling unit transformations and value-add renovations. "
+                    "CIRCULAR REFERENCE PREVENTION: Post-renovation leases automatically "
+                    "have this field set to None to prevent infinite transformation loops."
+    )
     
     @model_validator(mode='after')
-    def _validate_renew_downtime(self):
+    def _validate_business_rules(self):
         """
-        Validate that RENEW profiles have zero downtime.
+        Validate business rules for rollover profiles.
         
-        Business Rule: When a tenant renews their lease, there should be no 
-        downtime period since they continue occupying the unit.
+        Business Rules:
+        1. RENEW profiles must have zero downtime (tenant stays, no vacancy)
+        2. target_absorption_plan_id should only be used with REABSORB upon_expiration
         """
+        # Rule 1: RENEW profiles require zero downtime
         if self.upon_expiration == UponExpirationEnum.RENEW and self.downtime_months != 0:
             raise ValueError("RENEW upon_expiration requires downtime_months=0 (tenant stays, no vacancy)")
+        
+        # Rule 2: target_absorption_plan_id should be used with REABSORB
+        if self.target_absorption_plan_id is not None and self.upon_expiration != UponExpirationEnum.REABSORB:
+            raise ValueError(
+                f"target_absorption_plan_id can only be specified when upon_expiration='reabsorb', "
+                f"but upon_expiration is '{self.upon_expiration}'. "
+                f"This field is specifically for unit transformation workflows."
+            )
+        
         return self

@@ -95,7 +95,7 @@ class LeaseBase(CashFlowModel, ABC):
     - Common properties for rent calculations
     """
     category: str = "Revenue"
-    subcategory: str = "Lease" # Simplified from enum for base class
+    subcategory: str = "Lease"  # Simplified from enum for base class
     status: LeaseStatusEnum
     area: float
     suite: str

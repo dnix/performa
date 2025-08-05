@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Annotated, List, Union
 
-from pydantic import Discriminator
+from pydantic import Discriminator, computed_field
 
 from ..asset.office import OfficeDevelopmentBlueprint
 from ..asset.residential import ResidentialDevelopmentBlueprint
@@ -82,4 +82,16 @@ class DevelopmentProject(PropertyBaseModel):
     # Asset Components - Physical Development
     construction_plan: CapitalPlan
     blueprints: List[AnyDevelopmentBlueprint]
+    
+    @computed_field
+    @property
+    def unit_count(self) -> int:
+        """Total number of units across all residential blueprints."""
+        total_units = 0
+        for blueprint in self.blueprints:
+            # Only count units from residential blueprints (they have vacant_inventory with unit_count)
+            if hasattr(blueprint, 'vacant_inventory') and blueprint.use_type == "RESIDENTIAL":
+                for vacant_unit in blueprint.vacant_inventory:
+                    total_units += vacant_unit.unit_count
+        return total_units
  
