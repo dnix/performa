@@ -37,6 +37,7 @@ class OfficeVacantSuite(VacantSuiteBase):
                     raise ValueError("'subdivision_average_lease_area' cannot be less than 'subdivision_minimum_lease_area'.")
         return self
 
+
 class OfficeRentRoll(Model):
     """
     Collection of all defined lease specifications and vacant spaces for an office property.

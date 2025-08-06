@@ -30,6 +30,7 @@ from .rollover import RolloverProfileBase
 
 # --- Main Base Models ---
 
+
 class LeaseSpecBase(Model, ABC):
     """
     Abstract base class for lease specifications - defining the terms

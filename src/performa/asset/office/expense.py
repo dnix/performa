@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class OfficeOpExItem(OpExItemBase):
     """
     Office-specific operating expense.
@@ -53,11 +54,13 @@ class OfficeOpExItem(OpExItemBase):
             
         return base_cf
 
+
 class OfficeCapExItem(CapExItemBase):
     """
     Office-specific capital expenditure.
     """
     pass
+
 
 class OfficeExpenses(Model):
     """

@@ -29,6 +29,7 @@ from ..core.primitives import Timeline, UnleveredAggregateLineKey
 # Base Result Model
 # =============================================================================
 
+
 class ResultModel(BaseModel):
     """Base result model for all analysis results."""
     model_config = ConfigDict(

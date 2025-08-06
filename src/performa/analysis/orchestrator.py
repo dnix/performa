@@ -83,6 +83,7 @@ if TYPE_CHECKING:
         Timeline,
     )
 
+
 @dataclass
 class AnalysisContext:
     """
@@ -141,6 +142,7 @@ class AnalysisContext:
     current_lease: Optional["LeaseBase"] = None  # Current lease context for TI/LC calculations
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class CashFlowOrchestrator:

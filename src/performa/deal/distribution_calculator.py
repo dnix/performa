@@ -22,6 +22,7 @@ from .partnership import Partner, PartnershipStructure
 # Constants for numerical precision
 BINARY_SEARCH_ITERATIONS = 30  # Iterations for binary search precision
 
+
 @dataclass
 class DistributionCalculator:
     """

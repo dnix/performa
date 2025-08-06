@@ -579,6 +579,7 @@ def __(mo):
     """)
     return
 
+
 @app.cell
 def __(mo):
     """Educational footer 2"""

@@ -16,11 +16,13 @@ class OfficeGeneralVacancyLoss(GeneralVacancyLossConfigBase):
     """
     pass
 
+
 class OfficeCollectionLoss(CollectionLossConfigBase):
     """
     Office-specific configuration for Collection Loss.
     """
     pass
+
 
 class OfficeLosses(LossesBase):
     """

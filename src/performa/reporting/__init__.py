@@ -24,15 +24,18 @@ def create_sources_and_uses_report(development_project, template=None):
     """Create industry-standard Sources & Uses report"""
     return SourcesAndUsesReport.from_development_project(development_project, template)
 
+
 def create_development_summary(development_project, template=None):
     """Create development project summary with industry metrics"""
     return DevelopmentSummaryReport.from_development_project(development_project, template)
+
 
 def create_draw_request(development_project, period, template=None):
     """Create monthly construction draw request"""
     return ConstructionDrawReport.from_development_project(
         development_project, period, template
     )
+
 
 def create_leasing_status_report(development_project, as_of_date, template=None):
     """Create market leasing status report"""
