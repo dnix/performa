@@ -19,7 +19,6 @@ import pytest
 from performa.analysis import run
 from performa.asset.office import (
     ExpensePool,
-    OfficeAbsorptionPlan,
     OfficeAnalysisScenario,
     OfficeCollectionLoss,
     OfficeExpenses,
@@ -39,11 +38,11 @@ from performa.core.base import Address
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
-    GrowthRate,
     LeaseTypeEnum,
+    PercentageGrowthRate,
     ProgramUseEnum,
-    Timeline,
     PropertyAttributeKey,
+    Timeline,
     UnleveredAggregateLineKey,
     UponExpirationEnum,
 )
@@ -306,7 +305,7 @@ class TestSystematicValidation:
         total_pgr = tenant_a_rent + tenant_b_rent  # $43,667
         
         total_opex = 20000 * 8 / 12       # $13,333
-        tenant_b_recovery = (8000/20000) * total_opex  # $5,333 (pro-rata share)
+        tenant_b_recovery = (8000 / 20000) * total_opex  # $5,333 (pro-rata share)
         
         expected_noi = total_pgr + tenant_b_recovery - total_opex  # $35,667
         
@@ -407,7 +406,7 @@ class TestSystematicValidation:
         vacancy_loss = base_pgr * 0.03            # $1,310
         collection_loss = (base_pgr - vacancy_loss) * 0.01  # $424
         total_opex = 20000 * 8 / 12               # $13,333
-        recovery = (8000/20000) * total_opex      # $5,333
+        recovery = (8000 / 20000) * total_opex      # $5,333
         expected_noi = base_pgr - vacancy_loss - collection_loss + recovery - total_opex  # $33,933
         
         # Validate with perfect precision - this tests our loss calculation fix!
@@ -902,7 +901,7 @@ class TestSystematicValidation:
             value=8.0,  # $8/SF/year
             reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             frequency=FrequencyEnum.ANNUAL,
-            growth_rate=GrowthRate(name="OpEx Growth", value=0.03),  # 3% annual growth
+            growth_rate=PercentageGrowthRate(name="OpEx Growth", value=0.03),  # 3% annual growth
             recoverable_ratio=1.0  # 100% recoverable
         )
         
@@ -1118,7 +1117,7 @@ class TestSystematicValidation:
             name="Operating Expenses", timeline=timeline,
             value=9.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL,
             recoverable_ratio=1.0,
-            growth_rate=GrowthRate(name="OpEx Growth", value=0.125)  # 12.5% growth from 2023 to 2024
+            growth_rate=PercentageGrowthRate(name="OpEx Growth", value=0.125)  # 12.5% growth from 2023 to 2024
         )
         
         # Base year recovery method (system will calculate 2023 base year from current expenses)
@@ -1216,7 +1215,7 @@ class TestSystematicValidation:
             name="Operating Expenses", timeline=timeline,
             value=9.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL,
             recoverable_ratio=1.0,
-            growth_rate=GrowthRate(name="OpEx Growth", value=0.125)  # 12.5% growth (to get $8/SF base year)
+            growth_rate=PercentageGrowthRate(name="OpEx Growth", value=0.125)  # 12.5% growth (to get $8/SF base year)
         )
         
         # Base year recovery (system calculates 2023 base year automatically)
@@ -1314,7 +1313,7 @@ class TestSystematicValidation:
             name="Operating Expenses", timeline=timeline,
             value=10.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL,
             recoverable_ratio=1.0,
-            growth_rate=GrowthRate(name="OpEx Growth", value=0.25)  # 25% growth from 2023 to 2024
+            growth_rate=PercentageGrowthRate(name="OpEx Growth", value=0.25)  # 25% growth from 2023 to 2024
         )
         
         # Base year recovery with gross-up
@@ -1412,7 +1411,7 @@ class TestSystematicValidation:
         
         # REAL ESTATE VALIDATION:
         # 1. Base year should be realistic (lower than current due to inflation)
-        assert calculated_base_year < jan_opex * 12, f"Base year ${calculated_base_year:,.0f} should be less than current ${jan_opex*12:,.0f}"
+        assert calculated_base_year < jan_opex * 12, f"Base year ${calculated_base_year:,.0f} should be less than current ${jan_opex * 12:,.0f}"
         
         # 2. Check if gross-up is working (this may reveal a library limitation)
         if jan_recovery == jan_recovery_no_gross_up:
@@ -1465,7 +1464,7 @@ class TestSystematicValidation:
             name="Building OpEx", timeline=timeline,
             value=10.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL,
             recoverable_ratio=1.0,
-            growth_rate=GrowthRate(name="OpEx Growth", value=0.20)  # 20% growth to create meaningful base years
+            growth_rate=PercentageGrowthRate(name="OpEx Growth", value=0.20)  # 20% growth to create meaningful base years
         )
         
         # Recovery methods for different base years
@@ -1617,7 +1616,7 @@ class TestSystematicValidation:
         assert base_2022_stop > 0, "2022 base year should be calculated"
         assert base_2023_stop > 0, "2023 base year should be calculated"
         assert base_2022_stop < base_2023_stop, f"2022 base year ${base_2022_stop:,.0f} should be less than 2023 ${base_2023_stop:,.0f}"
-        assert base_2023_stop < jan_opex * 12, f"2023 base year ${base_2023_stop:,.0f} should be less than current ${jan_opex*12:,.0f}"
+        assert base_2023_stop < jan_opex * 12, f"2023 base year ${base_2023_stop:,.0f} should be less than current ${jan_opex * 12:,.0f}"
         
         # 3. Different base years should produce different recoveries
         assert recovery_a > 0, "Tenant A (2022 base) should have positive recovery"
@@ -1669,7 +1668,7 @@ class TestSystematicValidation:
             name="Recoverable OpEx", timeline=timeline,
             value=8.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL,
             recoverable_ratio=1.0,  # 100% recoverable
-            growth_rate=GrowthRate(name="Recoverable Growth", value=0.143)  # ~14.3% growth (to get $7/SF base year)
+            growth_rate=PercentageGrowthRate(name="Recoverable Growth", value=0.143)  # ~14.3% growth (to get $7/SF base year)
         )
         
         # Non-recoverable capital expenses
@@ -1800,7 +1799,7 @@ class TestSystematicValidation:
         assert capped_base_year > 0, "Capped base year should be calculated"
         assert uncapped_base_year > 0, "Uncapped base year should be calculated"
         assert capped_base_year == uncapped_base_year, "Base year calculation shouldn't depend on cap"
-        assert capped_base_year < jan_opex * 12, f"Base year ${capped_base_year:,.0f} should be less than current total ${jan_opex*12:,.0f}"
+        assert capped_base_year < jan_opex * 12, f"Base year ${capped_base_year:,.0f} should be less than current total ${jan_opex * 12:,.0f}"
         
         # 2. Total OpEx should include capital expenses but recovery should exclude them
         # Note: Growth rates affect actual amounts vs base rates
@@ -1877,7 +1876,7 @@ class TestSystematicValidation:
             value=7.74, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL,
             recoverable_ratio=1.0,
             # Back-calculate to get $6.50/SF in 2021: $7.74 / (1.06^3) = $6.50
-            growth_rate=GrowthRate(name="Market Inflation", value=0.06)  # 6% annual market inflation
+            growth_rate=PercentageGrowthRate(name="Market Inflation", value=0.06)  # 6% annual market inflation
         )
         
         # Recovery methods with different cap structures (real-world scenarios)
@@ -2109,7 +2108,7 @@ class TestSystematicValidation:
             name="Portfolio Standard OpEx", timeline=timeline,
             value=8.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA, frequency=FrequencyEnum.ANNUAL,
             recoverable_ratio=1.0,
-            growth_rate=GrowthRate(name="Market Growth", value=0.06)  # 6% market growth
+            growth_rate=PercentageGrowthRate(name="Market Growth", value=0.06)  # 6% market growth
         )
         
         # Demo different cap scenarios a portfolio manager would use:

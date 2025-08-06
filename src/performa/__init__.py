@@ -20,7 +20,7 @@ Example Usage:
     from performa.asset.office import OfficeProperty
     from performa.debt import FinancingPlan
     from performa.core.primitives import Timeline
-    
+
     # Create deal structure
     deal = Deal(
         name="Investment Deal",
@@ -28,7 +28,7 @@ Example Usage:
         acquisition=acquisition_terms,
         financing=financing_plan
     )
-    
+
     # Analyze with strongly-typed results
     results = analyze(deal, timeline)
     print(f"Deal IRR: {results.deal_metrics.irr:.2%}")
@@ -50,7 +50,7 @@ logging.getLogger(__name__).addHandler(logging.NullHandler())
 # Guide users to the new, explicit API surface
 __all__ = [
     "analysis",
-    "asset", 
+    "asset",
     "core",
     "deal",
     "debt",

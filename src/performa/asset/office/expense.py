@@ -40,7 +40,7 @@ class OfficeOpExItem(OpExItemBase):
         if self.is_variable and context.occupancy_rate_series is not None:
             fixed_ratio = 1.0 - (self.variable_ratio or 0.0)
             variable_part = self.variable_ratio or 0.0
-            
+
             occupancy_rate = context.occupancy_rate_series
             if isinstance(occupancy_rate, pd.Series):
                 aligned_occupancy = occupancy_rate.reindex(
@@ -51,7 +51,7 @@ class OfficeOpExItem(OpExItemBase):
                 adjustment_ratio = fixed_ratio + (variable_part * float(occupancy_rate))
 
             base_cf *= adjustment_ratio
-            
+
         return base_cf
 
 
@@ -59,6 +59,7 @@ class OfficeCapExItem(CapExItemBase):
     """
     Office-specific capital expenditure.
     """
+
     pass
 
 
@@ -66,5 +67,6 @@ class OfficeExpenses(Model):
     """
     Container for all office-related expenses.
     """
+
     operating_expenses: List[OfficeOpExItem] = Field(default_factory=list)
-    capital_expenses: List[OfficeCapExItem] = Field(default_factory=list) 
+    capital_expenses: List[OfficeCapExItem] = Field(default_factory=list)

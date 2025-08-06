@@ -50,10 +50,10 @@ Example:
     ```python
     from performa.asset.commercial import CommercialLeaseBase
     from performa.asset.office import OfficeLease
-    
+
     # Office lease inherits commercial functionality
     office_lease = OfficeLease.from_spec(lease_spec, ...)
-    
+
     # Automatic recovery calculations
     recoveries = office_lease.recovery_method.compute_cf(context)
     ```

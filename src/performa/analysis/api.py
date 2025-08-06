@@ -17,7 +17,7 @@ def run(
     """
     # Use the public helper to find the scenario class
     scenario_cls = get_scenario_for_model(model)
-    
+
     scenario = scenario_cls(model=model, timeline=timeline, settings=settings)
     scenario.run()
     return scenario

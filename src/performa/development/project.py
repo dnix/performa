@@ -33,20 +33,20 @@ AnyDevelopmentBlueprint = Annotated[
 class DevelopmentProject(PropertyBaseModel):
     """
     Development project asset model for real estate development modeling.
-    
+
     This model represents a development project containing physical specifications,
     construction plans, and operational blueprints that define how the completed
     project will operate once stabilized.
-    
+
     Key Components:
-    - Physical specifications (inherited from PropertyBaseModel)  
+    - Physical specifications (inherited from PropertyBaseModel)
     - Construction plan (CapitalPlan with timeline and costs)
     - Development blueprints (specifications for stabilized operations)
-    
+
     Implementation Pattern:
     The `blueprints` field uses the "Asset Factory" pattern where each blueprint
     knows how to create its stabilized asset type (OfficeProperty, ResidentialProperty, etc.).
-    
+
     Example:
         ```python
         project = DevelopmentProject(
@@ -62,7 +62,7 @@ class DevelopmentProject(PropertyBaseModel):
                     absorption_plan=office_absorption_plan
                 ),
                 ResidentialDevelopmentBlueprint(
-                    name="Residential Component", 
+                    name="Residential Component",
                     vacant_inventory=[...],
                     absorption_plan=residential_absorption_plan
                 )
@@ -70,18 +70,18 @@ class DevelopmentProject(PropertyBaseModel):
         )
         ```
     """
-    
+
     # Development projects must specify what property type they're developing
     # This is required and should reflect the actual development type:
-    # - AssetTypeEnum.OFFICE for office-only developments  
+    # - AssetTypeEnum.OFFICE for office-only developments
     # - AssetTypeEnum.MULTIFAMILY for residential-only developments
     # - AssetTypeEnum.MIXED_USE for true mixed-use developments
     # property_type: AssetTypeEnum  # Required field inherited from PropertyBaseModel
-    
+
     # Asset Components - Physical Development
     construction_plan: CapitalPlan
     blueprints: List[AnyDevelopmentBlueprint]
-    
+
     @computed_field
     @property
     def unit_count(self) -> int:
@@ -89,7 +89,10 @@ class DevelopmentProject(PropertyBaseModel):
         total_units = 0
         for blueprint in self.blueprints:
             # Only count units from residential blueprints (they have vacant_inventory with unit_count)
-            if hasattr(blueprint, 'vacant_inventory') and blueprint.use_type == "RESIDENTIAL":
+            if (
+                hasattr(blueprint, "vacant_inventory")
+                and blueprint.use_type == "RESIDENTIAL"
+            ):
                 for vacant_unit in blueprint.vacant_inventory:
                     total_units += vacant_unit.unit_count
         return total_units

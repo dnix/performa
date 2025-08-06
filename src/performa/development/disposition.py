@@ -20,11 +20,11 @@ from ..core.primitives import CashFlowModel
 class DispositionCashFlow(CashFlowModel):
     """
     Cash flow model for development project disposition proceeds.
-    
+
     Represents the cash inflow from selling a completed development project
     at stabilized operations. Uses the same patterns as other cash flow models
     in the performa ecosystem.
-    
+
     Example:
         ```python
         disposition = DispositionCashFlow(
@@ -38,11 +38,11 @@ class DispositionCashFlow(CashFlowModel):
         )
         ```
     """
-    
+
     def compute_cf(self, context) -> Any:
         """
         Compute cash flow for disposition proceeds.
-        
+
         Returns a single cash inflow on the disposition date equal to
         the net proceeds after transaction costs.
         """
@@ -50,4 +50,4 @@ class DispositionCashFlow(CashFlowModel):
         if not cf.empty:
             # Single cash inflow on disposition date
             cf.iloc[0] = self.value  # Positive cash inflow from sale
-        return cf 
+        return cf

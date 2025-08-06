@@ -43,7 +43,7 @@ from .rollover import RolloverLeaseTermsBase
 logger = logging.getLogger(__name__)
 
 # Generic TypeVar parameters for stabilized operating assumptions
-# 
+#
 # These create type constraints ensuring office absorption plans accept only office expense types,
 # residential plans accept only residential types, etc.
 #
@@ -51,9 +51,11 @@ logger = logging.getLogger(__name__)
 #   class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, OfficeMiscIncome]):
 #       pass  # Can only accept OfficeExpenses, not ResidentialExpenses
 #
-ExpenseType = TypeVar('ExpenseType', bound=Model)  # Asset-specific expense assumptions
-LossesType = TypeVar('LossesType', bound=Model)    # Asset-specific loss assumptions  
-MiscIncomeType = TypeVar('MiscIncomeType', bound=Model)  # Asset-specific misc income assumptions
+ExpenseType = TypeVar("ExpenseType", bound=Model)  # Asset-specific expense assumptions
+LossesType = TypeVar("LossesType", bound=Model)  # Asset-specific loss assumptions
+MiscIncomeType = TypeVar(
+    "MiscIncomeType", bound=Model
+)  # Asset-specific misc income assumptions
 
 
 @dataclass
@@ -69,7 +71,9 @@ class SuiteAbsorptionState:
 
     @property
     def fully_absorbed(self) -> bool:
-        return self.remaining_area <= 0.01  # Small tolerance for floating point comparison
+        return (
+            self.remaining_area <= 0.01
+        )  # Small tolerance for floating point comparison
 
     @property
     def has_available_area(self) -> bool:
@@ -133,7 +137,9 @@ class DirectLeaseTerms(Model):
     recovery_method: Optional["RecoveryMethodBase"] = None
     ti_allowance: Optional["TenantImprovementAllowanceBase"] = None
     leasing_commission: Optional["LeasingCommissionBase"] = None
-    market_rent_growth: Optional[PercentageGrowthRate] = None  # Allows rents to escalate during multi-year lease-up
+    market_rent_growth: Optional[PercentageGrowthRate] = (
+        None  # Allows rents to escalate during multi-year lease-up
+    )
     # FIXME: review this for internal consistency
 
 
@@ -191,32 +197,32 @@ class CustomSchedulePaceStrategy(PaceStrategy):
 class AbsorptionPlanBase(Model, Generic[ExpenseType, LossesType, MiscIncomeType]):
     """
     Generic base class for absorption plans with stabilized operating assumptions.
-    
+
     Absorption plans define both the leasing strategy (pace, timing, tenant assumptions)
     and the stabilized operating characteristics of the resulting asset. This enables
     development analysis where assets are created via absorption plans to transition
     to deal analysis where stabilized assets are analyzed.
-    
+
     Generic Type Parameters:
         ExpenseType: Asset-specific expense model (OfficeExpenses, ResidentialExpenses)
-        LossesType: Asset-specific losses model (OfficeLosses, ResidentialLosses)  
+        LossesType: Asset-specific losses model (OfficeLosses, ResidentialLosses)
         MiscIncomeType: Asset-specific misc income model (OfficeMiscIncome, ResidentialMiscIncome)
-    
+
     The generic constraints ensure office absorption plans accept only office expense types,
     residential plans accept only residential types, etc.
-    
+
     Example:
         class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, OfficeMiscIncome]):
             pass
-    
+
     Required Fields:
-        All stabilized operating assumption fields (stabilized_expenses, stabilized_losses, 
+        All stabilized operating assumption fields (stabilized_expenses, stabilized_losses,
         stabilized_misc_income) are required and have no default values.
-    
+
     Usage:
         # With factory method for standard assumptions
         plan = OfficeAbsorptionPlan.with_typical_assumptions(...)
-        
+
         # With custom assumptions
         plan = OfficeAbsorptionPlan(
             stabilized_expenses=custom_expenses,
@@ -224,13 +230,16 @@ class AbsorptionPlanBase(Model, Generic[ExpenseType, LossesType, MiscIncomeType]
             stabilized_misc_income=custom_income,
             ...
         )
-        
+
         # Extract assumptions for asset creation
         expenses = plan.stabilized_expenses
         losses = plan.stabilized_losses
     """
+
     # Core absorption plan fields (unchanged)
-    uid: UUID = Field(default_factory=uuid4, description="Unique identifier for the absorption plan")
+    uid: UUID = Field(
+        default_factory=uuid4, description="Unique identifier for the absorption plan"
+    )
     name: str
     space_filter: SpaceFilter
     start_date_anchor: Union[date, StartDateAnchorEnum, AnchorLogic]
@@ -239,23 +248,23 @@ class AbsorptionPlanBase(Model, Generic[ExpenseType, LossesType, MiscIncomeType]
         Field(discriminator="type"),
     ]
     leasing_assumptions: Union[RolloverProfileIdentifier, DirectLeaseTerms]
-    
+
     # REQUIRED: Stabilized operating assumptions (type-safe with generics)
     # These define the operating characteristics of the stabilized asset
     stabilized_expenses: ExpenseType = Field(
-        ..., 
+        ...,
         description="REQUIRED: Operating expense assumptions for the stabilized asset. "
-                   "Use factory methods for realistic defaults if needed."
+        "Use factory methods for realistic defaults if needed.",
     )
     stabilized_losses: LossesType = Field(
-        ..., 
+        ...,
         description="REQUIRED: Loss assumptions (vacancy, collection) for the stabilized asset. "
-                   "Use factory methods for realistic defaults if needed."
+        "Use factory methods for realistic defaults if needed.",
     )
     stabilized_misc_income: List[MiscIncomeType] = Field(
-        ..., 
+        ...,
         description="REQUIRED: Miscellaneous income assumptions for the stabilized asset. "
-                   "Use empty list if no misc income. Use factory methods for typical income streams."
+        "Use empty list if no misc income. Use factory methods for typical income streams.",
     )
 
     def generate_lease_specs(
@@ -267,4 +276,4 @@ class AbsorptionPlanBase(Model, Generic[ExpenseType, LossesType, MiscIncomeType]
         global_settings: Optional[GlobalSettings] = None,
     ) -> List["LeaseSpecBase"]:
         # Simplified logic for base class - concrete implementations override this
-        return [] 
+        return []

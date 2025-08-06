@@ -15,4 +15,4 @@ class ProgramComponentSpec(Model):
 
     program_use: ProgramUseEnum
     area: PositiveFloat
-    identifier: str  # e.g., "Office Tower A", "Retail Podium" 
+    identifier: str  # e.g., "Office Tower A", "Retail Podium"

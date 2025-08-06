@@ -50,4 +50,4 @@ class LossesBase(Model):
     )
     collection_loss: CollectionLossConfigBase = Field(
         default_factory=CollectionLossConfigBase
-    ) 
+    )

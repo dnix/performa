@@ -33,6 +33,7 @@ class LeaseSpecBase(Model, ABC):
     Abstract base class for lease specifications - defining the terms
     and parameters of a lease before it becomes an active LeaseBase instance.
     """
+
     tenant_name: str
     start_date: date
     end_date: Optional[date] = None
@@ -77,13 +78,14 @@ class LeaseSpecBase(Model, ABC):
 class LeaseBase(CashFlowModel, ABC):
     """
     Abstract base class for all lease types.
-    
+
     Provides core lease functionality including:
     - Basic lease terms and timing
     - Timeline management
     - Abstract compute_cf method for cash flow calculations
     - Common properties for rent calculations
     """
+
     category: str = "Revenue"
     subcategory: str = "Lease"  # Simplified from enum for base class
     status: LeaseStatusEnum
@@ -93,26 +95,26 @@ class LeaseBase(CashFlowModel, ABC):
     upon_expiration: UponExpirationEnum
     signing_date: Optional[date] = None
     settings: GlobalSettings = GlobalSettings()
-    
+
     # Rent-related fields
     rent_abatement: Optional[RentAbatementBase] = None
-    
+
     @computed_field
     @property
     def calculation_pass(self) -> CalculationPass:
         """
         Determines the calculation phase for this lease based on its dependencies.
-        
+
         FIXED: Previously all leases were hardcoded as DEPENDENT_VALUES, which caused
         a critical bug where basic leases were processed in Phase 2 instead of Phase 1.
         This prevented proper EGI calculation for dependent expenses like Property Management.
-        
+
         Now uses smart dependency detection:
         - INDEPENDENT_VALUES: Basic leases with no dependencies (simple base rent)
         - DEPENDENT_VALUES: Complex leases with dependencies:
           * Leases with aggregate references (% rent, etc.)
           * Leases with recovery methods (need expense calculations first)
-        
+
         This ensures proper sequencing:
         1. Phase 1: Basic leases + expenses generate base cash flows
         2. Intermediate: EGI calculated from Phase 1 revenue
@@ -121,11 +123,11 @@ class LeaseBase(CashFlowModel, ABC):
         # Check for direct aggregate references (% rent, etc.)
         if self.reference is not None:
             return CalculationPass.DEPENDENT_VALUES
-            
+
         # Check for recovery method dependencies (office leases)
-        if hasattr(self, 'recovery_method') and self.recovery_method is not None:
+        if hasattr(self, "recovery_method") and self.recovery_method is not None:
             return CalculationPass.DEPENDENT_VALUES
-            
+
         # Simple base rent leases can be calculated independently
         return CalculationPass.INDEPENDENT_VALUES
 
@@ -133,7 +135,7 @@ class LeaseBase(CashFlowModel, ABC):
     def compute_cf(self, context: "AnalysisContext") -> Dict[str, pd.Series]:
         """
         Compute cash flows for this lease.
-        
+
         All concrete lease implementations must define how they calculate
         their cash flows given an analysis context.
         """
@@ -149,16 +151,17 @@ class LeaseBase(CashFlowModel, ABC):
         lease expiration and the creation of new speculative or renewal leases
         based on the `upon_expiration` setting and rollover profiles.
         """
-        pass 
+        pass
 
 
 class RolloverLeaseTermsBase(Model, ABC):
     """
     Abstract base class for lease terms used in rollover scenarios.
-    
+
     These define the parameters for speculative future leases when
     current leases expire and need to be renewed or replaced.
     """
+
     term_months: Optional[int] = None
     reference: Optional[ReferenceKey] = None
     frequency: FrequencyEnum = FrequencyEnum.MONTHLY

@@ -35,12 +35,10 @@ __all__ = [
     "Deal",
     "AcquisitionTerms",
     "DealFee",
-    
     # Analysis API
     "analyze",
     "DealAnalysisResult",
     "DealCalculator",
-    
     # Partnership structures
     "Entity",
     "Partner",
@@ -50,9 +48,8 @@ __all__ = [
     "WaterfallPromote",
     "CarryPromote",
     "PromoteStructure",
-    
     # Distribution calculations
     "DistributionCalculator",
     "calculate_partner_distributions_with_structure",
     "create_simple_partnership",
-] 
+]

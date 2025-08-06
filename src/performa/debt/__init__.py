@@ -20,23 +20,19 @@ from .types import AnyDebtFacility
 __all__ = [
     # Core facility types
     "DebtFacility",
-    "ConstructionFacility", 
+    "ConstructionFacility",
     "PermanentFacility",
     "DebtTranche",
-    
     # Financial planning
     "FinancingPlan",
-    
     # Rate mechanics
     "InterestRate",
     "InterestRateType",  # Backward compatibility
     "RateIndexEnum",
     "FixedRate",
     "FloatingRate",
-    
     # Payment calculations
     "LoanAmortization",
-    
     # Type unions
     "AnyDebtFacility",
-] 
+]

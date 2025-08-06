@@ -27,7 +27,9 @@ def create_sources_and_uses_report(development_project, template=None):
 
 def create_development_summary(development_project, template=None):
     """Create development project summary with industry metrics"""
-    return DevelopmentSummaryReport.from_development_project(development_project, template)
+    return DevelopmentSummaryReport.from_development_project(
+        development_project, template
+    )
 
 
 def create_draw_request(development_project, period, template=None):
@@ -47,17 +49,15 @@ def create_leasing_status_report(development_project, as_of_date, template=None)
 __all__ = [
     # Base classes
     "Report",
-    "ReportTemplate", 
-    
+    "ReportTemplate",
     # Development reports
     "SourcesAndUsesReport",
     "DevelopmentSummaryReport",
-    "ConstructionDrawReport", 
+    "ConstructionDrawReport",
     "LeasingStatusReport",
-    
     # Factory functions (primary user interface)
     "create_sources_and_uses_report",
     "create_development_summary",
-    "create_draw_request", 
+    "create_draw_request",
     "create_leasing_status_report",
-] 
+]

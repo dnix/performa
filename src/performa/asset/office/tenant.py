@@ -10,5 +10,6 @@ class OfficeTenant(Model):
     """
     Office-specific tenant record.
     """
+
     id: str
-    name: str 
+    name: str

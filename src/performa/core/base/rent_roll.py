@@ -15,6 +15,7 @@ class VacantSuiteBase(Model):
     """
     Base model representing a vacant suite available for lease-up.
     """
+
     suite: str
     floor: str
     area: PositiveFloat

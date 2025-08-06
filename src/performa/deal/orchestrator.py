@@ -32,13 +32,13 @@ without duplicating their logic, ensuring clean separation of concerns and maint
 Example:
     ```python
     from performa.deal.orchestrator import DealCalculator
-    
+
     # Create orchestrator with dependencies
     calculator = DealCalculator(deal, timeline, settings)
-    
+
     # Execute complete analysis workflow
     results = calculator.run()
-    
+
     # Access comprehensive results
     print(f"Deal IRR: {results.deal_metrics.irr:.2%}")
     print(f"DSCR minimum: {results.financing_analysis.dscr_summary.minimum_dscr:.2f}")
@@ -96,10 +96,10 @@ logger = logging.getLogger(__name__)
 class DealCalculator:
     """
     Service class that orchestrates the complete deal analysis workflow.
-    
+
     This class encapsulates the multi-step analysis logic as internal state,
     providing a clean, maintainable structure for complex deal analysis.
-    
+
     The analysis proceeds through distinct sequential steps:
     1. Unlevered asset analysis using the core analysis engine
     2. Financing integration and debt service calculations
@@ -107,44 +107,56 @@ class DealCalculator:
     4. Levered cash flow calculation with funding cascade
     5. Partner distribution calculations (equity waterfall)
     6. Deal-level performance metrics calculation
-    
+
     Architecture:
     - Uses dataclass for runtime service (not a data model)
     - Maintains mutable typed state during analysis using Pydantic models
     - Returns strongly-typed result models
     - Delegates to specialist services for complex logic
-    
+
     Example:
         ```python
         calculator = DealCalculator(deal, timeline, settings)
         results = calculator.run()
-        
+
         # Access strongly-typed results
         print(f"Deal IRR: {results.deal_metrics.irr:.2%}")
         print(f"Partner count: {len(results.partner_distributions.partner_results)}")
         ```
     """
-    
+
     # Input Parameters
     deal: Deal
     timeline: Timeline
     settings: GlobalSettings
-    
+
     # Typed Result State (populated during analysis)
-    deal_summary: DealSummary = field(init=False, repr=False, default_factory=DealSummary)
-    unlevered_analysis: UnleveredAnalysisResult = field(init=False, repr=False, default_factory=UnleveredAnalysisResult)
-    financing_analysis: FinancingAnalysisResult = field(init=False, repr=False, default_factory=FinancingAnalysisResult)
-    levered_cash_flows: LeveredCashFlowResult = field(init=False, repr=False, default_factory=LeveredCashFlowResult)
-    partner_distributions: PartnerDistributionResult = field(init=False, repr=False, default=None)
-    deal_metrics: DealMetricsResult = field(init=False, repr=False, default_factory=DealMetricsResult)
-    
+    deal_summary: DealSummary = field(
+        init=False, repr=False, default_factory=DealSummary
+    )
+    unlevered_analysis: UnleveredAnalysisResult = field(
+        init=False, repr=False, default_factory=UnleveredAnalysisResult
+    )
+    financing_analysis: FinancingAnalysisResult = field(
+        init=False, repr=False, default_factory=FinancingAnalysisResult
+    )
+    levered_cash_flows: LeveredCashFlowResult = field(
+        init=False, repr=False, default_factory=LeveredCashFlowResult
+    )
+    partner_distributions: PartnerDistributionResult = field(
+        init=False, repr=False, default=None
+    )
+    deal_metrics: DealMetricsResult = field(
+        init=False, repr=False, default_factory=DealMetricsResult
+    )
+
     def run(self) -> DealAnalysisResult:
         """
         Execute the complete deal analysis workflow by delegating to specialist services.
-        
+
         Returns:
             Strongly-typed DealAnalysisResult containing all analysis components
-            
+
         Raises:
             ValueError: If deal structure is invalid
             RuntimeError: If analysis fails during execution
@@ -152,75 +164,73 @@ class DealCalculator:
         try:
             # Initialize deal summary
             self._populate_deal_summary()
-            
+
             # === PASS 1: Unlevered Asset Analysis ===
             asset_analyzer = AssetAnalyzer(
-                deal=self.deal,
-                timeline=self.timeline,
-                settings=self.settings
+                deal=self.deal, timeline=self.timeline, settings=self.settings
             )
             self.unlevered_analysis = asset_analyzer.analyze_unlevered_asset()
-            
+
             # === PASS 2: Valuation Analysis ===
             valuation_engine = ValuationEngine(
-                deal=self.deal,
-                timeline=self.timeline,
-                settings=self.settings
+                deal=self.deal, timeline=self.timeline, settings=self.settings
             )
-            property_value_series = valuation_engine.extract_property_value_series(self.unlevered_analysis)
+            property_value_series = valuation_engine.extract_property_value_series(
+                self.unlevered_analysis
+            )
             noi_series = valuation_engine.extract_noi_series(self.unlevered_analysis)
-            disposition_proceeds = valuation_engine.calculate_disposition_proceeds(self.unlevered_analysis)
-            
+            disposition_proceeds = valuation_engine.calculate_disposition_proceeds(
+                self.unlevered_analysis
+            )
+
             # === PASS 3: Debt Analysis ===
             debt_analyzer = DebtAnalyzer(
-                deal=self.deal,
-                timeline=self.timeline,
-                settings=self.settings
+                deal=self.deal, timeline=self.timeline, settings=self.settings
             )
             self.financing_analysis = debt_analyzer.analyze_financing_structure(
                 property_value_series=property_value_series,
                 noi_series=noi_series,
-                unlevered_analysis=self.unlevered_analysis
+                unlevered_analysis=self.unlevered_analysis,
             )
-            
+
             # === PASS 4: Cash Flow Analysis ===
             cash_flow_engine = CashFlowEngine(
-                deal=self.deal,
-                timeline=self.timeline,
-                settings=self.settings
+                deal=self.deal, timeline=self.timeline, settings=self.settings
             )
             self.levered_cash_flows = cash_flow_engine.calculate_levered_cash_flows(
                 unlevered_analysis=self.unlevered_analysis,
                 financing_analysis=self.financing_analysis,
-                disposition_proceeds=disposition_proceeds
+                disposition_proceeds=disposition_proceeds,
             )
-            
+
             # === PASS 5: Partnership Analysis ===
             partnership_analyzer = PartnershipAnalyzer(
-                deal=self.deal,
-                timeline=self.timeline,
-                settings=self.settings
+                deal=self.deal, timeline=self.timeline, settings=self.settings
             )
-            self.partner_distributions = partnership_analyzer.calculate_partner_distributions(
-                levered_cash_flows=self.levered_cash_flows.levered_cash_flows
+            self.partner_distributions = (
+                partnership_analyzer.calculate_partner_distributions(
+                    levered_cash_flows=self.levered_cash_flows.levered_cash_flows
+                )
             )
-            
+
             # === PASS 6: Deal Metrics ===
             self._calculate_deal_metrics()
-            
+
             # Return the final typed result
             return DealAnalysisResult(
                 deal_summary=self.deal_summary,
                 unlevered_analysis=self.unlevered_analysis,
-                financing_analysis=self.financing_analysis if self.financing_analysis.has_financing else None,
+                financing_analysis=self.financing_analysis
+                if self.financing_analysis.has_financing
+                else None,
                 levered_cash_flows=self.levered_cash_flows,
                 partner_distributions=self.partner_distributions,
                 deal_metrics=self.deal_metrics,
             )
-            
+
         except Exception as e:
             raise RuntimeError(f"Deal analysis failed: {str(e)}") from e
-    
+
     def _populate_deal_summary(self) -> None:
         """Initialize deal summary with basic deal characteristics."""
         self.deal_summary.deal_name = self.deal.name
@@ -229,11 +239,11 @@ class DealCalculator:
         self.deal_summary.is_development = self.deal.is_development_deal
         self.deal_summary.has_financing = self.deal.financing is not None
         self.deal_summary.has_disposition = self.deal.exit_valuation is not None
-    
+
     def _calculate_deal_metrics(self) -> None:
         """
         Calculate deal-level performance metrics.
-        
+
         This calculates key metrics like IRR, equity multiple, and other
         deal-level performance indicators from the levered cash flows.
         """
@@ -241,51 +251,55 @@ class DealCalculator:
         cash_flows = self.levered_cash_flows.levered_cash_flows
         if cash_flows is None or len(cash_flows) == 0:
             return
-        
+
         try:
             # Calculate basic metrics
             negative_flows = cash_flows[cash_flows < 0]
             positive_flows = cash_flows[cash_flows > 0]
-            
+
             total_equity_invested = abs(negative_flows.sum())
             total_equity_returned = positive_flows.sum()
             net_profit = cash_flows.sum()
-            
+
             # Calculate hold period
             hold_period_years = len(self.timeline.period_index) / 12.0
-            
+
             # Calculate equity multiple
             equity_multiple = None
             if total_equity_invested > 0:
                 equity_multiple = total_equity_returned / total_equity_invested
-            
+
             # Calculate IRR using PyXIRR
             irr = None
             if len(cash_flows) > 1 and total_equity_invested > 0:
                 try:
-                    dates = [period.to_timestamp().date() for period in cash_flows.index]
+                    dates = [
+                        period.to_timestamp().date() for period in cash_flows.index
+                    ]
                     irr = xirr(dates, cash_flows.values)
                     if irr is not None:
                         irr = float(irr)
                 except Exception:
                     pass
-            
+
             # Calculate total return
             total_return = None
             if total_equity_invested > 0:
-                total_return = (total_equity_returned - total_equity_invested) / total_equity_invested
-            
+                total_return = (
+                    total_equity_returned - total_equity_invested
+                ) / total_equity_invested
+
             # Calculate annual yield
             annual_yield = None
             if total_return is not None and hold_period_years > 0:
                 annual_yield = total_return / hold_period_years
-            
+
             # Calculate cash-on-cash return (first year)
             cash_on_cash = None
             if total_equity_invested > 0 and len(cash_flows) > 12:
                 first_year_distributions = positive_flows[:12].sum()
                 cash_on_cash = first_year_distributions / total_equity_invested
-            
+
             # Update metrics using dot notation
             self.deal_metrics.irr = irr
             self.deal_metrics.equity_multiple = equity_multiple
@@ -296,110 +310,113 @@ class DealCalculator:
             self.deal_metrics.total_equity_returned = total_equity_returned
             self.deal_metrics.net_profit = net_profit
             self.deal_metrics.hold_period_years = hold_period_years
-            
+
         except Exception:
             # Fallback: Return empty metrics if calculation fails
             pass
 
     # === BACKWARD COMPATIBILITY METHODS ===
     # These methods support the legacy test API while delegating to the new specialist services
-    
+
     def _calculate_partner_distributions(self) -> None:
         """
         Backward compatibility method for tests.
-        
+
         This method delegates to the PartnershipAnalyzer but maintains the old API
         where partner distributions are calculated in-place and stored in self.partner_distributions.
         """
         # Ensure we have levered cash flows
-        if not hasattr(self, 'levered_cash_flows') or self.levered_cash_flows.levered_cash_flows is None:
+        if (
+            not hasattr(self, "levered_cash_flows")
+            or self.levered_cash_flows.levered_cash_flows is None
+        ):
             # Initialize with zero cash flows as fallback
             self.levered_cash_flows = LeveredCashFlowResult(
                 levered_cash_flows=pd.Series(0.0, index=self.timeline.period_index)
             )
-        
+
         # Use the partnership analyzer
         partnership_analyzer = PartnershipAnalyzer(
-            deal=self.deal,
-            timeline=self.timeline,
-            settings=self.settings
+            deal=self.deal, timeline=self.timeline, settings=self.settings
         )
-        
+
         # Calculate distributions
-        self.partner_distributions = partnership_analyzer.calculate_partner_distributions(
-            levered_cash_flows=self.levered_cash_flows.levered_cash_flows
+        self.partner_distributions = (
+            partnership_analyzer.calculate_partner_distributions(
+                levered_cash_flows=self.levered_cash_flows.levered_cash_flows
+            )
         )
-    
+
     def _calculate_fee_distributions(self, cash_flows: pd.Series) -> Dict[str, Any]:
         """
         Backward compatibility method for fee distribution calculation.
-        
+
         This method delegates to the PartnershipAnalyzer's fee calculation logic.
         """
         partnership_analyzer = PartnershipAnalyzer(
-            deal=self.deal,
-            timeline=self.timeline,
-            settings=self.settings
+            deal=self.deal, timeline=self.timeline, settings=self.settings
         )
-        
+
         return partnership_analyzer._calculate_fee_distributions(cash_flows)
-    
+
     def _combine_fee_and_waterfall_results(
         self, fee_details: Dict[str, Any], waterfall_results: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Backward compatibility method for combining fee and waterfall results.
-        
+
         This method delegates to the PartnershipAnalyzer's combination logic.
         """
         partnership_analyzer = PartnershipAnalyzer(
-            deal=self.deal,
-            timeline=self.timeline,
-            settings=self.settings
+            deal=self.deal, timeline=self.timeline, settings=self.settings
         )
-        
-        return partnership_analyzer._combine_fee_and_waterfall_results(fee_details, waterfall_results)
-    
+
+        return partnership_analyzer._combine_fee_and_waterfall_results(
+            fee_details, waterfall_results
+        )
+
     def _extract_noi_time_series(self) -> pd.Series:
         """
         Backward compatibility method for extracting NOI time series.
-        
+
         This method delegates to the ValuationEngine's NOI extraction logic.
         """
         # Ensure we have unlevered analysis
-        if not hasattr(self, 'unlevered_analysis') or self.unlevered_analysis.cash_flows is None:
+        if (
+            not hasattr(self, "unlevered_analysis")
+            or self.unlevered_analysis.cash_flows is None
+        ):
             return pd.Series(0.0, index=self.timeline.period_index)
-        
+
         valuation_engine = ValuationEngine(
-            deal=self.deal,
-            timeline=self.timeline,
-            settings=self.settings
+            deal=self.deal, timeline=self.timeline, settings=self.settings
         )
-        
+
         return valuation_engine.extract_noi_series(self.unlevered_analysis)
-    
+
     def _extract_noi_series(self) -> pd.Series:
         """
         Backward compatibility method for extracting NOI series.
-        
+
         This method delegates to the ValuationEngine's NOI extraction logic.
         """
         return self._extract_noi_time_series()
-    
+
     def _extract_property_value_series(self) -> pd.Series:
         """
         Backward compatibility method for extracting property value series.
-        
+
         This method delegates to the ValuationEngine's property value extraction logic.
         """
         # Ensure we have unlevered analysis
-        if not hasattr(self, 'unlevered_analysis') or self.unlevered_analysis.cash_flows is None:
+        if (
+            not hasattr(self, "unlevered_analysis")
+            or self.unlevered_analysis.cash_flows is None
+        ):
             return pd.Series(0.0, index=self.timeline.period_index)
-        
+
         valuation_engine = ValuationEngine(
-            deal=self.deal,
-            timeline=self.timeline,
-            settings=self.settings
+            deal=self.deal, timeline=self.timeline, settings=self.settings
         )
-        
-        return valuation_engine.extract_property_value_series(self.unlevered_analysis) 
+
+        return valuation_engine.extract_property_value_series(self.unlevered_analysis)

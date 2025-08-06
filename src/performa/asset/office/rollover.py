@@ -29,6 +29,7 @@ class OfficeRolloverTenantImprovement(Model):
     """
     Configuration for tenant improvements in rollover scenarios.
     """
+
     value: PositiveFloat
     reference: Optional[ReferenceKey] = None
     payment_timing: Literal["signing", "commencement"] = "commencement"
@@ -38,6 +39,7 @@ class OfficeRolloverLeasingCommission(Model):
     """
     Configuration for leasing commissions in rollover scenarios.
     """
+
     tiers: List[float]  # Commission tiers as percentages
 
 
@@ -45,12 +47,15 @@ class OfficeRolloverLeaseTerms(RolloverLeaseTermsBase):
     """
     Office-specific lease terms for rollover scenarios.
     """
+
     market_rent: Optional[Union[float, pd.Series, Dict, List]] = None
     growth_rate: Optional[PercentageGrowthRate] = None
-    
+
     # Multiple escalations support (new)
-    rent_escalations: Optional[Union[OfficeRentEscalation, List[OfficeRentEscalation]]] = None
-    
+    rent_escalations: Optional[
+        Union[OfficeRentEscalation, List[OfficeRentEscalation]]
+    ] = None
+
     rent_abatement: Optional[OfficeRentAbatement] = None
     recovery_method: Optional[OfficeRecoveryMethod] = None
     ti_allowance: Optional[OfficeRolloverTenantImprovement] = None
@@ -61,6 +66,7 @@ class OfficeRolloverProfile(RolloverProfileBase):
     """
     Office-specific profile for lease rollovers and renewals.
     """
+
     market_terms: OfficeRolloverLeaseTerms
     renewal_terms: OfficeRolloverLeaseTerms
     option_terms: Optional[OfficeRolloverLeaseTerms] = None
@@ -85,13 +91,17 @@ class OfficeRolloverProfile(RolloverProfileBase):
             if not terms.growth_rate:
                 return base_market_rent
 
-            growth_base_date = global_settings.analysis_start_date if global_settings else as_of_date
+            growth_base_date = (
+                global_settings.analysis_start_date if global_settings else as_of_date
+            )
             if as_of_date < growth_base_date:
                 return base_market_rent
-            
-            growth_periods = pd.period_range(start=growth_base_date, end=as_of_date, freq="M")
+
+            growth_periods = pd.period_range(
+                start=growth_base_date, end=as_of_date, freq="M"
+            )
             growth_value = terms.growth_rate.value
-            
+
             period_rates = pd.Series(0.0, index=growth_periods)
 
             if isinstance(growth_value, (float, int)):
@@ -101,26 +111,34 @@ class OfficeRolloverProfile(RolloverProfileBase):
                 aligned_rates = growth_value
                 if not isinstance(aligned_rates.index, pd.PeriodIndex):
                     aligned_rates.index = pd.PeriodIndex(aligned_rates.index, freq="M")
-                aligned_rates = aligned_rates.reindex(growth_periods, method="ffill").fillna(0.0)
+                aligned_rates = aligned_rates.reindex(
+                    growth_periods, method="ffill"
+                ).fillna(0.0)
                 period_rates = aligned_rates
             elif isinstance(growth_value, dict):
                 dict_series = pd.Series(growth_value)
                 dict_series.index = pd.PeriodIndex(dict_series.index, freq="M")
-                aligned_rates = dict_series.reindex(growth_periods, method="ffill").fillna(0.0)
+                aligned_rates = dict_series.reindex(
+                    growth_periods, method="ffill"
+                ).fillna(0.0)
                 period_rates = aligned_rates
             else:
-                raise TypeError(f"Unsupported type for PercentageGrowthRate value: {type(growth_value)}")
+                raise TypeError(
+                    f"Unsupported type for PercentageGrowthRate value: {type(growth_value)}"
+                )
 
             growth_factors = 1.0 + period_rates
             cumulative_growth_factor = growth_factors.prod()
             return base_market_rent * cumulative_growth_factor
-        
+
         elif isinstance(terms.market_rent, pd.Series):
             as_of_period = pd.Period(as_of_date, freq="M")
             if as_of_period in terms.market_rent.index:
                 rent = terms.market_rent[as_of_period]
             else:
-                earlier_periods = terms.market_rent.index[terms.market_rent.index < as_of_period]
+                earlier_periods = terms.market_rent.index[
+                    terms.market_rent.index < as_of_period
+                ]
                 if len(earlier_periods) > 0:
                     latest_period = earlier_periods[-1]
                     rent = terms.market_rent[latest_period]
@@ -130,13 +148,15 @@ class OfficeRolloverProfile(RolloverProfileBase):
             if terms.frequency == FrequencyEnum.ANNUAL:
                 rent /= 12
             return rent
-        
+
         elif isinstance(terms.market_rent, dict):
             temp_series = pd.Series(terms.market_rent)
             temp_terms = terms.model_copy(update={"market_rent": temp_series})
             return self._calculate_rent(temp_terms, as_of_date, global_settings)
 
-        raise NotImplementedError(f"Unsupported market_rent type: {type(terms.market_rent)}")
+        raise NotImplementedError(
+            f"Unsupported market_rent type: {type(terms.market_rent)}"
+        )
 
     def blend_lease_terms(self) -> OfficeRolloverLeaseTerms:
         """
@@ -149,27 +169,45 @@ class OfficeRolloverProfile(RolloverProfileBase):
 
         market_prob = 1 - self.renewal_probability
         renewal_prob = self.renewal_probability
-        
+
         market_terms = self.market_terms
         renewal_terms = self.renewal_terms
 
         blended_rent = None
-        if isinstance(market_terms.market_rent, (int, float)) and isinstance(renewal_terms.market_rent, (int, float)):
-            blended_rent = (renewal_terms.market_rent * renewal_prob) + (market_terms.market_rent * market_prob)
+        if isinstance(market_terms.market_rent, (int, float)) and isinstance(
+            renewal_terms.market_rent, (int, float)
+        ):
+            blended_rent = (renewal_terms.market_rent * renewal_prob) + (
+                market_terms.market_rent * market_prob
+            )
         else:
             blended_rent = market_terms.market_rent
 
         blended_growth = None
-        if market_terms.growth_rate and renewal_terms.growth_rate and isinstance(market_terms.growth_rate.value, (int, float)) and isinstance(renewal_terms.growth_rate.value, (int, float)):
-            blended_rate_value = (renewal_terms.growth_rate.value * renewal_prob) + (market_terms.growth_rate.value * market_prob)
-            blended_growth = PercentageGrowthRate(name="Blended Growth", value=blended_rate_value)
+        if (
+            market_terms.growth_rate
+            and renewal_terms.growth_rate
+            and isinstance(market_terms.growth_rate.value, (int, float))
+            and isinstance(renewal_terms.growth_rate.value, (int, float))
+        ):
+            blended_rate_value = (renewal_terms.growth_rate.value * renewal_prob) + (
+                market_terms.growth_rate.value * market_prob
+            )
+            blended_growth = PercentageGrowthRate(
+                name="Blended Growth", value=blended_rate_value
+            )
         else:
             blended_growth = market_terms.growth_rate
 
         blended_abatement = None
         if market_terms.rent_abatement and renewal_terms.rent_abatement:
-            blended_months = round((renewal_terms.rent_abatement.months * renewal_prob) + (market_terms.rent_abatement.months * market_prob))
-            blended_abatement = market_terms.rent_abatement.model_copy(update={'months': blended_months})
+            blended_months = round(
+                (renewal_terms.rent_abatement.months * renewal_prob)
+                + (market_terms.rent_abatement.months * market_prob)
+            )
+            blended_abatement = market_terms.rent_abatement.model_copy(
+                update={"months": blended_months}
+            )
         elif renewal_prob > 0.5:
             blended_abatement = renewal_terms.rent_abatement
         else:
@@ -186,15 +224,27 @@ class OfficeRolloverProfile(RolloverProfileBase):
 
         # Blend TI Allowance
         blended_ti = None
-        market_ti_val = market_terms.ti_allowance.value if market_terms.ti_allowance and isinstance(market_terms.ti_allowance.value, (int, float)) else 0.0
-        renewal_ti_val = renewal_terms.ti_allowance.value if renewal_terms.ti_allowance and isinstance(renewal_terms.ti_allowance.value, (int, float)) else 0.0
-        
+        market_ti_val = (
+            market_terms.ti_allowance.value
+            if market_terms.ti_allowance
+            and isinstance(market_terms.ti_allowance.value, (int, float))
+            else 0.0
+        )
+        renewal_ti_val = (
+            renewal_terms.ti_allowance.value
+            if renewal_terms.ti_allowance
+            and isinstance(renewal_terms.ti_allowance.value, (int, float))
+            else 0.0
+        )
+
         if market_terms.ti_allowance or renewal_terms.ti_allowance:
-            blended_ti_value = (renewal_ti_val * renewal_prob) + (market_ti_val * market_prob)
+            blended_ti_value = (renewal_ti_val * renewal_prob) + (
+                market_ti_val * market_prob
+            )
             # Use the market terms TI as a template, or renewal if market doesn't have one
             base_ti = market_terms.ti_allowance or renewal_terms.ti_allowance
             if blended_ti_value > 0 and base_ti:
-                blended_ti = base_ti.model_copy(update={'value': blended_ti_value})
+                blended_ti = base_ti.model_copy(update={"value": blended_ti_value})
 
         # Blend Leasing Commission
         blended_lc = None
@@ -206,12 +256,19 @@ class OfficeRolloverProfile(RolloverProfileBase):
                 blended_lc = renewal_lc or market_lc
             else:
                 blended_lc = market_lc or renewal_lc
-        
-        blended_recovery = renewal_terms.recovery_method if renewal_prob > 0.5 else market_terms.recovery_method
-        
+
+        blended_recovery = (
+            renewal_terms.recovery_method
+            if renewal_prob > 0.5
+            else market_terms.recovery_method
+        )
+
         blended_term_months = market_terms.term_months
         if renewal_terms.term_months and market_terms.term_months:
-            blended_term_months = round((renewal_terms.term_months * renewal_prob) + (market_terms.term_months * market_prob))
+            blended_term_months = round(
+                (renewal_terms.term_months * renewal_prob)
+                + (market_terms.term_months * market_prob)
+            )
 
         return OfficeRolloverLeaseTerms(
             market_rent=blended_rent,
@@ -223,5 +280,5 @@ class OfficeRolloverProfile(RolloverProfileBase):
             recovery_method=blended_recovery,
             ti_allowance=blended_ti,
             leasing_commission=blended_lc,
-            term_months=blended_term_months
+            term_months=blended_term_months,
         )

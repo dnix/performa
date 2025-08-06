@@ -24,4 +24,4 @@ class Model(BaseModel):
         Returns:
             A deep copy of the model with any specified updates
         """
-        return self.model_copy(deep=True, update=updates) 
+        return self.model_copy(deep=True, update=updates)

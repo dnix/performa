@@ -32,18 +32,18 @@ logger = logging.getLogger(__name__)
 def _extract_rate_value(rate_object: GrowthRateBase, period: pd.Period) -> float:
     """
     Extract the appropriate rate value for a given period from a rate object.
-    
+
     Args:
         rate_object: PercentageGrowthRate or FixedGrowthRate object with value as float, pd.Series, or Dict[date, float]
         period: The period for which to extract the rate
-        
+
     Returns:
         The rate value for the specified period
     """
     if isinstance(rate_object.value, (int, float)):
         # Simple constant rate
         return rate_object.value
-    
+
     elif isinstance(rate_object.value, pd.Series):
         # Time-based series - no interpolation, use as-is (assume monthly)
         try:
@@ -51,68 +51,68 @@ def _extract_rate_value(rate_object: GrowthRateBase, period: pd.Period) -> float
         except KeyError:
             # If period not found, use the last available rate
             return rate_object.value.iloc[-1]
-    
+
     elif isinstance(rate_object.value, dict):
         # Date-based dict - map to period (assume monthly keys)
         for date_key, rate in rate_object.value.items():
-            if pd.Period(date_key, freq='M') == period:
+            if pd.Period(date_key, freq="M") == period:
                 return rate
         # If not found, use the last available rate
         return list(rate_object.value.values())[-1]
-    
+
     else:
         raise ValueError(f"Unsupported rate value type: {type(rate_object.value)}")
 
 
 class CommercialLeaseBase(LeaseBase, ABC):
-    
     # Multiple escalations support
-    rent_escalations: Optional[Union[RentEscalationBase, List[RentEscalationBase]]] = None
-    
+    rent_escalations: Optional[Union[RentEscalationBase, List[RentEscalationBase]]] = (
+        None
+    )
+
     def _get_escalations_list(self) -> List[RentEscalationBase]:
         """Get escalations as a list, handling both single and multiple formats"""
         if self.rent_escalations is None:
             return []
-        
+
         if isinstance(self.rent_escalations, list):
             return self.rent_escalations
         else:
             return [self.rent_escalations]
-    
+
     def _apply_escalations(self, base_flow: pd.Series) -> pd.Series:
         """Apply all escalations to the base rent flow"""
         escalations = self._get_escalations_list()
         if not escalations:
             return base_flow
-            
+
         rent_with_escalations = base_flow.copy()
         periods = self.timeline.period_index
         lease_start_period = periods[0]
-        
+
         # Sort escalations by start timing to apply in chronological order
         sorted_escalations = sorted(
-            escalations, 
-            key=lambda esc: esc.get_start_period(lease_start_period)
+            escalations, key=lambda esc: esc.get_start_period(lease_start_period)
         )
-        
+
         for escalation in sorted_escalations:
             rent_with_escalations = self._apply_single_escalation(
                 rent_with_escalations, escalation, periods, lease_start_period
             )
-        
+
         return rent_with_escalations
-    
+
     def _apply_single_escalation(
-        self, 
-        current_flow: pd.Series, 
+        self,
+        current_flow: pd.Series,
         escalation: RentEscalationBase,
         periods: pd.PeriodIndex,
-        lease_start_period: pd.Period
+        lease_start_period: pd.Period,
     ) -> pd.Series:
         """Apply a single escalation to the current rent flow"""
         start_period = escalation.get_start_period(lease_start_period)
         mask = periods >= start_period
-        
+
         if escalation.type == "percentage":
             if escalation.recurring:
                 freq = escalation.frequency_months or 12
@@ -120,29 +120,29 @@ class CommercialLeaseBase(LeaseBase, ABC):
                 # For recurring escalations, the first escalation applies immediately at start_period
                 cycles = np.floor(months_elapsed / freq) + 1
                 cycles[~mask] = 0
-                
+
                 if escalation.uses_rate_object:
                     # For time-varying rates, handle each escalation cycle separately
                     result_flow = current_flow.copy()
-                    
+
                     # Calculate escalation dates
                     escalation_dates = []
                     current_date = start_period
                     while current_date <= periods[-1]:
                         escalation_dates.append(current_date)
-                        current_date = current_date + freq
-                    
+                        current_date += freq
+
                     # Apply each escalation using the rate for that period
                     for i, escalation_date in enumerate(escalation_dates):
                         period_mask = periods >= escalation_date
                         if period_mask.any():
                             rate = _extract_rate_value(escalation.rate, escalation_date)
                             if escalation.is_relative:
-                                result_flow[period_mask] *= (1 + rate)
+                                result_flow[period_mask] *= 1 + rate
                             else:
                                 escalation_amount = current_flow[period_mask] * rate
                                 result_flow[period_mask] += escalation_amount
-                    
+
                     return result_flow
                 else:
                     # Use fixed rate value (existing logic)
@@ -154,7 +154,7 @@ class CommercialLeaseBase(LeaseBase, ABC):
                         growth_factor = np.power(1 + rate, cycles)
                         escalation_series = current_flow * (growth_factor - 1)
                         return current_flow + escalation_series
-                        
+
             elif escalation.is_relative:
                 if escalation.uses_rate_object:
                     # Extract rate for start period and apply to all masked periods
@@ -174,7 +174,7 @@ class CommercialLeaseBase(LeaseBase, ABC):
                     escalation_series = pd.Series(0.0, index=periods)
                     escalation_series[mask] = current_flow[mask] * escalation.rate
                 return current_flow + escalation_series
-                
+
         elif escalation.type == "fixed":
             if escalation.uses_rate_object:
                 # For fixed escalations with rate objects, treat as dollar amounts
@@ -184,7 +184,9 @@ class CommercialLeaseBase(LeaseBase, ABC):
                 elif escalation.reference == PropertyAttributeKey.NET_RENTABLE_AREA:
                     monthly_amount = (rate * self.area) / 12
                 else:
-                    raise NotImplementedError(f"Escalation reference {escalation.reference} not implemented")
+                    raise NotImplementedError(
+                        f"Escalation reference {escalation.reference} not implemented"
+                    )
             else:
                 rate = escalation.rate
                 if escalation.reference is None:
@@ -192,8 +194,10 @@ class CommercialLeaseBase(LeaseBase, ABC):
                 elif escalation.reference == PropertyAttributeKey.NET_RENTABLE_AREA:
                     monthly_amount = (rate * self.area) / 12
                 else:
-                    raise NotImplementedError(f"Escalation reference {escalation.reference} not implemented")
-            
+                    raise NotImplementedError(
+                        f"Escalation reference {escalation.reference} not implemented"
+                    )
+
             if escalation.recurring:
                 freq = escalation.frequency_months or 12
                 months_elapsed = np.array([(p - start_period).n for p in periods])
@@ -207,7 +211,7 @@ class CommercialLeaseBase(LeaseBase, ABC):
                 escalation_series = pd.Series(0.0, index=periods)
                 escalation_series[mask] = monthly_amount
                 return current_flow + escalation_series
-        
+
         return current_flow
 
     def _apply_abatements(self, rent_flow: pd.Series) -> tuple[pd.Series, pd.Series]:
@@ -271,8 +275,12 @@ class CommercialLeaseBase(LeaseBase, ABC):
                     # For now, assume unit-based (1x multiplier)
                     initial_monthly_value *= 1
             else:
-                raise NotImplementedError(f"Reference type {type(self.reference)} not implemented for leases")
-            base_rent = pd.Series(initial_monthly_value, index=self.timeline.period_index)
+                raise NotImplementedError(
+                    f"Reference type {type(self.reference)} not implemented for leases"
+                )
+            base_rent = pd.Series(
+                initial_monthly_value, index=self.timeline.period_index
+            )
         elif isinstance(self.value, pd.Series):
             base_rent = self.value.copy()
             base_rent = base_rent.reindex(self.timeline.period_index, fill_value=0.0)
@@ -281,7 +289,9 @@ class CommercialLeaseBase(LeaseBase, ABC):
             raise TypeError(f"Unsupported type for lease value: {type(self.value)}")
 
         base_rent_with_escalations = self._apply_escalations(base_rent)
-        base_rent_final, abatement_cf = self._apply_abatements(base_rent_with_escalations)
+        base_rent_final, abatement_cf = self._apply_abatements(
+            base_rent_with_escalations
+        )
 
         # --- Recovery Calculation ---
         recoveries_cf = pd.Series(0.0, index=self.timeline.period_index)
@@ -293,8 +303,12 @@ class CommercialLeaseBase(LeaseBase, ABC):
                 lease_start_period = self.timeline.start_date
                 abatement_start_month = self.rent_abatement.start_month - 1
                 abatement_start_period = lease_start_period + abatement_start_month
-                abatement_end_period = (abatement_start_period + self.rent_abatement.months)
-                abatement_mask = (recoveries_cf.index >= abatement_start_period) & (recoveries_cf.index < abatement_end_period)
+                abatement_end_period = (
+                    abatement_start_period + self.rent_abatement.months
+                )
+                abatement_mask = (recoveries_cf.index >= abatement_start_period) & (
+                    recoveries_cf.index < abatement_end_period
+                )
                 recoveries_cf[abatement_mask] *= 1 - self.rent_abatement.abated_ratio
 
         # --- TI/LC Calculation ---
@@ -311,7 +325,9 @@ class CommercialLeaseBase(LeaseBase, ABC):
             # Set lease context for LC calculation
             context_with_lease = context
             context_with_lease.current_lease = self
-            commission_cf = self.leasing_commission.compute_cf(context=context_with_lease)
+            commission_cf = self.leasing_commission.compute_cf(
+                context=context_with_lease
+            )
             lc_cf = commission_cf.reindex(self.timeline.period_index, fill_value=0.0)
 
         result = {
@@ -334,40 +350,53 @@ class CommercialLeaseBase(LeaseBase, ABC):
         """
         current_cf_dict = self.compute_cf(context)
         all_cfs = [pd.DataFrame(current_cf_dict)]
-        
+
         lease_end_period = self.timeline.end_date
         analysis_end_period = context.timeline.end_date
 
         if self.rollover_profile and lease_end_period < analysis_end_period:
             action = self.upon_expiration
             profile = self.rollover_profile
-            logger.debug(f"Lease '{self.name}' expires {lease_end_period}. Action: {action}. Projecting rollover...")
+            logger.debug(
+                f"Lease '{self.name}' expires {lease_end_period}. Action: {action}. Projecting rollover..."
+            )
 
             downtime_months = 0
             if action in [UponExpirationEnum.MARKET, UponExpirationEnum.VACATE]:
                 downtime_months = profile.downtime_months
-            
+
             # FIXME: This is a bit of a hack since we don't have a real tenant object on lease yet
             # It's sufficient for naming purposes.
-            current_tenant_name = self.name.split(' - ')[0]
+            current_tenant_name = self.name.split(" - ")[0]
 
-            next_lease_start_date = (lease_end_period.to_timestamp() + pd.DateOffset(months=downtime_months + 1)).date()
+            next_lease_start_date = (
+                lease_end_period.to_timestamp()
+                + pd.DateOffset(months=downtime_months + 1)
+            ).date()
 
             # Handle Downtime
             if downtime_months > 0:
                 downtime_start_date = (lease_end_period + 1).start_time.date()
-                downtime_timeline = Timeline(start_date=downtime_start_date, duration_months=downtime_months)
+                downtime_timeline = Timeline(
+                    start_date=downtime_start_date, duration_months=downtime_months
+                )
                 market_rent_at_downtime = profile._calculate_rent(
-                    terms=profile.market_terms, as_of_date=downtime_start_date, global_settings=context.settings
+                    terms=profile.market_terms,
+                    as_of_date=downtime_start_date,
+                    global_settings=context.settings,
                 )
                 monthly_vacancy_loss = market_rent_at_downtime * self.area
-                vacancy_loss_series = pd.Series(monthly_vacancy_loss, index=downtime_timeline.period_index, name="vacancy_loss")
+                vacancy_loss_series = pd.Series(
+                    monthly_vacancy_loss,
+                    index=downtime_timeline.period_index,
+                    name="vacancy_loss",
+                )
                 all_cfs.append(vacancy_loss_series.to_frame())
 
             # The Dispatcher Logic
             next_lease_terms: Optional[RolloverLeaseTermsBase] = None
             next_name_suffix: str = ""
-            
+
             if action == UponExpirationEnum.RENEW:
                 next_lease_terms = profile.renewal_terms
                 next_name_suffix = f" (Renewal {recursion_depth + 1})"
@@ -383,13 +412,20 @@ class CommercialLeaseBase(LeaseBase, ABC):
                 next_lease_terms = profile.option_terms
                 next_name_suffix = f" (Option {recursion_depth + 1})"
             elif action == UponExpirationEnum.REABSORB:
-                logger.debug(f"Lease '{self.name}' set to REABSORB. Stopping projection chain.")
+                logger.debug(
+                    f"Lease '{self.name}' set to REABSORB. Stopping projection chain."
+                )
                 # next_lease_terms remains None, stopping the recursion
-            
+
             # Create and recurse if a next step was determined
-            if next_lease_terms and pd.Period(next_lease_start_date, freq='M') <= analysis_end_period:
+            if (
+                next_lease_terms
+                and pd.Period(next_lease_start_date, freq="M") <= analysis_end_period
+            ):
                 new_rent_rate = profile._calculate_rent(
-                    terms=next_lease_terms, as_of_date=next_lease_start_date, global_settings=context.settings
+                    terms=next_lease_terms,
+                    as_of_date=next_lease_start_date,
+                    global_settings=context.settings,
                 )
                 speculative_lease = self._create_speculative_lease_instance(
                     start_date=next_lease_start_date,
@@ -398,8 +434,10 @@ class CommercialLeaseBase(LeaseBase, ABC):
                     tenant_name=current_tenant_name,
                     name_suffix=next_name_suffix,
                 )
-                logger.debug(f"Created speculative lease '{speculative_lease.name}' starting {next_lease_start_date}.")
-                
+                logger.debug(
+                    f"Created speculative lease '{speculative_lease.name}' starting {next_lease_start_date}."
+                )
+
                 future_rollover_df = speculative_lease.project_future_cash_flows(
                     context, recursion_depth=recursion_depth + 1
                 )
@@ -408,19 +446,19 @@ class CommercialLeaseBase(LeaseBase, ABC):
         # Aggregate all collected cash flows
         if not all_cfs:
             return pd.DataFrame(index=context.timeline.period_index).fillna(0)
-            
+
         combined_df = pd.concat(all_cfs, sort=False).fillna(0)
         final_df = combined_df.groupby(combined_df.index).sum()
-        
+
         # Ensure all standard columns from the original lease exist for safety
         base_cols = list(all_cfs[0].columns)
         for col in base_cols:
             if col not in final_df.columns:
                 final_df[col] = 0.0
-        
+
         # Only add vacancy loss if it's already present from a downtime calculation
-        if 'vacancy_loss' not in final_df.columns:
-            final_df['vacancy_loss'] = 0.0
+        if "vacancy_loss" not in final_df.columns:
+            final_df["vacancy_loss"] = 0.0
 
         return final_df.reindex(context.timeline.period_index, fill_value=0.0)
 

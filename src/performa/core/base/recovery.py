@@ -23,6 +23,7 @@ class RecoveryCalculationState:
     """
     Holds pre-calculated, mutable state for a Recovery object during analysis.
     """
+
     recovery_uid: UUID
     calculated_annual_base_year_stop: Optional[float] = None
     frozen_base_year_pro_rata: Optional[float] = None
@@ -79,8 +80,13 @@ class RecoveryBase(Model):
             raise ValueError("base_amount is required for base_stop recovery structure")
         if self.structure == "fixed" and self.base_amount is None:
             raise ValueError("base_amount is required for fixed recovery structure")
-        if self.structure in ["base_year", "base_year_plus1", "base_year_minus1"] and self.base_year is None:
-            raise ValueError(f"base_year is required for {self.structure} recovery structure")
+        if (
+            self.structure in ["base_year", "base_year_plus1", "base_year_minus1"]
+            and self.base_year is None
+        ):
+            raise ValueError(
+                f"base_year is required for {self.structure} recovery structure"
+            )
         return self
 
 

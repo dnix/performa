@@ -37,40 +37,41 @@ logger = logging.getLogger(__name__)
 class OfficeLease(CommercialLeaseBase):
     """
     Office-specific lease model with commercial real estate modeling capabilities.
-    
+
     OFFICE LEASE IMPLEMENTATION
     ============================
-    
+
     This class implements commercial office lease modeling including commission payments,
     tenant improvements, and speculative lease creation logic.
-    
+
     KEY FEATURES:
-    
+
     1. COMMISSION PAYMENT TIMING
        ==========================
        - Supports split payments: 50% at signing, 50% at commencement
        - Automatically generates signing dates for speculative leases (3-month lead time)
        - Handles multi-tier commission structures
        - Avoids circular reference issues in TI/LC models
-    
+
     2. TI MODEL CREATION
        ==================
        - Creates TI models with area fields instead of float references
        - Prevents dependency conflicts in orchestrator
        - Supports proper architectural separation
-    
+
     3. SPECULATIVE LEASE LOGIC
        ========================
        - Calculates realistic signing dates for future leases
        - Handles rollover scenarios with TI/LC instantiation
        - Manages lease transitions and state changes
-    
+
     INTEGRATION:
     - Inherits calculation logic from CommercialLeaseBase
     - Works with AnalysisContext assembler pattern
     - Maintains compatibility with existing lease specifications
     - Supports single tenant through multi-tenant properties
     """
+
     signing_date: Optional[date] = None
     rollover_profile: Optional[OfficeRolloverProfile] = None
     recovery_method: Optional[OfficeRecoveryMethod] = None
@@ -90,7 +91,9 @@ class OfficeLease(CommercialLeaseBase):
         """
         Creates an OfficeLease instance from a specification.
         """
-        lease_timeline = Timeline(start_date=spec.start_date, duration_months=spec.term_months)
+        lease_timeline = Timeline(
+            start_date=spec.start_date, duration_months=spec.term_months
+        )
         status = (
             LeaseStatusEnum.CONTRACT
             if spec.start_date < analysis_start_date
@@ -154,7 +157,10 @@ class OfficeLease(CommercialLeaseBase):
             raise ValueError("Rollover profile required to create speculative lease.")
         profile = self.rollover_profile
 
-        new_timeline = Timeline(start_date=start_date, duration_months=lease_terms.term_months or profile.term_months)
+        new_timeline = Timeline(
+            start_date=start_date,
+            duration_months=lease_terms.term_months or profile.term_months,
+        )
 
         ti_allowance, leasing_commission = self._instantiate_lease_costs_from_terms(
             lease_terms=lease_terms,
@@ -169,7 +175,11 @@ class OfficeLease(CommercialLeaseBase):
         # Industry standard: Sign 2-6 months before commencement for office leases
         # This ensures realistic commission payment timing
         signing_lead_time_months = 3  # Conservative 3-month lead time
-        speculative_signing_date = (pd.Period(start_date, freq="M") - signing_lead_time_months).to_timestamp().date()
+        speculative_signing_date = (
+            (pd.Period(start_date, freq="M") - signing_lead_time_months)
+            .to_timestamp()
+            .date()
+        )
 
         return OfficeLease(
             name=lease_name,
@@ -180,7 +190,7 @@ class OfficeLease(CommercialLeaseBase):
             timeline=new_timeline,
             signing_date=speculative_signing_date,
             value=rent_rate,
-                            reference=PropertyAttributeKey.NET_RENTABLE_AREA,
+            reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             frequency=FrequencyEnum.MONTHLY,
             rent_escalations=lease_terms.rent_escalations,
             rent_abatement=lease_terms.rent_abatement,
@@ -206,7 +216,7 @@ class OfficeLease(CommercialLeaseBase):
             ti_value = ti_config.value
             if ti_config.reference == PropertyAttributeKey.NET_RENTABLE_AREA:
                 ti_value = ti_config.value * area
-            
+
             ti_allowance = OfficeTenantImprovement(
                 name=f"TI for {timeline.start_date}",
                 timeline=timeline,
@@ -220,24 +230,24 @@ class OfficeLease(CommercialLeaseBase):
         if lease_terms.leasing_commission:
             lc_config = lease_terms.leasing_commission
             annual_rent = rent_rate * area * 12
-            
+
             # Convert float list to CommissionTier objects with realistic payment timing
             # Industry standard: 50% at signing, 50% at commencement for office leases
             commission_tiers = [
                 CommissionTier(
-                    year_start=i + 1, 
-                    rate=rate, 
-                    signing_percentage=0.5, 
-                    commencement_percentage=0.5
-                ) 
+                    year_start=i + 1,
+                    rate=rate,
+                    signing_percentage=0.5,
+                    commencement_percentage=0.5,
+                )
                 for i, rate in enumerate(lc_config.tiers)
             ]
-            
+
             leasing_commission = OfficeLeasingCommission(
                 name=f"LC for {timeline.start_date}",
                 timeline=timeline,
                 value=annual_rent,
-                tiers=commission_tiers
+                tiers=commission_tiers,
             )
 
-        return ti_allowance, leasing_commission 
+        return ti_allowance, leasing_commission

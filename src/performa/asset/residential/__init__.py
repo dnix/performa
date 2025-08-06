@@ -8,7 +8,7 @@ This module implements the "unit-centric" paradigm of residential real estate
 analysis, where properties are modeled by unit mix rather than individual leases.
 
 Key Components:
-- ResidentialProperty: Main property container 
+- ResidentialProperty: Main property container
 - ResidentialRentRoll: Unit mix container (occupied + vacant units)
 - ResidentialUnitSpec: Specification for groups of identical units
 - ResidentialVacantUnit: Specification for groups of vacant units
@@ -41,7 +41,7 @@ from .rollover import ResidentialRolloverLeaseTerms, ResidentialRolloverProfile
 # This ensures CapitalPlan is properly recognized in ResidentialLease
 ResidentialLease.model_rebuild()
 
-# Resolve forward references for ResidentialAbsorptionPlan  
+# Resolve forward references for ResidentialAbsorptionPlan
 # This ensures ResidentialAbsorptionPlan is properly recognized in ResidentialProperty
 ResidentialProperty.model_rebuild()
 
@@ -49,9 +49,8 @@ __all__ = [
     # Property and container models
     "ResidentialProperty",
     "ResidentialRentRoll",
-    "ResidentialUnitSpec", 
+    "ResidentialUnitSpec",
     "ResidentialVacantUnit",
-    
     # Analysis and cash flow models
     "ResidentialAnalysisScenario",
     "ResidentialLease",
@@ -62,12 +61,10 @@ __all__ = [
     "ResidentialGeneralVacancyLoss",
     "ResidentialCollectionLoss",
     "ResidentialMiscIncome",
-    
     # Rollover and absorption models
     "ResidentialRolloverProfile",
-    "ResidentialRolloverLeaseTerms", 
+    "ResidentialRolloverLeaseTerms",
     "ResidentialAbsorptionPlan",
-    
     # Development models
     "ResidentialDevelopmentBlueprint",
-] 
+]

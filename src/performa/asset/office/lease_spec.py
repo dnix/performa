@@ -23,11 +23,14 @@ class OfficeLeaseSpec(LeaseSpecBase):
     """
     Office-specific lease terms specification.
     """
+
     lease_type: LeaseTypeEnum
-    
+
     # Multiple escalations support
-    rent_escalations: Optional[Union[OfficeRentEscalation, List[OfficeRentEscalation]]] = None
-    
+    rent_escalations: Optional[
+        Union[OfficeRentEscalation, List[OfficeRentEscalation]]
+    ] = None
+
     rent_abatement: Optional[OfficeRentAbatement] = None
     recovery_method: Optional[OfficeRecoveryMethod] = None
     ti_allowance: Optional[OfficeTenantImprovement] = None
@@ -60,4 +63,4 @@ class OfficeLeaseSpec(LeaseSpecBase):
             return len(periods)
         raise ValueError("Cannot compute term_months without end_date or term_months")
 
-    pass 
+    pass

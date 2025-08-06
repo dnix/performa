@@ -29,6 +29,7 @@ The process is managed by passing a `PaceContext` object, which holds the
 state of the absorption (like the remaining area of divisible suites), to the
 strategy's `generate` method.
 """
+
 from __future__ import annotations
 
 import logging
@@ -102,6 +103,7 @@ class SpaceFilter(CoreSpaceFilter):
     absorption plan. Inherits from the common `SpaceFilter` and is specialized
     for `OfficeVacantSuite`.
     """
+
     def matches(self, suite: OfficeVacantSuite) -> bool:
         """Checks if a given office suite matches the filter criteria."""
         return super().matches(suite)
@@ -109,6 +111,7 @@ class SpaceFilter(CoreSpaceFilter):
 
 class BasePace(CoreBasePace):
     """Abstract base class for all pace models."""
+
     pass
 
 
@@ -123,6 +126,7 @@ class FixedQuantityPace(BasePace):
         unit: The unit of measure for `quantity` ("SF" or "Units").
         frequency_months: The number of months in each leasing period.
     """
+
     type: Literal["FixedQuantity"] = "FixedQuantity"
     quantity: float
     unit: Literal["SF", "Units"]
@@ -142,6 +146,7 @@ class EqualSpreadPace(BasePace):
         total_deals: The total number of deals to be made.
         frequency_months: The number of months between the start of each deal.
     """
+
     type: Literal["EqualSpread"] = "EqualSpread"
     total_deals: int
     frequency_months: int = 1
@@ -157,6 +162,7 @@ class CustomSchedulePace(BasePace):
         schedule: A dictionary where keys are dates and values are the
                   target square footage to be leased on that date.
     """
+
     type: Literal["CustomSchedule"] = "CustomSchedule"
     schedule: Dict[date, float]
 
@@ -169,6 +175,7 @@ class DirectLeaseTerms(CoreDirectLeaseTerms):
     This class extends the common `DirectLeaseTerms` with office-specific
     financial model types.
     """
+
     rent_escalation: Optional[OfficeRentEscalation] = None
     rent_abatement: Optional[OfficeRentAbatement] = None
     recovery_method: Optional[OfficeRecoveryMethod] = None
@@ -187,6 +194,7 @@ class PaceContext(CorePaceContext):
     lease specs. It is a key part of managing the state of the absorption
     process, especially for tracking the remaining area of divisible suites.
     """
+
     remaining_suites: List[OfficeVacantSuite]
     market_lease_terms: Optional[OfficeRolloverLeaseTerms]
     direct_terms: Optional[DirectLeaseTerms]
@@ -198,6 +206,7 @@ class PaceContext(CorePaceContext):
 
 class PaceStrategy(CorePaceStrategy):
     """Abstract base class for all pace strategy implementations."""
+
     @abstractmethod
     def generate(
         self, pace_model: BasePace, context: PaceContext
@@ -224,6 +233,7 @@ class FixedQuantityPaceStrategy(PaceStrategy):
     It prioritizes leasing whole, non-divisible suites first (largest to smallest)
     and then uses divisible suites to meet the target.
     """
+
     def generate(
         self, pace_model: FixedQuantityPace, context: PaceContext
     ) -> List[OfficeLeaseSpec]:
@@ -242,33 +252,51 @@ class FixedQuantityPaceStrategy(PaceStrategy):
         """
         generated_specs: List[OfficeLeaseSpec] = []
         current_period_start = context.initial_start_date
-        
-        # Sort suites once: largest to smallest for whole-suite packing, 
-        # but we also need to find the first available divisible suite.
-        local_remaining_suites = sorted(context.remaining_suites, key=lambda s: s.area, reverse=True)
 
-        while any(s.area > 0 for s in local_remaining_suites) and current_period_start <= context.analysis_end_date:
+        # Sort suites once: largest to smallest for whole-suite packing,
+        # but we also need to find the first available divisible suite.
+        local_remaining_suites = sorted(
+            context.remaining_suites, key=lambda s: s.area, reverse=True
+        )
+
+        while (
+            any(s.area > 0 for s in local_remaining_suites)
+            and current_period_start <= context.analysis_end_date
+        ):
             quantity_remaining_this_period = pace_model.quantity
             suites_leased_this_period = 0
-            
+
             # --- Handle by SF ---
             if pace_model.unit == "SF":
                 suites_to_remove = []
                 for suite in local_remaining_suites:
-                    if quantity_remaining_this_period <= 0: 
+                    if quantity_remaining_this_period <= 0:
                         break
-                    
+
                     suite_state = context._suite_states[suite.suite]
-                    
+
                     if suite.is_divisible:
                         avg_lease_size = suite.subdivision_average_lease_area
-                        min_lease_size = suite.subdivision_minimum_lease_area or avg_lease_size
+                        min_lease_size = (
+                            suite.subdivision_minimum_lease_area or avg_lease_size
+                        )
 
-                        while suite_state.remaining_area >= min_lease_size and quantity_remaining_this_period >= min_lease_size:
-                            area_to_lease = min(suite_state.remaining_area, avg_lease_size, quantity_remaining_this_period)
+                        while (
+                            suite_state.remaining_area >= min_lease_size
+                            and quantity_remaining_this_period >= min_lease_size
+                        ):
+                            area_to_lease = min(
+                                suite_state.remaining_area,
+                                avg_lease_size,
+                                quantity_remaining_this_period,
+                            )
                             if area_to_lease < min_lease_size:
                                 # If the largest possible lease is smaller than min, try to take it only if it's all that's left of the suite
-                                if suite_state.remaining_area < min_lease_size and quantity_remaining_this_period >= suite_state.remaining_area:
+                                if (
+                                    suite_state.remaining_area < min_lease_size
+                                    and quantity_remaining_this_period
+                                    >= suite_state.remaining_area
+                                ):
                                     area_to_lease = suite_state.remaining_area
                                 else:
                                     break
@@ -288,8 +316,12 @@ class FixedQuantityPaceStrategy(PaceStrategy):
                                 generated_specs.append(spec)
                                 suite_state.remaining_area -= area_to_lease
                                 quantity_remaining_this_period -= area_to_lease
-                    
-                    elif not suite.is_divisible and suite_state.remaining_area > 0 and quantity_remaining_this_period >= suite.area:
+
+                    elif (
+                        not suite.is_divisible
+                        and suite_state.remaining_area > 0
+                        and quantity_remaining_this_period >= suite.area
+                    ):
                         # Lease whole, non-divisible suite
                         spec = context.create_spec_fn(
                             suite=suite,
@@ -303,31 +335,59 @@ class FixedQuantityPaceStrategy(PaceStrategy):
                             generated_specs.append(spec)
                             quantity_remaining_this_period -= suite.area
                             suite_state.remaining_area = 0  # Mark as fully leased
-                
+
                 # Filter out fully leased suites
-                local_remaining_suites = [s for s in local_remaining_suites if context._suite_states[s.suite].remaining_area > 0]
+                local_remaining_suites = [
+                    s
+                    for s in local_remaining_suites
+                    if context._suite_states[s.suite].remaining_area > 0
+                ]
 
             # --- Handle by Units ---
             elif pace_model.unit == "Units":
                 suites_to_lease_this_period = []
                 # Take the largest available whole suites first
                 for suite in local_remaining_suites:
-                    if len(suites_to_lease_this_period) >= quantity_remaining_this_period: 
+                    if (
+                        len(suites_to_lease_this_period)
+                        >= quantity_remaining_this_period
+                    ):
                         break
-                    if not suite.is_divisible and context._suite_states[suite.suite].remaining_area > 0:
+                    if (
+                        not suite.is_divisible
+                        and context._suite_states[suite.suite].remaining_area > 0
+                    ):
                         suites_to_lease_this_period.append(suite)
-                
+
                 # If we still need more units, start carving them from the largest divisible suite
                 if len(suites_to_lease_this_period) < quantity_remaining_this_period:
-                    divisible_suites = sorted([s for s in local_remaining_suites if s.is_divisible and context._suite_states[s.suite].remaining_area > 0], key=lambda s: s.area, reverse=True)
+                    divisible_suites = sorted(
+                        [
+                            s
+                            for s in local_remaining_suites
+                            if s.is_divisible
+                            and context._suite_states[s.suite].remaining_area > 0
+                        ],
+                        key=lambda s: s.area,
+                        reverse=True,
+                    )
                     if divisible_suites:
                         suite_to_divide = divisible_suites[0]
                         suite_state = context._suite_states[suite_to_divide.suite]
                         avg_lease_size = suite_to_divide.subdivision_average_lease_area
-                        min_lease_size = suite_to_divide.subdivision_minimum_lease_area or avg_lease_size
+                        min_lease_size = (
+                            suite_to_divide.subdivision_minimum_lease_area
+                            or avg_lease_size
+                        )
 
-                        while len(suites_to_lease_this_period) < quantity_remaining_this_period and suite_state.remaining_area >= min_lease_size:
-                            area_to_lease = min(suite_state.remaining_area, avg_lease_size)
+                        while (
+                            len(suites_to_lease_this_period)
+                            < quantity_remaining_this_period
+                            and suite_state.remaining_area >= min_lease_size
+                        ):
+                            area_to_lease = min(
+                                suite_state.remaining_area, avg_lease_size
+                            )
                             suite_state.units_created += 1
                             spec = context.create_subdivided_spec_fn(
                                 master_suite=suite_to_divide,
@@ -342,16 +402,25 @@ class FixedQuantityPaceStrategy(PaceStrategy):
                             if spec:
                                 generated_specs.append(spec)
                                 suite_state.remaining_area -= area_to_lease
-                                suites_to_lease_this_period.append(suite_to_divide)  # Dummy append to count units
+                                suites_to_lease_this_period.append(
+                                    suite_to_divide
+                                )  # Dummy append to count units
 
                 # Mark non-divisible suites as leased
                 for suite in suites_to_lease_this_period:
                     if not suite.is_divisible:
                         context._suite_states[suite.suite].remaining_area = 0
-                
-                local_remaining_suites = [s for s in local_remaining_suites if context._suite_states[s.suite].remaining_area > 0]
 
-            current_period_start = (pd.Timestamp(current_period_start) + pd.DateOffset(months=pace_model.frequency_months)).date()
+                local_remaining_suites = [
+                    s
+                    for s in local_remaining_suites
+                    if context._suite_states[s.suite].remaining_area > 0
+                ]
+
+            current_period_start = (
+                pd.Timestamp(current_period_start)
+                + pd.DateOffset(months=pace_model.frequency_months)
+            ).date()
 
         return generated_specs
 
@@ -366,12 +435,13 @@ class EqualSpreadPaceStrategy(PaceStrategy):
     the deal's remaining target area, and then carving a single lease from a
     divisible suite to "top off" the deal to the target area.
     """
+
     def generate(
         self, pace_model: EqualSpreadPace, context: PaceContext
     ) -> List[OfficeLeaseSpec]:
         """
         Generates lease specs by spreading absorption over a set number of deals.
-        
+
         For each deal, it attempts to fill a `target_area_per_deal`. It does this by:
         1. Greedily packing in the largest available non-divisible suites that fit.
         2. If area is still needed, creating a single subdivided lease from the
@@ -383,22 +453,35 @@ class EqualSpreadPaceStrategy(PaceStrategy):
 
         target_area_per_deal = context.total_target_area / pace_model.total_deals
         current_deal_start_date = context.initial_start_date
-        local_remaining_suites = sorted(context.remaining_suites, key=lambda s: s.area, reverse=True)
+        local_remaining_suites = sorted(
+            context.remaining_suites, key=lambda s: s.area, reverse=True
+        )
 
         for deal_num in range(1, pace_model.total_deals + 1):
-            if not any(s.area > 0 for s in local_remaining_suites) or current_deal_start_date > context.analysis_end_date:
+            if (
+                not any(s.area > 0 for s in local_remaining_suites)
+                or current_deal_start_date > context.analysis_end_date
+            ):
                 break
 
             area_to_absorb_this_deal = target_area_per_deal
-            
+
             # --- First, pack whole, non-divisible suites ---
             suites_leased_this_deal = []
             for suite in local_remaining_suites:
                 suite_state = context._suite_states[suite.suite]
-                if not suite.is_divisible and suite_state.remaining_area > 0 and area_to_absorb_this_deal >= suite.area:
+                if (
+                    not suite.is_divisible
+                    and suite_state.remaining_area > 0
+                    and area_to_absorb_this_deal >= suite.area
+                ):
                     spec = context.create_spec_fn(
-                        suite=suite, start_date=current_deal_start_date, deal_number=len(generated_specs) + 1,
-                        profile_market_terms=context.market_lease_terms, direct_terms=context.direct_terms, global_settings=context.global_settings,
+                        suite=suite,
+                        start_date=current_deal_start_date,
+                        deal_number=len(generated_specs) + 1,
+                        profile_market_terms=context.market_lease_terms,
+                        direct_terms=context.direct_terms,
+                        global_settings=context.global_settings,
                     )
                     if spec:
                         generated_specs.append(spec)
@@ -409,33 +492,61 @@ class EqualSpreadPaceStrategy(PaceStrategy):
             # --- Second, top off with a divisible suite ---
             if area_to_absorb_this_deal > 0:
                 # Find the largest divisible suite with enough remaining area
-                divisible_suites = sorted([s for s in local_remaining_suites if s.is_divisible and context._suite_states[s.suite].remaining_area > 0], key=lambda s: s.area, reverse=True)
+                divisible_suites = sorted(
+                    [
+                        s
+                        for s in local_remaining_suites
+                        if s.is_divisible
+                        and context._suite_states[s.suite].remaining_area > 0
+                    ],
+                    key=lambda s: s.area,
+                    reverse=True,
+                )
                 for suite in divisible_suites:
                     suite_state = context._suite_states[suite.suite]
-                    min_lease_size = suite.subdivision_minimum_lease_area or 1.0  # a small number to allow topping off
-                    
+                    min_lease_size = (
+                        suite.subdivision_minimum_lease_area or 1.0
+                    )  # a small number to allow topping off
+
                     if suite_state.remaining_area > 0 and area_to_absorb_this_deal > 0:
-                        area_to_lease = min(area_to_absorb_this_deal, suite_state.remaining_area)
-                        if area_to_lease < min_lease_size and area_to_lease < suite_state.remaining_area:
+                        area_to_lease = min(
+                            area_to_absorb_this_deal, suite_state.remaining_area
+                        )
+                        if (
+                            area_to_lease < min_lease_size
+                            and area_to_lease < suite_state.remaining_area
+                        ):
                             continue
 
                         suite_state.units_created += 1
                         spec = context.create_subdivided_spec_fn(
-                            master_suite=suite, subdivided_area=area_to_lease, sub_unit_count=suite_state.units_created,
-                            start_date=current_deal_start_date, deal_number=len(generated_specs) + 1,
-                            profile_market_terms=context.market_lease_terms, direct_terms=context.direct_terms, global_settings=context.global_settings,
+                            master_suite=suite,
+                            subdivided_area=area_to_lease,
+                            sub_unit_count=suite_state.units_created,
+                            start_date=current_deal_start_date,
+                            deal_number=len(generated_specs) + 1,
+                            profile_market_terms=context.market_lease_terms,
+                            direct_terms=context.direct_terms,
+                            global_settings=context.global_settings,
                         )
                         if spec:
                             generated_specs.append(spec)
                             suite_state.remaining_area -= area_to_lease
                             area_to_absorb_this_deal -= area_to_lease
-                        
+
                         if area_to_absorb_this_deal <= 0:
                             break  # Move to next deal
 
             # Filter out fully leased suites and advance date
-            local_remaining_suites = [s for s in context.remaining_suites if context._suite_states[s.suite].remaining_area > 0]
-            current_deal_start_date = (pd.Timestamp(current_deal_start_date) + pd.DateOffset(months=pace_model.frequency_months)).date()
+            local_remaining_suites = [
+                s
+                for s in context.remaining_suites
+                if context._suite_states[s.suite].remaining_area > 0
+            ]
+            current_deal_start_date = (
+                pd.Timestamp(current_deal_start_date)
+                + pd.DateOffset(months=pace_model.frequency_months)
+            ).date()
 
         return generated_specs
 
@@ -450,6 +561,7 @@ class CustomSchedulePaceStrategy(PaceStrategy):
     prioritizing whole non-divisible suites before carving out space from
     divisible suites.
     """
+
     def generate(
         self, pace_model: CustomSchedulePace, context: PaceContext
     ) -> List[OfficeLeaseSpec]:
@@ -462,14 +574,22 @@ class CustomSchedulePaceStrategy(PaceStrategy):
         subdividing a larger divisible suite.
         """
         generated_specs: List[OfficeLeaseSpec] = []
-        
+
         # Start with all suites, sorted largest to smallest.
-        local_remaining_suites = sorted(context.remaining_suites, key=lambda s: s.area, reverse=True)
+        local_remaining_suites = sorted(
+            context.remaining_suites, key=lambda s: s.area, reverse=True
+        )
 
         for schedule_date, quantity_sf in sorted(pace_model.schedule.items()):
-            if not any(context._suite_states[s.suite].remaining_area > 0 for s in local_remaining_suites) or schedule_date > context.analysis_end_date:
+            if (
+                not any(
+                    context._suite_states[s.suite].remaining_area > 0
+                    for s in local_remaining_suites
+                )
+                or schedule_date > context.analysis_end_date
+            ):
                 break
-            
+
             quantity_remaining_this_period = quantity_sf
 
             # --- Handle Non-Divisible Suites First ---
@@ -477,10 +597,17 @@ class CustomSchedulePaceStrategy(PaceStrategy):
             suites_to_remove = []
             for suite in local_remaining_suites:
                 suite_state = context._suite_states[suite.suite]
-                if not suite.is_divisible and suite_state.remaining_area > 0 and quantity_remaining_this_period >= suite.area:
+                if (
+                    not suite.is_divisible
+                    and suite_state.remaining_area > 0
+                    and quantity_remaining_this_period >= suite.area
+                ):
                     spec = context.create_spec_fn(
-                        suite=suite, start_date=schedule_date, deal_number=len(generated_specs) + 1,
-                        profile_market_terms=context.market_lease_terms, direct_terms=context.direct_terms,
+                        suite=suite,
+                        start_date=schedule_date,
+                        deal_number=len(generated_specs) + 1,
+                        profile_market_terms=context.market_lease_terms,
+                        direct_terms=context.direct_terms,
                         global_settings=context.global_settings,
                     )
                     if spec:
@@ -494,39 +621,58 @@ class CustomSchedulePaceStrategy(PaceStrategy):
             if quantity_remaining_this_period > 0:
                 # Iterate through divisible suites, largest first.
                 divisible_suites = [s for s in local_remaining_suites if s.is_divisible]
-                
+
                 for suite in divisible_suites:
-                    if quantity_remaining_this_period <= 0: 
+                    if quantity_remaining_this_period <= 0:
                         break
-                    
+
                     suite_state = context._suite_states[suite.suite]
-                    if suite_state.remaining_area <= 0: 
+                    if suite_state.remaining_area <= 0:
                         continue
 
                     avg_lease_size = suite.subdivision_average_lease_area
-                    min_lease_size = suite.subdivision_minimum_lease_area or avg_lease_size
+                    min_lease_size = (
+                        suite.subdivision_minimum_lease_area or avg_lease_size
+                    )
 
-                    while suite_state.remaining_area > 0 and quantity_remaining_this_period > 0:
-                        area_to_lease = min(suite_state.remaining_area, avg_lease_size, quantity_remaining_this_period)
-                        
-                        if area_to_lease < min_lease_size and area_to_lease < suite_state.remaining_area:
+                    while (
+                        suite_state.remaining_area > 0
+                        and quantity_remaining_this_period > 0
+                    ):
+                        area_to_lease = min(
+                            suite_state.remaining_area,
+                            avg_lease_size,
+                            quantity_remaining_this_period,
+                        )
+
+                        if (
+                            area_to_lease < min_lease_size
+                            and area_to_lease < suite_state.remaining_area
+                        ):
                             break
-                        
+
                         suite_state.units_created += 1
                         spec = context.create_subdivided_spec_fn(
-                            master_suite=suite, subdivided_area=area_to_lease, sub_unit_count=suite_state.units_created,
-                            start_date=schedule_date, deal_number=len(generated_specs) + 1,
-                            profile_market_terms=context.market_lease_terms, direct_terms=context.direct_terms, global_settings=context.global_settings,
+                            master_suite=suite,
+                            subdivided_area=area_to_lease,
+                            sub_unit_count=suite_state.units_created,
+                            start_date=schedule_date,
+                            deal_number=len(generated_specs) + 1,
+                            profile_market_terms=context.market_lease_terms,
+                            direct_terms=context.direct_terms,
+                            global_settings=context.global_settings,
                         )
                         if spec:
                             generated_specs.append(spec)
                             suite_state.remaining_area -= area_to_lease
                             quantity_remaining_this_period -= area_to_lease
-            
+
         return generated_specs
 
 
-class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, OfficeMiscIncome]):
+class OfficeAbsorptionPlan(
+    AbsorptionPlanBase[OfficeExpenses, OfficeLosses, OfficeMiscIncome]
+):
     """
     Defines and executes a complete plan for leasing up vacant office space.
 
@@ -537,6 +683,7 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
     4. Preparing and passing the `PaceContext` to the strategy.
     5. Returning the final list of generated `OfficeLeaseSpec` objects.
     """
+
     space_filter: SpaceFilter
     pace: Annotated[
         Union[FixedQuantityPace, EqualSpreadPace, CustomSchedulePace],
@@ -546,16 +693,13 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
 
     # Required stabilized operating assumptions (no silent defaults)
     stabilized_expenses: OfficeExpenses = Field(
-        ..., 
-        description="Stabilized operating expenses for absorbed units"
+        ..., description="Stabilized operating expenses for absorbed units"
     )
     stabilized_losses: OfficeLosses = Field(
-        ..., 
-        description="Stabilized loss assumptions for absorbed units"
+        ..., description="Stabilized loss assumptions for absorbed units"
     )
     stabilized_misc_income: List[OfficeMiscIncome] = Field(
-        ..., 
-        description="Stabilized miscellaneous income for absorbed units"
+        ..., description="Stabilized miscellaneous income for absorbed units"
     )
 
     @classmethod
@@ -563,34 +707,37 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
         cls,
         name: str,
         space_filter: SpaceFilter,
-        start_date_anchor: Union[date, StartDateAnchorEnum, AnchorLogic], 
-        pace: Annotated[Union[FixedQuantityPace, EqualSpreadPace, CustomSchedulePace], Field(discriminator="type")],
-        leasing_assumptions: Union[str, DirectLeaseTerms]
+        start_date_anchor: Union[date, StartDateAnchorEnum, AnchorLogic],
+        pace: Annotated[
+            Union[FixedQuantityPace, EqualSpreadPace, CustomSchedulePace],
+            Field(discriminator="type"),
+        ],
+        leasing_assumptions: Union[str, DirectLeaseTerms],
     ) -> "OfficeAbsorptionPlan":
         """
         Create an OfficeAbsorptionPlan with standard operating assumptions.
-        
+
         This factory method creates an absorption plan with the following assumptions:
-        
+
         Expenses:
         - Management Fee: 5% of Effective Gross Income
         - Operating Costs: $8.00/SF/year
         - Taxes & Insurance: $2.00/SF/year
-        
+
         Losses:
         - General Vacancy: 5%
         - Collection Loss: 1%
-        
+
         Miscellaneous Income:
         - Empty list
-        
+
         Example:
             ```python
             from datetime import date
             from performa.asset.office.absorption import (
                 OfficeAbsorptionPlan, SpaceFilter, FixedQuantityPace, DirectLeaseTerms
             )
-            
+
             plan = OfficeAbsorptionPlan.with_typical_assumptions(
                 name="Office Lease-Up",
                 space_filter=SpaceFilter(use_types=["office"]),
@@ -598,7 +745,7 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
                 pace=FixedQuantityPace(
                     type="FixedQuantity",
                     quantity=25000,
-                    unit="SF", 
+                    unit="SF",
                     frequency_months=6
                 ),
                 leasing_assumptions=DirectLeaseTerms(
@@ -610,7 +757,7 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
                 )
             )
             ```
-        
+
         For custom operating assumptions, use the direct constructor:
             ```python
             plan = OfficeAbsorptionPlan(
@@ -620,14 +767,14 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
                 ...
             )
             ```
-        
+
         Args:
             name: Name for the absorption plan
             space_filter: Criteria for which vacant suites to include
             start_date_anchor: When leasing begins
             pace: Leasing velocity strategy
             leasing_assumptions: Financial terms for new leases
-        
+
         Returns:
             OfficeAbsorptionPlan with standard operating assumptions
         """
@@ -639,7 +786,7 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
             leasing_assumptions=leasing_assumptions,
             stabilized_expenses=cls._create_typical_expenses(),
             stabilized_losses=cls._create_typical_losses(),
-            stabilized_misc_income=[]  # No misc income by default
+            stabilized_misc_income=[],  # No misc income by default
         )
 
     @classmethod
@@ -648,13 +795,13 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
         from datetime import date
 
         from ...core.primitives import PercentageGrowthRate, Timeline
-        
+
         # Create a basic timeline for the expense items
         timeline = Timeline(
             start_date=date(2024, 1, 1),
-            duration_months=120  # 10 years
+            duration_months=120,  # 10 years
         )
-        
+
         # Create typical office operating expenses
         return OfficeExpenses(
             operating_expenses=[
@@ -664,7 +811,9 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
                     timeline=timeline,
                     value=5.0,  # $5/SF annually
                     reference=PropertyAttributeKey.NET_RENTABLE_AREA,
-                    growth_rate=PercentageGrowthRate(name="Property Management Growth", value=0.03)
+                    growth_rate=PercentageGrowthRate(
+                        name="Property Management Growth", value=0.03
+                    ),
                 ),
                 OfficeOpExItem(
                     name="Operating Costs",
@@ -672,7 +821,7 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
                     timeline=timeline,
                     value=8.0,  # $8/SF annually
                     reference=PropertyAttributeKey.NET_RENTABLE_AREA,
-                    growth_rate=PercentageGrowthRate(name="OpEx Growth", value=0.035)
+                    growth_rate=PercentageGrowthRate(name="OpEx Growth", value=0.035),
                 ),
                 OfficeOpExItem(
                     name="Taxes & Insurance",
@@ -680,8 +829,8 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
                     timeline=timeline,
                     value=2.0,  # $2/SF annually
                     reference=PropertyAttributeKey.NET_RENTABLE_AREA,
-                    growth_rate=PercentageGrowthRate(name="Tax Growth", value=0.025)
-                )
+                    growth_rate=PercentageGrowthRate(name="Tax Growth", value=0.025),
+                ),
             ]
         )
 
@@ -691,12 +840,12 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
         return OfficeLosses(
             general_vacancy=OfficeGeneralVacancyLoss(
                 vacancy_rate=0.05,  # 5% office vacancy
-                applied_to_base_rent=True
+                applied_to_base_rent=True,
             ),
             collection_loss=OfficeCollectionLoss(
                 loss_rate=0.01,  # 1% collection loss
-                applied_to_base_rent=True
-            )
+                applied_to_base_rent=True,
+            ),
         )
 
     def generate_lease_specs(
@@ -807,7 +956,7 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
             return None
 
         final_terms = (direct_terms or profile_market_terms).model_copy(deep=True)
-        
+
         return OfficeLeaseSpec(
             tenant_name=f"{self.name}-Deal{deal_number}-{suite.suite}",
             suite=suite.suite,
@@ -828,7 +977,11 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
         )
 
     def _create_subdivided_lease_spec(
-        self, master_suite: OfficeVacantSuite, subdivided_area: float, sub_unit_count: int, **kwargs
+        self,
+        master_suite: OfficeVacantSuite,
+        subdivided_area: float,
+        sub_unit_count: int,
+        **kwargs,
     ) -> Optional[OfficeLeaseSpec]:
         """
         Creates a lease spec for a portion of a larger, divisible suite.
@@ -849,7 +1002,7 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
         """
         # Create a base spec using the master suite's info, but don't use its full area yet.
         # The key is to pass the correct area at creation time.
-        
+
         # We need to get the terms from kwargs to pass them to the creator
         direct_terms = kwargs.get("direct_terms")
         profile_market_terms = kwargs.get("profile_market_terms")
@@ -863,8 +1016,7 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
 
         return OfficeLeaseSpec(
             tenant_name=master_suite.subdivision_naming_pattern.format(
-                master_suite_id=master_suite.suite,
-                count=sub_unit_count
+                master_suite_id=master_suite.suite, count=sub_unit_count
             ),
             suite=master_suite.suite,  # Still links to the master suite ID
             floor=master_suite.floor,

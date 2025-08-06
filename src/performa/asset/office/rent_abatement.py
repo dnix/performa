@@ -11,4 +11,5 @@ class OfficeRentAbatement(RentAbatementBase):
     Office-specific rent abatement structure.
     Inherits all behavior from the base class for now.
     """
-    pass 
+
+    pass

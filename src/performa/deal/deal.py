@@ -38,18 +38,18 @@ AnyAsset = Union[OfficeProperty, ResidentialProperty, DevelopmentProject]
 class Deal(Model):
     """
     Universal deal container for any real estate investment.
-    
+
     This is the core model that enables the unified deal-centric architecture.
     It cleanly separates the physical asset from the investment strategy,
     allowing the same analyze() function to handle any scenario.
-    
+
     Key Architecture:
     - asset: The physical real estate property or development project
     - acquisition: How the asset is purchased (timing, costs)
     - financing: Complete debt structure over asset lifecycle
     - disposition: Exit strategy and assumptions
     - equity: Partner structure and waterfall logic
-    
+
     Examples:
         # Simple stabilized acquisition
         deal = Deal(
@@ -59,7 +59,7 @@ class Deal(Model):
             financing=FinancingPlan([permanent_loan]),
             exit_valuation=ReversionValuation(...)
         )
-        
+
         # Complex development project
         deal = Deal(
             name="Urban Mixed-Use Development",
@@ -69,44 +69,49 @@ class Deal(Model):
             exit_valuation=DCFValuation(...)
         )
     """
-    
+
     # Core Identity
     uid: UUID = Field(default_factory=uuid4)
     name: str = Field(..., description="Deal name for identification")
     description: Optional[str] = Field(default=None, description="Deal description")
-    
+
     # Core Components - The Universal Deal Structure
     asset: AnyAsset = Field(..., description="The physical real estate asset")
-    acquisition: AcquisitionTerms = Field(..., description="Acquisition terms and costs")
-    
+    acquisition: AcquisitionTerms = Field(
+        ..., description="Acquisition terms and costs"
+    )
+
     # Financing - Complete debt structure over asset lifecycle
-    financing: Optional[FinancingPlan] = Field(default=None, description="Debt facilities sequence")
-    
+    financing: Optional[FinancingPlan] = Field(
+        default=None, description="Debt facilities sequence"
+    )
+
     exit_valuation: Optional[AnyValuation] = Field(
         default=None, description="Exit strategy and valuation assumptions"
     )
-    
+
     # Equity Structure - Partnership structure for equity waterfall
     equity_partners: Optional[PartnershipStructure] = Field(
-        default=None, description="Partnership structure for equity waterfall and distributions"
+        default=None,
+        description="Partnership structure for equity waterfall and distributions",
     )
-    
+
     # Deal Fees - Optional deal fee structures (developer, management, etc.)
     deal_fees: Optional[List[DealFee]] = Field(
         default=None, description="Deal-level fee structures and payment schedules"
     )
-    
+
     @computed_field
     @property
     def deal_type(self) -> str:
         """
         Classify the deal based on the asset type.
-        
+
         Returns:
             String classification of the deal type
         """
         # FIXME: this could be problematic to maintain as we add more use types
-        if hasattr(self.asset, 'construction_plan'):
+        if hasattr(self.asset, "construction_plan"):
             return "development"
         elif self.asset.property_type == AssetTypeEnum.OFFICE:
             return "office_acquisition"
@@ -114,13 +119,13 @@ class Deal(Model):
             return "residential_acquisition"
         else:
             return f"{self.asset.property_type.value}_acquisition"
-    
+
     @computed_field
     @property
     def is_development_deal(self) -> bool:
         """Check if this is a development deal."""
-        return hasattr(self.asset, 'construction_plan')
-    
+        return hasattr(self.asset, "construction_plan")
+
     @computed_field
     @property
     def financing_type(self) -> str:
@@ -135,9 +140,11 @@ class Deal(Model):
             return "permanent_financing"
         else:
             return "other_financing"
-    
+
     @computed_field
     @property
     def has_equity_partners(self) -> bool:
         """Check if this deal has equity partners."""
-        return self.equity_partners is not None and self.equity_partners.partner_count > 0
+        return (
+            self.equity_partners is not None and self.equity_partners.partner_count > 0
+        )

@@ -18,7 +18,7 @@ class AnalysisScenarioBase(Model, ABC):
     model: Model
     settings: GlobalSettings
     timeline: Timeline
-    
+
     _orchestrator: Optional[CashFlowOrchestrator] = PrivateAttr(default=None)
 
     @abstractmethod
@@ -28,21 +28,21 @@ class AnalysisScenarioBase(Model, ABC):
     def run(self) -> None:
         # 1. PREPARE: Call the concrete implementation
         all_models = self.prepare_models()
-        
+
         # 2. CREATE CONTEXT: Create the mutable state packet
         # The scenario can populate pre-calculated state here
-        recovery_states = getattr(self, '_recovery_states', {})
+        recovery_states = getattr(self, "_recovery_states", {})
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=self.model,
-            recovery_states=recovery_states
+            recovery_states=recovery_states,
         )
-        
+
         # 3. EXECUTE: Create and run the service object
         orchestrator = CashFlowOrchestrator(models=all_models, context=context)
         orchestrator.execute()
-        
+
         # 4. STORE RESULT: Store the stateful orchestrator object
         self._orchestrator = orchestrator
 

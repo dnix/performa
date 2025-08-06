@@ -24,29 +24,24 @@ logger = logging.getLogger(__name__)
 class ResidentialRolloverLeaseTerms(RolloverLeaseTermsBase):
     """
     Simplified rollover lease terms for residential properties.
-    
+
     Key Simplifications vs. Commercial:
     - No TI/LC per square foot (use CapitalPlan for all costs)
     - No complex recovery methods (residents don't pay building expenses)
     - No rent escalations during term (typically flat rent)
     - Universal CapitalPlan primitive for all capital outlays
     """
-    
+
     # === RENT TERMS ===
     market_rent: PositiveFloat  # Current market rent for this unit type
     market_rent_growth: Optional[PercentageGrowthRate] = None
     renewal_rent_increase_percent: PositiveFloat = 0.04  # 4% typical renewal increase
-    
+
     # === CONCESSIONS ===
     concessions_months: PositiveInt = 0  # Free rent months
-    
 
-    
     # Override base class defaults for residential rent
     frequency: FrequencyEnum = FrequencyEnum.MONTHLY  # Residential rent is monthly
-    
-
-
 
 
 class ResidentialRolloverProfile(RolloverProfileBase):
@@ -61,7 +56,7 @@ class ResidentialRolloverProfile(RolloverProfileBase):
     - Higher renewal probability than commercial (60-70% typical)
     - Shorter downtime (1-2 months vs. 3-6 for commercial)
     - Simplified cost structures
-    
+
     TODO: FUTURE ENHANCEMENT - ROLLOVER CHAIN OVERRIDES:
     The optional override_config field provides a future extension point for:
     - Time-based assumption schedules (e.g., declining renewal rates as building ages)
@@ -70,16 +65,16 @@ class ResidentialRolloverProfile(RolloverProfileBase):
     - Stochastic analysis integration (Monte Carlo, unit-level variability)
     - Manual rollover chain specification for special cases
     """
-    
+
     # Residential-specific defaults
     renewal_probability: float = 0.60  # 60% renewal probability
     downtime_months: int = 1  # 1 month typical downtime
     term_months: PositiveInt = 12  # 12-month leases typical
-    
+
     # Typed terms for residential
     market_terms: ResidentialRolloverLeaseTerms
     renewal_terms: ResidentialRolloverLeaseTerms
-    
+
     # TODO: Future enhancement - Rollover chain override capabilities
     # This field will enable:
     # - Time-based assumption evolution (renewal rates declining with building age)
@@ -89,10 +84,10 @@ class ResidentialRolloverProfile(RolloverProfileBase):
     # - Manual rollover chain specification for complex modeling scenarios
     override_config: Optional[Dict[str, Any]] = Field(
         default=None,
-        description="Optional configuration for overriding default rollover behavior"
+        description="Optional configuration for overriding default rollover behavior",
     )
     option_terms: Optional[ResidentialRolloverLeaseTerms] = None
-    
+
     # === STATE TRANSITIONS ===
     # Note: State transitions can be modeled through development scenarios
     # using ResidentialDevelopmentBlueprint + ResidentialAbsorptionPlan
@@ -105,7 +100,7 @@ class ResidentialRolloverProfile(RolloverProfileBase):
     ) -> float:
         """
         Calculate the market rent as of a specific date for residential units.
-        
+
         Residential rent calculation is simpler than commercial:
         - Usually a base monthly rent with growth applied
         - Renewal increases are percentage-based
@@ -117,34 +112,41 @@ class ResidentialRolloverProfile(RolloverProfileBase):
         # For residential, market_rent should be monthly currency amount
         if isinstance(terms.market_rent, (int, float)):
             base_monthly_rent = terms.market_rent
-            
+
             # Apply growth if specified and if we have a growth rate
             if terms.market_rent_growth and global_settings:
                 growth_base_date = global_settings.analysis_start_date
                 if as_of_date >= growth_base_date:
                     # Calculate growth from base date to as_of_date
                     import pandas as pd
-                    growth_periods = pd.period_range(start=growth_base_date, end=as_of_date, freq="M")
-                    
+
+                    growth_periods = pd.period_range(
+                        start=growth_base_date, end=as_of_date, freq="M"
+                    )
+
                     if len(growth_periods) > 0:
                         growth_value = terms.market_rent_growth.value
-                        
+
                         if isinstance(growth_value, (float, int)):
                             # Simple compound growth
                             months_elapsed = len(growth_periods)
                             monthly_growth_rate = float(growth_value) / 12.0
-                            growth_factor = (1.0 + monthly_growth_rate) ** months_elapsed
+                            growth_factor = (
+                                1.0 + monthly_growth_rate
+                            ) ** months_elapsed
                             base_monthly_rent *= growth_factor
-            
+
             return base_monthly_rent
-        
+
         # TODO: Add support for Series and Dict rent schedules if needed
-        raise NotImplementedError(f"Unsupported market_rent type for residential: {type(terms.market_rent)}")
+        raise NotImplementedError(
+            f"Unsupported market_rent type for residential: {type(terms.market_rent)}"
+        )
 
     def blend_lease_terms(self) -> ResidentialRolloverLeaseTerms:
         """
         Blend market and renewal terms based on renewal probability.
-        
+
         Residential blending is simpler than commercial since the terms
         are less complex (no complex TI/LC structures).
         """
@@ -155,45 +157,64 @@ class ResidentialRolloverProfile(RolloverProfileBase):
 
         market_prob = 1 - self.renewal_probability
         renewal_prob = self.renewal_probability
-        
+
         market_terms = self.market_terms
         renewal_terms = self.renewal_terms
 
         # Blend market rent
         blended_rent = None
-        if isinstance(market_terms.market_rent, (int, float)) and isinstance(renewal_terms.market_rent, (int, float)):
-            blended_rent = (renewal_terms.market_rent * renewal_prob) + (market_terms.market_rent * market_prob)
+        if isinstance(market_terms.market_rent, (int, float)) and isinstance(
+            renewal_terms.market_rent, (int, float)
+        ):
+            blended_rent = (renewal_terms.market_rent * renewal_prob) + (
+                market_terms.market_rent * market_prob
+            )
         else:
             blended_rent = market_terms.market_rent
 
         # Blend growth rates
         blended_growth = None
-        if (market_terms.market_rent_growth and renewal_terms.market_rent_growth and 
-            isinstance(market_terms.market_rent_growth.value, (int, float)) and 
-            isinstance(renewal_terms.market_rent_growth.value, (int, float))):
-            blended_rate_value = (renewal_terms.market_rent_growth.value * renewal_prob) + (market_terms.market_rent_growth.value * market_prob)
-            blended_growth = PercentageGrowthRate(name="Blended Growth", value=blended_rate_value)
+        if (
+            market_terms.market_rent_growth
+            and renewal_terms.market_rent_growth
+            and isinstance(market_terms.market_rent_growth.value, (int, float))
+            and isinstance(renewal_terms.market_rent_growth.value, (int, float))
+        ):
+            blended_rate_value = (
+                renewal_terms.market_rent_growth.value * renewal_prob
+            ) + (market_terms.market_rent_growth.value * market_prob)
+            blended_growth = PercentageGrowthRate(
+                name="Blended Growth", value=blended_rate_value
+            )
         else:
-            blended_growth = market_terms.market_rent_growth or renewal_terms.market_rent_growth
+            blended_growth = (
+                market_terms.market_rent_growth or renewal_terms.market_rent_growth
+            )
 
         # Blend renewal increase percentage
-        blended_renewal_increase = (renewal_terms.renewal_rent_increase_percent * renewal_prob) + (market_terms.renewal_rent_increase_percent * market_prob)
-        
-        # Blend concessions (round to whole months)
-        blended_concessions = round((renewal_terms.concessions_months * renewal_prob) + (market_terms.concessions_months * market_prob))
-        
+        blended_renewal_increase = (
+            renewal_terms.renewal_rent_increase_percent * renewal_prob
+        ) + (market_terms.renewal_rent_increase_percent * market_prob)
 
+        # Blend concessions (round to whole months)
+        blended_concessions = round(
+            (renewal_terms.concessions_months * renewal_prob)
+            + (market_terms.concessions_months * market_prob)
+        )
 
         # Blend term length - ensure we always have a valid term_months
         blended_term_months = self.term_months  # Use profile default as fallback
-        
+
         if market_terms.term_months and renewal_terms.term_months:
-            blended_term_months = round((renewal_terms.term_months * renewal_prob) + (market_terms.term_months * market_prob))
+            blended_term_months = round(
+                (renewal_terms.term_months * renewal_prob)
+                + (market_terms.term_months * market_prob)
+            )
         elif market_terms.term_months:
             blended_term_months = market_terms.term_months
         elif renewal_terms.term_months:
             blended_term_months = renewal_terms.term_months
-        
+
         # Final fallback to ensure we never return None
         if blended_term_months is None:
             blended_term_months = 12  # Standard residential lease term
@@ -205,5 +226,5 @@ class ResidentialRolloverProfile(RolloverProfileBase):
             market_rent_growth=blended_growth,
             renewal_rent_increase_percent=blended_renewal_increase,
             concessions_months=blended_concessions,
-            term_months=blended_term_months
-        ) 
+            term_months=blended_term_months,
+        )

@@ -29,7 +29,7 @@ class OfficeMiscIncome(MiscIncomeBase):
         if self.is_variable and context.occupancy_rate_series is not None:
             fixed_ratio = 1.0 - (self.variable_ratio or 0.0)
             variable_part = self.variable_ratio or 0.0
-            
+
             occupancy_rate = context.occupancy_rate_series
             if isinstance(occupancy_rate, pd.Series):
                 aligned_occupancy = occupancy_rate.reindex(
@@ -40,5 +40,5 @@ class OfficeMiscIncome(MiscIncomeBase):
                 adjustment_ratio = fixed_ratio + (variable_part * float(occupancy_rate))
 
             base_cf *= adjustment_ratio
-            
-        return base_cf 
+
+        return base_cf

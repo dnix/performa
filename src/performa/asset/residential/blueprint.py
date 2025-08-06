@@ -5,7 +5,7 @@
 Residential development blueprint implementation.
 
 This module defines the concrete implementation of the development blueprint pattern
-for residential/multifamily assets, following the "Asset Factory" design where 
+for residential/multifamily assets, following the "Asset Factory" design where
 development projects create stabilized assets rather than becoming assets themselves.
 
 The residential blueprint follows the "unit-centric" paradigm of multifamily real estate
@@ -26,62 +26,62 @@ from .rent_roll import ResidentialRentRoll, ResidentialVacantUnit
 class ResidentialDevelopmentBlueprint(DevelopmentBlueprintBase):
     """
     Development blueprint for residential/multifamily assets.
-    
+
     This class encapsulates all the knowledge required to transform a development
     plan into a stabilized residential property. It follows the "Asset Factory" pattern
     where the blueprint acts as a specialized factory for creating ResidentialProperty
     instances from development inputs.
-    
+
     The blueprint contains:
     - vacant_inventory: The unit mix being developed (unit-centric approach)
     - absorption_plan: Complete business plan for stabilization (REQUIRED)
-    
+
     The absorption_plan serves as the complete business plan and contains:
     - Leasing pace and timing (unit-based: lease 10 units/month)
     - Template lease specifications for new market leases
-    - Stabilized operating assumptions  
+    - Stabilized operating assumptions
     - Complete business logic for vacant units → stabilization
-    
+
     Key Differences from Office Blueprint:
     - Unit-centric vs area-centric (units instead of square footage)
     - ResidentialVacantUnit vs OfficeVacantSuite
     - Creates ResidentialProperty vs OfficeProperty
     - Unit mix modeling vs individual lease specifications
-    
+
     Attributes:
         vacant_inventory: List of vacant residential units to be leased up
         absorption_plan: Complete business plan for lease-up and stabilization
     """
-    
+
     use_type: Literal["RESIDENTIAL"] = "RESIDENTIAL"
     vacant_inventory: List[ResidentialVacantUnit]
     absorption_plan: ResidentialAbsorptionPlan
-    
+
     # TODO: Future consideration - alternative path for direct stabilized asset specification
     # (explicit unit specs, expenses, losses, misc_income without absorption logic)
     # This would enable instant stabilization scenarios vs. phased lease-up scenarios
-    
+
     def to_stabilized_asset(self, timeline: Timeline) -> ResidentialProperty:
         """
         Factory method to create a stabilized residential property.
-        
+
         This method executes the absorption plan against the vacant inventory
         to generate unit specifications, then constructs a fully-formed
         ResidentialProperty ready for operations analysis.
-        
+
         The process:
         1. Execute absorption plan to generate unit specs from vacant inventory
-        2. Identify any remaining vacant units after absorption  
+        2. Identify any remaining vacant units after absorption
         3. Create stabilized rent roll with generated unit specs + remaining vacant
         4. Apply stabilized operating assumptions from absorption plan
         5. Return fully-formed ResidentialProperty ready for analysis
-        
+
         Args:
             timeline: Project timeline for phasing construction and absorption
-            
+
         Returns:
             Stabilized ResidentialProperty with unit specs and operating assumptions
-            
+
         Raises:
             ValueError: If absorption plan execution fails
             ValueError: If timeline is incompatible with absorption plan
@@ -91,11 +91,11 @@ class ResidentialDevelopmentBlueprint(DevelopmentBlueprintBase):
                 "Cannot execute absorption plan with relative timeline. "
                 "Timeline must be absolute with specific start/end dates."
             )
-        
+
         # Convert timeline to dates for absorption plan execution
         analysis_start_date = timeline.start_date.to_timestamp().date()
         analysis_end_date = timeline.end_date.to_timestamp().date()
-        
+
         # Execute absorption plan to generate unit specifications
         generated_unit_specs = self.absorption_plan.generate_unit_specs(
             available_vacant_units=self.vacant_inventory,
@@ -104,17 +104,18 @@ class ResidentialDevelopmentBlueprint(DevelopmentBlueprintBase):
             lookup_fn=None,  # TODO: Add lookup function support if needed
             global_settings=None,  # TODO: Add global settings support if needed
         )
-        
+
         # Identify remaining vacant units after absorption
         # For residential, we track by unit counts rather than area
         remaining_vacant_units = []
         for vacant_unit in self.vacant_inventory:
             # Count how many units of this type were absorbed
             absorbed_count = sum(
-                spec.unit_count for spec in generated_unit_specs 
+                spec.unit_count
+                for spec in generated_unit_specs
                 if spec.unit_type_name == vacant_unit.unit_type_name
             )
-            
+
             # If there are remaining units, create a new vacant unit entry
             remaining_count = vacant_unit.unit_count - absorbed_count
             if remaining_count > 0:
@@ -126,32 +127,33 @@ class ResidentialDevelopmentBlueprint(DevelopmentBlueprintBase):
                     rollover_profile=vacant_unit.rollover_profile,
                 )
                 remaining_vacant_units.append(remaining_vacant_unit)
-        
+
         # Create stabilized rent roll with unit-centric structure
         stabilized_rent_roll = ResidentialRentRoll(
             unit_specs=generated_unit_specs,
             vacant_units=remaining_vacant_units,
         )
-        
+
         # Extract stabilized operating assumptions from absorption plan
         # This implements the "Asset Factory" pattern where the absorption plan
         # serves as the complete business plan including operating characteristics
         stabilized_expenses = self.absorption_plan.stabilized_expenses
         stabilized_losses = self.absorption_plan.stabilized_losses
         stabilized_misc_income = self.absorption_plan.stabilized_misc_income
-        
+
         # Calculate total area from unit mix for NRA
         total_area = sum(unit.total_area for unit in self.vacant_inventory)
-        
+
         # Create and return the stabilized residential property
         return ResidentialProperty(
             name=self.name,
             address=None,  # TODO: Add address support from development project
-            gross_area=total_area * 1.15,  # FIXME: Assume 15% efficiency factor for residential (includes common areas)
+            gross_area=total_area
+            * 1.15,  # FIXME: Assume 15% efficiency factor for residential (includes common areas)
             net_rentable_area=total_area,
             unit_mix=stabilized_rent_roll,
             expenses=stabilized_expenses,
             losses=stabilized_losses,
             miscellaneous_income=stabilized_misc_income,
             capital_plans=[],  # Empty for stabilized asset
-        ) 
+        )

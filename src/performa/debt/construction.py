@@ -46,7 +46,7 @@ class DebtTranche(Model):
     ltc_threshold: FloatBetween0And1 = Field(
         ..., description="Maximum LTC for this tranche"
     )
-    
+
     # Advanced features for institutional parity
     # NOTE: Advanced interest features not included in MVP
     commitment_fee_rate: Optional[FloatBetween0And1] = Field(
@@ -99,10 +99,10 @@ class DebtTranche(Model):
         # Calculate available capacity
         remaining_in_tranche = max_tranche_amount - cumulative_tranche
         ltc_limit = (cumulative_cost * tranche_ltc) - cumulative_tranche
-        
+
         # Ensure LTC limit is not negative (can't draw negative amounts)
         ltc_limit = max(0.0, ltc_limit)
-        
+
         available = min(remaining_in_tranche, ltc_limit)
 
         # Return draw amount
@@ -144,19 +144,19 @@ class DebtTranche(Model):
 class ConstructionFacility(DebtFacility):
     """
     Construction loan facility with multiple debt tranches.
-    
+
     This class has been architecturally purified to act as a 'subcontractor'
     rather than an orchestrator. It responds to funding requests from the
     deal calculator by determining how much each tranche can provide based
     on LTC limits and current state.
-    
+
     Key Features:
     - Multi-tranche construction financing
     - LTC-based draw controls
     - Interest capitalization and advanced payment options
     - Commitment fees and exit fees
     - Interest reserve funding capability with configurable reserve rate
-    
+
     Attributes:
         kind: Discriminator field for union types
         name: Name of the construction facility
@@ -164,28 +164,30 @@ class ConstructionFacility(DebtFacility):
         fund_interest_from_reserve: Whether to fund interest from facility or require equity
         interest_reserve_rate: Interest reserve as percentage of total facility capacity (default 15%)
     """
-    
+
     # Discriminator field for union types - REQUIRED
     kind: Literal["construction"] = "construction"
-    
+
     # Facility identity
-    name: str = Field(default="Construction Loan", description="Name of the construction facility")
-    
+    name: str = Field(
+        default="Construction Loan", description="Name of the construction facility"
+    )
+
     # Construction-specific attributes
     tranches: List[DebtTranche] = Field(
         ...,
         description="List of debt tranches ordered by seniority (senior first)",
-        min_length=1
+        min_length=1,
     )
-    
+
     fund_interest_from_reserve: bool = Field(
         default=False,
-        description="Whether to fund interest payments from debt facility or require equity"
+        description="Whether to fund interest payments from debt facility or require equity",
     )
-    
+
     interest_reserve_rate: FloatBetween0And1 = Field(
         default=0.15,
-        description="Interest reserve as percentage of total facility capacity (default 15%)"
+        description="Interest reserve as percentage of total facility capacity (default 15%)",
     )
 
     @model_validator(mode="after")
@@ -219,7 +221,9 @@ class ConstructionFacility(DebtFacility):
 
     def calculate_interest(self) -> float:
         """Calculate interest for a period"""
-        raise NotImplementedError("Use calculate_period_draws and get_outstanding_balance instead")
+        raise NotImplementedError(
+            "Use calculate_period_draws and get_outstanding_balance instead"
+        )
 
     @property
     def max_ltc(self) -> FloatBetween0And1:
@@ -231,12 +235,12 @@ class ConstructionFacility(DebtFacility):
         funding_needed: float,
         total_project_cost: float,
         cumulative_costs_to_date: float,
-        cumulative_draws_by_tranche: Dict[str, float]
+        cumulative_draws_by_tranche: Dict[str, float],
     ) -> Dict[str, float]:
         """
         Calculates the available draws from each tranche for a single period,
         given a specific funding requirement.
-        
+
         This method is the focused "subcontractor" response to funding requests from
         the deal orchestrator. It determines how much each tranche can provide based
         on its LTC limits and current state.
@@ -257,35 +261,33 @@ class ConstructionFacility(DebtFacility):
         for tranche in self.tranches:
             if remaining_funding_need <= 0:
                 break
-            
+
             cumulative_tranche_draw = cumulative_draws_by_tranche.get(tranche.name, 0.0)
-            
+
             # Calculate available draw for this tranche
             tranche_draw = tranche.calculate_draw_amount(
                 total_cost=total_project_cost,
                 cumulative_cost=cumulative_costs_to_date,
                 cumulative_tranche=cumulative_tranche_draw,
                 previous_ltc=previous_ltc,
-                remaining_cost=remaining_funding_need
+                remaining_cost=remaining_funding_need,
             )
-            
+
             if tranche_draw > 0:
                 period_draws[tranche.name] = tranche_draw
                 remaining_funding_need -= tranche_draw
-            
+
             previous_ltc = tranche.ltc_threshold
-            
+
         return period_draws
 
     def get_outstanding_balance(
-        self,
-        as_of_date: date,
-        financing_cash_flows: pd.DataFrame
+        self, as_of_date: date, financing_cash_flows: pd.DataFrame
     ) -> float:
         """
         Calculates the total outstanding balance (principal + accrued interest)
         as of a specific date.
-        
+
         This method provides the critical link for refinancing by calculating
         the total payoff amount needed to clear the construction facility.
 
@@ -297,21 +299,23 @@ class ConstructionFacility(DebtFacility):
             float: Total outstanding balance including principal and accrued interest
         """
         # Ensure the DataFrame index is compatible
-        as_of_period = pd.Period(as_of_date, freq='M')
+        as_of_period = pd.Period(as_of_date, freq="M")
         relevant_flows = financing_cash_flows.loc[:as_of_period]
-        
+
         total_principal_drawn = 0.0
         total_interest_accrued = 0.0
-        
+
         for tranche in self.tranches:
             # Sum up principal draws for this tranche
             if f"{tranche.name} Draw" in relevant_flows.columns:
                 total_principal_drawn += relevant_flows[f"{tranche.name} Draw"].sum()
-            
+
             # Sum up accrued interest for this tranche
             if f"{tranche.name} Interest" in relevant_flows.columns:
-                total_interest_accrued += relevant_flows[f"{tranche.name} Interest"].sum()
-            
+                total_interest_accrued += relevant_flows[
+                    f"{tranche.name} Interest"
+                ].sum()
+
         # Payoff amount is principal drawn plus any accrued interest not yet paid
         payoff_amount = total_principal_drawn + total_interest_accrued
         return payoff_amount
@@ -346,26 +350,26 @@ class ConstructionFacility(DebtFacility):
         Returns:
             pd.Series with tranche names as index and fee amounts as values
         """
-        fee_rates = pd.Series(
-            {tranche.name: tranche.fee_rate for tranche in self.tranches}
-        )
+        fee_rates = pd.Series({
+            tranche.name: tranche.fee_rate for tranche in self.tranches
+        })
         return tranche_amounts * fee_rates[tranche_amounts.index]
 
     def calculate_debt_service(self, timeline) -> pd.Series:
         """
         Calculate debt service time series for construction facility.
-        
-        During construction, debt service is typically interest-only, 
+
+        During construction, debt service is typically interest-only,
         with principal due at maturity/refinancing. For construction loans,
         interest and principal payments are handled by the deal orchestrator
         rather than this facility method.
-        
+
         Args:
             timeline: Timeline object with period_index
-            
+
         Returns:
             pd.Series: Debt service by period (intentionally zero - handled by orchestrator)
-            
+
         Note:
             This method intentionally returns zero because construction loan
             interest is calculated and compounded by the deal orchestrator
@@ -373,8 +377,8 @@ class ConstructionFacility(DebtFacility):
         """
         # Initialize debt service series
         debt_service = pd.Series(0.0, index=timeline.period_index)
-        
-        # For construction loans, interest and principal are handled by the 
+
+        # For construction loans, interest and principal are handled by the
         # deal orchestrator based on actual draws and interest accrual.
         # This architectural choice prevents double-counting of interest.
         return debt_service
@@ -382,17 +386,17 @@ class ConstructionFacility(DebtFacility):
     def calculate_loan_proceeds(self, timeline) -> pd.Series:
         """
         Calculate loan proceeds time series for construction facility.
-        
+
         For construction loans, proceeds are driven by the construction schedule
         and draw requests, which are handled by the deal orchestrator through
         the calculate_period_draws() method.
-        
+
         Args:
             timeline: Timeline object with period_index
-            
+
         Returns:
             pd.Series: Loan proceeds by period (intentionally zero - handled by orchestrator)
-            
+
         Note:
             This method intentionally returns zero because construction loan
             proceeds are calculated by the deal orchestrator based on actual
@@ -400,8 +404,8 @@ class ConstructionFacility(DebtFacility):
         """
         # Initialize loan proceeds series
         loan_proceeds = pd.Series(0.0, index=timeline.period_index)
-        
-        # For construction loans, proceeds are driven by the construction 
+
+        # For construction loans, proceeds are driven by the construction
         # schedule and draw requests, which are handled by the deal orchestrator
         # through calculate_period_draws(). This architectural choice ensures
         # proceeds match actual funding needs rather than predetermined schedules.

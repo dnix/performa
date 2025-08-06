@@ -55,7 +55,7 @@ class OfficeProperty(PropertyBaseModel):
 
     # Real estate classification - this IS a property type (unlike DevelopmentProject)
     property_type: AssetTypeEnum = AssetTypeEnum.OFFICE
-    
+
     rent_roll: OfficeRentRoll
     losses: OfficeLosses
     miscellaneous_income: List[OfficeMiscIncome] = Field(default_factory=list)
@@ -68,15 +68,13 @@ class OfficeProperty(PropertyBaseModel):
             PropertySuite(
                 suite_id=lease.suite,
                 area=lease.area,
-                tenant=OfficeTenant(id=lease.tenant_name, name=lease.tenant_name)
-            ) for lease in self.rent_roll.leases
+                tenant=OfficeTenant(id=lease.tenant_name, name=lease.tenant_name),
+            )
+            for lease in self.rent_roll.leases
         ]
         vacant_suites = [
-            PropertySuite(
-                suite_id=suite.suite,
-                area=suite.area,
-                tenant=None
-            ) for suite in self.rent_roll.vacant_suites
+            PropertySuite(suite_id=suite.suite, area=suite.area, tenant=None)
+            for suite in self.rent_roll.vacant_suites
         ]
         return leased_suites + vacant_suites
 
@@ -89,7 +87,9 @@ class OfficeProperty(PropertyBaseModel):
                 if lease.floor not in floor_tenants:
                     floor_tenants[lease.floor] = []
                     floor_areas[lease.floor] = 0
-                floor_tenants[lease.floor].append(OfficeTenant(id=lease.tenant_name, name=lease.tenant_name))
+                floor_tenants[lease.floor].append(
+                    OfficeTenant(id=lease.tenant_name, name=lease.tenant_name)
+                )
                 floor_areas[lease.floor] += lease.area
         return [
             PropertyFloor(
@@ -120,19 +120,19 @@ class OfficeProperty(PropertyBaseModel):
             return 0.0
         return self.occupied_area / self.net_rentable_area
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def _validate_area_consistency(self) -> "OfficeProperty":
         """
         Validate that rent roll total area matches net rentable area.
-        
+
         Logs a warning if there's a meaningful discrepancy, which could indicate:
         - Missing vacant suites in the rent roll
-        - Incorrect NRA specification  
+        - Incorrect NRA specification
         - Area calculation errors
         """
         rent_roll_total = self.rent_roll.total_area
         nra = self.net_rentable_area
-        
+
         # Allow small rounding differences (0.1% tolerance)
         tolerance = 0.001
         if nra > 0 and abs(rent_roll_total - nra) / nra > tolerance:
@@ -149,5 +149,5 @@ class OfficeProperty(PropertyBaseModel):
                 f"Rent roll has {rent_roll_total:,.0f} SF but Net Rentable Area is 0. "
                 f"This may indicate missing NRA specification."
             )
-        
-        return self 
+
+        return self

@@ -75,27 +75,27 @@ class ReportingSettings(Model):
 class CalculationSettings(Model):
     """
     Configuration settings for the calculation engine behavior.
-    
+
     These settings control how the property analysis calculation engine processes
     models, validates dependencies, and handles complex scenarios. They provide
     fine-grained control over calculation behavior without affecting the core
     business logic.
-    
+
     Key Features:
     - Dependency complexity validation for defensive programming
     - Configurable limits for institutional vs. standard properties
     - Safety overrides to prevent accidental complex configurations
-    
+
     Usage Examples:
         # Standard property analysis (default settings)
         calc_settings = CalculationSettings()
-        
-        # Institutional deal with complex dependencies  
+
+        # Institutional deal with complex dependencies
         calc_settings = CalculationSettings(
             max_dependency_depth=3,
             allow_complex_dependencies=True
         )
-        
+
         # Conservative settings for high-volume batch processing
         calc_settings = CalculationSettings(
             max_dependency_depth=1,
@@ -122,7 +122,7 @@ class CalculationSettings(Model):
             "Controls complexity validation to prevent performance issues and hard-to-debug scenarios. "
             "Examples: 1=simple dependencies only, 2=standard (admin fees on totals), "
             "3+=complex institutional structures. Values >2 require allow_complex_dependencies=True."
-        )
+        ),
     )
     allow_complex_dependencies: bool = Field(
         default=False,
@@ -131,7 +131,7 @@ class CalculationSettings(Model):
             "Prevents accidental complex configurations that could impact performance "
             "or create difficult debugging scenarios. Required for institutional deals "
             "with tiered fees, complex waterfalls, or nested percentage calculations."
-        )
+        ),
     )
 
 
@@ -193,9 +193,11 @@ class RecoverySettings(Model):
         default=False,
         description="If True, gross up to 100% occupancy always; if False, gross up to the threshold occupancy level (e.g., 95%).",
     )
-    
+
     # FIXME: add support for expense recovery method functionality
-    default_recovery_method: Optional[RecoveryMethodEnum] = None  # Often expense-specific
+    default_recovery_method: Optional[RecoveryMethodEnum] = (
+        None  # Often expense-specific
+    )
 
     # FIXME: add support for expense cap functionality here in settings
 
@@ -203,7 +205,7 @@ class RecoverySettings(Model):
     # The cap functionality is currently implemented at the Recovery model level
     # Future enhancement could include:
     # - default_cap_rate: Optional[PositiveFloat] for portfolio-wide defaults
-    # - cap_methodology: Literal["compound", "simple"] for calculation method  
+    # - cap_methodology: Literal["compound", "simple"] for calculation method
     # - portfolio_cap_policies: Dict for property-type specific defaults
     # - cap_validation_rules: For business logic enforcement
 
@@ -216,16 +218,13 @@ class ValuationSettings(Model):
     """Settings for property valuation metrics."""
 
     discount_rate: Optional[PositiveFloat] = Field(
-        default=None,
-        description="Annual discount rate used for DCF analysis."
+        default=None, description="Annual discount rate used for DCF analysis."
     )
     exit_valuation_method: Literal["cap_rate", "dcf_only", "none"] = Field(
-        default="cap_rate",
-        description="Method for determining exit/terminal value."
+        default="cap_rate", description="Method for determining exit/terminal value."
     )
     exit_cap_rate: Optional[PositiveFloat] = Field(
-        default=None,
-        description="Cap rate applied to forward NOI for exit valuation."
+        default=None, description="Cap rate applied to forward NOI for exit valuation."
     )
     exit_cap_rate_basis_noi_year_offset: PositiveInt = Field(
         default=1,
@@ -233,8 +232,7 @@ class ValuationSettings(Model):
         description="Offset from the final analysis year to determine NOI for cap rate application (e.g., 1 means Year N+1 NOI).",
     )
     costs_of_sale_percentage: FloatBetween0And1 = Field(
-        default=0.03,
-        description="Transaction costs as a percentage of exit value."
+        default=0.03, description="Transaction costs as a percentage of exit value."
     )
 
 
@@ -255,4 +253,6 @@ class GlobalSettings(Model):
     inflation: InflationSettings = Field(default_factory=InflationSettings)
     recoveries: RecoverySettings = Field(default_factory=RecoverySettings)
     valuation: ValuationSettings = Field(default_factory=ValuationSettings)
-    percentage_rent: PercentageRentSettings = Field(default_factory=PercentageRentSettings) 
+    percentage_rent: PercentageRentSettings = Field(
+        default_factory=PercentageRentSettings
+    )

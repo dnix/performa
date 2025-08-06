@@ -4,7 +4,7 @@
 """
 Deal Analysis Specialist Services
 
-This module provides the specialist services that handle different aspects of deal analysis 
+This module provides the specialist services that handle different aspects of deal analysis
 with clean separation of concerns and domain-driven design principles.
 
 The analysis workflow follows a systematic multi-pass approach:
@@ -23,14 +23,14 @@ Architecture:
 Example:
     ```python
     from performa.deal.analysis import (
-        AssetAnalyzer, DebtAnalyzer, CashFlowEngine, 
+        AssetAnalyzer, DebtAnalyzer, CashFlowEngine,
         PartnershipAnalyzer, ValuationEngine
     )
-    
+
     # Independent usage
     asset_analyzer = AssetAnalyzer(deal, timeline, settings)
     unlevered_results = asset_analyzer.analyze_unlevered_asset()
-    
+
     # Orchestrated usage (see orchestrator.py)
     debt_analyzer = DebtAnalyzer(deal, timeline, settings)
     financing_results = debt_analyzer.analyze_financing_structure(
@@ -55,8 +55,8 @@ from .valuation import ValuationEngine
 
 __all__ = [
     "AssetAnalyzer",
-    "CashFlowEngine", 
+    "CashFlowEngine",
     "DebtAnalyzer",
     "PartnershipAnalyzer",
     "ValuationEngine",
-] 
+]

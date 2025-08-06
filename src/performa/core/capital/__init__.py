@@ -14,4 +14,4 @@ from .plan import CapitalItem, CapitalPlan
 __all__ = [
     "CapitalItem",
     "CapitalPlan",
-] 
+]

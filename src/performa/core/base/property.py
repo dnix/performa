@@ -37,7 +37,6 @@ class PropertyBaseModel(Model):
     address: Optional[Address] = None
     year_built: Optional[PositiveInt] = None
 
-    
     # Physical Characteristics
     property_type: AssetTypeEnum
     gross_area: PositiveFloat

@@ -41,4 +41,6 @@ class MiscIncomeBase(CashFlowModel):
             return pd.Series(monthly_value, index=self.timeline.period_index)
         elif isinstance(self.value, pd.Series):
             return self.value.reindex(self.timeline.period_index, fill_value=0.0)
-        raise NotImplementedError("Base compute_cf requires override for complex value types.") 
+        raise NotImplementedError(
+            "Base compute_cf requires override for complex value types."
+        )

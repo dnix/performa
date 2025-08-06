@@ -25,72 +25,81 @@ from ..primitives.types import FloatBetween0And1, PositiveFloat, PositiveInt
 class RentEscalationBase(Model):
     """
     Base class for rent escalation mechanisms.
-    
+
     Defines how rent increases over time, supporting various escalation types:
-    - Fixed amount increases 
+    - Fixed amount increases
     - Percentage-based increases
-    
+
     Timing can be specified as either:
     - Absolute: start_date (specific date)
     - Relative: start_month (months from lease start, consistent with RentAbatement)
-    
+
     The rate field can be:
     - A simple float value for basic cases
-    - A PercentageGrowthRate object for complex percentage scenarios  
+    - A PercentageGrowthRate object for complex percentage scenarios
     - A FixedGrowthRate object for complex fixed dollar scenarios
     """
+
     type: Literal["fixed", "percentage"]
     rate: Union[PositiveFloat, PercentageGrowthRate, FixedGrowthRate]
     reference: Optional[ReferenceKey] = None
     is_relative: bool
-    
+
     # Timing: exactly one must be provided
     start_date: Optional[date] = None
     start_month: Optional[PositiveInt] = None
-    
+
     recurring: bool = False
     frequency_months: Optional[PositiveInt] = None
 
-    @model_validator(mode='after')
-    def validate_timing(self) -> 'RentEscalationBase':
+    @model_validator(mode="after")
+    def validate_timing(self) -> "RentEscalationBase":
         """Ensure exactly one timing method is provided"""
         # FIXME: consider using reusable validator?
         has_date = self.start_date is not None
         has_month = self.start_month is not None
-        
+
         if not (has_date or has_month):
             raise ValueError("Either start_date or start_month must be provided")
         if has_date and has_month:
             raise ValueError("Cannot provide both start_date and start_month")
-            
+
         return self
 
-    @field_validator('rate')
+    @field_validator("rate")
     @classmethod
     def validate_rate_type_consistency(cls, v, info):
         """Validate that rate type is consistent with escalation type"""
-        escalation_type = info.data.get('type')
-        
-        if escalation_type == 'percentage':
+        escalation_type = info.data.get("type")
+
+        if escalation_type == "percentage":
             # For percentage escalations, allow simple float (0-1) or PercentageGrowthRate
             if isinstance(v, (int, float)):
                 if not (0 <= v <= 1):
-                    raise ValueError(f"Percentage escalation rate must be between 0 and 1, got {v}")
-            elif hasattr(v, '__class__') and 'PercentageGrowthRate' in str(v.__class__):
+                    raise ValueError(
+                        f"Percentage escalation rate must be between 0 and 1, got {v}"
+                    )
+            elif hasattr(v, "__class__") and "PercentageGrowthRate" in str(v.__class__):
                 pass  # PercentageGrowthRate is valid
-            elif hasattr(v, '__class__') and 'FixedGrowthRate' in str(v.__class__):
-                raise ValueError("Cannot use FixedGrowthRate with percentage escalation type")
-            
-        elif escalation_type == 'fixed':
+            elif hasattr(v, "__class__") and "FixedGrowthRate" in str(v.__class__):
+                raise ValueError(
+                    "Cannot use FixedGrowthRate with percentage escalation type"
+                )
+
+        elif escalation_type == "fixed":
             # For fixed escalations, allow non-negative float or FixedGrowthRate (consistent with PositiveFloat)
             if isinstance(v, (int, float)):
                 if v < 0:
-                    raise ValueError(f"Fixed escalation rate must be non-negative, got {v}")
-            elif hasattr(v, '__class__') and 'FixedGrowthRate' in str(v.__class__):
+                    raise ValueError(
+                        f"Fixed escalation rate must be non-negative, got {v}"
+                    )
+            elif hasattr(v, "__class__") and "FixedGrowthRate" in str(v.__class__):
                 pass  # FixedGrowthRate is valid
-            elif hasattr(v, '__class__') and 'PercentageGrowthRate' in str(v.__class__):
-                raise ValueError("Cannot use PercentageGrowthRate with fixed escalation type")
-        
+            elif hasattr(v, "__class__") and "PercentageGrowthRate" in str(v.__class__):
+                raise ValueError(
+                    "Cannot use PercentageGrowthRate with fixed escalation type"
+                )
+
         return v
 
     @property
@@ -98,7 +107,7 @@ class RentEscalationBase(Model):
         """Check if this escalation uses a rate object instead of simple float"""
         return not isinstance(self.rate, (int, float))
 
-    @property 
+    @property
     def rate_object(self) -> Optional[Union[PercentageGrowthRate, FixedGrowthRate]]:
         """Get the rate object if one is used"""
         if self.uses_rate_object:
@@ -111,15 +120,17 @@ class RentEscalationBase(Model):
         if isinstance(self.rate, (int, float)):
             return self.rate
         else:
-            raise ValueError("Cannot get simple rate value from rate object - use rate_object property")
+            raise ValueError(
+                "Cannot get simple rate value from rate object - use rate_object property"
+            )
 
     def get_start_period(self, lease_start_period: pd.Period) -> pd.Period:
         """
         Get the escalation start period for a given lease start.
-        
+
         Args:
             lease_start_period: The lease start period (pd.Period)
-            
+
         Returns:
             The period when this escalation should begin
         """
@@ -135,10 +146,11 @@ class RentEscalationBase(Model):
 class RentAbatementBase(Model):
     """
     Base class for rent abatement (free rent) periods.
-    
+
     Defines periods where rent is reduced or waived entirely,
     commonly used in lease incentive packages.
     """
+
     months: int
     includes_recoveries: bool = False
     start_month: int = 1
@@ -148,8 +160,9 @@ class RentAbatementBase(Model):
 class TenantBase(Model):
     """
     Base class for tenant information and characteristics.
-    
+
     This is a placeholder for future tenant-specific data like
     creditworthiness, industry type, or special lease terms.
     """
-    pass 
+
+    pass

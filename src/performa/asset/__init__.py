@@ -18,7 +18,7 @@ __all__ = [
     "office",
     "residential",
     # "retail",
-    # "industrial", 
+    # "industrial",
     # "hotel",
     # etc.
 ]
