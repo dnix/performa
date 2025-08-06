@@ -867,7 +867,7 @@ def complex_office_stress_test():
             tenant_name=f"TechCorp {i + 1}",
             suite=f"Floor {9 + i}", floor=f"{9 + i}",
             area=25000, use_type=ProgramUseEnum.OFFICE,
-            start_date=date(2022 + i%3, 6, 1), term_months=60,  # 5-year leases
+            start_date=date(2022 + i % 3, 6, 1), term_months=60,  # 5-year leases
             base_rent_value=52.0 + i * 2, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=aggressive_method, rollover_profile=aggressive_rollover,
@@ -879,7 +879,7 @@ def complex_office_stress_test():
                     rate=0.04,  # 4% annual increase
                     # reference=None (direct currency amount)
                     is_relative=True,
-                    start_date=date(2023 + i%3, 6, 1),
+                    start_date=date(2023 + i % 3, 6, 1),
                     recurring=True,
                     frequency_months=12
                 )
@@ -901,7 +901,7 @@ def complex_office_stress_test():
             tenant_name=f"Professional Services {i + 1}",
             suite=f"Suite {1400 + i * 10}", floor=f"{14 + i // 4}",
             area=8500, use_type=ProgramUseEnum.OFFICE,
-            start_date=date(2021 + i%4, 1, 1), term_months=120,  # 10-year leases
+            start_date=date(2021 + i % 4, 1, 1), term_months=120,  # 10-year leases
             base_rent_value=38.0 + i, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=standard_method, rollover_profile=standard_rollover,
@@ -934,8 +934,8 @@ def complex_office_stress_test():
             tenant_name=f"Small Business {i + 1}",
             suite=f"Suite {2000 + i * 5}", floor=f"{20 + i // 8}",
             area=3200, use_type=ProgramUseEnum.OFFICE,
-            start_date=date(2022 + i%3, 1, 1), term_months=60,  # 5-year leases
-            base_rent_value=32.0 + i%8, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
+            start_date=date(2022 + i % 3, 1, 1), term_months=60,  # 5-year leases
+            base_rent_value=32.0 + i % 8, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=conservative_method, rollover_profile=aggressive_rollover,
             upon_expiration=UponExpirationEnum.MARKET,
