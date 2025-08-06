@@ -10,13 +10,13 @@ office, residential, development projects, existing assets, etc.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional
 from uuid import UUID, uuid4
 
 import pandas as pd
 from pydantic import Field, model_validator
 
-from ..core.primitives import Model, PositiveFloat, UnleveredAggregateLineKey
+from ..core.primitives import Model, PositiveFloat
 
 if TYPE_CHECKING:
     from performa.analysis import AnalysisContext

@@ -5,10 +5,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from datetime import date
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
-from uuid import UUID
+from typing import TYPE_CHECKING, Dict, Optional
 
-import numpy as np
 import pandas as pd
 from pydantic import computed_field, field_validator, model_validator
 
@@ -17,23 +15,17 @@ from ..primitives.enums import (
     CalculationPass,
     FrequencyEnum,
     LeaseStatusEnum,
-    ProgramUseEnum,
-    PropertyAttributeKey,
     UponExpirationEnum,
 )
 from ..primitives.model import Model
 from ..primitives.settings import GlobalSettings
-from ..primitives.timeline import Timeline
-from ..primitives.types import FloatBetween0And1, PositiveFloat, PositiveInt
 from ..primitives.validation import validate_term_specification
-from .lease_components import RentAbatementBase, RentEscalationBase, TenantBase
+from .lease_components import RentAbatementBase
 
 if TYPE_CHECKING:
     from performa.analysis import AnalysisContext
 
 # Now we can import these directly since there's no circular dependency
-from .cost import LeasingCommissionBase, TenantImprovementAllowanceBase
-from .recovery import RecoveryMethodBase
 from .rollover import RolloverProfileBase
 
 # --- Main Base Models ---

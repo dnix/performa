@@ -5,10 +5,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, Union
+from typing import List, Literal, Optional, Union
 from uuid import UUID, uuid4
 
-import pandas as pd
 from pydantic import Field, model_validator
 
 from ..primitives.growth_rates import GrowthRate

@@ -8,7 +8,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import date
 from typing import (
-    TYPE_CHECKING,
     Annotated,
     Any,
     Callable,
@@ -22,7 +21,6 @@ from typing import (
 )
 from uuid import UUID, uuid4
 
-import pandas as pd
 from pydantic import Field
 
 from ..primitives.cash_flow import ReferenceKey
@@ -34,7 +32,6 @@ from ..primitives.enums import (
 from ..primitives.growth_rates import GrowthRate
 from ..primitives.model import Model
 from ..primitives.settings import GlobalSettings
-from ..primitives.timeline import Timeline
 from ..primitives.types import PositiveFloat, PositiveInt
 from .cost import LeasingCommissionBase, TenantImprovementAllowanceBase
 from .lease import LeaseSpecBase

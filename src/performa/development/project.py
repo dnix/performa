@@ -20,9 +20,8 @@ from pydantic import Discriminator, computed_field
 
 from ..asset.office import OfficeDevelopmentBlueprint
 from ..asset.residential import ResidentialDevelopmentBlueprint
-from ..core.base import DevelopmentBlueprintBase, PropertyBaseModel
+from ..core.base import PropertyBaseModel
 from ..core.capital import CapitalPlan
-from ..core.primitives import AssetTypeEnum
 
 # Polymorphic union type for development blueprints
 AnyDevelopmentBlueprint = Annotated[

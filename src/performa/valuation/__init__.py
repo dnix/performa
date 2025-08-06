@@ -10,8 +10,6 @@ and development scenarios. Supports multiple valuation approaches.
 
 from typing import Union
 
-from pydantic import Field
-
 from .dcf import DCFValuation
 from .direct_cap import DirectCapValuation
 from .metrics import PropertyMetrics

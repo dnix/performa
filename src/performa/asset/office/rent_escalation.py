@@ -4,12 +4,11 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from ...core.base import RentEscalationBase
 from ...core.primitives import PropertyAttributeKey
 from ...core.primitives.cash_flow import ReferenceKey
-from ...core.primitives.growth_rates import FixedGrowthRate, PercentageGrowthRate
 
 
 class OfficeRentEscalation(RentEscalationBase):

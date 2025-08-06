@@ -4,26 +4,22 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
 import pandas as pd
-from pydantic import Field, computed_field, field_validator
+from pydantic import field_validator
 
 from ...core.base import LeaseBase
 from ...core.primitives import (
     FrequencyEnum,
-    GlobalSettings,
-    Model,
     PositiveFloat,
-    PositiveInt,
     Timeline,
     UponExpirationEnum,
 )
 
 if TYPE_CHECKING:
     from ...analysis import AnalysisContext
-    from ...core.capital import CapitalPlan
-    from .rollover import ResidentialRolloverLeaseTerms, ResidentialRolloverProfile
+    from .rollover import ResidentialRolloverProfile
 
 logger = logging.getLogger(__name__)
 

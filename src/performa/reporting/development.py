@@ -11,7 +11,7 @@ familiar real estate industry formats and language.
 from datetime import date
 from typing import Any, Dict, List, Optional
 
-from .base import IndustryMetrics, Report, ReportTemplate
+from .base import Report, ReportTemplate
 
 
 class SourcesAndUsesReport(Report):

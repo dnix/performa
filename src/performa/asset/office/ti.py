@@ -4,16 +4,13 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Callable, Optional, Union
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from ...analysis import AnalysisContext
 from ...core.base import TenantImprovementAllowanceBase
 from ...core.primitives import PropertyAttributeKey
-
-if TYPE_CHECKING:
-    from .lease import OfficeLease
 
 logger = logging.getLogger(__name__)
 

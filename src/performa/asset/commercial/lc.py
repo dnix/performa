@@ -3,8 +3,7 @@
 
 from __future__ import annotations
 
-import math
-from typing import List, Literal
+from typing import List
 
 import pandas as pd
 

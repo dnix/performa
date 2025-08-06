@@ -20,7 +20,7 @@ from ..asset.residential.property import ResidentialProperty
 from ..core.primitives import AssetTypeEnum, Model
 from ..debt.plan import FinancingPlan
 from ..development.project import DevelopmentProject
-from ..valuation import AnyValuation, DCFValuation, ReversionValuation
+from ..valuation import AnyValuation
 from .acquisition import AcquisitionTerms
 from .fees import DealFee
 from .partnership import PartnershipStructure

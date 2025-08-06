@@ -102,7 +102,6 @@ from performa.asset.residential import (
     ResidentialProperty,
     ResidentialRentRoll,
     ResidentialUnitSpec,
-    ResidentialVacantUnit,
     ResidentialRolloverProfile,
     ResidentialRolloverLeaseTerms,
     ResidentialAbsorptionPlan,
@@ -111,14 +110,11 @@ from performa.asset.residential import (
     ResidentialLosses,
     ResidentialGeneralVacancyLoss,
     ResidentialCollectionLoss,
-    ResidentialMiscIncome,
 )
 from performa.asset.residential.absorption import (
-    ResidentialUnitFilter,
     ResidentialDirectLeaseTerms,
 )
 from performa.core.primitives import (
-    AssetTypeEnum,
     ExpenseSubcategoryEnum,
     FrequencyEnum,
     GlobalSettings,

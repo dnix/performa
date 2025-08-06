@@ -10,13 +10,12 @@ to support complex financing scenarios like construction-to-permanent workflows.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from pydantic import Field, computed_field, model_validator
 
 from ..core.primitives import Model
 from .construction import ConstructionFacility
-from .debt_facility import DebtFacility
 from .permanent import PermanentFacility
 from .types import AnyDebtFacility
 

@@ -9,7 +9,7 @@ from enum import Enum
 from typing import Literal, Optional, Union
 
 import pandas as pd
-from pydantic import Field, model_validator
+from pydantic import Field
 from typing_extensions import Annotated
 
 from ..core.primitives import FloatBetween0And1, Model, PositiveFloat

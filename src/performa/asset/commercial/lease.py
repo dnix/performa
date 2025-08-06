@@ -6,17 +6,14 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from datetime import date
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
-from dateutil.relativedelta import relativedelta
 
 from performa.core.base import LeaseBase, RentEscalationBase, RolloverLeaseTermsBase
 from performa.core.primitives import (
     FrequencyEnum,
-    LeaseStatusEnum,
-    LeaseTypeEnum,
     PropertyAttributeKey,
     Timeline,
     UponExpirationEnum,

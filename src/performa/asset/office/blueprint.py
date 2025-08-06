@@ -16,9 +16,6 @@ from typing import List, Literal
 from ...core.base import DevelopmentBlueprintBase
 from ...core.primitives import Timeline
 from .absorption import OfficeAbsorptionPlan
-from .expense import OfficeExpenses
-from .losses import OfficeCollectionLoss, OfficeGeneralVacancyLoss, OfficeLosses
-from .misc_income import OfficeMiscIncome
 from .property import OfficeProperty
 from .rent_roll import OfficeRentRoll, OfficeVacantSuite
 

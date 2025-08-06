@@ -78,9 +78,8 @@ with proper separation of concerns between asset, debt, and equity components.
 """
 
 import sys
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
-from uuid import uuid4
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -98,7 +97,6 @@ from performa.core.primitives import (
     AssetTypeEnum,
     FirstOnlyDrawSchedule,
     GlobalSettings,
-    LeaseTypeEnum,
     ProgramUseEnum,
     Timeline,
     PropertyAttributeKey,

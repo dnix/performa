@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from datetime import date
 from typing import List, Optional
-from uuid import UUID
 
 from pydantic import Field, computed_field, model_validator
 

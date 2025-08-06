@@ -7,10 +7,10 @@ from datetime import date
 from typing import List, Optional, Union
 
 import pandas as pd
-from pydantic import computed_field, model_validator
+from pydantic import computed_field
 
 from ...core.base import LeaseSpecBase
-from ...core.primitives import LeaseTypeEnum, PositiveInt, UponExpirationEnum
+from ...core.primitives import LeaseTypeEnum, UponExpirationEnum
 from .lc import OfficeLeasingCommission
 from .recovery import OfficeRecoveryMethod
 from .rent_abatement import OfficeRentAbatement

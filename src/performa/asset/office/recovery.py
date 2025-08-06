@@ -9,11 +9,11 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, 
 from uuid import UUID, uuid4
 
 import pandas as pd
-from pydantic import Field, model_validator
+from pydantic import Field
 
 from ...core.base import ExpensePoolBase as CoreExpensePoolBase
-from ...core.base import OpExItemBase, RecoveryBase, RecoveryMethodBase
-from ...core.primitives import GlobalSettings, GrowthRate, Model
+from ...core.base import OpExItemBase, RecoveryBase
+from ...core.primitives import GlobalSettings, GrowthRate
 from ..commercial.recovery import CommercialRecoveryMethodBase
 
 if TYPE_CHECKING:

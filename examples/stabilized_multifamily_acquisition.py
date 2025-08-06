@@ -101,13 +101,10 @@ from performa.core.primitives import (
     GlobalSettings,
     PropertyAttributeKey,
     Timeline,
-    PositiveFloat,
     UnleveredAggregateLineKey,
 )
-from performa.analysis import AnalysisContext
 from performa.debt import PermanentFacility, InterestRate, FixedRate
 from performa.deal import (
-    Partner,
     PartnershipStructure,
     create_simple_partnership,
 )

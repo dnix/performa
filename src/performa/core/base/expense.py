@@ -4,18 +4,13 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Optional
 
-import pandas as pd
 from pydantic import computed_field
 
 from ..primitives.cash_flow import CashFlowModel
 from ..primitives.enums import ExpenseSubcategoryEnum
-from ..primitives.model import Model
 from ..primitives.types import FloatBetween0And1
-
-if TYPE_CHECKING:
-    from performa.analysis import AnalysisContext
 
 
 logger = logging.getLogger(__name__)

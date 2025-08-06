@@ -38,7 +38,6 @@ from ...core.base import (
     DirectLeaseTerms,
     EqualSpreadPace,
     FixedQuantityPace,
-    PaceContext,
     SpaceFilter,
 )
 from ...core.primitives import (

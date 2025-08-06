@@ -44,7 +44,7 @@ Architecture:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from performa.core.primitives import GlobalSettings, Timeline

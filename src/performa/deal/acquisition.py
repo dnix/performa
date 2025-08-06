@@ -20,7 +20,6 @@ from ..core.primitives import (
     CashFlowModel,
     FloatBetween0And1,
     FrequencyEnum,
-    Timeline,
 )
 
 if TYPE_CHECKING:

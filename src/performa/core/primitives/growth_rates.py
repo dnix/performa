@@ -7,7 +7,7 @@ from datetime import date
 from typing import Dict, Optional, Union
 
 import pandas as pd
-from pydantic import Field, field_validator
+from pydantic import field_validator
 
 from .model import Model
 from .types import FloatBetween0And1, PositiveFloat

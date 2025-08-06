@@ -5,22 +5,18 @@ from __future__ import annotations
 
 import logging
 from datetime import date
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
-from uuid import UUID
+from typing import TYPE_CHECKING, Optional
 
-import numpy as np
 import pandas as pd
 from pydantic import Field
 
-from ...core.base import CommissionTier, LeaseBase
+from ...core.base import CommissionTier
 from ...core.primitives import (
-    CashFlowModel,
     FrequencyEnum,
     GlobalSettings,
     LeaseStatusEnum,
     Timeline,
     PropertyAttributeKey,
-    UponExpirationEnum,
 )
 from ..commercial.lease import CommercialLeaseBase
 from .lc import OfficeLeasingCommission
@@ -28,8 +24,7 @@ from .lease_spec import OfficeLeaseSpec
 from .ti import OfficeTenantImprovement
 
 if TYPE_CHECKING:
-    from ...asset.office.property import OfficeProperty
-    from ...asset.office.recovery import OfficeRecoveryMethod, RecoveryCalculationState
+    from ...asset.office.recovery import OfficeRecoveryMethod
     from ...asset.office.rollover import (
         OfficeRolloverLeaseTerms,
         OfficeRolloverProfile,

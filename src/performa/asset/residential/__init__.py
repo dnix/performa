@@ -22,7 +22,6 @@ where occupancy emerges from the composition of occupied vs vacant units.
 
 # Import order matters for forward references
 # Import CapitalPlan to resolve forward references
-from ...core.capital import CapitalPlan
 from .absorption import ResidentialAbsorptionPlan
 from .analysis import ResidentialAnalysisScenario
 from .blueprint import ResidentialDevelopmentBlueprint

@@ -6,7 +6,6 @@
 from datetime import date
 from typing import Dict, List, Literal, Optional
 
-import numpy as np
 import pandas as pd
 from pydantic import Field, model_validator
 

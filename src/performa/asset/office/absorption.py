@@ -32,7 +32,7 @@ strategy's `generate` method.
 from __future__ import annotations
 
 import logging
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from dataclasses import dataclass
 from datetime import date
 from typing import (
@@ -74,10 +74,8 @@ from ...core.base.absorption import AnchorLogic
 from ...core.primitives import (
     GlobalSettings,
     LeaseTypeEnum,
-    ProgramUseEnum,
     StartDateAnchorEnum,
     PropertyAttributeKey,
-    UponExpirationEnum,
 )
 from .expense import OfficeExpenses, OfficeOpExItem
 from .lease_spec import OfficeLeaseSpec

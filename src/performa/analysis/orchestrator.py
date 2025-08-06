@@ -55,7 +55,6 @@ Implementation examples:
 
 from __future__ import annotations
 
-import inspect
 import logging
 import time
 from dataclasses import dataclass, field
@@ -80,9 +79,7 @@ if TYPE_CHECKING:
     )
     from performa.core.primitives import (
         CashFlowModel,
-        ExpenseSubcategoryEnum,
         GlobalSettings,
-        RevenueSubcategoryEnum,
         Timeline,
     )
 

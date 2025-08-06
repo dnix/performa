@@ -15,7 +15,7 @@ to provide complete development project cash flow analysis.
 from __future__ import annotations
 
 from datetime import date
-from typing import Any, List
+from typing import List
 
 import pandas as pd
 

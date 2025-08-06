@@ -5,10 +5,9 @@ from __future__ import annotations
 
 import logging
 from datetime import date
-from typing import Dict, List, Optional, Union
+from typing import Optional
 
 import pandas as pd
-from dateutil.relativedelta import relativedelta
 
 from performa.core.base import RolloverLeaseTermsBase, RolloverProfileBase
 from performa.core.primitives import (

@@ -6,12 +6,10 @@ from __future__ import annotations
 import logging
 from datetime import date
 from typing import Any, Dict, Optional
-from uuid import UUID
 
-from pydantic import Field, computed_field
+from pydantic import Field
 
 from ...core.base import RolloverLeaseTermsBase, RolloverProfileBase
-from ...core.capital import CapitalPlan
 from ...core.primitives import (
     FrequencyEnum,
     GlobalSettings,

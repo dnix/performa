@@ -19,13 +19,6 @@ from typing import List, Literal
 from ...core.base import DevelopmentBlueprintBase
 from ...core.primitives import Timeline
 from .absorption import ResidentialAbsorptionPlan
-from .expense import ResidentialExpenses
-from .losses import (
-    ResidentialCollectionLoss,
-    ResidentialGeneralVacancyLoss,
-    ResidentialLosses,
-)
-from .misc_income import ResidentialMiscIncome
 from .property import ResidentialProperty
 from .rent_roll import ResidentialRentRoll, ResidentialVacantUnit
 

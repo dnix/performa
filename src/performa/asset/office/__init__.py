@@ -8,9 +8,6 @@ Comprehensive modeling capabilities for commercial office properties,
 from single-tenant buildings to complex multi-tenant office towers.
 """
 
-from . import (
-    analysis,
-)
 from .absorption import (
     DirectLeaseTerms,
     EqualSpreadPace,

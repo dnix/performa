@@ -4,14 +4,13 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
-from uuid import UUID
+from typing import TYPE_CHECKING, List
 
 import pandas as pd
 from pydantic import Field
 
 from ...core.base import CapExItemBase, OpExItemBase
-from ...core.primitives import GrowthRate, Model, Timeline
+from ...core.primitives import Model
 
 if TYPE_CHECKING:
     from performa.analysis import AnalysisContext

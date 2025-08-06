@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import TYPE_CHECKING, Callable, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, List
 
 import pandas as pd
 from pydantic import model_validator
@@ -13,9 +13,6 @@ from pydantic import model_validator
 from ...analysis import AnalysisContext
 from ...core.base import CommissionTier
 from ..commercial.lc import CommercialLeasingCommissionBase
-
-if TYPE_CHECKING:
-    from .lease import OfficeLease
 
 logger = logging.getLogger(__name__)
 

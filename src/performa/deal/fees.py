@@ -21,7 +21,7 @@ from typing import Dict, Optional, Union
 from uuid import UUID, uuid4
 
 import pandas as pd
-from pydantic import Field, computed_field, field_validator
+from pydantic import Field, field_validator
 
 from ..core.primitives.draw_schedule import (
     AnyDrawSchedule,

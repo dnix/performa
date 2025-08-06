@@ -14,11 +14,10 @@ Validates fundamental functionality and performance.
 
 import time
 from datetime import date
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 from performa.analysis import run
 from performa.asset.residential import (
-    ResidentialAnalysisScenario,
     ResidentialCollectionLoss,
     ResidentialExpenses,
     ResidentialGeneralVacancyLoss,

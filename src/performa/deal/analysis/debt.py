@@ -65,7 +65,7 @@ Institutional Standards:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List
 
 import pandas as pd
 
@@ -608,7 +608,6 @@ class DebtAnalyzer:
         Returns:
             DSCR time series with institutional-grade calculation
         """
-        import numpy as np
         
         # Calculate DSCR for each period where debt service is positive
         # DSCR = NOI / Debt Service
@@ -707,7 +706,6 @@ class DebtAnalyzer:
         Returns:
             Forward-looking DSCR analysis including stress scenarios
         """
-        import numpy as np
         
         analysis = {}
         
@@ -768,7 +766,6 @@ class DebtAnalyzer:
         # Log the error but provide basic fallback
         import logging
 
-        from performa.core.primitives import UnleveredAggregateLineKey
         from performa.deal.results import DSCRSummary
         logger = logging.getLogger(__name__)
         logger.warning(f"DSCR calculation failed with error: {error}")

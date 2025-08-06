@@ -11,7 +11,7 @@ allowing them to be imported safely by recovery.py, rollover.py, and lease.py.
 from __future__ import annotations
 
 from datetime import date
-from typing import TYPE_CHECKING, Dict, Literal, Optional, Union
+from typing import TYPE_CHECKING, Literal, Optional, Union
 
 import pandas as pd
 from pydantic import field_validator, model_validator
@@ -20,9 +20,6 @@ from ..primitives.cash_flow import ReferenceKey
 from ..primitives.growth_rates import FixedGrowthRate, PercentageGrowthRate
 from ..primitives.model import Model
 from ..primitives.types import FloatBetween0And1, PositiveFloat, PositiveInt
-
-if TYPE_CHECKING:
-    pass
 
 
 class RentEscalationBase(Model):

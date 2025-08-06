@@ -7,7 +7,7 @@ from datetime import date
 from typing import Any, Optional, Union
 
 import pandas as pd
-from pydantic import Field, computed_field, field_validator, model_validator
+from pydantic import computed_field, field_validator, model_validator
 
 from .model import Model
 from .types import PositiveInt

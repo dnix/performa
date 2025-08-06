@@ -9,7 +9,6 @@ It calculates how equity returns are distributed among partners based on their o
 structure and any promote/waterfall agreements.
 """
 
-import math
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
