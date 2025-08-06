@@ -136,6 +136,7 @@ class DirectLeaseTerms(Model):
     market_rent_growth: Optional[GrowthRate] = None  # Allows rents to escalate during multi-year lease-up
     # FIXME: review this for internal consistency
 
+
 AnchorLogic = Any  # FIXME: address Any typing
 
 

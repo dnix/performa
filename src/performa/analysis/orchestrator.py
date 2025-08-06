@@ -141,6 +141,7 @@ class AnalysisContext:
     )
     current_lease: Optional["LeaseBase"] = None  # Current lease context for TI/LC calculations
 
+
 logger = logging.getLogger(__name__)
 
 

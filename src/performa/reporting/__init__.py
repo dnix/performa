@@ -43,6 +43,7 @@ def create_leasing_status_report(development_project, as_of_date, template=None)
         development_project, as_of_date, template
     )
 
+
 __all__ = [
     # Base classes
     "Report",
