@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class CommercialRolloverLeaseTermsBase(RolloverLeaseTermsBase):
-    pass # For now, this is a placeholder
+    pass  # For now, this is a placeholder
 
 
 class CommercialRolloverProfileBase(RolloverProfileBase):

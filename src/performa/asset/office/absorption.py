@@ -301,7 +301,7 @@ class FixedQuantityPaceStrategy(PaceStrategy):
                         if spec:
                             generated_specs.append(spec)
                             quantity_remaining_this_period -= suite.area
-                            suite_state.remaining_area = 0 # Mark as fully leased
+                            suite_state.remaining_area = 0  # Mark as fully leased
                 
                 # Filter out fully leased suites
                 local_remaining_suites = [s for s in local_remaining_suites if context._suite_states[s.suite].remaining_area > 0]
@@ -340,7 +340,7 @@ class FixedQuantityPaceStrategy(PaceStrategy):
                             if spec:
                                 generated_specs.append(spec)
                                 suite_state.remaining_area -= area_to_lease
-                                suites_to_lease_this_period.append(suite_to_divide) # Dummy append to count units
+                                suites_to_lease_this_period.append(suite_to_divide)  # Dummy append to count units
 
                 # Mark non-divisible suites as leased
                 for suite in suites_to_lease_this_period:
@@ -410,7 +410,7 @@ class EqualSpreadPaceStrategy(PaceStrategy):
                 divisible_suites = sorted([s for s in local_remaining_suites if s.is_divisible and context._suite_states[s.suite].remaining_area > 0], key=lambda s: s.area, reverse=True)
                 for suite in divisible_suites:
                     suite_state = context._suite_states[suite.suite]
-                    min_lease_size = suite.subdivision_minimum_lease_area or 1.0 # a small number to allow topping off
+                    min_lease_size = suite.subdivision_minimum_lease_area or 1.0  # a small number to allow topping off
                     
                     if suite_state.remaining_area > 0 and area_to_absorb_this_deal > 0:
                         area_to_lease = min(area_to_absorb_this_deal, suite_state.remaining_area)
@@ -429,7 +429,7 @@ class EqualSpreadPaceStrategy(PaceStrategy):
                             area_to_absorb_this_deal -= area_to_lease
                         
                         if area_to_absorb_this_deal <= 0:
-                            break # Move to next deal
+                            break  # Move to next deal
 
             # Filter out fully leased suites and advance date
             local_remaining_suites = [s for s in context.remaining_suites if context._suite_states[s.suite].remaining_area > 0]
@@ -861,9 +861,9 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
                 master_suite_id=master_suite.suite,
                 count=sub_unit_count
             ),
-            suite=master_suite.suite, # Still links to the master suite ID
+            suite=master_suite.suite,  # Still links to the master suite ID
             floor=master_suite.floor,
-            area=subdivided_area, # Use the subdivided area directly
+            area=subdivided_area,  # Use the subdivided area directly
             use_type=master_suite.use_type,
             lease_type=LeaseTypeEnum.NET,
             start_date=start_date,

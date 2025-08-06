@@ -373,11 +373,11 @@ class CommercialLeaseBase(LeaseBase, ABC):
                 next_name_suffix = f" (Renewal {recursion_depth + 1})"
             elif action == UponExpirationEnum.VACATE:
                 next_lease_terms = profile.market_terms
-                current_tenant_name = f"Market Tenant for {self.suite}" # New tenant
+                current_tenant_name = f"Market Tenant for {self.suite}"  # New tenant
                 next_name_suffix = f" (Rollover {recursion_depth + 1})"
             elif action == UponExpirationEnum.MARKET:
                 next_lease_terms = profile.blend_lease_terms()
-                current_tenant_name = f"Market Tenant for {self.suite}" # New tenant
+                current_tenant_name = f"Market Tenant for {self.suite}"  # New tenant
                 next_name_suffix = f" (Rollover {recursion_depth + 1})"
             elif action == UponExpirationEnum.OPTION and profile.option_terms:
                 next_lease_terms = profile.option_terms

@@ -200,7 +200,7 @@ class CashFlowModel(Model):
             # Apply the monthly value to each period in timeline
             return pd.Series([value] * len(periods), index=periods)
         elif isinstance(value, pd.Series):
-            return self._align_flow_series(value) # Align series to the model's timeline
+            return self._align_flow_series(value)  # Align series to the model's timeline
         elif isinstance(value, list):
             if len(value) != len(periods):
                 raise ValueError(f"List length {len(value)} does not match timeline length {len(periods)}.")

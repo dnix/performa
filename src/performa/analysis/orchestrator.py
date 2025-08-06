@@ -424,7 +424,7 @@ class CashFlowOrchestrator:
             # Handle both UUID and string keys in resolved_lookups
             if isinstance(lookup_key, UUID):
                 model = self.model_map[lookup_key]
-                if isinstance(result, dict): # E.g., a lease with multiple components
+                if isinstance(result, dict):  # E.g., a lease with multiple components
                     for component, series in result.items():
                         # Detailed logging
                         detailed_flows_list.append({"name": model.name, "uid": lookup_key, "category": model.category, "subcategory": model.subcategory, "component": component, "series": series})
@@ -432,7 +432,7 @@ class CashFlowOrchestrator:
                         target_key = self._get_aggregate_key(model.category, model.subcategory, component)
                         if target_key:
                             agg_flows[target_key] = agg_flows[target_key].add(series.reindex(analysis_periods, fill_value=0.0), fill_value=0.0)
-                elif isinstance(result, pd.Series): # A simple cash flow
+                elif isinstance(result, pd.Series):  # A simple cash flow
                     detailed_flows_list.append({"name": model.name, "uid": lookup_key, "category": model.category, "subcategory": model.subcategory, "component": "value", "series": result})
                     target_key = self._get_aggregate_key(model.category, model.subcategory)
                     if target_key:

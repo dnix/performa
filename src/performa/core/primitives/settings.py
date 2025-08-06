@@ -195,7 +195,7 @@ class RecoverySettings(Model):
     )
     
     # FIXME: add support for expense recovery method functionality
-    default_recovery_method: Optional[RecoveryMethodEnum] = None # Often expense-specific
+    default_recovery_method: Optional[RecoveryMethodEnum] = None  # Often expense-specific
 
     # FIXME: add support for expense cap functionality here in settings
 

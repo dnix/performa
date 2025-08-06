@@ -381,8 +381,8 @@ class UponExpirationEnum(str, Enum):
 
 class VacancyLossMethodEnum(str, Enum):
     """How General Vacancy is calculated and applied in the waterfall."""
-    POTENTIAL_GROSS_REVENUE = "Potential Gross Revenue" # % of PGR line
-    EFFECTIVE_GROSS_INCOME = "Effective Gross Income" # % of (PGR + Misc Inc - Abatement)
+    POTENTIAL_GROSS_REVENUE = "Potential Gross Revenue"  # % of PGR line
+    EFFECTIVE_GROSS_INCOME = "Effective Gross Income"  # % of (PGR + Misc Inc - Abatement)
 
 
 class UnleveredAggregateLineKey(str, Enum):

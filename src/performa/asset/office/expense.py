@@ -46,7 +46,7 @@ class OfficeOpExItem(OpExItemBase):
                     base_cf.index, method="ffill"
                 ).fillna(1.0)
                 adjustment_ratio = fixed_ratio + (variable_part * aligned_occupancy)
-            else: # float
+            else:  # float
                 adjustment_ratio = fixed_ratio + (variable_part * float(occupancy_rate))
 
             base_cf *= adjustment_ratio

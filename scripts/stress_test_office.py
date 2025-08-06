@@ -854,8 +854,8 @@ def complex_office_stress_test():
             # reference=None (direct currency amount)
             tiers=[
                 CommissionTier(year_start=1, year_end=5, rate=0.03, signing_percentage=0.5, commencement_percentage=0.5),  # 3% years 1-5, 50/50 split
-                CommissionTier(year_start=6, year_end=10, rate=0.02, signing_percentage=0.5, commencement_percentage=0.5), # 2% years 6-10, 50/50 split  
-                CommissionTier(year_start=11, year_end=15, rate=0.01, signing_percentage=0.5, commencement_percentage=0.5) # 1% years 11-15, 50/50 split
+                CommissionTier(year_start=6, year_end=10, rate=0.02, signing_percentage=0.5, commencement_percentage=0.5),  # 2% years 6-10, 50/50 split  
+                CommissionTier(year_start=11, year_end=15, rate=0.01, signing_percentage=0.5, commencement_percentage=0.5)  # 1% years 11-15, 50/50 split
             ]
         )
     )

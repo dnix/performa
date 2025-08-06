@@ -420,7 +420,7 @@ class FeeAccountingDetails(ResultModel):
 class PartnerMetrics(ResultModel):
     """Individual partner performance metrics."""
     
-    partner_info: Any = Field(None, description="Partner object (Partner)") # TODO: Type as Partner when imported
+    partner_info: Any = Field(None, description="Partner object (Partner)")  # TODO: Type as Partner when imported
     cash_flows: pd.Series = Field(None, description="Partner's cash flows")
     total_investment: float = Field(None, description="Partner's total investment")
     total_distributions: float = Field(None, description="Partner's total distributions")
