@@ -24,7 +24,7 @@ def test_rollover_profile_base_instantiation():
         market_rent=65.0,
         frequency=FrequencyEnum.ANNUAL,
     )
-    
+
     renewal_terms = RolloverLeaseTermsBase(
         term_months=60,
         market_rent=60.0,
@@ -55,7 +55,7 @@ def test_rollover_profile_target_absorption_plan_id():
         market_rent=2500.0,
         frequency=FrequencyEnum.MONTHLY,
     )
-    
+
     renewal_terms = RolloverLeaseTermsBase(
         term_months=12,
         market_rent=2400.0,
@@ -71,7 +71,7 @@ def test_rollover_profile_target_absorption_plan_id():
         market_terms=market_terms,
         renewal_terms=renewal_terms,
         upon_expiration=UponExpirationEnum.REABSORB,
-        target_absorption_plan_id=test_plan_id
+        target_absorption_plan_id=test_plan_id,
     )
 
     assert profile.target_absorption_plan_id == test_plan_id
@@ -85,7 +85,7 @@ def test_rollover_profile_reabsorb_validation_success():
         term_months=12,
         market_rent=2500.0,
     )
-    
+
     renewal_terms = RolloverLeaseTermsBase(
         term_months=12,
         market_rent=2400.0,
@@ -101,9 +101,9 @@ def test_rollover_profile_reabsorb_validation_success():
         market_terms=market_terms,
         renewal_terms=renewal_terms,
         upon_expiration=UponExpirationEnum.REABSORB,
-        target_absorption_plan_id=test_plan_id
+        target_absorption_plan_id=test_plan_id,
     )
-    
+
     # Should not raise any validation errors
     assert profile.target_absorption_plan_id == test_plan_id
 
@@ -114,7 +114,7 @@ def test_rollover_profile_reabsorb_validation_none_target():
         term_months=12,
         market_rent=2500.0,
     )
-    
+
     renewal_terms = RolloverLeaseTermsBase(
         term_months=12,
         market_rent=2400.0,
@@ -129,9 +129,9 @@ def test_rollover_profile_reabsorb_validation_none_target():
         market_terms=market_terms,
         renewal_terms=renewal_terms,
         upon_expiration=UponExpirationEnum.REABSORB,
-        target_absorption_plan_id=None
+        target_absorption_plan_id=None,
     )
-    
+
     # Should not raise any validation errors
     assert profile.target_absorption_plan_id is None
 
@@ -142,16 +142,19 @@ def test_rollover_profile_target_absorption_plan_validation_error():
         term_months=12,
         market_rent=2500.0,
     )
-    
+
     renewal_terms = RolloverLeaseTermsBase(
         term_months=12,
         market_rent=2400.0,
     )
 
     test_plan_id = uuid4()
-    
+
     # This should fail - target_absorption_plan_id with MARKET status
-    with pytest.raises(ValueError, match="target_absorption_plan_id can only be specified when upon_expiration='reabsorb'"):
+    with pytest.raises(
+        ValueError,
+        match="target_absorption_plan_id can only be specified when upon_expiration='reabsorb'",
+    ):
         RolloverProfileBase(
             name="Invalid Profile",
             term_months=12,
@@ -160,7 +163,7 @@ def test_rollover_profile_target_absorption_plan_validation_error():
             market_terms=market_terms,
             renewal_terms=renewal_terms,
             upon_expiration=UponExpirationEnum.MARKET,  # Wrong status
-            target_absorption_plan_id=test_plan_id
+            target_absorption_plan_id=test_plan_id,
         )
 
 
@@ -170,14 +173,16 @@ def test_rollover_profile_renew_downtime_validation():
         term_months=12,
         market_rent=2500.0,
     )
-    
+
     renewal_terms = RolloverLeaseTermsBase(
         term_months=12,
         market_rent=2400.0,
     )
 
     # This should fail - RENEW with downtime
-    with pytest.raises(ValueError, match="RENEW upon_expiration requires downtime_months=0"):
+    with pytest.raises(
+        ValueError, match="RENEW upon_expiration requires downtime_months=0"
+    ):
         RolloverProfileBase(
             name="Invalid RENEW Profile",
             term_months=12,

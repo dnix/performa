@@ -47,7 +47,9 @@ def create_base_lease_for_rollover_test(
     rollover_profile: OfficeRolloverProfile, upon_expiration: UponExpirationEnum
 ) -> OfficeLease:
     """Helper function to create a standard lease for rollover tests."""
-    lease_timeline = Timeline(start_date=date(2024, 1, 1), duration_months=12)  # 1-year lease
+    lease_timeline = Timeline(
+        start_date=date(2024, 1, 1), duration_months=12
+    )  # 1-year lease
     return OfficeLease(
         timeline=lease_timeline,
         name="Test Tenant",
@@ -71,7 +73,7 @@ def test_rollover_renew(sample_analysis_context: AnalysisContext):
     # Arrange
     renewal_terms = OfficeRolloverLeaseTerms(market_rent=55.0, term_months=24)
     market_terms = OfficeRolloverLeaseTerms(market_rent=60.0, term_months=36)
-    
+
     rollover_profile = OfficeRolloverProfile(
         name="Test Renew Profile",
         term_months=24,
@@ -81,7 +83,7 @@ def test_rollover_renew(sample_analysis_context: AnalysisContext):
         renewal_terms=renewal_terms,
         upon_expiration=UponExpirationEnum.RENEW,
     )
-    
+
     lease = create_base_lease_for_rollover_test(
         rollover_profile, upon_expiration=UponExpirationEnum.RENEW
     )
@@ -91,16 +93,23 @@ def test_rollover_renew(sample_analysis_context: AnalysisContext):
 
     # Assert
     # 1. No vacancy loss was booked
-    assert "vacancy_loss" not in projected_cf_df or projected_cf_df["vacancy_loss"].sum() == 0
+    assert (
+        "vacancy_loss" not in projected_cf_df
+        or projected_cf_df["vacancy_loss"].sum() == 0
+    )
 
     # 2. The new lease starts immediately after the old one.
     # Original lease ends Dec 2024. New lease starts Jan 2025.
     original_lease_end_period = pd.Period("2024-12", freq="M")
     renewal_lease_start_period = pd.Period("2025-01", freq="M")
 
-    rent_in_last_period_of_old_lease = projected_cf_df.loc[original_lease_end_period, "base_rent"]
-    rent_in_first_period_of_new_lease = projected_cf_df.loc[renewal_lease_start_period, "base_rent"]
-    
+    rent_in_last_period_of_old_lease = projected_cf_df.loc[
+        original_lease_end_period, "base_rent"
+    ]
+    rent_in_first_period_of_new_lease = projected_cf_df.loc[
+        renewal_lease_start_period, "base_rent"
+    ]
+
     assert rent_in_last_period_of_old_lease > 0
     assert rent_in_first_period_of_new_lease > 0
 
@@ -142,9 +151,11 @@ def test_rollover_vacate(sample_analysis_context: AnalysisContext):
     downtime_start_period = pd.Period("2025-01", freq="M")
     downtime_end_period = pd.Period("2025-03", freq="M")
     new_lease_start_period = pd.Period("2025-04", freq="M")
-    
-    downtime_periods = pd.period_range(start=downtime_start_period, end=downtime_end_period, freq="M")
-    
+
+    downtime_periods = pd.period_range(
+        start=downtime_start_period, end=downtime_end_period, freq="M"
+    )
+
     assert "vacancy_loss" in projected_cf_df.columns
     assert projected_cf_df.loc[downtime_periods, "vacancy_loss"].sum() > 0
     assert projected_cf_df.loc[downtime_periods, "base_rent"].sum() == 0
@@ -152,10 +163,13 @@ def test_rollover_vacate(sample_analysis_context: AnalysisContext):
     # 2. Next lease starts after the downtime.
     assert projected_cf_df.loc[new_lease_start_period, "base_rent"] > 0
     assert projected_cf_df.loc[downtime_end_period, "base_rent"] == 0
-    
+
     # 3. The new rent is based on market_terms (60/sf annual -> 60*1000/12 monthly)
     expected_market_rent = (60.0 * 1000) / 12
-    assert pytest.approx(projected_cf_df.loc[new_lease_start_period, "base_rent"]) == expected_market_rent
+    assert (
+        pytest.approx(projected_cf_df.loc[new_lease_start_period, "base_rent"])
+        == expected_market_rent
+    )
 
 
 def test_rollover_reabsorb(sample_analysis_context: AnalysisContext):
@@ -186,13 +200,15 @@ def test_rollover_reabsorb(sample_analysis_context: AnalysisContext):
     # There should be no cash flows (rent, vacancy loss, etc.) after this date.
     original_lease_end_period = pd.Period("2024-12", freq="M")
     first_period_after_lease_end = pd.Period("2025-01", freq="M")
-    
+
     # Check that there was rent in the last period of the lease
     assert projected_cf_df.loc[original_lease_end_period, "base_rent"] > 0
-    
+
     # Check that all cash flows are zero for all periods after the lease ends
-    cfs_after_expiration = projected_cf_df[projected_cf_df.index >= first_period_after_lease_end]
-    
+    cfs_after_expiration = projected_cf_df[
+        projected_cf_df.index >= first_period_after_lease_end
+    ]
+
     assert cfs_after_expiration.empty or (cfs_after_expiration == 0).all().all()
 
 
@@ -207,10 +223,10 @@ def test_rollover_stops_at_analysis_end(sample_global_settings: GlobalSettings):
     analysis_context = AnalysisContext(
         timeline=analysis_timeline, settings=sample_global_settings, property_data={}
     )
-    
+
     # Lease timeline is 20 months, expires Aug 2025.
     lease_timeline = Timeline(start_date=date(2024, 1, 1), duration_months=20)
-    
+
     # Rollover lease would be 24 months, but should be cut off by analysis end.
     market_terms = OfficeRolloverLeaseTerms(market_rent=60.0, term_months=24)
     rollover_profile = OfficeRolloverProfile(
@@ -248,13 +264,13 @@ def test_rollover_stops_at_analysis_end(sample_global_settings: GlobalSettings):
     # 2. There should be cashflows for the new lease right up to the analysis end.
     # Original lease ends Aug 2025. New lease starts Sep 2025. Analysis ends Dec 2025.
     new_lease_start_period = pd.Period("2025-09", freq="M")
-    
+
     assert projected_cf_df.loc[analysis_end_period, "base_rent"] > 0
     assert projected_cf_df.loc[new_lease_start_period, "base_rent"] > 0
-    
+
     # 3. The new lease should only have cash flows for 4 months (Sep, Oct, Nov, Dec 2025).
     new_lease_cfs = projected_cf_df[projected_cf_df.index >= new_lease_start_period]
     assert len(new_lease_cfs[new_lease_cfs["base_rent"] > 0]) == 4
 
 
-# More tests will be added here for different rollover scenarios. 
+# More tests will be added here for different rollover scenarios.

@@ -20,6 +20,7 @@ divisible, and mixed), analysis timelines, and base leasing terms, ensuring
 tests are clean and easy to understand. Each test function is named to clearly
 indicate the strategy and scenario it covers.
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -60,7 +61,10 @@ def large_divisible_suite():
     """Provides a single large, divisible vacant suite for subdivision tests."""
     return [
         OfficeVacantSuite(
-            suite="1000", floor="10", area=100000, use_type="office",
+            suite="1000",
+            floor="10",
+            area=100000,
+            use_type="office",
             is_divisible=True,
             subdivision_average_lease_area=10000,
             subdivision_minimum_lease_area=5000,
@@ -78,11 +82,14 @@ def mixed_suites():
         OfficeVacantSuite(suite="500", floor="5", area=5000, use_type="office"),
         OfficeVacantSuite(suite="400", floor="4", area=4000, use_type="office"),
         OfficeVacantSuite(
-            suite="1000", floor="10", area=50000, use_type="office",
+            suite="1000",
+            floor="10",
+            area=50000,
+            use_type="office",
             is_divisible=True,
             subdivision_average_lease_area=8000,
             subdivision_minimum_lease_area=4000,
-        )
+        ),
     ]
 
 
@@ -114,7 +121,10 @@ def mock_lookup_fn():
 
 # --- FixedQuantityPaceStrategy Tests ---
 
-def test_fixed_quantity_sf_non_divisible(vacant_suites, analysis_timeline, base_direct_lease_terms):
+
+def test_fixed_quantity_sf_non_divisible(
+    vacant_suites, analysis_timeline, base_direct_lease_terms
+):
     """
     Tests the Fixed Quantity strategy with a defined SF target.
 
@@ -132,8 +142,10 @@ def test_fixed_quantity_sf_non_divisible(vacant_suites, analysis_timeline, base_
         name="Test Fixed Pace SF",
         space_filter=SpaceFilter(),
         start_date_anchor=date(2024, 1, 1),
-        pace=FixedQuantityPace(type="FixedQuantity", quantity=8000, unit="SF", frequency_months=3),
-        leasing_assumptions=base_direct_lease_terms
+        pace=FixedQuantityPace(
+            type="FixedQuantity", quantity=8000, unit="SF", frequency_months=3
+        ),
+        leasing_assumptions=base_direct_lease_terms,
     )
     generated_specs = plan.generate_lease_specs(
         available_vacant_suites=vacant_suites,
@@ -156,7 +168,9 @@ def test_fixed_quantity_sf_non_divisible(vacant_suites, analysis_timeline, base_
     assert sum(s.area for s in period2_specs) == 7000  # 4000 + 2000 + 1000
 
 
-def test_fixed_quantity_sf_with_subdivision(large_divisible_suite, analysis_timeline, base_direct_lease_terms):
+def test_fixed_quantity_sf_with_subdivision(
+    large_divisible_suite, analysis_timeline, base_direct_lease_terms
+):
     """
     Tests the Fixed Quantity strategy's ability to subdivide a large suite
     to meet a specific SF target.
@@ -173,8 +187,10 @@ def test_fixed_quantity_sf_with_subdivision(large_divisible_suite, analysis_time
         name="Test Fixed Pace Subdivision",
         space_filter=SpaceFilter(),
         start_date_anchor=date(2024, 1, 1),
-        pace=FixedQuantityPace(type="FixedQuantity", quantity=25000, unit="SF", frequency_months=6),
-        leasing_assumptions=base_direct_lease_terms
+        pace=FixedQuantityPace(
+            type="FixedQuantity", quantity=25000, unit="SF", frequency_months=6
+        ),
+        leasing_assumptions=base_direct_lease_terms,
     )
     generated_specs = plan.generate_lease_specs(
         available_vacant_suites=large_divisible_suite,
@@ -188,7 +204,9 @@ def test_fixed_quantity_sf_with_subdivision(large_divisible_suite, analysis_time
     assert sorted([s.area for s in period1_specs]) == [5000, 10000, 10000]
 
 
-def test_fixed_quantity_units_with_subdivision(large_divisible_suite, analysis_timeline, base_direct_lease_terms):
+def test_fixed_quantity_units_with_subdivision(
+    large_divisible_suite, analysis_timeline, base_direct_lease_terms
+):
     """
     Tests the Fixed Quantity strategy with a "Units" target, forcing it to
     create a specific number of new leases from a divisible suite.
@@ -205,8 +223,10 @@ def test_fixed_quantity_units_with_subdivision(large_divisible_suite, analysis_t
         name="Test Fixed Pace Units Subdivision",
         space_filter=SpaceFilter(),
         start_date_anchor=date(2024, 1, 1),
-        pace=FixedQuantityPace(type="FixedQuantity", quantity=3, unit="Units", frequency_months=1),
-        leasing_assumptions=base_direct_lease_terms
+        pace=FixedQuantityPace(
+            type="FixedQuantity", quantity=3, unit="Units", frequency_months=1
+        ),
+        leasing_assumptions=base_direct_lease_terms,
     )
     generated_specs = plan.generate_lease_specs(
         available_vacant_suites=large_divisible_suite,
@@ -222,7 +242,10 @@ def test_fixed_quantity_units_with_subdivision(large_divisible_suite, analysis_t
 
 # --- EqualSpreadPaceStrategy Tests ---
 
-def test_equal_spread_non_divisible(vacant_suites, analysis_timeline, base_direct_lease_terms):
+
+def test_equal_spread_non_divisible(
+    vacant_suites, analysis_timeline, base_direct_lease_terms
+):
     """
     Tests the Equal Spread strategy with only non-divisible suites.
 
@@ -240,7 +263,7 @@ def test_equal_spread_non_divisible(vacant_suites, analysis_timeline, base_direc
         space_filter=SpaceFilter(),
         start_date_anchor=date(2024, 1, 1),
         pace=EqualSpreadPace(type="EqualSpread", total_deals=3, frequency_months=4),
-        leasing_assumptions=base_direct_lease_terms
+        leasing_assumptions=base_direct_lease_terms,
     )
     # Total area = 15,000 SF. Target per deal = 5,000 SF.
     generated_specs = plan.generate_lease_specs(
@@ -260,14 +283,16 @@ def test_equal_spread_non_divisible(vacant_suites, analysis_timeline, base_direc
     deal2_specs = [s for s in generated_specs if s.start_date == date(2024, 5, 1)]
     assert len(deal2_specs) == 2
     assert sum(s.area for s in deal2_specs) == 5000
-    
+
     # Deal 3: Leases 3000 SF suite, then 2000 SF suite
     deal3_specs = [s for s in generated_specs if s.start_date == date(2024, 9, 1)]
     assert len(deal3_specs) == 2
     assert sum(s.area for s in deal3_specs) == 5000
 
 
-def test_equal_spread_with_subdivision_top_off(mixed_suites, analysis_timeline, base_direct_lease_terms):
+def test_equal_spread_with_subdivision_top_off(
+    mixed_suites, analysis_timeline, base_direct_lease_terms
+):
     """
     Tests the Equal Spread strategy's ability to use a divisible suite to
     "top off" a deal to meet its target area.
@@ -287,7 +312,7 @@ def test_equal_spread_with_subdivision_top_off(mixed_suites, analysis_timeline, 
         space_filter=SpaceFilter(),
         start_date_anchor=date(2024, 1, 1),
         pace=EqualSpreadPace(type="EqualSpread", total_deals=3, frequency_months=2),
-        leasing_assumptions=base_direct_lease_terms
+        leasing_assumptions=base_direct_lease_terms,
     )
     # Total area = 59,000 SF. Target per deal = 19,666.67 SF
     generated_specs = plan.generate_lease_specs(
@@ -296,7 +321,7 @@ def test_equal_spread_with_subdivision_top_off(mixed_suites, analysis_timeline, 
         analysis_end_date=analysis_timeline.end_date.to_timestamp().date(),
     )
     total_leased_area = sum(s.area for s in generated_specs)
-    
+
     # We expect all 59,000 SF to be leased.
     assert round(total_leased_area) == 59000
 
@@ -308,7 +333,10 @@ def test_equal_spread_with_subdivision_top_off(mixed_suites, analysis_timeline, 
 
 # --- CustomSchedulePaceStrategy Tests ---
 
-def test_custom_schedule_pace_with_subdivision(mixed_suites, analysis_timeline, base_direct_lease_terms):
+
+def test_custom_schedule_pace_with_subdivision(
+    mixed_suites, analysis_timeline, base_direct_lease_terms
+):
     """
     Tests the Custom Schedule strategy with a mix of suite types, forcing
     both whole-suite leasing and subdivision.
@@ -329,8 +357,11 @@ def test_custom_schedule_pace_with_subdivision(mixed_suites, analysis_timeline, 
         name="Test Custom Schedule",
         space_filter=SpaceFilter(),
         start_date_anchor=date(2024, 1, 1),
-        pace=CustomSchedulePace(type="CustomSchedule", schedule={date(2024, 6, 1): 15000, date(2025, 1, 1): 44000}),
-        leasing_assumptions=base_direct_lease_terms
+        pace=CustomSchedulePace(
+            type="CustomSchedule",
+            schedule={date(2024, 6, 1): 15000, date(2025, 1, 1): 44000},
+        ),
+        leasing_assumptions=base_direct_lease_terms,
     )
     generated_specs = plan.generate_lease_specs(
         available_vacant_suites=mixed_suites,
@@ -352,7 +383,10 @@ def test_custom_schedule_pace_with_subdivision(mixed_suites, analysis_timeline, 
 
 # --- Edge Case Tests ---
 
-def test_absorption_target_exceeds_vacant(vacant_suites, analysis_timeline, base_direct_lease_terms):
+
+def test_absorption_target_exceeds_vacant(
+    vacant_suites, analysis_timeline, base_direct_lease_terms
+):
     """
     Tests that if the absorption target (`quantity`) is larger than the total
     available vacant space, the plan leases everything available and stops
@@ -370,15 +404,17 @@ def test_absorption_target_exceeds_vacant(vacant_suites, analysis_timeline, base
         name="Test Exceeds Vacant",
         space_filter=SpaceFilter(),
         start_date_anchor=date(2024, 1, 1),
-        pace=FixedQuantityPace(type="FixedQuantity", quantity=20000, unit="SF", frequency_months=3),
-        leasing_assumptions=base_direct_lease_terms
+        pace=FixedQuantityPace(
+            type="FixedQuantity", quantity=20000, unit="SF", frequency_months=3
+        ),
+        leasing_assumptions=base_direct_lease_terms,
     )
     generated_specs = plan.generate_lease_specs(
         available_vacant_suites=vacant_suites,
         analysis_start_date=analysis_timeline.start_date.to_timestamp().date(),
         analysis_end_date=analysis_timeline.end_date.to_timestamp().date(),
     )
-    
+
     total_vacant_area = sum(s.area for s in vacant_suites)
     total_leased_area = sum(s.area for s in generated_specs)
 
@@ -387,7 +423,9 @@ def test_absorption_target_exceeds_vacant(vacant_suites, analysis_timeline, base
     assert len(generated_specs) == len(vacant_suites)
 
 
-def test_absorption_schedule_exceeds_analysis(vacant_suites, analysis_timeline, base_direct_lease_terms):
+def test_absorption_schedule_exceeds_analysis(
+    vacant_suites, analysis_timeline, base_direct_lease_terms
+):
     """
     Tests that a CustomSchedulePace only generates leases for dates that
     fall within the analysis timeline.
@@ -408,21 +446,23 @@ def test_absorption_schedule_exceeds_analysis(vacant_suites, analysis_timeline, 
         space_filter=SpaceFilter(),
         start_date_anchor=date(2024, 1, 1),
         pace=CustomSchedulePace(type="CustomSchedule", schedule=schedule),
-        leasing_assumptions=base_direct_lease_terms
+        leasing_assumptions=base_direct_lease_terms,
     )
     generated_specs = plan.generate_lease_specs(
         available_vacant_suites=vacant_suites,
         analysis_start_date=analysis_timeline.start_date.to_timestamp().date(),
         analysis_end_date=analysis_timeline.end_date.to_timestamp().date(),
     )
-    
+
     # Only one lease spec should have been generated
     assert len(generated_specs) == 1
     assert generated_specs[0].area == 5000
     assert generated_specs[0].start_date == date(2025, 1, 1)
 
 
-def test_absorption_indivisible_suite_too_large(vacant_suites, analysis_timeline, base_direct_lease_terms):
+def test_absorption_indivisible_suite_too_large(
+    vacant_suites, analysis_timeline, base_direct_lease_terms
+):
     """
     Tests that if the target area for an EqualSpreadPace deal is smaller
     than the smallest available non-divisible suite, the plan does not
@@ -441,12 +481,12 @@ def test_absorption_indivisible_suite_too_large(vacant_suites, analysis_timeline
         space_filter=SpaceFilter(),
         start_date_anchor=date(2024, 1, 1),
         pace=EqualSpreadPace(type="EqualSpread", total_deals=20, frequency_months=1),
-        leasing_assumptions=base_direct_lease_terms
+        leasing_assumptions=base_direct_lease_terms,
     )
     generated_specs = plan.generate_lease_specs(
         available_vacant_suites=vacant_suites,
         analysis_start_date=analysis_timeline.start_date.to_timestamp().date(),
         analysis_end_date=analysis_timeline.end_date.to_timestamp().date(),
     )
-    
+
     assert len(generated_specs) == 0

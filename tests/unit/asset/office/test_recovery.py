@@ -111,12 +111,14 @@ def test_recovery_net(
     recovery_cf = recovery_method.compute_cf(
         context=pre_populated_context, lease=sample_lease
     )
-    
+
     total_monthly_expense = (
-        pre_populated_context.resolved_lookups[taxes.uid].iloc[0] +
-        pre_populated_context.resolved_lookups[cam.uid].iloc[0]
+        pre_populated_context.resolved_lookups[taxes.uid].iloc[0]
+        + pre_populated_context.resolved_lookups[cam.uid].iloc[0]
     )
-    pro_rata_share = sample_lease.area / pre_populated_context.property_data.net_rentable_area
+    pro_rata_share = (
+        sample_lease.area / pre_populated_context.property_data.net_rentable_area
+    )
     expected_recovery = total_monthly_expense * pro_rata_share
     expected_series = pd.Series(expected_recovery, index=recovery_cf.index)
     assert_series_equal(recovery_cf, expected_series, check_exact=False)
@@ -148,14 +150,16 @@ def test_recovery_base_stop(
     )
 
     total_monthly_expense = (
-        pre_populated_context.resolved_lookups[taxes.uid].iloc[0] +
-        pre_populated_context.resolved_lookups[cam.uid].iloc[0]
+        pre_populated_context.resolved_lookups[taxes.uid].iloc[0]
+        + pre_populated_context.resolved_lookups[cam.uid].iloc[0]
     )
-    pro_rata_share = sample_lease.area / pre_populated_context.property_data.net_rentable_area
+    pro_rata_share = (
+        sample_lease.area / pre_populated_context.property_data.net_rentable_area
+    )
     tenant_total_expense_share = total_monthly_expense * pro_rata_share
     monthly_stop = (base_stop_psf * sample_lease.area) / 12.0
     expected_recovery = float(max(0, tenant_total_expense_share - monthly_stop))
-    
+
     expected_series = pd.Series(expected_recovery, index=recovery_cf.index)
     assert_series_equal(recovery_cf, expected_series, check_exact=False)
     assert recovery_cf.sum() > 0
@@ -186,12 +190,18 @@ def test_recovery_gross_up(
         context=pre_populated_context, lease=sample_lease
     )
 
-    pro_rata_share = sample_lease.area / pre_populated_context.property_data.net_rentable_area
+    pro_rata_share = (
+        sample_lease.area / pre_populated_context.property_data.net_rentable_area
+    )
     cam_raw_cf = pre_populated_context.resolved_lookups[cam.uid]
-    
+
     # Normal month
-    expected_normal_recovery = cam_raw_cf.loc[pd.Period("2024-05", "M")] * pro_rata_share
-    assert recovery_cf.loc[pd.Period("2024-05", "M")] == pytest.approx(expected_normal_recovery)
+    expected_normal_recovery = (
+        cam_raw_cf.loc[pd.Period("2024-05", "M")] * pro_rata_share
+    )
+    assert recovery_cf.loc[pd.Period("2024-05", "M")] == pytest.approx(
+        expected_normal_recovery
+    )
 
     # Gross-up month
     raw_monthly_expense = cam_raw_cf.loc[pd.Period("2024-06", "M")]
@@ -201,5 +211,10 @@ def test_recovery_gross_up(
     expected_grossed_up_monthly_expense = fixed_part + grossed_up_variable_part
     expected_gross_up_recovery = expected_grossed_up_monthly_expense * pro_rata_share
 
-    assert recovery_cf.loc[pd.Period("2024-06", "M")] == pytest.approx(expected_gross_up_recovery)
-    assert recovery_cf.loc[pd.Period("2024-06", "M")] > recovery_cf.loc[pd.Period("2024-05", "M")]
+    assert recovery_cf.loc[pd.Period("2024-06", "M")] == pytest.approx(
+        expected_gross_up_recovery
+    )
+    assert (
+        recovery_cf.loc[pd.Period("2024-06", "M")]
+        > recovery_cf.loc[pd.Period("2024-05", "M")]
+    )

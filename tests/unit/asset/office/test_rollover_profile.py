@@ -35,7 +35,7 @@ def test_calculate_rent_with_growth(sample_global_settings):
     terms = OfficeRolloverLeaseTerms(
         market_rent=100.0,
         frequency=FrequencyEnum.ANNUAL,
-        growth_rate=PercentageGrowthRate(name="Test Growth", value=0.03)  # 3% annual
+        growth_rate=PercentageGrowthRate(name="Test Growth", value=0.03),  # 3% annual
     )
     profile = OfficeRolloverProfile(
         name="Test Profile",
@@ -45,27 +45,25 @@ def test_calculate_rent_with_growth(sample_global_settings):
         market_terms=terms,
         renewal_terms=terms,
     )
-    
+
     rent = profile._calculate_rent(terms, date(2025, 6, 15), sample_global_settings)
     # Base monthly rent = 100/12 = 8.333
     # as_of_date is before analysis_start_date, so no growth should apply
     assert rent == (100.0 / 12.0)
-    
+
 
 def test_blend_lease_terms(sample_timeline):
     market_terms = OfficeRolloverLeaseTerms(
         market_rent=60.0,
         ti_allowance=OfficeRolloverTenantImprovement(
-            value=20.0, 
-            reference=PropertyAttributeKey.NET_RENTABLE_AREA
-        )
+            value=20.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA
+        ),
     )
     renewal_terms = OfficeRolloverLeaseTerms(
         market_rent=50.0,
         ti_allowance=OfficeRolloverTenantImprovement(
-            value=10.0, 
-            reference=PropertyAttributeKey.NET_RENTABLE_AREA
-        )
+            value=10.0, reference=PropertyAttributeKey.NET_RENTABLE_AREA
+        ),
     )
     profile = OfficeRolloverProfile(
         name="Test Profile",

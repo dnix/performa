@@ -38,7 +38,7 @@ from performa.core.primitives.growth_rates import (
 
 class TestMultipleEscalations:
     """Test multiple escalations functionality"""
-    
+
     @pytest.fixture
     def base_spec(self) -> OfficeLeaseSpec:
         """Create a basic lease spec for testing"""
@@ -55,13 +55,13 @@ class TestMultipleEscalations:
             base_rent_frequency=FrequencyEnum.ANNUAL,
             upon_expiration=UponExpirationEnum.MARKET,
         )
-    
+
     @pytest.fixture
     def timeline(self) -> Timeline:
         """Create timeline for testing"""
         return Timeline(start_date=date(2024, 1, 1), duration_months=36)
-    
-    @pytest.fixture  
+
+    @pytest.fixture
     def context(self, timeline) -> AnalysisContext:
         """Create analysis context for testing"""
         return AnalysisContext(
@@ -82,7 +82,7 @@ class TestMultipleEscalations:
                 recurring=False,
             ),
             OfficeRentEscalation(
-                type="percentage", 
+                type="percentage",
                 rate=0.03,  # 3% at month 7 (earlier)
                 reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 is_relative=True,
@@ -90,19 +90,19 @@ class TestMultipleEscalations:
                 recurring=False,
             ),
         ]
-        
+
         spec = base_spec.model_copy(update={"rent_escalations": escalations})
         lease = OfficeLease.from_spec(spec, date(2024, 1, 1), context.timeline)
         cash_flows = lease.compute_cf(context)
-        
+
         base_rent = cash_flows["base_rent"]
-        
+
         # Should be $2,500/month initially (30 * 1000 / 12)
         assert base_rent.iloc[0] == pytest.approx(2500.0, rel=1e-3)
-        
+
         # After month 7: 3% increase
         assert base_rent.iloc[6] == pytest.approx(2575.0, rel=1e-3)  # 2500 * 1.03
-        
+
         # After month 13: 5% increase on already increased rent (compound effect)
         assert base_rent.iloc[12] == pytest.approx(2703.75, rel=1e-3)  # 2575 * 1.05
 
@@ -126,19 +126,19 @@ class TestMultipleEscalations:
                 recurring=False,
             ),
         ]
-        
+
         spec = base_spec.model_copy(update={"rent_escalations": escalations})
         lease = OfficeLease.from_spec(spec, date(2024, 1, 1), context.timeline)
         cash_flows = lease.compute_cf(context)
-        
+
         base_rent = cash_flows["base_rent"]
-        
+
         # Month 1: $2,500 base
         assert base_rent.iloc[0] == pytest.approx(2500.0, rel=1e-3)
-        
+
         # Month 7: Add $1/SF = $1000/year = $83.33/month
         assert base_rent.iloc[6] == pytest.approx(2583.33, rel=1e-2)
-        
+
         # Month 12: 4% increase on current rent
         assert base_rent.iloc[11] == pytest.approx(2686.67, rel=1e-2)  # 2583.33 * 1.04
 
@@ -148,19 +148,19 @@ class TestMultipleEscalations:
             start_month=13,  # Start in year 2
             annual_rates=[0.03, 0.04, 0.05],  # 3%, 4%, 5%
         )
-        
+
         spec = base_spec.model_copy(update={"rent_escalations": escalations})
         lease = OfficeLease.from_spec(spec, date(2024, 1, 1), context.timeline)
         cash_flows = lease.compute_cf(context)
-        
+
         base_rent = cash_flows["base_rent"]
-        
+
         # Month 1: $2,500 base
         assert base_rent.iloc[0] == pytest.approx(2500.0, rel=1e-3)
-        
+
         # Month 13: 3% increase
         assert base_rent.iloc[12] == pytest.approx(2575.0, rel=1e-3)
-        
+
         # Month 25: 4% increase on current rent
         assert base_rent.iloc[24] == pytest.approx(2678.0, rel=1e-3)
 
@@ -171,19 +171,19 @@ class TestMultipleEscalations:
             annual_amounts=[1.0, 1.5, 2.0],  # $1, $1.50, $2 per SF
             reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         )
-        
+
         spec = base_spec.model_copy(update={"rent_escalations": escalations})
         lease = OfficeLease.from_spec(spec, date(2024, 1, 1), context.timeline)
         cash_flows = lease.compute_cf(context)
-        
+
         base_rent = cash_flows["base_rent"]
-        
+
         # Month 1: $2,500 base
         assert base_rent.iloc[0] == pytest.approx(2500.0, rel=1e-3)
-        
+
         # Month 13: Add $1/SF = $83.33/month
         assert base_rent.iloc[12] == pytest.approx(2583.33, rel=1e-2)
-        
+
         # Month 25: Add additional $1.50/SF = $125/month
         assert base_rent.iloc[24] == pytest.approx(2708.33, rel=1e-2)
 
@@ -194,16 +194,16 @@ class TestMultipleEscalations:
             start_month=1,  # Start immediately
             reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         )
-        
+
         spec = base_spec.model_copy(update={"rent_escalations": [escalation]})
         lease = OfficeLease.from_spec(spec, date(2024, 1, 1), context.timeline)
         cash_flows = lease.compute_cf(context)
-        
+
         base_rent = cash_flows["base_rent"]
-        
+
         # Month 1: $2,500 base (escalation applies immediately)
         assert base_rent.iloc[0] == pytest.approx(2575.0, rel=1e-3)  # 2500 * 1.03
-        
+
         # Month 13: Second escalation (compound)
         assert base_rent.iloc[12] == pytest.approx(2652.25, rel=1e-3)  # 2575 * 1.03
 
@@ -216,19 +216,19 @@ class TestMultipleEscalations:
             ],
             reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         )
-        
+
         spec = base_spec.model_copy(update={"rent_escalations": escalations})
         lease = OfficeLease.from_spec(spec, date(2024, 1, 1), context.timeline)
         cash_flows = lease.compute_cf(context)
-        
+
         base_rent = cash_flows["base_rent"]
-        
+
         # Month 1: $2,500 base
         assert base_rent.iloc[0] == pytest.approx(2500.0, rel=1e-3)
-        
-        # Month 7: 3% increase 
+
+        # Month 7: 3% increase
         assert base_rent.iloc[6] == pytest.approx(2575.0, rel=1e-3)
-        
+
         # Month 12: Add $1.50/SF = $125/month
         assert base_rent.iloc[11] == pytest.approx(2700.0, rel=1e-2)
 
@@ -239,14 +239,14 @@ class TestMultipleEscalations:
             value={
                 date(2024, 7, 1): 0.02,  # 2% in July
                 date(2024, 12, 1): 0.04,  # 4% in December
-            }
+            },
         )
-        
+
         fixed_rate_obj = FixedGrowthRate(
             name="Fixed Dollar Amount",
-            value=1000.0  # $1000 annually
+            value=1000.0,  # $1000 annually
         )
-        
+
         escalations = [
             OfficeRentEscalation(
                 type="percentage",
@@ -264,18 +264,18 @@ class TestMultipleEscalations:
                 recurring=False,
             ),
         ]
-        
+
         spec = base_spec.model_copy(update={"rent_escalations": escalations})
         lease = OfficeLease.from_spec(spec, date(2024, 1, 1), context.timeline)
         cash_flows = lease.compute_cf(context)
-        
+
         base_rent = cash_flows["base_rent"]
-        
+
         # Month 1: $2,500 base
         assert base_rent.iloc[0] == pytest.approx(2500.0, rel=1e-3)
-        
+
         # Month 7: 2% increase (from time-varying rate for July)
         assert base_rent.iloc[6] == pytest.approx(2550.0, rel=1e-3)
-        
+
         # Month 12: Add $1000/year = $83.33/month
-        assert base_rent.iloc[11] == pytest.approx(2633.33, rel=1e-2) 
+        assert base_rent.iloc[11] == pytest.approx(2633.33, rel=1e-2)

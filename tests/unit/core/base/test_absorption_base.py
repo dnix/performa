@@ -17,6 +17,7 @@ from performa.core.primitives import Model, ProgramUseEnum, StartDateAnchorEnum
 
 class MockVacantSuite(Model):
     """A mock VacantSuiteBase for testing the SpaceFilter."""
+
     suite: str
     floor: str
     area: float
@@ -25,17 +26,16 @@ class MockVacantSuite(Model):
 
 class MockModel(Model):
     """A simple mock model for testing stabilized assumptions."""
+
     pass
 
 
 @pytest.fixture
 def sample_vacant_suite() -> MockVacantSuite:
     return MockVacantSuite(
-        suite="101",
-        floor="1",
-        area=1500.0,
-        use_type=ProgramUseEnum.OFFICE
+        suite="101", floor="1", area=1500.0, use_type=ProgramUseEnum.OFFICE
     )
+
 
 # --- SpaceFilter Tests ---
 
@@ -87,6 +87,7 @@ def test_space_filter_matches_multiple_criteria(sample_vacant_suite: MockVacantS
     assert filt_pass.matches(sample_vacant_suite)
     assert not filt_fail.matches(sample_vacant_suite)
 
+
 # --- AbsorptionPlanBase Tests ---
 
 
@@ -94,18 +95,20 @@ def test_absorption_plan_base_instantiation():
     """Test successful instantiation of AbsorptionPlanBase."""
     # Create mock stabilized assumptions
     mock_expenses = MockModel()  # Simple mock for expenses
-    mock_losses = MockModel()    # Simple mock for losses
-    mock_misc_income = []        # Empty list for misc income
-    
+    mock_losses = MockModel()  # Simple mock for losses
+    mock_misc_income = []  # Empty list for misc income
+
     plan = AbsorptionPlanBase(
         name="Office Lease-Up",
         space_filter=SpaceFilter(use_types=[ProgramUseEnum.OFFICE]),
         start_date_anchor=StartDateAnchorEnum.ANALYSIS_START,
-        pace=FixedQuantityPace(type="FixedQuantity", quantity=10000, unit="SF", frequency_months=3),
+        pace=FixedQuantityPace(
+            type="FixedQuantity", quantity=10000, unit="SF", frequency_months=3
+        ),
         leasing_assumptions="Standard Office Rollover",  # Using identifier string
         stabilized_expenses=mock_expenses,
         stabilized_losses=mock_losses,
-        stabilized_misc_income=mock_misc_income
+        stabilized_misc_income=mock_misc_income,
     )
     assert plan.name == "Office Lease-Up"
     assert plan.pace.quantity == 10000

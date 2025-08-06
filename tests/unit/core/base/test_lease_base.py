@@ -27,7 +27,7 @@ def test_lease_spec_base_valid_instantiation():
     """Test successful instantiation of LeaseSpecBase with valid data."""
     spec = LeaseSpecBase(
         tenant_name="Test Tenant",
-        suite="101", 
+        suite="101",
         floor="1",
         area=1000,
         start_date=date(2024, 1, 1),
@@ -41,13 +41,19 @@ def test_lease_spec_base_valid_instantiation():
 def test_lease_spec_base_term_validation():
     """Test validation logic for signing_date validation."""
     # Fails if signing_date is after start_date
-    with pytest.raises(ValueError, match="signing_date must be on or before start_date"):
+    with pytest.raises(
+        ValueError, match="signing_date must be on or before start_date"
+    ):
         LeaseSpecBase(
-            tenant_name="Test", suite="1", floor="1", area=1,
-            start_date=date(2024, 1, 1), 
+            tenant_name="Test",
+            suite="1",
+            floor="1",
+            area=1,
+            start_date=date(2024, 1, 1),
             signing_date=date(2024, 2, 1),  # After start_date
             end_date=date(2024, 12, 31),
-            base_rent_value=1, base_rent_unit_of_measure="currency"
+            base_rent_value=1,
+            base_rent_unit_of_measure="currency",
         )
 
 
@@ -55,25 +61,37 @@ def test_lease_spec_computed_end_date():
     """Test the computed_end_date property."""
     # From end_date
     spec1 = LeaseSpecBase(
-        start_date=date(2024, 1, 1), end_date=date(2024, 12, 31),
-        tenant_name="T", suite="s", floor="f", area=1, base_rent_value=1,
-        base_rent_unit_of_measure="currency"
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 12, 31),
+        tenant_name="T",
+        suite="s",
+        floor="f",
+        area=1,
+        base_rent_value=1,
+        base_rent_unit_of_measure="currency",
     )
     assert spec1.computed_end_date == date(2024, 12, 31)
 
     # From term_months
     spec2 = LeaseSpecBase(
-        start_date=date(2024, 1, 1), term_months=12,
-        tenant_name="T", suite="s", floor="f", area=1, base_rent_value=1,
-        base_rent_unit_of_measure="currency"
+        start_date=date(2024, 1, 1),
+        term_months=12,
+        tenant_name="T",
+        suite="s",
+        floor="f",
+        area=1,
+        base_rent_value=1,
+        base_rent_unit_of_measure="currency",
     )
     assert spec2.computed_end_date == date(2024, 12, 31)
 
 
 # --- LeaseBase Tests ---
 
+
 class ConcreteLease(LeaseBase):
     """A concrete implementation of LeaseBase for testing."""
+
     def compute_cf(self, context: AnalysisContext) -> Dict[str, pd.Series]:
         if isinstance(self.value, (int, float)):
             base_rent = pd.Series(self.value, index=self.timeline.period_index)
@@ -124,14 +142,18 @@ def test_lease_base_instantiation(sample_lease: LeaseBase):
     assert sample_lease.area == 1000.0
 
 
-def test_lease_base_compute_cf_structure(sample_lease: LeaseBase, sample_context: AnalysisContext):
+def test_lease_base_compute_cf_structure(
+    sample_lease: LeaseBase, sample_context: AnalysisContext
+):
     result = sample_lease.compute_cf(context=sample_context)
     assert isinstance(result, dict)
     assert "base_rent" in result
     assert isinstance(result["base_rent"], pd.Series)
 
 
-def test_lease_base_compute_cf_base_rent_calculation(sample_lease: LeaseBase, sample_context: AnalysisContext):
+def test_lease_base_compute_cf_base_rent_calculation(
+    sample_lease: LeaseBase, sample_context: AnalysisContext
+):
     """Test the base rent calculation logic within compute_cf."""
     result1 = sample_lease.compute_cf(context=sample_context)
     assert result1["base_rent"].iloc[0] == pytest.approx(50 * 1000 / 12)

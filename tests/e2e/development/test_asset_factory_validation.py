@@ -5,7 +5,7 @@
 Asset Factory Validation Tests
 
 Tests that validate the "Development as Asset Factory" architecture by proving
-that development projects produce identical results to equivalent stabilized 
+that development projects produce identical results to equivalent stabilized
 assets created directly. This validates the core architectural principle.
 
 Test Intent:
@@ -77,10 +77,7 @@ from performa.development import DevelopmentProject
 @pytest.fixture(scope="session")
 def analysis_timeline() -> Timeline:
     """Standard analysis timeline for comparison tests."""
-    return Timeline.from_dates(
-        start_date=date(2024, 1, 1),
-        end_date=date(2029, 12, 31)
-    )
+    return Timeline.from_dates(start_date=date(2024, 1, 1), end_date=date(2029, 12, 31))
 
 
 @pytest.fixture(scope="session")
@@ -92,6 +89,7 @@ def global_settings(analysis_timeline) -> GlobalSettings:
 
 
 # Office asset factory validation fixtures and tests
+
 
 @pytest.fixture(scope="session")
 def stabilized_office_baseline(analysis_timeline) -> OfficeProperty:
@@ -113,10 +111,10 @@ def stabilized_office_baseline(analysis_timeline) -> OfficeProperty:
                 base_rent_unit_of_measure="per_unit",
                 base_rent_frequency="annual",
                 lease_type="gross",
-                upon_expiration="market"
+                upon_expiration="market",
             )
         ],
-        vacant_suites=[]  # Fully stabilized
+        vacant_suites=[],  # Fully stabilized
     )
 
     expenses = OfficeExpenses(
@@ -126,14 +124,14 @@ def stabilized_office_baseline(analysis_timeline) -> OfficeProperty:
                 timeline=analysis_timeline,
                 value=15.0,  # $15/SF
                 unit_of_measure="per_unit",
-                frequency="annual"
+                frequency="annual",
             )
         ]
     )
 
     losses = OfficeLosses(
         general_vacancy=OfficeGeneralVacancyLoss(rate=0.05),  # Default 5% vacancy
-        collection_loss=OfficeCollectionLoss(rate=0.01)       # Default 1% collection loss
+        collection_loss=OfficeCollectionLoss(rate=0.01),  # Default 1% collection loss
     )
 
     return OfficeProperty(
@@ -143,29 +141,27 @@ def stabilized_office_baseline(analysis_timeline) -> OfficeProperty:
         net_rentable_area=50000.0,
         rent_roll=rent_roll,
         expenses=expenses,
-        losses=losses
+        losses=losses,
     )
 
 
 @pytest.fixture(scope="session")
 def office_baseline_cash_flows(
-    stabilized_office_baseline,
-    analysis_timeline,
-    global_settings
+    stabilized_office_baseline, analysis_timeline, global_settings
 ) -> pd.DataFrame:
     """Generate baseline cash flows from stabilized office property."""
     scenario = run(
         model=stabilized_office_baseline,
         timeline=analysis_timeline,
-        settings=global_settings
+        settings=global_settings,
     )
-    
+
     cash_flows = scenario.get_cash_flow_summary()
-    
+
     # Filter to stabilized operations period (after construction)
     stabilized_start = pd.Period("2025-02", freq="M")
     stabilized_cash_flows = cash_flows.loc[stabilized_start:]
-    
+
     return stabilized_cash_flows
 
 
@@ -181,14 +177,13 @@ def equivalent_office_development_project() -> DevelopmentProject:
             CapitalItem(
                 name="Office Building Construction",
                 timeline=Timeline.from_dates(
-                    start_date=date(2024, 1, 1),
-                    end_date=date(2024, 12, 31)
+                    start_date=date(2024, 1, 1), end_date=date(2024, 12, 31)
                 ),
                 value=20000000.0,
                 unit_of_measure="currency",
-                frequency="monthly"
+                frequency="monthly",
             )
-        ]
+        ],
     )
 
     financing_plan = ConstructionFacility(
@@ -197,7 +192,7 @@ def equivalent_office_development_project() -> DevelopmentProject:
                 name="Construction Loan",
                 interest_rate=InterestRate(details=FixedRate(rate=0.065)),
                 fee_rate=0.01,
-                ltc_threshold=0.75
+                ltc_threshold=0.75,
             )
         ]
     )
@@ -210,7 +205,7 @@ def equivalent_office_development_project() -> DevelopmentProject:
                 floor="1-5",
                 area=50000.0,
                 use_type="office",
-                is_divisible=False
+                is_divisible=False,
             )
         ],
         absorption_plan=OfficeAbsorptionPlan.with_typical_assumptions(
@@ -220,17 +215,17 @@ def equivalent_office_development_project() -> DevelopmentProject:
                 type="FixedQuantity",  # discriminator field
                 quantity=50000.0,  # Lease entire building at once
                 unit="SF",
-                frequency_months=1
+                frequency_months=1,
             ),
             leasing_assumptions=DirectLeaseTerms(
                 base_rent_value=50.0,  # Match baseline
                 base_rent_unit_of_measure="per_unit",
                 base_rent_frequency="annual",  # $50/SF/year (not monthly!)
                 term_months=60,
-                upon_expiration="market"
+                upon_expiration="market",
             ),
-            start_date_anchor="AnalysisStart"
-        )
+            start_date_anchor="AnalysisStart",
+        ),
     )
 
     return DevelopmentProject(
@@ -240,11 +235,12 @@ def equivalent_office_development_project() -> DevelopmentProject:
         net_rentable_area=50000.0,
         construction_plan=construction_plan,
         financing_plan=financing_plan,
-        blueprints=[office_blueprint]
+        blueprints=[office_blueprint],
     )
 
 
 # Residential asset factory validation fixtures and tests
+
 
 @pytest.fixture(scope="session")
 def stabilized_residential_baseline(analysis_timeline) -> ResidentialProperty:
@@ -257,7 +253,7 @@ def stabilized_residential_baseline(analysis_timeline) -> ResidentialProperty:
         downtime_months=1,
         term_months=12,
         market_terms=ResidentialRolloverLeaseTerms(market_rent=2800.0),
-        renewal_terms=ResidentialRolloverLeaseTerms(market_rent=2800.0)
+        renewal_terms=ResidentialRolloverLeaseTerms(market_rent=2800.0),
     )
 
     unit_mix = ResidentialRentRoll(
@@ -267,16 +263,18 @@ def stabilized_residential_baseline(analysis_timeline) -> ResidentialProperty:
                 unit_count=100,
                 avg_area_sf=900.0,
                 current_avg_monthly_rent=2800.0,
-                rollover_profile=rollover_profile
+                rollover_profile=rollover_profile,
             )
         ],
-        vacant_units=[]  # Fully stabilized
+        vacant_units=[],  # Fully stabilized
     )
 
     expenses = ResidentialExpenses()  # Default expenses
     losses = ResidentialLosses(
         general_vacancy=ResidentialGeneralVacancyLoss(rate=0.05),  # Default 5% vacancy
-        collection_loss=ResidentialCollectionLoss(rate=0.01)       # Default 1% collection loss
+        collection_loss=ResidentialCollectionLoss(
+            rate=0.01
+        ),  # Default 1% collection loss
     )
 
     return ResidentialProperty(
@@ -286,33 +284,31 @@ def stabilized_residential_baseline(analysis_timeline) -> ResidentialProperty:
         net_rentable_area=90000.0,
         unit_mix=unit_mix,
         expenses=expenses,
-        losses=losses
+        losses=losses,
     )
 
 
 @pytest.fixture(scope="session")
 def residential_baseline_cash_flows(
-    stabilized_residential_baseline,
-    analysis_timeline,
-    global_settings
+    stabilized_residential_baseline, analysis_timeline, global_settings
 ) -> pd.DataFrame:
     """Generate baseline cash flows from stabilized residential property."""
     scenario = run(
         model=stabilized_residential_baseline,
         timeline=analysis_timeline,
-        settings=global_settings
+        settings=global_settings,
     )
-    
+
     cash_flows = scenario.get_cash_flow_summary()
-    
+
     # Filter to stabilized operations period
     stabilized_start = pd.Period("2025-02", freq="M")
     stabilized_cash_flows = cash_flows.loc[stabilized_start:]
-    
+
     return stabilized_cash_flows
 
 
-@pytest.fixture(scope="session") 
+@pytest.fixture(scope="session")
 def equivalent_residential_development_project() -> DevelopmentProject:
     """
     Create a residential development project that should produce identical
@@ -324,14 +320,13 @@ def equivalent_residential_development_project() -> DevelopmentProject:
             CapitalItem(
                 name="Residential Building Construction",
                 timeline=Timeline.from_dates(
-                    start_date=date(2024, 1, 1),
-                    end_date=date(2024, 12, 31)
+                    start_date=date(2024, 1, 1), end_date=date(2024, 12, 31)
                 ),
                 value=15000000.0,
                 unit_of_measure="currency",
-                frequency="monthly"
+                frequency="monthly",
             )
-        ]
+        ],
     )
 
     financing_plan = ConstructionFacility(
@@ -340,7 +335,7 @@ def equivalent_residential_development_project() -> DevelopmentProject:
                 name="Construction Loan",
                 interest_rate=InterestRate(details=FixedRate(rate=0.065)),
                 fee_rate=0.01,
-                ltc_threshold=0.75
+                ltc_threshold=0.75,
             )
         ]
     )
@@ -351,7 +346,7 @@ def equivalent_residential_development_project() -> DevelopmentProject:
         downtime_months=1,
         term_months=12,
         market_terms=ResidentialRolloverLeaseTerms(market_rent=2800.0),
-        renewal_terms=ResidentialRolloverLeaseTerms(market_rent=2800.0)
+        renewal_terms=ResidentialRolloverLeaseTerms(market_rent=2800.0),
     )
 
     residential_blueprint = ResidentialDevelopmentBlueprint(
@@ -362,7 +357,7 @@ def equivalent_residential_development_project() -> DevelopmentProject:
                 unit_count=100,
                 avg_area_sf=900.0,
                 market_rent=2800.0,
-                rollover_profile=rollover_profile
+                rollover_profile=rollover_profile,
             )
         ],
         absorption_plan=ResidentialAbsorptionPlan.with_typical_assumptions(
@@ -372,13 +367,13 @@ def equivalent_residential_development_project() -> DevelopmentProject:
                 type="FixedQuantity",  # discriminator field
                 quantity=100,  # Lease all units at once
                 unit="Units",
-                frequency_months=1
+                frequency_months=1,
             ),
             leasing_assumptions=ResidentialDirectLeaseTerms(
                 monthly_rent=2800.0  # Match baseline
             ),
-            start_date_anchor="AnalysisStart"
-        )
+            start_date_anchor="AnalysisStart",
+        ),
     )
 
     return DevelopmentProject(
@@ -388,14 +383,13 @@ def equivalent_residential_development_project() -> DevelopmentProject:
         net_rentable_area=90000.0,
         construction_plan=construction_plan,
         financing_plan=financing_plan,
-        blueprints=[residential_blueprint]
+        blueprints=[residential_blueprint],
     )
 
 
 @pytest.fixture(scope="session")
 def mixed_use_development_project(
-    equivalent_office_development_project,
-    equivalent_residential_development_project
+    equivalent_office_development_project, equivalent_residential_development_project
 ) -> DevelopmentProject:
     """
     Create a mixed-use development project combining office and residential.
@@ -408,14 +402,13 @@ def mixed_use_development_project(
             CapitalItem(
                 name="Mixed-Use Building Construction",
                 timeline=Timeline.from_dates(
-                    start_date=date(2024, 1, 1),
-                    end_date=date(2024, 12, 31)
+                    start_date=date(2024, 1, 1), end_date=date(2024, 12, 31)
                 ),
                 value=35000000.0,  # Combined cost
                 unit_of_measure="currency",
-                frequency="monthly"
+                frequency="monthly",
             )
-        ]
+        ],
     )
 
     # Use same financing structure
@@ -425,7 +418,7 @@ def mixed_use_development_project(
                 name="Mixed-Use Construction Loan",
                 interest_rate=InterestRate(details=FixedRate(rate=0.065)),
                 fee_rate=0.01,
-                ltc_threshold=0.75
+                ltc_threshold=0.75,
             )
         ]
     )
@@ -435,27 +428,33 @@ def mixed_use_development_project(
     residential_blueprint = equivalent_residential_development_project.blueprints[0]
 
     return DevelopmentProject(
-        name="Mixed-Use Development Test", 
+        name="Mixed-Use Development Test",
         property_type=AssetTypeEnum.MIXED_USE,
         gross_area=150000.0,  # Combined areas
         net_rentable_area=140000.0,
         construction_plan=combined_construction_plan,
         financing_plan=financing_plan,
-        blueprints=[office_blueprint, residential_blueprint]
+        blueprints=[office_blueprint, residential_blueprint],
     )
 
 
 # Test functions
 
+
 def test_office_baseline_validation(office_baseline_cash_flows):
     """Validate that our baseline produces expected results."""
     assert not office_baseline_cash_flows.empty
     assert len(office_baseline_cash_flows) > 0
-    
+
     # Check expected revenue
     # 50,000 SF * $50/SF = $2,500,000 annual = ~$208,333 monthly
-    if "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE" in office_baseline_cash_flows.columns:
-        monthly_revenue = office_baseline_cash_flows["UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"].iloc[0]
+    if (
+        "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"
+        in office_baseline_cash_flows.columns
+    ):
+        monthly_revenue = office_baseline_cash_flows[
+            "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"
+        ].iloc[0]
         expected_revenue = 208333.33  # $2.5M / 12 months
         assert monthly_revenue == pytest.approx(expected_revenue, rel=0.02)
 
@@ -464,7 +463,7 @@ def test_office_development_matches_baseline(
     equivalent_office_development_project,
     office_baseline_cash_flows,
     analysis_timeline,
-    global_settings
+    global_settings,
 ):
     """
     THE CORE TEST: Validate development project produces same results as baseline.
@@ -474,28 +473,35 @@ def test_office_development_matches_baseline(
     development_scenario = run(
         model=equivalent_office_development_project,
         timeline=analysis_timeline,
-        settings=global_settings
+        settings=global_settings,
     )
-    
+
     development_cash_flows = development_scenario.get_cash_flow_summary()
-    
+
     # Filter to same stabilized period
     stabilized_start = pd.Period("2025-02", freq="M")
     development_stabilized = development_cash_flows.loc[stabilized_start:]
-    
+
     # Core validation: revenue flows should match
-    if ("UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE" in office_baseline_cash_flows.columns and 
-        "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE" in development_stabilized.columns):
-        
-        baseline_revenue = office_baseline_cash_flows["UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"].iloc[0]
-        development_revenue = development_stabilized["UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"].iloc[0]
-        
+    if (
+        "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"
+        in office_baseline_cash_flows.columns
+        and "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"
+        in development_stabilized.columns
+    ):
+        baseline_revenue = office_baseline_cash_flows[
+            "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"
+        ].iloc[0]
+        development_revenue = development_stabilized[
+            "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"
+        ].iloc[0]
+
         print(f"Baseline revenue: ${baseline_revenue:,.0f}/month")
         print(f"Development revenue: ${development_revenue:,.0f}/month")
-        
+
         # This proves the asset factory pattern works!
         assert development_revenue == pytest.approx(baseline_revenue, rel=0.01)
-        
+
         print("✅ ASSET FACTORY VALIDATION PASSED!")
         print("✅ Development project produces identical stabilized results")
         print("✅ 'Development as Asset Factory' concept proven!")
@@ -510,11 +516,16 @@ def test_residential_baseline_validation(residential_baseline_cash_flows):
     """Validate that residential baseline produces expected results."""
     assert not residential_baseline_cash_flows.empty
     assert len(residential_baseline_cash_flows) > 0
-    
+
     # Check expected revenue
     # 100 units * $2,800/month = $280,000 monthly
-    if "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE" in residential_baseline_cash_flows.columns:
-        monthly_revenue = residential_baseline_cash_flows["UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"].iloc[0]
+    if (
+        "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"
+        in residential_baseline_cash_flows.columns
+    ):
+        monthly_revenue = residential_baseline_cash_flows[
+            "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"
+        ].iloc[0]
         expected_revenue = 280000.0
         assert monthly_revenue == pytest.approx(expected_revenue, rel=0.02)
 
@@ -523,7 +534,7 @@ def test_residential_development_matches_baseline(
     equivalent_residential_development_project,
     residential_baseline_cash_flows,
     analysis_timeline,
-    global_settings
+    global_settings,
 ):
     """
     Validate residential development project produces same results as baseline.
@@ -532,28 +543,35 @@ def test_residential_development_matches_baseline(
     development_scenario = run(
         model=equivalent_residential_development_project,
         timeline=analysis_timeline,
-        settings=global_settings
+        settings=global_settings,
     )
-    
+
     development_cash_flows = development_scenario.get_cash_flow_summary()
-    
+
     # Filter to same stabilized period
     stabilized_start = pd.Period("2025-02", freq="M")
     development_stabilized = development_cash_flows.loc[stabilized_start:]
-    
+
     # Core validation: revenue flows should match
-    if ("UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE" in residential_baseline_cash_flows.columns and 
-        "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE" in development_stabilized.columns):
-        
-        baseline_revenue = residential_baseline_cash_flows["UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"].iloc[0]
-        development_revenue = development_stabilized["UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"].iloc[0]
-        
+    if (
+        "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"
+        in residential_baseline_cash_flows.columns
+        and "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"
+        in development_stabilized.columns
+    ):
+        baseline_revenue = residential_baseline_cash_flows[
+            "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"
+        ].iloc[0]
+        development_revenue = development_stabilized[
+            "UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE"
+        ].iloc[0]
+
         print(f"Baseline revenue: ${baseline_revenue:,.0f}/month")
         print(f"Development revenue: ${development_revenue:,.0f}/month")
-        
+
         # This proves the asset factory pattern works for residential too!
         assert development_revenue == pytest.approx(baseline_revenue, rel=0.01)
-        
+
         print("✅ RESIDENTIAL ASSET FACTORY VALIDATION PASSED!")
         print("✅ Residential development produces identical stabilized results")
     else:
@@ -564,9 +582,7 @@ def test_residential_development_matches_baseline(
 
 
 def test_mixed_use_polymorphic_pattern(
-    mixed_use_development_project,
-    analysis_timeline,
-    global_settings
+    mixed_use_development_project, analysis_timeline, global_settings
 ):
     """
     Test that mixed-use projects work with polymorphic blueprint pattern.
@@ -576,24 +592,28 @@ def test_mixed_use_polymorphic_pattern(
     development_scenario = run(
         model=mixed_use_development_project,
         timeline=analysis_timeline,
-        settings=global_settings
+        settings=global_settings,
     )
-    
+
     development_cash_flows = development_scenario.get_cash_flow_summary()
-    
+
     # Validate basic structure
     assert not development_cash_flows.empty
     assert len(development_cash_flows) > 0
-    
-    print(f"Mixed-use analysis generated {len(development_cash_flows)} periods of cash flows")
-    
+
+    print(
+        f"Mixed-use analysis generated {len(development_cash_flows)} periods of cash flows"
+    )
+
     # Validate that the polymorphic pattern works
     assert len(mixed_use_development_project.blueprints) == 2
-    
-    blueprint_types = [blueprint.use_type for blueprint in mixed_use_development_project.blueprints]
+
+    blueprint_types = [
+        blueprint.use_type for blueprint in mixed_use_development_project.blueprints
+    ]
     assert "OFFICE" in blueprint_types
     assert "RESIDENTIAL" in blueprint_types
-    
+
     print("✅ MIXED-USE POLYMORPHIC PATTERN VALIDATED!")
     print("✅ Multiple asset types combined successfully")
     print("✅ No conditionals needed in development orchestrator")
@@ -607,26 +627,26 @@ def test_asset_factory_architectural_validation():
     import inspect
 
     from performa.development.analysis import DevelopmentAnalysisScenario
-    
+
     # Get the source of the prepare_models method
     source_lines = inspect.getsourcelines(DevelopmentAnalysisScenario.prepare_models)[0]
-    method_source = ''.join(source_lines)
-    
+    method_source = "".join(source_lines)
+
     # Validate architectural principles
-    
+
     # 1. Should use polymorphic blueprint iteration
     assert "for blueprint in self.model.blueprints:" in method_source
     assert "blueprint.to_stabilized_asset" in method_source
-    
+
     # 2. Should NOT contain asset-type conditionals
     assert "if component.use_type ==" not in method_source
     assert "elif component.use_type ==" not in method_source
     assert "ProgramUseEnum" not in method_source
-    
+
     # 3. Should leverage existing asset analysis via run() API
     assert "from performa.analysis import run" in method_source
     assert "asset_scenario = run(" in method_source
-    
+
     print("✅ ARCHITECTURAL VALIDATION PASSED!")
     print("✅ Asset factory pattern correctly implemented")
     print("✅ No asset-type conditionals found")
@@ -635,9 +655,7 @@ def test_asset_factory_architectural_validation():
 
 
 def test_end_to_end_asset_factory_workflow(
-    mixed_use_development_project,
-    analysis_timeline,
-    global_settings
+    mixed_use_development_project, analysis_timeline, global_settings
 ):
     """
     End-to-end test of the complete asset factory workflow.
@@ -646,36 +664,40 @@ def test_end_to_end_asset_factory_workflow(
     # Step 1: Validate project structure
     assert mixed_use_development_project.name == "Mixed-Use Development Test"
     assert len(mixed_use_development_project.blueprints) == 2
-    
+
     # Step 2: Test blueprint to asset transformation (the "factory" process)
     stabilized_assets = []
     for blueprint in mixed_use_development_project.blueprints:
         stabilized_asset = blueprint.to_stabilized_asset(analysis_timeline)
         stabilized_assets.append(stabilized_asset)
-    
+
     # Validate assets were created correctly
     assert len(stabilized_assets) == 2
-    
-    office_asset = next(a for a in stabilized_assets if a.__class__.__name__ == "OfficeProperty")
-    residential_asset = next(a for a in stabilized_assets if a.__class__.__name__ == "ResidentialProperty")
-    
+
+    office_asset = next(
+        a for a in stabilized_assets if a.__class__.__name__ == "OfficeProperty"
+    )
+    residential_asset = next(
+        a for a in stabilized_assets if a.__class__.__name__ == "ResidentialProperty"
+    )
+
     assert office_asset is not None
     assert residential_asset is not None
-    
+
     # Step 3: Execute complete development analysis
     development_scenario = run(
         model=mixed_use_development_project,
         timeline=analysis_timeline,
-        settings=global_settings
+        settings=global_settings,
     )
-    
+
     # Step 4: Validate complete cash flow generation
     cash_flows = development_scenario.get_cash_flow_summary()
     assert not cash_flows.empty
     assert len(cash_flows) > 0
-    
+
     print("✅ COMPLETE ASSET FACTORY WORKFLOW VALIDATED!")
     print(f"✅ Generated {len(stabilized_assets)} stabilized assets from blueprints")
     print(f"✅ Produced {len(cash_flows)} periods of development cash flows")
     print("✅ End-to-end development lifecycle working correctly")
-    print("✅ Asset factory pattern fully operational!") 
+    print("✅ Asset factory pattern fully operational!")

@@ -16,5 +16,7 @@ def test_losses_base_instantiation():
     losses = LossesBase()
     assert isinstance(losses.general_vacancy, GeneralVacancyLossConfigBase)
     assert isinstance(losses.collection_loss, CollectionLossConfigBase)
-    assert losses.general_vacancy.method == VacancyLossMethodEnum.POTENTIAL_GROSS_REVENUE
+    assert (
+        losses.general_vacancy.method == VacancyLossMethodEnum.POTENTIAL_GROSS_REVENUE
+    )
     assert losses.collection_loss.rate == 0.01

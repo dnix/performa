@@ -44,10 +44,7 @@ def test_recovery_base_instantiation(sample_expense: OpExItemBase):
 def test_recovery_method_base_instantiation(sample_expense: OpExItemBase):
     """Test successful instantiation of RecoveryMethodBase."""
     rec_item = RecoveryBase(expenses=sample_expense, structure="net")
-    method = RecoveryMethodBase(
-        name="Test Method",
-        recoveries=[rec_item]
-    )
+    method = RecoveryMethodBase(name="Test Method", recoveries=[rec_item])
     assert method.name == "Test Method"
     assert len(method.recoveries) == 1
 
@@ -58,7 +55,7 @@ def test_recovery_base_validator_base_stop_fails(sample_expense: OpExItemBase):
         RecoveryBase(
             expenses=sample_expense,
             structure="base_stop",
-            base_amount=None  # Should fail
+            base_amount=None,  # Should fail
         )
 
 
@@ -67,7 +64,7 @@ def test_recovery_base_validator_base_stop_succeeds(sample_expense: OpExItemBase
     RecoveryBase(
         expenses=sample_expense,
         structure="base_stop",
-        base_amount=10.0  # Should succeed
+        base_amount=10.0,  # Should succeed
     )
 
 
@@ -86,7 +83,7 @@ def test_recovery_base_validator_base_year_fails(sample_expense: OpExItemBase):
         RecoveryBase(
             expenses=sample_expense,
             structure="base_year",
-            base_year=None  # Should fail
+            base_year=None,  # Should fail
         )
 
 
@@ -95,5 +92,5 @@ def test_recovery_base_validator_base_year_succeeds(sample_expense: OpExItemBase
     RecoveryBase(
         expenses=sample_expense,
         structure="base_year",
-        base_year=2024  # Should succeed
+        base_year=2024,  # Should succeed
     )

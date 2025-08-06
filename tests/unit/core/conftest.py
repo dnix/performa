@@ -33,4 +33,4 @@ def sample_context(sample_timeline: Timeline) -> AnalysisContext:
             resolved_lookups={},
         )
 
-    return _create_context 
+    return _create_context

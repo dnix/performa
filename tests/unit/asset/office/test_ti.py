@@ -17,7 +17,9 @@ from performa.core.primitives import GlobalSettings, Timeline
 @pytest.fixture
 def sample_context() -> AnalysisContext:
     """Provides a basic analysis context for tests."""
-    timeline = Timeline.from_dates(start_date=date(2024, 1, 1), end_date=date(2028, 12, 31))
+    timeline = Timeline.from_dates(
+        start_date=date(2024, 1, 1), end_date=date(2028, 12, 31)
+    )
     property_data = OfficeProperty.model_construct(net_rentable_area=1.0)
     return AnalysisContext(
         timeline=timeline,

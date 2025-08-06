@@ -26,10 +26,11 @@ def test_global_settings_default_instantiation():
 
 def test_global_settings_custom_instantiation():
     """Test that GlobalSettings can be instantiated with custom values."""
-    reporting_settings = ReportingSettings(fiscal_year_start_month=3, decimal_precision=0)
+    reporting_settings = ReportingSettings(
+        fiscal_year_start_month=3, decimal_precision=0
+    )
     settings = GlobalSettings(
-        reporting=reporting_settings,
-        valuation={"discount_rate": 0.075}
+        reporting=reporting_settings, valuation={"discount_rate": 0.075}
     )
     assert settings.reporting.fiscal_year_start_month == 3
     assert settings.reporting.decimal_precision == 0
@@ -40,31 +41,32 @@ def test_inflation_settings_validator_success():
     """Test the validator on InflationSettings for valid configurations."""
     # This should work
     InflationSettings(
-        inflation_timing=InflationTimingEnum.SPECIFIC_MONTH,
-        inflation_timing_month=6
+        inflation_timing=InflationTimingEnum.SPECIFIC_MONTH, inflation_timing_month=6
     )
     # This should also work
     InflationSettings(
-        inflation_timing=InflationTimingEnum.START_OF_YEAR,
-        inflation_timing_month=None
+        inflation_timing=InflationTimingEnum.START_OF_YEAR, inflation_timing_month=None
     )
 
 
 def test_inflation_settings_validator_failure_missing_month():
     """Test that the validator fails when a specific month is required but not provided."""
-    with pytest.raises(ValueError, match="must be set when inflation_timing is SPECIFIC_MONTH"):
+    with pytest.raises(
+        ValueError, match="must be set when inflation_timing is SPECIFIC_MONTH"
+    ):
         InflationSettings(
             inflation_timing=InflationTimingEnum.SPECIFIC_MONTH,
-            inflation_timing_month=None
+            inflation_timing_month=None,
         )
 
 
 def test_inflation_settings_validator_failure_extra_month():
     """Test that the validator fails when a month is provided but not required."""
-    with pytest.raises(ValueError, match="should only be set when inflation_timing is SPECIFIC_MONTH"):
+    with pytest.raises(
+        ValueError, match="should only be set when inflation_timing is SPECIFIC_MONTH"
+    ):
         InflationSettings(
-            inflation_timing=InflationTimingEnum.MID_YEAR,
-            inflation_timing_month=6
+            inflation_timing=InflationTimingEnum.MID_YEAR, inflation_timing_month=6
         )
 
 
@@ -76,7 +78,9 @@ def test_reporting_settings_field_validation():
     with pytest.raises(ValidationError):
         ReportingSettings(fiscal_year_start_month=13)  # Fails le=12
     with pytest.raises(ValidationError):
-        ReportingSettings(fiscal_year_start_month=1.5)  # Fails PositiveInt (strict=True)
-    
+        ReportingSettings(
+            fiscal_year_start_month=1.5
+        )  # Fails PositiveInt (strict=True)
+
     # Test successful case
     ReportingSettings(fiscal_year_start_month=12)

@@ -6,4 +6,4 @@ Integration tests for the debt module.
 
 This package contains integration tests that verify the proper interaction
 between debt module components and their integration with the broader system.
-""" 
+"""

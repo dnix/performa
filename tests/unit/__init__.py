@@ -6,4 +6,4 @@ Unit tests for Performa components.
 
 This package contains isolated unit tests that verify individual component
 functionality without external dependencies.
-""" 
+"""

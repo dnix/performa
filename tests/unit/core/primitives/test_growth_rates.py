@@ -16,8 +16,10 @@ from performa.core.primitives import GrowthRates, PercentageGrowthRate
 def test_growth_rate_instantiation():
     """Test successful instantiation of PercentageGrowthRate with various value types."""
     PercentageGrowthRate(name="Constant", value=0.05)
-    
-    series_val = pd.Series([0.02, 0.03], index=pd.period_range('2024-01', periods=2, freq='M'))
+
+    series_val = pd.Series(
+        [0.02, 0.03], index=pd.period_range("2024-01", periods=2, freq="M")
+    )
     PercentageGrowthRate(name="Series", value=series_val)
 
     dict_val = {date(2024, 1, 1): 0.01, date(2025, 1, 1): 0.015}
@@ -28,16 +30,20 @@ def test_growth_rate_validation_fails():
     """Test that PercentageGrowthRate validation fails for out-of-bounds values."""
     with pytest.raises(ValidationError):
         PercentageGrowthRate(name="Too High", value=1.1)
-    
+
     with pytest.raises(ValidationError):
         PercentageGrowthRate(name="Too Low", value=-0.1)
 
     bad_series = pd.Series([0.05, 0.1])
     with pytest.raises(ValueError, match="must have a PeriodIndex"):
         PercentageGrowthRate(name="Bad Index", value=bad_series)
-        
-    bad_values_series = pd.Series([0.05, 1.2], index=pd.period_range('2024-01', periods=2, freq='M'))
-    with pytest.raises(ValueError, match="Growth rates in Series must be between 0 and 1"):
+
+    bad_values_series = pd.Series(
+        [0.05, 1.2], index=pd.period_range("2024-01", periods=2, freq="M")
+    )
+    with pytest.raises(
+        ValueError, match="Growth rates in Series must be between 0 and 1"
+    ):
         PercentageGrowthRate(name="Bad Series", value=bad_values_series)
 
     bad_dict = {date(2024, 1, 1): -0.1}
@@ -50,7 +56,7 @@ def test_growth_rates_base_with_default_rate():
     """Test the with_default_rate classmethod."""
     default_rate = 0.03
     growth_rates = GrowthRates.with_default_rate(default_rate)
-    
+
     assert growth_rates.default_rate == default_rate
     assert growth_rates.general_growth.value == default_rate
     assert growth_rates.market_rent_growth.value == default_rate
@@ -64,7 +70,7 @@ def test_growth_rates_base_with_custom_rates():
         extra_rates={
             "inflation_rate": PercentageGrowthRate(name="Inflation", value=0.025)
         },
-        market_rent_growth=PercentageGrowthRate(name="Custom Market Rent", value=0.04)
+        market_rent_growth=PercentageGrowthRate(name="Custom Market Rent", value=0.04),
     )
 
     assert hasattr(custom_rates, "inflation_rate")
@@ -76,5 +82,7 @@ def test_growth_rates_base_with_custom_rates():
     # Test that it fails if no default is provided and a field is missing
     with pytest.raises(ValueError, match="must be provided if not all standard"):
         GrowthRates.with_custom_rates(
-             extra_rates={"inflation_rate": PercentageGrowthRate(name="Inflation", value=0.025)}
+            extra_rates={
+                "inflation_rate": PercentageGrowthRate(name="Inflation", value=0.025)
+            }
         )

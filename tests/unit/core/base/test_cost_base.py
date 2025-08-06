@@ -91,7 +91,7 @@ def test_payment_timing(sample_context):
     cf_lc_signing = lc_signing.compute_cf(context=context)
     assert cf_lc_signing.iloc[0] == 5000.0
     assert cf_lc_signing.sum() == 5000.0
-    
+
     # Test 4: LC at Commencement (should still be month 0 as per base logic)
     lc_commencement = LeasingCommissionBase(
         name="Test LC Commencement",

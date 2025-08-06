@@ -6,4 +6,4 @@ Integration tests for Performa components.
 
 This package contains integration tests that verify proper interaction
 between multiple components and subsystems.
-""" 
+"""

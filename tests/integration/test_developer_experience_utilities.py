@@ -55,7 +55,9 @@ class TestDeveloperExperienceUtilities:
 
     def test_distribution_calculator_creation(self):
         """Test distribution calculator creation."""
-        calc = create_distribution_calculator("waterfall", lp_share=0.8, preferred_return_rate=0.08)
+        calc = create_distribution_calculator(
+            "waterfall", lp_share=0.8, preferred_return_rate=0.08
+        )
         assert calc.partnership.distribution_method == "waterfall"
         assert len(calc.partnership.partners) == 2
 
@@ -63,7 +65,7 @@ class TestDeveloperExperienceUtilities:
         """Test cash flow creation utility."""
         timeline = create_test_timeline("2024-01-01", 12)
         cash_flows = create_simple_cash_flows(timeline, 1_000_000, 1_500_000)
-        
+
         assert cash_flows.iloc[0] == -1_000_000  # Investment
         assert cash_flows.iloc[-1] == 1_500_000  # Return
         assert cash_flows.iloc[1:-1].sum() == 0  # Middle periods are zero
@@ -71,16 +73,18 @@ class TestDeveloperExperienceUtilities:
     def test_full_integration_waterfall(self):
         """Test full integration: create calculator and run waterfall."""
         timeline = create_test_timeline("2024-01-01", 36)
-        calc = create_distribution_calculator("waterfall", lp_share=0.8, preferred_return_rate=0.08)
+        calc = create_distribution_calculator(
+            "waterfall", lp_share=0.8, preferred_return_rate=0.08
+        )
         cash_flows = create_simple_cash_flows(timeline, 1_000_000, 1_500_000)
-        
+
         # This should work without any API confusion
         results = calc.calculate_waterfall_distribution(cash_flows, timeline)
-        
+
         # Test that we can access the structure easily
         lp_distributions = results["partner_distributions"]["LP"]["total_distributions"]
         gp_distributions = results["partner_distributions"]["GP"]["total_distributions"]
-        
+
         assert lp_distributions > 0
         assert gp_distributions > 0
         assert abs((lp_distributions + gp_distributions) - 1_500_000) < 1.0
@@ -90,13 +94,13 @@ class TestDeveloperExperienceUtilities:
         timeline = create_test_timeline("2024-01-01", 12)
         calc = create_distribution_calculator("pari_passu", lp_share=0.8)
         cash_flows = create_simple_cash_flows(timeline, 1_000_000, 1_500_000)
-        
+
         results = calc.calculate_pari_passu_distribution(cash_flows, timeline)
-        
+
         # Test proportional distribution
         lp_distributions = results["partner_distributions"]["LP"]["total_distributions"]
         gp_distributions = results["partner_distributions"]["GP"]["total_distributions"]
-        
+
         assert abs(lp_distributions - 1_500_000 * 0.8) < 1.0
         assert abs(gp_distributions - 1_500_000 * 0.2) < 1.0
 
@@ -105,9 +109,9 @@ class TestDeveloperExperienceUtilities:
         timeline = create_test_timeline("2024-01-01", 12)
         calc = create_distribution_calculator("pari_passu", lp_share=0.8)
         cash_flows = create_simple_cash_flows(timeline, 1_000_000, 1_500_000)
-        
+
         results = calc.calculate_pari_passu_distribution(cash_flows, timeline)
-        
+
         # This should not raise any assertions
         assert validate_distribution_results_structure(results) is True
 
@@ -116,9 +120,9 @@ class TestDeveloperExperienceUtilities:
         timeline = create_test_timeline("2024-01-01", 12)
         calc = create_distribution_calculator("pari_passu", lp_share=0.8)
         cash_flows = create_simple_cash_flows(timeline, 1_000_000, 1_500_000)
-        
+
         results = calc.calculate_pari_passu_distribution(cash_flows, timeline)
-        
+
         # This should not raise any assertions
         assert validate_cash_flow_conservation(results, cash_flows) is True
 
@@ -126,30 +130,30 @@ class TestDeveloperExperienceUtilities:
         """Test that the new utilities solve the original problems."""
         # This test demonstrates that what used to take 45+ minutes of debugging
         # now takes seconds and works on the first try
-        
+
         # 1. Timeline creation (was confusing before)
         timeline = create_test_timeline("2024-01-01", 24)
-        
+
         # 2. Partnership creation (was complex before)
         partnership = create_waterfall_partnership(preferred_return_rate=0.08)
-        
+
         # 3. Calculator creation (was blocked by complex requirements before)
         calc = create_distribution_calculator("waterfall", lp_share=0.8)
-        
+
         # 4. Cash flow creation (was manual before)
         cash_flows = create_simple_cash_flows(timeline, 1_000_000, 2_000_000)
-        
+
         # 5. Run calculation (was confusing result structure before)
         results = calc.calculate_waterfall_distribution(cash_flows, timeline)
-        
+
         # 6. Access results (was requiring debugging before)
         lp_irr = results["partner_distributions"]["LP"]["irr"]
         gp_irr = results["partner_distributions"]["GP"]["irr"]
-        
+
         # 7. Validate automatically (was manual checking before)
         validate_distribution_results_structure(results)
         validate_cash_flow_conservation(results, cash_flows)
-        
+
         # If we get here, all the developer experience issues are solved
         assert lp_irr > 0
         assert gp_irr > 0
