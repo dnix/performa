@@ -516,10 +516,14 @@ class CashFlowOrchestrator:
             # Handle both enum values and string values for subcategory
             if (subcategory == RevenueSubcategoryEnum.LEASE or 
                 (hasattr(subcategory, 'value') and subcategory == RevenueSubcategoryEnum.LEASE) or
-                subcategory == "Lease"):
-                if component == "base_rent": return UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE
-                if component == "recoveries": return UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS
-                if component == "abatement": return UnleveredAggregateLineKey.RENTAL_ABATEMENT
+                subcategory == "Lease"
+            ):
+                if component == "base_rent": 
+                    return UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE
+                if component == "recoveries": 
+                    return UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS
+                if component == "abatement": 
+                    return UnleveredAggregateLineKey.RENTAL_ABATEMENT
             elif (subcategory == RevenueSubcategoryEnum.MISC or 
                   (hasattr(subcategory, 'value') and subcategory == RevenueSubcategoryEnum.MISC)):
                 return UnleveredAggregateLineKey.MISCELLANEOUS_INCOME
@@ -532,8 +536,10 @@ class CashFlowOrchestrator:
                 str(subcategory) == str(ExpenseSubcategoryEnum.CAPEX)):
                 return UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES
             # Handle special leasing costs from lease object
-            if subcategory == "Lease" and component == "ti_allowance": return UnleveredAggregateLineKey.TOTAL_TENANT_IMPROVEMENTS
-            if subcategory == "Lease" and component == "leasing_commission": return UnleveredAggregateLineKey.TOTAL_LEASING_COMMISSIONS
+            if subcategory == "Lease" and component == "ti_allowance": 
+                return UnleveredAggregateLineKey.TOTAL_TENANT_IMPROVEMENTS
+            if subcategory == "Lease" and component == "leasing_commission": 
+                return UnleveredAggregateLineKey.TOTAL_LEASING_COMMISSIONS
         return None
 
     def _compute_intermediate_aggregates(self) -> None:

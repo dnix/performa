@@ -255,7 +255,8 @@ class FixedQuantityPaceStrategy(PaceStrategy):
             if pace_model.unit == "SF":
                 suites_to_remove = []
                 for suite in local_remaining_suites:
-                    if quantity_remaining_this_period <= 0: break
+                    if quantity_remaining_this_period <= 0: 
+                        break
                     
                     suite_state = context._suite_states[suite.suite]
                     
@@ -311,7 +312,8 @@ class FixedQuantityPaceStrategy(PaceStrategy):
                 suites_to_lease_this_period = []
                 # Take the largest available whole suites first
                 for suite in local_remaining_suites:
-                    if len(suites_to_lease_this_period) >= quantity_remaining_this_period: break
+                    if len(suites_to_lease_this_period) >= quantity_remaining_this_period: 
+                        break
                     if not suite.is_divisible and context._suite_states[suite.suite].remaining_area > 0:
                         suites_to_lease_this_period.append(suite)
                 
@@ -494,10 +496,12 @@ class CustomSchedulePaceStrategy(PaceStrategy):
                 divisible_suites = [s for s in local_remaining_suites if s.is_divisible]
                 
                 for suite in divisible_suites:
-                    if quantity_remaining_this_period <= 0: break
+                    if quantity_remaining_this_period <= 0: 
+                        break
                     
                     suite_state = context._suite_states[suite.suite]
-                    if suite_state.remaining_area <= 0: continue
+                    if suite_state.remaining_area <= 0: 
+                        continue
 
                     avg_lease_size = suite.subdivision_average_lease_area
                     min_lease_size = suite.subdivision_minimum_lease_area or avg_lease_size
@@ -799,7 +803,8 @@ class OfficeAbsorptionPlan(AbsorptionPlanBase[OfficeExpenses, OfficeLosses, Offi
         """
         direct_terms = kwargs.get("direct_terms")
         profile_market_terms = kwargs.get("profile_market_terms")
-        if not profile_market_terms and not direct_terms: return None
+        if not profile_market_terms and not direct_terms:
+            return None
 
         final_terms = (direct_terms or profile_market_terms).model_copy(deep=True)
         
