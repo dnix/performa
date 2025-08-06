@@ -225,7 +225,7 @@ class OfficeLease(CommercialLeaseBase):
             # Industry standard: 50% at signing, 50% at commencement for office leases
             commission_tiers = [
                 CommissionTier(
-                    year_start=i+1, 
+                    year_start=i + 1, 
                     rate=rate, 
                     signing_percentage=0.5, 
                     commencement_percentage=0.5

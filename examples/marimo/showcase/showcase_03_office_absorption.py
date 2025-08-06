@@ -832,7 +832,7 @@ def __(timeline_df, mo):
                 "Suite": table_row['Suite'],
                 "Area (SF)": f"{table_row['Area_SF']:,.0f}",
                 "Annual Rent": f"${table_row['Annual_Rent']:,.0f}",
-                "$/SF/Year": f"${table_row['Annual_Rent']/table_row['Area_SF']:.2f}",
+                "$/SF/Year": f"${table_row['Annual_Rent'] / table_row['Area_SF']:.2f}",
                 "Cumulative SF": f"{table_row['Cumulative_SF']:,.0f}"
             })
         
@@ -879,7 +879,7 @@ def __(timeline_df, mo, total_vacant_sf):
         - **First Lease**: {revenue_first_lease_date}
         - **Last Lease**: {revenue_last_lease_date}
         - **Leasing Period**: {(timeline_df['Lease_Date'].max() - timeline_df['Lease_Date'].min()).days} days
-        - **Revenue per Occupied SF**: ${revenue_total_annual_rent/timeline_df['Area_SF'].sum():.0f}/SF/year
+        - **Revenue per Occupied SF**: ${revenue_total_annual_rent / timeline_df['Area_SF'].sum():.0f}/SF/year
         """
     
     mo.md(revenue_analysis)

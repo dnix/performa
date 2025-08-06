@@ -143,7 +143,7 @@ def test_small_developer_scale() -> Dict[str, Any]:
     print(f"  Actual PGR: ${actual_pgr:,.0f}")
     print(f"  Lease Models Created: {len(lease_models)}")
     print(f"  Execution Time: {execution_time:.3f}s")
-    print(f"  Performance: {len(lease_models)/execution_time:.0f} units/second")
+    print(f"  Performance: {len(lease_models) / execution_time:.0f} units/second")
     
     # Fundamental sanity checks
     assert len(lease_models) == 3, f"Expected 3 lease models, got {len(lease_models)}"
@@ -153,7 +153,7 @@ def test_small_developer_scale() -> Dict[str, Any]:
         "scale": "Small Developer",
         "units": 3,
         "execution_time": execution_time,
-        "units_per_second": len(lease_models)/execution_time,
+        "units_per_second": len(lease_models) / execution_time,
         "pgr_accuracy": abs(actual_pgr - expected_pgr) < 10,
         "lease_models": len(lease_models)
     }
@@ -250,7 +250,7 @@ def test_regional_investor_scale() -> Dict[str, Any]:
     print(f"  Lease Models: {len(lease_models)}")
     print(f"  Expense Models: {len(expense_models)}")
     print(f"  Execution Time: {execution_time:.3f}s")
-    print(f"  Performance: {len(lease_models)/execution_time:.0f} units/second")
+    print(f"  Performance: {len(lease_models) / execution_time:.0f} units/second")
     
     # Fundamental sanity checks
     assert len(lease_models) == 75, f"Expected 75 lease models, got {len(lease_models)}"
@@ -261,7 +261,7 @@ def test_regional_investor_scale() -> Dict[str, Any]:
         "scale": "Regional Investor", 
         "units": 75,
         "execution_time": execution_time,
-        "units_per_second": len(lease_models)/execution_time,
+        "units_per_second": len(lease_models) / execution_time,
         "pgr_accuracy": abs(actual_pgr - expected_pgr) < 100,
         "lease_models": len(lease_models),
         "expense_models": len(expense_models)
@@ -408,11 +408,11 @@ def test_institutional_scale() -> Dict[str, Any]:
     print(f"  Expense Models: {len(expense_models)}")
     print(f"  Misc Income Models: {len(misc_models)}")
     print(f"  Execution Time: {execution_time:.3f}s")
-    print(f"  Performance: {len(lease_models)/execution_time:.0f} units/second")
+    print(f"  Performance: {len(lease_models) / execution_time:.0f} units/second")
     
     # Performance assertions for institutional scale
     assert execution_time < 5.0, f"Institutional analysis should complete in <5s, took {execution_time:.3f}s"
-    assert len(lease_models)/execution_time > 80, f"Should process >80 units/sec, got {len(lease_models)/execution_time:.0f}"
+    assert len(lease_models) / execution_time > 80, f"Should process >80 units/sec, got {len(lease_models) / execution_time:.0f}"
     
     # Fundamental sanity checks
     assert len(lease_models) == 400, f"Expected 400 lease models, got {len(lease_models)}"
@@ -424,7 +424,7 @@ def test_institutional_scale() -> Dict[str, Any]:
         "scale": "Institutional",
         "units": 400,
         "execution_time": execution_time,
-        "units_per_second": len(lease_models)/execution_time,
+        "units_per_second": len(lease_models) / execution_time,
         "pgr_accuracy": abs(actual_pgr - expected_pgr) < 500,
         "misc_accuracy": actual_misc > 0,
         "lease_models": len(lease_models),
@@ -860,19 +860,19 @@ def generate_performance_insights(results: List[Dict[str, Any]]) -> None:
         size_range = f"{min(sizes)}-{max(sizes)} units" if len(sizes) > 1 else f"{sizes[0]} units"
         
         if avg_time < 0.05:
-            time_str = f"~{avg_time*1000:.0f}ms"
+            time_str = f"~{avg_time * 1000:.0f}ms"
             experience = "Instant response"
         elif avg_time < 0.1:
-            time_str = f"~{avg_time*1000:.0f}ms" 
+            time_str = f"~{avg_time * 1000:.0f}ms" 
             experience = "Real-time"
         elif avg_time < 0.3:
-            time_str = f"~{avg_time*1000:.0f}ms"
+            time_str = f"~{avg_time * 1000:.0f}ms"
             experience = "Near-instant"
         elif avg_time < 0.6:
-            time_str = f"~{avg_time*1000:.0f}ms"
+            time_str = f"~{avg_time * 1000:.0f}ms"
             experience = "Very responsive"
         elif avg_time < 1.0:
-            time_str = f"~{avg_time*1000:.0f}ms"
+            time_str = f"~{avg_time * 1000:.0f}ms"
             experience = "Fast"
         else:
             time_str = f"{avg_time:.1f}s"

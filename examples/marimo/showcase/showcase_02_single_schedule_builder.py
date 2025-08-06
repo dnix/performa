@@ -368,8 +368,8 @@ def __(cf_df, amount, cash_flows, mo):
     
     - **Peak Draw**: ${peak_amount:,.0f} in Month {peak_month:.0f}
     - **Average Monthly**: ${avg_monthly:,.0f}
-    - **First Month**: ${cf_df.iloc[0]['Cash_Flow']:,.0f} ({cf_df.iloc[0]['Cash_Flow']/amount*100:.1f}%)
-    - **Last Month**: ${cf_df.iloc[-1]['Cash_Flow']:,.0f} ({cf_df.iloc[-1]['Cash_Flow']/amount*100:.1f}%)
+    - **First Month**: ${cf_df.iloc[0]['Cash_Flow']:,.0f} ({cf_df.iloc[0]['Cash_Flow'] / amount * 100:.1f}%)
+    - **Last Month**: ${cf_df.iloc[-1]['Cash_Flow']:,.0f} ({cf_df.iloc[-1]['Cash_Flow'] / amount * 100:.1f}%)
     - **Total Verified**: ${cf_df['Cash_Flow'].sum():,.0f} ✓
     """)
     return

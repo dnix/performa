@@ -69,7 +69,7 @@ class SourcesAndUsesReport(Report):
                 "Total Project Cost": self.format_currency(total_uses)
             },
             "sources": {
-                "Equity Investment": f"{self.format_currency(sources.get('equity', 0))} ({sources.get('equity', 0)/total_uses:.1%})" if total_uses > 0 else f"{self.format_currency(sources.get('equity', 0))} (0.0%)",
+                "Equity Investment": f"{self.format_currency(sources.get('equity', 0))} ({sources.get('equity', 0) / total_uses:.1%})" if total_uses > 0 else f"{self.format_currency(sources.get('equity', 0))} (0.0%)",
                 "Senior Construction Loan": f"{self.format_currency(sources.get('senior_debt', 0))}",
                 "Mezzanine Financing": f"{self.format_currency(sources.get('mezzanine', 0))}",
                 "Government Subsidies": f"{self.format_currency(sources.get('subsidies', 0))}",
@@ -473,7 +473,7 @@ class ConstructionDrawReport(Report):
             if period_amount > 0:
                 line_items.append({
                     "Line": i + 1,
-                    "Description": item.name or f"Construction Item {i+1}",
+                    "Description": item.name or f"Construction Item {i + 1}",
                     "Category": item.work_type or "Construction",
                     "Budgeted Amount": self.format_currency(item.value),
                     "Previous Draws": self.format_currency(item.value * 0.3),  # Simplified

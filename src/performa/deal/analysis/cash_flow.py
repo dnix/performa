@@ -401,7 +401,7 @@ class CashFlowEngine:
             # This follows institutional lending practice where interest accrues on existing debt
             if i > 0:
                 # Get the debt balance from the previous period
-                previous_balance = outstanding_debt_balance.iloc[i-1]
+                previous_balance = outstanding_debt_balance.iloc[i - 1]
                 
                 if previous_balance > 0:
                     # Calculate monthly interest using the facility's interest rate
@@ -455,10 +455,10 @@ class CashFlowEngine:
                 debt_funded_cumulative += period_debt
                 
                 # Update outstanding debt balance
-                outstanding_debt_balance.iloc[i] = outstanding_debt_balance.iloc[i-1] if i > 0 else 0.0
+                outstanding_debt_balance.iloc[i] = outstanding_debt_balance.iloc[i - 1] if i > 0 else 0.0
                 outstanding_debt_balance.iloc[i] += period_debt
             elif i > 0:
-                outstanding_debt_balance.iloc[i] = outstanding_debt_balance.iloc[i-1]
+                outstanding_debt_balance.iloc[i] = outstanding_debt_balance.iloc[i - 1]
             
             # Update cumulative equity series for all periods
             funding_components["equity_cumulative"][period] = equity_funded_cumulative
@@ -570,9 +570,9 @@ class CashFlowEngine:
         construction_facility = construction_facilities[0]
         
         # Calculate cumulative state for facility draw calculation
-        cumulative_costs = working_uses.iloc[:period_idx+1].sum()
+        cumulative_costs = working_uses.iloc[:period_idx + 1].sum()
         cumulative_draws_by_tranche = {
-            tranche.name: funding_components["debt_draws_by_tranche"][tranche.name].iloc[:period_idx+1].sum()
+            tranche.name: funding_components["debt_draws_by_tranche"][tranche.name].iloc[:period_idx + 1].sum()
             for tranche in construction_facility.tranches
         }
         
@@ -898,7 +898,7 @@ class CashFlowEngine:
                         tranche_capacity = total_project_cost * tranche.ltc_threshold
                     else:
                         # Subsequent tranches: from previous LTC to current LTC
-                        prev_tranche_ltc = facility.tranches[i-1].ltc_threshold
+                        prev_tranche_ltc = facility.tranches[i - 1].ltc_threshold
                         tranche_capacity = total_project_cost * (tranche.ltc_threshold - prev_tranche_ltc)
                     total_facility_capacity += tranche_capacity
                 

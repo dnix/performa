@@ -300,12 +300,12 @@ class CashFlowOrchestrator:
         logger.info("=== Orchestrator Execution Completed Successfully ===")
         logger.info(f"Total execution time: {total_time:.3f}s")
         logger.info("Phase breakdown:")
-        logger.info(f"  Validation: {validation_time:.3f}s ({validation_time/total_time:.1%})")
-        logger.info(f"  Pre-Phase:  {pre_phase_time:.3f}s ({pre_phase_time/total_time:.1%})")
-        logger.info(f"  Phase 1:    {phase1_time:.3f}s ({phase1_time/total_time:.1%})")
-        logger.info(f"  Intermediate: {intermediate_time:.3f}s ({intermediate_time/total_time:.1%})")
-        logger.info(f"  Phase 2:    {phase2_time:.3f}s ({phase2_time/total_time:.1%})")
-        logger.info(f"  Final:      {final_time:.3f}s ({final_time/total_time:.1%})")
+        logger.info(f"  Validation: {validation_time:.3f}s ({validation_time / total_time:.1%})")
+        logger.info(f"  Pre-Phase:  {pre_phase_time:.3f}s ({pre_phase_time / total_time:.1%})")
+        logger.info(f"  Phase 1:    {phase1_time:.3f}s ({phase1_time / total_time:.1%})")
+        logger.info(f"  Intermediate: {intermediate_time:.3f}s ({intermediate_time / total_time:.1%})")
+        logger.info(f"  Phase 2:    {phase2_time:.3f}s ({phase2_time / total_time:.1%})")
+        logger.info(f"  Final:      {final_time:.3f}s ({final_time / total_time:.1%})")
         
         # Log key results for verification
         if self.summary_df is not None:

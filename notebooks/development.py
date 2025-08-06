@@ -333,7 +333,7 @@ if interest_columns:  # Only plot if there are tranches
 total_cost = my_project._budget_table.sum().sum()
 print(f"Total Project Cost: ${total_cost:,.2f}")
 print(
-    f"Equity Required ({(1-my_project.debt_to_equity)*100:.0f}%): ${total_cost * (1-my_project.debt_to_equity):,.2f}"
+    f"Equity Required ({(1 - my_project.debt_to_equity) * 100:.0f}%): ${total_cost * (1 - my_project.debt_to_equity):,.2f}"
 )
 
 print("\nDebt Capacity:")
@@ -341,7 +341,7 @@ previous_ltc = 0.0
 for tranche in construction_financing.tranches:
     tranche_ltc = tranche.ltc_threshold - previous_ltc
     print(
-        f"{tranche.name} ({previous_ltc*100:.0f}%-{tranche.ltc_threshold*100:.0f}%): ${total_cost * tranche_ltc:,.2f}"
+        f"{tranche.name} ({previous_ltc * 100:.0f}%-{tranche.ltc_threshold * 100:.0f}%): ${total_cost * tranche_ltc:,.2f}"
     )
     previous_ltc = tranche.ltc_threshold
 
@@ -410,18 +410,18 @@ for date in quarter_points:
     # Calculate percentages excluding interest
     if total_funding > 0:
         print("\nPercentages (excluding interest):")
-        print(f"Equity %: {(cumulative_equity/total_funding)*100:.1f}%")
+        print(f"Equity %: {(cumulative_equity / total_funding) * 100:.1f}%")
         for tranche_name, amounts in tranche_draws.items():
-            print(f"{tranche_name} %: {(amounts['draw']/total_funding)*100:.1f}%")
+            print(f"{tranche_name} %: {(amounts['draw'] / total_funding) * 100:.1f}%")
 
     # Calculate percentages including interest
     if total_funding_with_interest > 0:
         print("\nPercentages (including interest):")
-        print(f"Equity %: {(cumulative_equity/total_funding_with_interest)*100:.1f}%")
+        print(f"Equity %: {(cumulative_equity / total_funding_with_interest) * 100:.1f}%")
         for tranche_name, amounts in tranche_draws.items():
             total_with_interest = amounts["draw"] + amounts["interest"]
             print(
-                f"{tranche_name} %: {(total_with_interest/total_funding_with_interest)*100:.1f}%"
+                f"{tranche_name} %: {(total_with_interest / total_funding_with_interest) * 100:.1f}%"
             )
 
 

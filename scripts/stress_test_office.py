@@ -239,7 +239,7 @@ def test_small_office_building() -> Dict[str, Any]:
     print(f"  Actual PGR: ${actual_pgr:,.0f}")
     print(f"  Lease Models Created: {len(lease_models)}")
     print(f"  Execution Time: {execution_time:.3f}s")
-    print(f"  Performance: {property_model.net_rentable_area/execution_time:,.0f} sq ft/second")
+    print(f"  Performance: {property_model.net_rentable_area / execution_time:,.0f} sq ft/second")
     
     # Fundamental sanity checks
     assert len(lease_models) == 1, f"Expected 1 lease model, got {len(lease_models)}"
@@ -250,7 +250,7 @@ def test_small_office_building() -> Dict[str, Any]:
         "area": property_model.net_rentable_area,
         "lease_count": len(lease_models),
         "execution_time": execution_time,
-        "sq_ft_per_second": property_model.net_rentable_area/execution_time,
+        "sq_ft_per_second": property_model.net_rentable_area / execution_time,
         "pgr_accuracy": abs(actual_pgr - expected_pgr) < 100,
     }
 
@@ -369,7 +369,7 @@ def test_multi_tenant_office() -> Dict[str, Any]:
     print(f"  Lease Models: {len(lease_models)}")
     print(f"  Expense Models: {len(expense_models)}")
     print(f"  Execution Time: {execution_time:.3f}s")
-    print(f"  Performance: {property_model.net_rentable_area/execution_time:,.0f} sq ft/second")
+    print(f"  Performance: {property_model.net_rentable_area / execution_time:,.0f} sq ft/second")
     
     # Fundamental sanity checks
     assert len(lease_models) == 8, f"Expected 8 lease models, got {len(lease_models)}"
@@ -381,7 +381,7 @@ def test_multi_tenant_office() -> Dict[str, Any]:
         "area": property_model.net_rentable_area,
         "lease_count": len(lease_models),
         "execution_time": execution_time,
-        "sq_ft_per_second": property_model.net_rentable_area/execution_time,
+        "sq_ft_per_second": property_model.net_rentable_area / execution_time,
         "pgr_accuracy": actual_pgr > 0,
         "expense_models": len(expense_models),
     }
@@ -555,7 +555,7 @@ def test_institutional_office_complex() -> Dict[str, Any]:
     print(f"  Expense Models: {len(expense_models)}")
     print(f"  Misc Income Models: {len(misc_models)}")
     print(f"  Execution Time: {execution_time:.3f}s")
-    print(f"  Performance: {property_model.net_rentable_area/execution_time:,.0f} sq ft/second")
+    print(f"  Performance: {property_model.net_rentable_area / execution_time:,.0f} sq ft/second")
     
     # Performance assertions for institutional scale
     assert execution_time < 10.0, f"Institutional office analysis should complete in <10s, took {execution_time:.3f}s"
@@ -572,7 +572,7 @@ def test_institutional_office_complex() -> Dict[str, Any]:
         "area": property_model.net_rentable_area,
         "lease_count": len(lease_models),
         "execution_time": execution_time,
-        "sq_ft_per_second": property_model.net_rentable_area/execution_time,
+        "sq_ft_per_second": property_model.net_rentable_area / execution_time,
         "pgr_accuracy": actual_pgr > 0,
         "misc_accuracy": actual_misc > 0,
         "expense_models": len(expense_models),
@@ -599,9 +599,9 @@ def complex_office_stress_test():
     
     Expected Performance: >100 tenants/second with full complexity
     """
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("🏗️ COMPLEX OFFICE LEASE STRESS TEST")
-    print("="*70)
+    print("=" * 70)
     
     timeline = Timeline.from_dates(date(2024, 1, 1), end_date=date(2029, 12, 31))
     settings = GlobalSettings(analysis_start_date=timeline.start_date.to_timestamp().date())
@@ -864,11 +864,11 @@ def complex_office_stress_test():
     # TECH TENANTS - High-growth, aggressive recovery, short terms
     for i in range(5):
         tech_tenant = OfficeLeaseSpec(
-            tenant_name=f"TechCorp {i+1}",
-            suite=f"Floor {9+i}", floor=f"{9+i}",
+            tenant_name=f"TechCorp {i + 1}",
+            suite=f"Floor {9 + i}", floor=f"{9 + i}",
             area=25000, use_type=ProgramUseEnum.OFFICE,
             start_date=date(2022 + i%3, 6, 1), term_months=60,  # 5-year leases
-            base_rent_value=52.0 + i*2, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
+            base_rent_value=52.0 + i * 2, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL, lease_type=LeaseTypeEnum.NET,
             recovery_method=aggressive_method, rollover_profile=aggressive_rollover,
             upon_expiration=UponExpirationEnum.MARKET,
@@ -886,7 +886,7 @@ def complex_office_stress_test():
             ],
             # High TI allowances
             ti_allowance=OfficeTenantImprovement(
-                name=f"Tech TI {i+1}", 
+                name=f"Tech TI {i + 1}", 
                 timeline=timeline,
                 value=1500000, 
                 # reference=None (direct currency amount)
@@ -898,8 +898,8 @@ def complex_office_stress_test():
     # PROFESSIONAL SERVICES - Conservative leases, standard recovery
     for i in range(12):
         prof_tenant = OfficeLeaseSpec(
-            tenant_name=f"Professional Services {i+1}",
-            suite=f"Suite {1400+i*10}", floor=f"{14+i//4}",
+            tenant_name=f"Professional Services {i + 1}",
+            suite=f"Suite {1400 + i * 10}", floor=f"{14 + i // 4}",
             area=8500, use_type=ProgramUseEnum.OFFICE,
             start_date=date(2021 + i%4, 1, 1), term_months=120,  # 10-year leases
             base_rent_value=38.0 + i, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
@@ -931,8 +931,8 @@ def complex_office_stress_test():
     # SMALL TENANTS - Conservative recovery, high rollover risk
     for i in range(25):
         small_tenant = OfficeLeaseSpec(
-            tenant_name=f"Small Business {i+1}",
-            suite=f"Suite {2000+i*5}", floor=f"{20+i//8}",
+            tenant_name=f"Small Business {i + 1}",
+            suite=f"Suite {2000 + i * 5}", floor=f"{20 + i // 8}",
             area=3200, use_type=ProgramUseEnum.OFFICE,
             start_date=date(2022 + i%3, 1, 1), term_months=60,  # 5-year leases
             base_rent_value=32.0 + i%8, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
@@ -958,7 +958,7 @@ def complex_office_stress_test():
     vacant_suites = []
     for i in range(8):
         vacant_suite = OfficeVacantSuite(
-            suite=f"Vacant {3000+i*10}", floor=f"{30+i//4}",
+            suite=f"Vacant {3000 + i * 10}", floor=f"{30 + i // 4}",
             area=12000, use_type=ProgramUseEnum.OFFICE
         )
         vacant_suites.append(vacant_suite)
@@ -1082,7 +1082,7 @@ def complex_office_stress_test():
     print(f"  Total Models: {len(orchestrator.models)}")
     print(f"  Execution Time: {execution_time:.3f}s")
     print(f"  Performance: {performance:.0f} tenants/second")
-    print(f"  Model Performance: {len(orchestrator.models)/execution_time:.0f} models/second")
+    print(f"  Model Performance: {len(orchestrator.models) / execution_time:.0f} models/second")
     
     # Validate performance targets
     assert performance > 25, f"Performance too slow: {performance:.1f} tenants/second"
@@ -1151,7 +1151,7 @@ def main():
         print(f"  Models: {complex_result['models']}")
         print(f"  Time: {complex_result['time']:.3f}s")
         print(f"  Performance: {complex_result['performance']:.0f} tenants/sec")
-        print(f"  Model Performance: {complex_result['models']/complex_result['time']:.0f} models/sec")
+        print(f"  Model Performance: {complex_result['models'] / complex_result['time']:.0f} models/sec")
         print(f"  PGR: ${complex_result['pgr']:,.0f}")
         print("  Architecture: ✅ Enhanced AnalysisContext")
         

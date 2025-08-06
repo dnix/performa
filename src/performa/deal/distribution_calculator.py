@@ -288,11 +288,11 @@ class DistributionCalculator:
         
         def current_irr(flows: np.ndarray, up_to_idx: int) -> Optional[float]:
             """Calculate current IRR for all partners up to a given period."""
-            cf = flows[:up_to_idx+1].sum(axis=1)
+            cf = flows[:up_to_idx + 1].sum(axis=1)
             # Need both negative and positive flows for IRR to be meaningful
             if not (np.any(cf < 0) and np.any(cf > 0)):
                 return None
-            s = pd.Series(cf, index=date_array[:up_to_idx+1])
+            s = pd.Series(cf, index=date_array[:up_to_idx + 1])
             try:
                 return xirr(s)
             except:

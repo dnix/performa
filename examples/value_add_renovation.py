@@ -587,7 +587,7 @@ def demonstrate_rolling_renovation_analysis():
         print(f"   Effective Gross Income: ${year1_egi:,.0f}")
         print(f"   Total Operating Expenses: ${year1_opex:,.0f}")
         print(f"   Net Operating Income: ${year1_noi:,.0f}")
-        print(f"   NOI Margin: {year1_noi/year1_egi:.1%}" if year1_egi > 0 else "   NOI Margin: N/A")
+        print(f"   NOI Margin: {year1_noi / year1_egi:.1%}" if year1_egi > 0 else "   NOI Margin: N/A")
         print()
         
         print(f"YEAR 3 (During Rolling Renovation):")
@@ -595,7 +595,7 @@ def demonstrate_rolling_renovation_analysis():
         print(f"   Effective Gross Income: ${year3_egi:,.0f}")
         print(f"   Total Operating Expenses: ${year3_opex:,.0f}")
         print(f"   Net Operating Income: ${year3_noi:,.0f}")
-        print(f"   NOI Margin: {year3_noi/year3_egi:.1%}" if year3_egi > 0 else "   NOI Margin: N/A")
+        print(f"   NOI Margin: {year3_noi / year3_egi:.1%}" if year3_egi > 0 else "   NOI Margin: N/A")
         print()
         
         print(f"YEAR 5 (Post-Renovation):")
@@ -603,7 +603,7 @@ def demonstrate_rolling_renovation_analysis():
         print(f"   Effective Gross Income: ${year5_egi:,.0f}")
         print(f"   Total Operating Expenses: ${year5_opex:,.0f}")
         print(f"   Net Operating Income: ${year5_noi:,.0f}")
-        print(f"   NOI Margin: {year5_noi/year5_egi:.1%}" if year5_egi > 0 else "   NOI Margin: N/A")
+        print(f"   NOI Margin: {year5_noi / year5_egi:.1%}" if year5_egi > 0 else "   NOI Margin: N/A")
         print()
         
         print(f"YEAR 7 (Fully Stabilized):")
@@ -611,7 +611,7 @@ def demonstrate_rolling_renovation_analysis():
         print(f"   Effective Gross Income: ${year7_egi:,.0f}")
         print(f"   Total Operating Expenses: ${year7_opex:,.0f}")
         print(f"   Net Operating Income: ${year7_noi:,.0f}")
-        print(f"   NOI Margin: {year7_noi/year7_egi:.1%}" if year7_egi > 0 else "   NOI Margin: N/A")
+        print(f"   NOI Margin: {year7_noi / year7_egi:.1%}" if year7_egi > 0 else "   NOI Margin: N/A")
         print()
         
         # Value creation metrics using Year 7 stabilized performance

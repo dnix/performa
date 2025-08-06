@@ -428,7 +428,7 @@ def demonstrate_components():
         print(f"   = Effective Gross Income: ${effective_gross_income:,.0f}")
         print(f"   Less: Total Operating Expenses: ${total_operating_expenses:,.0f}")
         print(f"   = Net Operating Income: ${annual_noi:,.0f}")
-        print(f"   NOI Margin: {annual_noi/effective_gross_income:.1%}" if effective_gross_income > 0 else "   NOI Margin: N/A")
+        print(f"   NOI Margin: {annual_noi / effective_gross_income:.1%}" if effective_gross_income > 0 else "   NOI Margin: N/A")
         print()
         
         # Show detailed expense breakdown
@@ -454,7 +454,7 @@ def demonstrate_components():
         print(f"   Annual Income: ${annual_income:,.0f}")
         print(f"   Total Expenses: ${total_operating_expenses:,.0f} (INCOMPLETE - missing Property Management)")
         print(f"   NOI: ${annual_noi:,.0f} (OVERSTATED)")
-        print(f"   NOI Margin: {annual_noi/annual_income:.1%}")
+        print(f"   NOI Margin: {annual_noi / annual_income:.1%}")
         print()
     
     print("Testing loan sizing calculation...")
@@ -468,7 +468,7 @@ def demonstrate_components():
         print(f"   Property Value: ${property_value:,.0f}")
         print(f"   Annual NOI: ${annual_noi:,.0f}")
         print(f"   Max Loan Amount: ${loan_amount:,.0f}")
-        print(f"   Actual LTV: {loan_amount/property_value:.1%}")
+        print(f"   Actual LTV: {loan_amount / property_value:.1%}")
         print()
     except Exception as e:
         print(f"❌ Loan sizing failed: {e}")
@@ -508,7 +508,7 @@ def demonstrate_components():
     print(f"   Sale Proceeds: ${sale_proceeds:,.0f}")
     print(f"   Total Distributions: ${total_distributions:,.0f}")
     print(f"   Equity Multiple: {equity_multiple:.2f}x")
-    print(f"   Estimated IRR: ~{((equity_multiple ** (1/5)) - 1):.1%}")
+    print(f"   Estimated IRR: ~{((equity_multiple ** (1 / 5)) - 1):.1%}")
     print()
     
     return {
@@ -519,7 +519,7 @@ def demonstrate_components():
             'equity_investment': equity_investment,
             'annual_cash_flow': annual_cash_flow,
             'equity_multiple': equity_multiple,
-            'estimated_irr': (equity_multiple ** (1/5)) - 1
+            'estimated_irr': (equity_multiple ** (1 / 5)) - 1
         }
     }
 
@@ -551,8 +551,8 @@ def print_deal_summary(results: dict):
     print("DEAL STRUCTURE:")
     print("-" * 40)
     print(f"Purchase Price: ${12_000_000:,.0f}")
-    print(f"Price per Unit: ${12_000_000/120:,.0f}")
-    print(f"Price per SF: ${12_000_000/96_000:.2f}")
+    print(f"Price per Unit: ${12_000_000 / 120:,.0f}")
+    print(f"Price per SF: ${12_000_000 / 96_000:.2f}")
     print()
     
     # Financing Summary
