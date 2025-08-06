@@ -11,7 +11,7 @@ allowing them to be imported safely by recovery.py, rollover.py, and lease.py.
 from __future__ import annotations
 
 from datetime import date
-from typing import TYPE_CHECKING, Literal, Optional, Union
+from typing import Literal, Optional, Union
 
 import pandas as pd
 from pydantic import field_validator, model_validator

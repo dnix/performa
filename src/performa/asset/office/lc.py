@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import TYPE_CHECKING, List
+from typing import List
 
 import pandas as pd
 from pydantic import model_validator
