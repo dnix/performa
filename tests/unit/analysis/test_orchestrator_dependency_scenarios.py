@@ -19,15 +19,20 @@ METHODOLOGY: Each test validates:
 5. Mathematical accuracy against manual calculations
 """
 
-import pytest
-import pandas as pd
-from unittest.mock import Mock
 
+import pandas as pd
+import pytest
+
+from performa.analysis.orchestrator import AnalysisContext, CashFlowOrchestrator
 from performa.core.primitives import (
-    Timeline, GlobalSettings, CashFlowModel, UnleveredAggregateLineKey, 
-    PropertyAttributeKey, RevenueSubcategoryEnum, ExpenseSubcategoryEnum, FrequencyEnum
+    CashFlowModel,
+    ExpenseSubcategoryEnum,
+    FrequencyEnum,
+    GlobalSettings,
+    RevenueSubcategoryEnum,
+    Timeline,
+    UnleveredAggregateLineKey,
 )
-from performa.analysis.orchestrator import CashFlowOrchestrator, AnalysisContext
 
 
 class TestSystematicDependencyScenarios:

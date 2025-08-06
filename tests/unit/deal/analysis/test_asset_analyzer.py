@@ -8,13 +8,11 @@ These tests validate that the AssetAnalyzer can be instantiated and perform
 basic operations without errors.
 """
 
-import pytest
-from datetime import date
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
+from src.performa.core.primitives import GlobalSettings, Timeline
 from src.performa.deal.analysis.asset import AssetAnalyzer
 from src.performa.deal.deal import Deal
-from src.performa.core.primitives import Timeline, GlobalSettings
 
 
 class TestAssetAnalyzer:

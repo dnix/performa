@@ -37,8 +37,8 @@ from performa.asset.office.absorption import (
 )
 from performa.asset.office.rent_roll import OfficeVacantSuite
 from performa.core.primitives import (
-    Timeline,
     PropertyAttributeKey,
+    Timeline,
     UponExpirationEnum,
 )
 
@@ -54,6 +54,7 @@ def vacant_suites():
         OfficeVacantSuite(suite="100", floor="1", area=1000, use_type="office"),
     ]
 
+
 @pytest.fixture
 def large_divisible_suite():
     """Provides a single large, divisible vacant suite for subdivision tests."""
@@ -65,6 +66,7 @@ def large_divisible_suite():
             subdivision_minimum_lease_area=5000,
         )
     ]
+
 
 @pytest.fixture
 def mixed_suites():
@@ -83,6 +85,7 @@ def mixed_suites():
         )
     ]
 
+
 @pytest.fixture
 def base_direct_lease_terms():
     """
@@ -96,10 +99,12 @@ def base_direct_lease_terms():
         upon_expiration=UponExpirationEnum.MARKET,
     )
 
+
 @pytest.fixture
 def analysis_timeline():
     """Provides a standard analysis timeline for all tests."""
     return Timeline.from_dates(start_date=date(2024, 1, 1), end_date=date(2028, 12, 31))
+
 
 @pytest.fixture
 def mock_lookup_fn():
@@ -143,12 +148,12 @@ def test_fixed_quantity_sf_non_divisible(vacant_suites, analysis_timeline, base_
     # Check the first period
     period1_specs = [s for s in generated_specs if s.start_date == date(2024, 1, 1)]
     assert len(period1_specs) == 2
-    assert sum(s.area for s in period1_specs) == 8000 # 5000 + 3000
+    assert sum(s.area for s in period1_specs) == 8000  # 5000 + 3000
 
     # Check the second period
     period2_specs = [s for s in generated_specs if s.start_date == date(2024, 4, 1)]
     assert len(period2_specs) == 3
-    assert sum(s.area for s in period2_specs) == 7000 # 4000 + 2000 + 1000
+    assert sum(s.area for s in period2_specs) == 7000  # 4000 + 2000 + 1000
 
 
 def test_fixed_quantity_sf_with_subdivision(large_divisible_suite, analysis_timeline, base_direct_lease_terms):
@@ -297,7 +302,7 @@ def test_equal_spread_with_subdivision_top_off(mixed_suites, analysis_timeline, 
 
     # Check first deal specifically
     deal1_specs = [s for s in generated_specs if s.start_date == date(2024, 1, 1)]
-    assert len(deal1_specs) == 3 # 5k suite, 4k suite, and one subdivided
+    assert len(deal1_specs) == 3  # 5k suite, 4k suite, and one subdivided
     assert round(sum(s.area for s in deal1_specs)) == round(59000 / 3)
 
 

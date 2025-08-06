@@ -19,8 +19,8 @@ from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     LeaseStatusEnum,
-    Timeline,
     PropertyAttributeKey,
+    Timeline,
     UponExpirationEnum,
 )
 
@@ -217,9 +217,9 @@ def test_rollover_stops_at_analysis_end(sample_global_settings: GlobalSettings):
         name="Test Truncate Profile",
         term_months=24,
         renewal_probability=0.0,
-        downtime_months=0, # No downtime for simplicity
+        downtime_months=0,  # No downtime for simplicity
         market_terms=market_terms,
-        renewal_terms=market_terms, # Not used
+        renewal_terms=market_terms,  # Not used
         upon_expiration=UponExpirationEnum.VACATE,
     )
 

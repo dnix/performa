@@ -16,7 +16,6 @@ from performa.asset.office import (
     OfficeExpenses,
     OfficeGeneralVacancyLoss,
     OfficeLeaseSpec,
-    OfficeLeasingCommission,
     OfficeLosses,
     OfficeOpExItem,
     OfficeProperty,
@@ -26,13 +25,11 @@ from performa.asset.office import (
     OfficeRolloverLeasingCommission,
     OfficeRolloverProfile,
     OfficeRolloverTenantImprovement,
-    OfficeTenantImprovement,
     OfficeVacantSuite,
     Recovery,
     SpaceFilter,
 )
 from performa.asset.office.absorption import FixedQuantityPace
-from performa.core.base import CommissionTier
 from performa.core.primitives import (
     GlobalSettings,
     PropertyAttributeKey,
@@ -109,14 +106,14 @@ def complex_property_fixture() -> dict:
             ),
             OfficeLeaseSpec(
                 tenant_name="Renewing Tenant", suite="200", floor="2", area=5000, use_type="office",
-                start_date=date(2021, 6, 1), term_months=42, # Expires Nov 2024
+                start_date=date(2021, 6, 1), term_months=42,  # Expires Nov 2024
                 base_rent_value=58.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA, base_rent_frequency="annual", lease_type="net",
                 upon_expiration=UponExpirationEnum.RENEW, 
                 rollover_profile=rollover_profile
             ),
             OfficeLeaseSpec(
                 tenant_name="Departing Tenant", suite="300", floor="3", area=7500, use_type="office",
-                start_date=date(2022, 1, 1), term_months=48, # Expires Dec 2025
+                start_date=date(2022, 1, 1), term_months=48,  # Expires Dec 2025
                 base_rent_value=60.0, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA, base_rent_frequency="annual", lease_type="net",
                 upon_expiration=UponExpirationEnum.REABSORB, 
                 rollover_profile=rollover_profile
@@ -133,7 +130,7 @@ def complex_property_fixture() -> dict:
         space_filter=SpaceFilter(use_types=["office"]),
         start_date_anchor=date(2026, 1, 1),
         pace=FixedQuantityPace(type="FixedQuantity", quantity=10000, unit="SF", frequency_months=6),
-        leasing_assumptions="Standard Rollover" # Reference by name
+        leasing_assumptions="Standard Rollover"  # Reference by name
     )
 
     # --- Assemble the Property with components attached for lookup ---
@@ -154,6 +151,7 @@ def complex_property_fixture() -> dict:
         "timeline": analysis_timeline,
         "settings": global_settings
     }
+
 
 def test_full_scenario_kitchen_sink(complex_property_fixture):
     """
@@ -205,6 +203,7 @@ def test_full_scenario_kitchen_sink(complex_property_fixture):
     baseline_after_departure = 51666.67 + 25000.00  # $76,667
     assert revenue_2028_06 == pytest.approx(baseline_after_departure, rel=1e-6), f"Expected absorption to maintain baseline revenue, got {revenue_2028_06} vs {baseline_after_departure}"
 
+
 def test_e2e_recovery_gross_up_proves_phased_execution(complex_property_fixture):
     """
     Validates that expense reimbursements correctly increase during a
@@ -233,6 +232,7 @@ def test_e2e_recovery_gross_up_proves_phased_execution(complex_property_fixture)
     # This is a key validation that the phased execution is working correctly
     assert reimbursements.loc[low_occupancy_period] > reimbursements.loc[high_occupancy_period], \
         f"Expected gross-up to increase recoveries: {reimbursements.loc[low_occupancy_period]} vs {reimbursements.loc[high_occupancy_period]}"
+
 
 def test_pgr_calculation_for_jan_2025(complex_property_fixture):
     """

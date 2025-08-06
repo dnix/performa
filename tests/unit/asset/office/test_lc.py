@@ -29,12 +29,12 @@ def sample_context() -> AnalysisContext:
         recovery_states={},
     )
 
+
 @pytest.fixture
 def sample_lease() -> OfficeLease:
     """Provides a sample lease with signing_date for testing split payments."""
     from performa.asset.office.lease_spec import OfficeLeaseSpec
     from performa.core.primitives import (
-        LeaseStatusEnum,
         LeaseTypeEnum,
         ProgramUseEnum,
         UponExpirationEnum,
@@ -66,13 +66,13 @@ def test_lc_tiered_calculation(sample_context: AnalysisContext):
     """
     lc = OfficeLeasingCommission(
         name="Test Tiered LC",
-        timeline=sample_context.timeline, # Extended timeline (Nov 2023 - Dec 2028)
-        value=100000.0, # Annual rent
+        timeline=sample_context.timeline,  # Extended timeline (Nov 2023 - Dec 2028)
+        value=100000.0,  # Annual rent
         landlord_broker_percentage=0.5,
         tenant_broker_percentage=0.5,
         tiers=[
-            CommissionTier(year_start=1, year_end=1, rate=0.04), # 4% for year 1
-            CommissionTier(year_start=2, year_end=3, rate=0.03), # 3% for years 2-3
+            CommissionTier(year_start=1, year_end=1, rate=0.04),  # 4% for year 1
+            CommissionTier(year_start=2, year_end=3, rate=0.03),  # 3% for years 2-3
             CommissionTier(year_start=4, rate=0.02),             # 2% for years 4-5
         ],
     )
@@ -92,6 +92,7 @@ def test_lc_tiered_calculation(sample_context: AnalysisContext):
     assert cf.iloc[0] == pytest.approx(14333.33, rel=1e-2)
     assert cf.iloc[1] == 0.0
 
+
 def test_lc_partial_term(sample_context: AnalysisContext):
     """
     Tests that the tiered calculation correctly handles a lease term
@@ -103,11 +104,11 @@ def test_lc_partial_term(sample_context: AnalysisContext):
     lc = OfficeLeasingCommission(
         name="Test Partial Term LC",
         timeline=timeline,
-        value=100000.0, # Annual rent
+        value=100000.0,  # Annual rent
         landlord_broker_percentage=0.5,
         tenant_broker_percentage=0.5,
         tiers=[
-            CommissionTier(year_start=1, year_end=1, rate=0.04), # 4% for year 1
+            CommissionTier(year_start=1, year_end=1, rate=0.04),  # 4% for year 1
             CommissionTier(year_start=2, rate=0.02),             # 2% for years 2-3.5
         ],
     )
@@ -242,7 +243,6 @@ def test_lc_split_payment_without_signing_date_error(sample_context: AnalysisCon
     # Create a lease without signing_date
     from performa.asset.office.lease_spec import OfficeLeaseSpec
     from performa.core.primitives import (
-        LeaseStatusEnum,
         LeaseTypeEnum,
         ProgramUseEnum,
         UponExpirationEnum,

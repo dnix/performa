@@ -68,7 +68,6 @@ class TestResultsModel:
     @pytest.fixture
     def deal_fees(self, partners, timeline):
         """Create test deal fees with specific payees."""
-        from performa.core.primitives import FirstOnlyDrawSchedule, UniformDrawSchedule
         
         # Development fee to GP
         dev_fee = DealFee.create_upfront_fee(
@@ -396,10 +395,6 @@ class TestResultsModel:
     def test_complex_fee_structure(self, partners, timeline, settings):
         """Test results with complex fee structures."""
         # Create complex fee structure
-        from performa.core.primitives import (
-            FirstOnlyDrawSchedule,
-            UniformDrawSchedule,
-        )
         
         fees = [
             # Multiple fees to same partner

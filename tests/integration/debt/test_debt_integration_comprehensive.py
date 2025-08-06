@@ -17,9 +17,7 @@ Uses real Pydantic models to ensure proper integration.
 """
 
 import pandas as pd
-import pytest
 
-from performa.core.capital import CapitalItem, CapitalPlan
 from performa.core.primitives import Timeline
 from performa.debt.construction import ConstructionFacility, DebtTranche
 from performa.debt.permanent import PermanentFacility
@@ -79,7 +77,7 @@ def test_comprehensive_debt_integration():
         sizing_method='auto',
         ltv_ratio=0.75,        # 75% LTV maximum
         dscr_hurdle=1.25,      # 1.25x DSCR minimum
-        debt_yield_hurdle=0.08, # 8% debt yield minimum
+        debt_yield_hurdle=0.08,  # 8% debt yield minimum
         
         # Interest-only period
         interest_only_months=24,  # 2 years interest-only
@@ -208,7 +206,7 @@ def test_comprehensive_debt_integration():
     print(f"  Interest-Only Period: {io_periods} months")
     print(f"  I/O Payment: ${io_payment:,.0f}/month")
     print(f"  Amortizing Payment: ${amortizing_payment:,.0f}/month")
-    print(f"  Payment Increase: ${amortizing_payment - io_payment:,.0f}/month ({((amortizing_payment/io_payment)-1)*100:.1f}%)")
+    print(f"  Payment Increase: ${amortizing_payment - io_payment:,.0f}/month ({((amortizing_payment / io_payment) - 1) * 100:.1f}%)")
     
     # Verify I/O periods have zero principal
     io_schedule = amortization.iloc[:io_periods]

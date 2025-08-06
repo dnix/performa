@@ -391,7 +391,6 @@ class TestDrawScheduleDiscriminator:
         
     def test_parse_s_curve_from_dict(self):
         """Test parsing S-curve schedule from dict."""
-        from performa.core.primitives import AnyDrawSchedule
         
         data = {"kind": "s-curve", "sigma": 2.0}
         # Note: In practice, you'd use a parent model with AnyDrawSchedule field
@@ -399,7 +398,6 @@ class TestDrawScheduleDiscriminator:
         
     def test_parse_manual_from_dict(self):
         """Test parsing manual schedule from dict."""
-        from performa.core.primitives import AnyDrawSchedule
         
         data = {"kind": "manual", "values": [1, 2, 3]}
         # Note: In practice, you'd use a parent model with AnyDrawSchedule field

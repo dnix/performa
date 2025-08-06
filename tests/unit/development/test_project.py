@@ -57,6 +57,7 @@ from performa.valuation import ReversionValuation
 
 # Shared fixtures for development project tests
 
+
 @pytest.fixture
 def development_timeline() -> Timeline:
     """Standard development timeline."""
@@ -64,6 +65,7 @@ def development_timeline() -> Timeline:
         start_date=date(2024, 1, 1),
         end_date=date(2029, 12, 31)
     )
+
 
 @pytest.fixture
 def construction_plan() -> CapitalPlan:
@@ -94,6 +96,7 @@ def construction_plan() -> CapitalPlan:
         ]
     )
 
+
 @pytest.fixture
 def financing_plan() -> ConstructionFacility:
     """Standard construction financing plan."""
@@ -107,6 +110,7 @@ def financing_plan() -> ConstructionFacility:
             )
         ]
     )
+
 
 @pytest.fixture
 def office_blueprint() -> OfficeDevelopmentBlueprint:
@@ -142,6 +146,7 @@ def office_blueprint() -> OfficeDevelopmentBlueprint:
             start_date_anchor="AnalysisStart"
         )
     )
+
 
 @pytest.fixture
 def residential_blueprint() -> ResidentialDevelopmentBlueprint:
@@ -201,6 +206,7 @@ def residential_blueprint() -> ResidentialDevelopmentBlueprint:
         )
     )
 
+
 @pytest.fixture
 def disposition_plan() -> ReversionValuation:
     """Standard disposition plan for development projects."""
@@ -212,6 +218,7 @@ def disposition_plan() -> ReversionValuation:
     )
 
 # Test functions
+
 
 def test_single_asset_type_development_project(
     construction_plan,
@@ -242,6 +249,7 @@ def test_single_asset_type_development_project(
         assert hasattr(blueprint, 'to_stabilized_asset')
         assert hasattr(blueprint, 'use_type')
         assert blueprint.use_type == "OFFICE"
+
 
 def test_mixed_use_development_project(
     construction_plan,
@@ -287,6 +295,7 @@ def test_mixed_use_development_project(
     assert "OfficeProperty" in asset_types
     assert "ResidentialProperty" in asset_types
 
+
 def test_blueprint_discriminated_union_validation(
     office_blueprint,
     residential_blueprint
@@ -307,6 +316,7 @@ def test_blueprint_discriminated_union_validation(
     assert office_discriminator == "OFFICE"
     assert residential_discriminator == "RESIDENTIAL"
     assert office_discriminator != residential_discriminator
+
 
 def test_development_project_blueprint_iteration_performance(
     construction_plan,
@@ -351,6 +361,7 @@ def test_development_project_blueprint_iteration_performance(
     assert office_asset.name == "Office Tower Component"
     assert residential_asset.name == "Luxury Residential Component"
 
+
 def test_development_project_pydantic_serialization(
     construction_plan,
     financing_plan,
@@ -386,6 +397,7 @@ def test_development_project_pydantic_serialization(
     assert reconstructed_project.blueprints[0].use_type == project.blueprints[0].use_type
     assert reconstructed_project.blueprints[1].use_type == project.blueprints[1].use_type
 
+
 def test_empty_blueprints_list(
     construction_plan,
     financing_plan,
@@ -416,6 +428,7 @@ def test_empty_blueprints_list(
     
     assert len(stabilized_assets) == 0
 
+
 def test_blueprint_name_inheritance_to_assets(
     office_blueprint,
     residential_blueprint
@@ -433,6 +446,7 @@ def test_blueprint_name_inheritance_to_assets(
     assert office_asset.name == "Office Tower Component"
     assert residential_asset.name == "Luxury Residential Component"
 
+
 def test_development_project_required_fields():
     """Test that development project requires all necessary fields."""
     from pydantic import ValidationError
@@ -443,6 +457,7 @@ def test_development_project_required_fields():
     
     with pytest.raises(ValidationError):
         DevelopmentProject(name="Test")  # Missing other required fields
+
 
 def test_development_project_blueprint_type_validation(office_blueprint):
     """Test that only valid blueprint types are accepted."""

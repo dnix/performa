@@ -4,8 +4,6 @@
 import unittest
 from datetime import date
 
-import pandas as pd
-
 from performa.analysis import AnalysisContext
 from performa.asset.office.expense import OfficeOpExItem
 from performa.asset.office.lease import OfficeLease
@@ -17,8 +15,8 @@ from performa.core.primitives import (
     GlobalSettings,
     LeaseTypeEnum,
     ProgramUseEnum,
-    Timeline,
     PropertyAttributeKey,
+    Timeline,
     UponExpirationEnum,
 )
 

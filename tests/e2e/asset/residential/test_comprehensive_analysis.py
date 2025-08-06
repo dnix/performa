@@ -417,7 +417,7 @@ class TestLargeScaleProperties:
         print(f"   - Execution time: {execution_time:.2f} seconds")
         print(f"   - 500 units → {len(orchestrator.models)} total models")
         print(f"   - {len(summary_df)} periods × {len(summary_df.columns)} metrics calculated")
-        print(f"   - Performance: {500/execution_time:.0f} units per second")
+        print(f"   - Performance: {500 / execution_time:.0f} units per second")
         
         # Performance assertion - should complete large properties quickly
         assert execution_time < 30, f"Large property analysis should complete in <30s, took {execution_time:.2f}s"
@@ -567,8 +567,8 @@ class TestComplexScenarios:
         print("\n🔄 VALUE-ADD STRATEGY TEST")
         print(f"Property: {property_model.name}")
         print(f"Total Units: {property_model.unit_count}")
-        print(f"Premium Units: {45} ({45/120*100:.1f}%)")
-        print(f"Standard Units: {75} ({75/120*100:.1f}%)")
+        print(f"Premium Units: {45} ({45 / 120 * 100:.1f}%)")
+        print(f"Standard Units: {75} ({75 / 120 * 100:.1f}%)")
         print(f"Current Blended Rent: ${rent_roll.average_rent_per_unit:,.0f}")
         
         # Run analysis
@@ -599,7 +599,7 @@ class TestComplexScenarios:
         print("✅ Value-add analysis completed!")
         print(f"   - Premium tier average rent: ${premium_avg_rent:,.0f}")
         print(f"   - Standard tier average rent: ${standard_avg_rent:,.0f}")
-        print(f"   - Rent premium: {(premium_avg_rent/standard_avg_rent-1)*100:.1f}%")
+        print(f"   - Rent premium: {(premium_avg_rent / standard_avg_rent - 1) * 100:.1f}%")
         
         assert premium_avg_rent > standard_avg_rent, "Premium units should have higher rents"
 
@@ -618,7 +618,6 @@ def test_comprehensive_suite_discovery():
 
 if __name__ == "__main__":
     # Allow running tests directly for development
-    import sys
     
     print("🚀 Running Comprehensive Residential Analysis Tests")
     print("=" * 60)

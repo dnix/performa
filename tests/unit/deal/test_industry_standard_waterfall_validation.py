@@ -17,7 +17,6 @@ waterfall mechanics, cash flow conservation, and performance calculations.
 """
 
 import pandas as pd
-import pytest
 
 from performa.core.primitives import Timeline
 from performa.deal.analysis.partnership import DistributionCalculator
@@ -94,7 +93,7 @@ class TestIndustryStandardWaterfallValidation:
         timeline = Timeline(
             start_date=periods[0],
             end_date=periods[-1],
-            duration_months=len(periods)-1
+            duration_months=len(periods) - 1
         )
         results = calculator.calculate_distributions(cash_flows, timeline)
         
@@ -187,7 +186,7 @@ class TestIndustryStandardWaterfallValidation:
         timeline = Timeline(
             start_date=periods[0],
             end_date=periods[-1],
-            duration_months=len(periods)-1
+            duration_months=len(periods) - 1
         )
         results = calculator.calculate_distributions(cash_flows, timeline)
         
@@ -263,7 +262,7 @@ class TestIndustryStandardWaterfallValidation:
         timeline = Timeline(
             start_date=periods[0],
             end_date=periods[-1],
-            duration_months=len(periods)-1
+            duration_months=len(periods) - 1
         )
         results = calculator.calculate_distributions(cash_flows, timeline)
         
@@ -331,7 +330,7 @@ class TestIndustryStandardWaterfallValidation:
         timeline = Timeline(
             start_date=periods[0],
             end_date=periods[-1],
-            duration_months=len(periods)-1
+            duration_months=len(periods) - 1
         )
         results = calculator.calculate_distributions(cash_flows, timeline)
         

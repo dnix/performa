@@ -73,6 +73,7 @@ from performa.development import DevelopmentProject
 
 # Shared fixtures for asset factory validation tests
 
+
 @pytest.fixture(scope="session")
 def analysis_timeline() -> Timeline:
     """Standard analysis timeline for comparison tests."""

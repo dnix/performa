@@ -4,24 +4,24 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
+from typing import Dict
 
 import pandas as pd
 import pytest
 
 from performa.analysis import AnalysisContext
-from performa.core.base import LeaseBase, LeaseSpecBase, RentAbatementBase
+from performa.core.base import LeaseBase, LeaseSpecBase
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     LeaseStatusEnum,
-    ProgramUseEnum,
-    Timeline,
     PropertyAttributeKey,
+    Timeline,
     UponExpirationEnum,
 )
 
 # --- LeaseSpecBase Tests ---
+
 
 def test_lease_spec_base_valid_instantiation():
     """Test successful instantiation of LeaseSpecBase with valid data."""
@@ -37,6 +37,7 @@ def test_lease_spec_base_valid_instantiation():
     )
     assert spec.tenant_name == "Test Tenant"
 
+
 def test_lease_spec_base_term_validation():
     """Test validation logic for signing_date validation."""
     # Fails if signing_date is after start_date
@@ -48,6 +49,7 @@ def test_lease_spec_base_term_validation():
             end_date=date(2024, 12, 31),
             base_rent_value=1, base_rent_unit_of_measure="currency"
         )
+
 
 def test_lease_spec_computed_end_date():
     """Test the computed_end_date property."""
@@ -82,10 +84,12 @@ class ConcreteLease(LeaseBase):
     def project_future_cash_flows(self, context: AnalysisContext) -> pd.DataFrame:
         return pd.DataFrame(self.compute_cf(context))
 
+
 @pytest.fixture
 def sample_timeline() -> Timeline:
     timeline = Timeline(start_date=date(2024, 1, 1), duration_months=12)
     return timeline
+
 
 @pytest.fixture
 def sample_lease() -> LeaseBase:
@@ -99,9 +103,10 @@ def sample_lease() -> LeaseBase:
         suite="100",
         floor="1",
         upon_expiration=UponExpirationEnum.MARKET,
-        value=50 * 1000 / 12, # Monthly amount
+        value=50 * 1000 / 12,  # Monthly amount
         frequency=FrequencyEnum.MONTHLY,
     )
+
 
 @pytest.fixture
 def sample_context(sample_lease: LeaseBase) -> AnalysisContext:
@@ -113,15 +118,18 @@ def sample_context(sample_lease: LeaseBase) -> AnalysisContext:
         recovery_states={},
     )
 
+
 def test_lease_base_instantiation(sample_lease: LeaseBase):
     assert sample_lease.name == "Test Lease"
     assert sample_lease.area == 1000.0
+
 
 def test_lease_base_compute_cf_structure(sample_lease: LeaseBase, sample_context: AnalysisContext):
     result = sample_lease.compute_cf(context=sample_context)
     assert isinstance(result, dict)
     assert "base_rent" in result
     assert isinstance(result["base_rent"], pd.Series)
+
 
 def test_lease_base_compute_cf_base_rent_calculation(sample_lease: LeaseBase, sample_context: AnalysisContext):
     """Test the base rent calculation logic within compute_cf."""

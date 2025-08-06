@@ -18,7 +18,6 @@ assumptions are required to prevent dangerous silent defaults in financial model
 """
 
 from datetime import date
-from typing import List
 
 import pytest
 
@@ -27,15 +26,9 @@ from performa.asset.office.absorption import (
 )
 from performa.asset.office.absorption import OfficeAbsorptionPlan
 from performa.asset.office.absorption import SpaceFilter as OfficeSpaceFilter
-from performa.asset.office.blueprint import OfficeDevelopmentBlueprint
 from performa.asset.office.expense import OfficeExpenses
 from performa.asset.office.losses import OfficeLosses
 from performa.asset.office.misc_income import OfficeMiscIncome
-from performa.asset.office.rent_roll import OfficeVacantSuite
-from performa.asset.office.rollover import (
-    OfficeRolloverLeaseTerms,
-    OfficeRolloverProfile,
-)
 from performa.asset.residential.absorption import ResidentialAbsorptionPlan
 from performa.asset.residential.blueprint import ResidentialDevelopmentBlueprint
 from performa.asset.residential.expense import ResidentialExpenses
@@ -47,7 +40,7 @@ from performa.asset.residential.rollover import (
     ResidentialRolloverProfile,
 )
 from performa.core.base import FixedQuantityPace, SpaceFilter
-from performa.core.primitives import ProgramUseEnum, Timeline
+from performa.core.primitives import Timeline
 
 
 class TestGenericAbsorptionArchitecture:

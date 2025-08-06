@@ -20,8 +20,7 @@ Test Coverage:
 """
 
 from datetime import date
-from typing import Any, Dict, List
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest

@@ -4,8 +4,6 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
-from uuid import UUID, uuid4
 
 import pandas as pd
 import pytest
@@ -25,15 +23,18 @@ from performa.core.primitives import (
 
 class MinimalConcreteCashFlowModel(CashFlowModel):
     """A minimal, concrete implementation of CashFlowModel for testing."""
-    pass # Inherits the concrete compute_cf
+    pass  # Inherits the concrete compute_cf
+
 
 @pytest.fixture
 def sample_timeline() -> Timeline:
     return Timeline(start_date=date(2024, 1, 1), duration_months=12)
 
+
 @pytest.fixture
 def sample_context(sample_timeline: Timeline) -> AnalysisContext:
     return AnalysisContext(timeline=sample_timeline, settings=GlobalSettings(), property_data=None)
+
 
 def test_instantiation_with_list_value(sample_timeline: Timeline):
     """Test that a CashFlowModel can be instantiated with a list value."""
@@ -44,6 +45,7 @@ def test_instantiation_with_list_value(sample_timeline: Timeline):
     )
     assert model.value == list_val
 
+
 def test_instantiation_with_series_value(sample_timeline: Timeline):
     series_val = pd.Series(range(12), index=sample_timeline.period_index)
     model = MinimalConcreteCashFlowModel(
@@ -51,6 +53,7 @@ def test_instantiation_with_series_value(sample_timeline: Timeline):
         timeline=sample_timeline, value=series_val
     )
     pd.testing.assert_series_equal(model.value, series_val)
+
 
 def test_reference_is_unlevered_aggregate_line_key(sample_timeline: Timeline):
     """Test that the reference field accepts UnleveredAggregateLineKey enum values."""
@@ -69,6 +72,7 @@ def test_reference_is_unlevered_aggregate_line_key(sample_timeline: Timeline):
     )
     assert model2.reference == PropertyAttributeKey.NET_RENTABLE_AREA
 
+
 def test_reference_rejects_invalid_types(sample_timeline: Timeline):
     """Test that the reference field rejects invalid reference types for type safety."""
     # String references should be rejected (no more slippery strings!)
@@ -86,6 +90,7 @@ def test_reference_rejects_invalid_types(sample_timeline: Timeline):
             timeline=sample_timeline, value=1,
             reference=LeveredAggregateLineKey.LEVERED_CASH_FLOW  # Should be rejected!
         )
+
 
 def test_enum_removal_complete(sample_timeline: Timeline):
     """Test that the old AggregateLineKey enum has been completely removed."""

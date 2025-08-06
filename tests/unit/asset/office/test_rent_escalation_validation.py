@@ -5,7 +5,6 @@ import unittest
 from datetime import date
 
 import pandas as pd
-import pytest
 from pydantic import ValidationError
 
 from performa.asset.office.rent_escalation import OfficeRentEscalation

@@ -15,8 +15,8 @@ from performa.core.primitives import (
     GlobalSettings,
     LeaseTypeEnum,
     ProgramUseEnum,
-    Timeline,
     PropertyAttributeKey,
+    Timeline,
     UponExpirationEnum,
 )
 

@@ -15,7 +15,6 @@ Key Principles:
 """
 
 import pandas as pd
-import pytest
 
 from performa.core.primitives import Timeline
 from performa.debt.permanent import PermanentFacility
@@ -238,7 +237,7 @@ class TestRealisticCovenantMonitoring:
         
         for i, scenario in enumerate(scenarios):
             facility = PermanentFacility(
-                name=f"Realistic Loan {i+1}",
+                name=f"Realistic Loan {i + 1}",
                 interest_rate=InterestRate(details=FixedRate(rate=0.055)),
                 loan_term_years=10,
                 ltv_ratio=0.75,

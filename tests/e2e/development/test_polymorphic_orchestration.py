@@ -58,6 +58,7 @@ from performa.valuation import ReversionValuation
 
 # Shared fixtures for orchestrator tests
 
+
 @pytest.fixture
 def analysis_timeline() -> Timeline:
     """Standard analysis timeline for all tests."""
@@ -356,6 +357,7 @@ def test_orchestrator_basic_structure(
     assert hasattr(scenario, '_get_stabilization_date_for_blueprint')
     assert hasattr(scenario, '_prepare_construction_models')
 
+
 def test_orchestrator_prepare_models_basic(
     simple_construction_plan,
     simple_financing_plan,
@@ -428,7 +430,7 @@ def test_orchestrator_polymorphic_blueprint_processing(
     for i, model in enumerate(cash_flow_models):
         model_name = getattr(model, 'name', 'Unknown')
         model_type = model.__class__.__name__
-        print(f"  {i+1}. {model_type}: {model_name}")
+        print(f"  {i + 1}. {model_type}: {model_name}")
     
     # Should have models from both asset types
     # Note: The exact number and types depend on implementation
@@ -622,7 +624,7 @@ def test_complete_development_lifecycle(comprehensive_project, analysis_timeline
     for i, model in enumerate(cash_flow_models):
         model_name = getattr(model, 'name', 'Unknown')
         model_type = model.__class__.__name__
-        print(f"  {i+1}. {model_type}: {model_name}")
+        print(f"  {i + 1}. {model_type}: {model_name}")
     
     # Should have construction models (minimum requirement)
     construction_models = [m for m in cash_flow_models if hasattr(m, 'name') and 'Construction' in m.name]

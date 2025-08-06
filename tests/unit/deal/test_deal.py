@@ -16,12 +16,10 @@ from uuid import UUID
 
 import pytest
 
-from performa.asset.office.property import OfficeProperty
-from performa.asset.residential.property import ResidentialProperty
 from performa.core.capital import CapitalPlan
 from performa.core.primitives import AssetTypeEnum, Timeline
 from performa.deal.acquisition import AcquisitionTerms
-from performa.deal.deal import AnyAsset, Deal
+from performa.deal.deal import Deal
 from performa.development.project import DevelopmentProject
 
 

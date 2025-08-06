@@ -10,7 +10,6 @@ including refinancing orchestration, covenant monitoring, and deal integration.
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from performa.core.primitives import Timeline
 from performa.debt.construction import ConstructionFacility, DebtTranche

@@ -23,8 +23,8 @@ from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     LeaseTypeEnum,
-    Timeline,
     PropertyAttributeKey,
+    Timeline,
     UnleveredAggregateLineKey,
     UponExpirationEnum,
 )
@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 def analysis_timeline() -> Timeline:
     """Provides a standard 5-year analysis timeline."""
     return Timeline.from_dates(start_date=date(2024, 1, 1), end_date=date(2028, 12, 31))
+
 
 @pytest.fixture
 def global_settings(analysis_timeline: Timeline) -> GlobalSettings:
@@ -58,7 +59,7 @@ def test_end_to_end_analysis(analysis_timeline: Timeline, global_settings: Globa
                 area=10000,
                 use_type="office",
                 start_date=date(2022, 1, 1),
-                term_months=48, # Expires Dec 2025
+                term_months=48,  # Expires Dec 2025
                 base_rent_value=40.0,
                 base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 base_rent_frequency=FrequencyEnum.ANNUAL,
@@ -118,7 +119,7 @@ def test_end_to_end_analysis(analysis_timeline: Timeline, global_settings: Globa
     # Expected NOI (simple case)
     # Note: The orchestrator now calculates EGI, vacancy, etc. This is a simplified check.
     # A more detailed check would be in the complex test.
-    expected_egi = expected_rent # Assuming no other income/abatement
+    expected_egi = expected_rent  # Assuming no other income/abatement
     # Vacancy loss is 5% of PGR
     expected_vacancy = expected_rent * 0.05 
     expected_noi = expected_egi - expected_vacancy - 10000

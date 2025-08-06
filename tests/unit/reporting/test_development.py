@@ -19,16 +19,13 @@ Test Coverage:
 8. Industry-standard terminology and formats
 """
 
-from datetime import date, datetime
-from typing import Any, Dict
-from unittest.mock import Mock, patch
+from datetime import date
+from unittest.mock import Mock
 from uuid import UUID, uuid4
 
-import pandas as pd
 import pytest
-from pydantic import ValidationError
 
-from performa.reporting.base import IndustryMetrics, Report, ReportTemplate
+from performa.reporting.base import IndustryMetrics, ReportTemplate
 from performa.reporting.development import (
     ConstructionDrawReport,
     DevelopmentSummaryReport,

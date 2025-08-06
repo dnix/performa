@@ -14,27 +14,29 @@ which allowed a fundamental bug to slip through where all units appeared
 "leased" from Day 1 regardless of absorption timing.
 """
 
-import pytest
 from datetime import date
 
+import pytest
+
 from performa.analysis import run
-from performa.development import DevelopmentProject
 from performa.asset.residential import (
-    ResidentialDevelopmentBlueprint,
-    ResidentialVacantUnit,
-    ResidentialRolloverProfile,
-    ResidentialRolloverLeaseTerms,
     ResidentialAbsorptionPlan,
-    ResidentialExpenses,
-    ResidentialOpExItem,
-    ResidentialLosses,
-    ResidentialGeneralVacancyLoss,
     ResidentialCollectionLoss,
+    ResidentialDevelopmentBlueprint,
+    ResidentialExpenses,
+    ResidentialGeneralVacancyLoss,
+    ResidentialLosses,
+    ResidentialOpExItem,
+    ResidentialRolloverLeaseTerms,
+    ResidentialRolloverProfile,
+    ResidentialVacantUnit,
 )
 from performa.asset.residential.absorption import (
-    ResidentialUnitFilter,
     ResidentialDirectLeaseTerms,
+    ResidentialUnitFilter,
 )
+from performa.core.base.absorption import FixedQuantityPace
+from performa.core.capital import CapitalItem, CapitalPlan
 from performa.core.primitives import (
     AssetTypeEnum,
     ExpenseSubcategoryEnum,
@@ -42,10 +44,8 @@ from performa.core.primitives import (
     GlobalSettings,
     PropertyAttributeKey,
     Timeline,
-    StartDateAnchorEnum,
 )
-from performa.core.capital import CapitalPlan, CapitalItem
-from performa.core.base.absorption import FixedQuantityPace
+from performa.development import DevelopmentProject
 
 
 @pytest.fixture
@@ -187,10 +187,10 @@ def test_absorption_plan_generates_progressive_specs(progressive_development_pro
     
     for i, spec in enumerate(unit_specs):
         assert spec.lease_start_date == expected_start_dates[i], (
-            f"Spec {i+1} has start date {spec.lease_start_date}, "
+            f"Spec {i + 1} has start date {spec.lease_start_date}, "
             f"expected {expected_start_dates[i]}"
         )
-        assert spec.unit_count == 10, f"Spec {i+1} has {spec.unit_count} units, expected 10"
+        assert spec.unit_count == 10, f"Spec {i + 1} has {spec.unit_count} units, expected 10"
     
     print("✅ Absorption plan generates progressive unit specs correctly")
 
@@ -222,7 +222,7 @@ def test_development_framework_progressive_revenue(progressive_development_proje
     
     print("Progressive Revenue Pattern:")
     for i, revenue in enumerate(month_revenues):
-        print(f"  Month {i+1}: ${revenue:,.0f}")
+        print(f"  Month {i + 1}: ${revenue:,.0f}")
     
     # Month 1-2: Construction period, no revenue
     assert month_revenues[0] == 0, f"Month 1 should have $0 revenue, got ${month_revenues[0]:,.0f}"
@@ -290,7 +290,11 @@ def test_backward_compatibility_with_stabilized_properties():
     
     This ensures our fix doesn't break existing functionality.
     """
-    from performa.asset.residential import ResidentialProperty, ResidentialRentRoll, ResidentialUnitSpec
+    from performa.asset.residential import (
+        ResidentialProperty,
+        ResidentialRentRoll,
+        ResidentialUnitSpec,
+    )
     
     # Create traditional stabilized property without lease_start_date
     unit_spec = ResidentialUnitSpec(

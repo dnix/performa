@@ -16,11 +16,9 @@ Key validation areas:
 """
 
 import time
-from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from performa.core.primitives import Timeline
 from performa.debt.permanent import PermanentFacility
@@ -301,8 +299,8 @@ class TestVectorizedPerformance:
         print(f"   Timeline: {len(timeline.period_index)} periods")
         print(f"   Vectorized time: {vectorized_time:.4f}s")
         print(f"   Estimated iterative time: {estimated_iterative_time:.4f}s")
-        print(f"   Estimated speedup: {estimated_iterative_time/vectorized_time:.1f}x")
-        print(f"   Throughput: {len(timeline.period_index)/vectorized_time:.0f} periods/second")
+        print(f"   Estimated speedup: {estimated_iterative_time / vectorized_time:.1f}x")
+        print(f"   Throughput: {len(timeline.period_index) / vectorized_time:.0f} periods/second")
     
     def test_portfolio_scale_performance(self):
         """Test performance at portfolio scale (simulating multiple loans)."""
@@ -321,7 +319,7 @@ class TestVectorizedPerformance:
         portfolio_results = []
         for i in range(num_loans):
             facility = PermanentFacility(
-                name=f"Loan_{i+1}",
+                name=f"Loan_{i + 1}",
                 interest_rate=InterestRate(details=FixedRate(rate=0.05 + i * 0.001)),  # Vary rates slightly
                 loan_term_years=10,
                 ltv_ratio=0.75,
@@ -367,8 +365,8 @@ class TestVectorizedPerformance:
         print(f"   Periods per loan: {len(timeline.period_index)}")
         print(f"   Total calculations: {total_calculations:,}")
         print(f"   Portfolio processing time: {portfolio_time:.2f}s")
-        print(f"   Throughput: {total_calculations/portfolio_time:.0f} calculations/second")
-        print(f"   Average time per loan: {portfolio_time/num_loans:.4f}s")
+        print(f"   Throughput: {total_calculations / portfolio_time:.0f} calculations/second")
+        print(f"   Average time per loan: {portfolio_time / num_loans:.4f}s")
 
 
 def test_vectorized_integration_validation():

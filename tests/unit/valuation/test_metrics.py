@@ -18,12 +18,9 @@ Test Coverage:
 8. Validation of monthly period index requirements
 """
 
-from datetime import date
-from typing import Dict
 
 import pandas as pd
 import pytest
-from pydantic import ValidationError
 
 from performa.valuation.metrics import PropertyMetrics
 
@@ -433,7 +430,7 @@ class TestCalculateComprehensiveMetrics:
         # Create cash flows that will cause IRR to fail (all zero cash flows)
         bad_cash_flows = pd.DataFrame({
             'revenue': [0.0] * 12,
-            'expenses': [0.0] * 12,  
+            'expenses': [0.0] * 12, 
             'net_cash_flow': [0.0] * 12
         }, index=sample_monthly_index)
         

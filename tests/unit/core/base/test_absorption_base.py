@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-from datetime import date
-
 import pytest
 
 from performa.core.base import (
@@ -16,6 +14,7 @@ from performa.core.primitives import Model, ProgramUseEnum, StartDateAnchorEnum
 
 # --- Mocks and Fixtures ---
 
+
 class MockVacantSuite(Model):
     """A mock VacantSuiteBase for testing the SpaceFilter."""
     suite: str
@@ -23,9 +22,11 @@ class MockVacantSuite(Model):
     area: float
     use_type: ProgramUseEnum
 
+
 class MockModel(Model):
     """A simple mock model for testing stabilized assumptions."""
     pass
+
 
 @pytest.fixture
 def sample_vacant_suite() -> MockVacantSuite:
@@ -38,10 +39,12 @@ def sample_vacant_suite() -> MockVacantSuite:
 
 # --- SpaceFilter Tests ---
 
+
 def test_space_filter_matches_all(sample_vacant_suite: MockVacantSuite):
     """Test that an empty filter matches any suite."""
     filt = SpaceFilter()
     assert filt.matches(sample_vacant_suite)
+
 
 def test_space_filter_matches_by_suite_id(sample_vacant_suite: MockVacantSuite):
     """Test filtering by suite ID."""
@@ -50,12 +53,14 @@ def test_space_filter_matches_by_suite_id(sample_vacant_suite: MockVacantSuite):
     assert filt_pass.matches(sample_vacant_suite)
     assert not filt_fail.matches(sample_vacant_suite)
 
+
 def test_space_filter_matches_by_use_type(sample_vacant_suite: MockVacantSuite):
     """Test filtering by program use type."""
     filt_pass = SpaceFilter(use_types=[ProgramUseEnum.OFFICE, ProgramUseEnum.RETAIL])
     filt_fail = SpaceFilter(use_types=[ProgramUseEnum.INDUSTRIAL])
     assert filt_pass.matches(sample_vacant_suite)
     assert not filt_fail.matches(sample_vacant_suite)
+
 
 def test_space_filter_matches_by_area(sample_vacant_suite: MockVacantSuite):
     """Test filtering by min and max area."""
@@ -74,6 +79,7 @@ def test_space_filter_matches_by_area(sample_vacant_suite: MockVacantSuite):
     assert filt_pass_both.matches(sample_vacant_suite)
     assert not filt_fail_both.matches(sample_vacant_suite)
 
+
 def test_space_filter_matches_multiple_criteria(sample_vacant_suite: MockVacantSuite):
     """Test filtering by multiple criteria at once."""
     filt_pass = SpaceFilter(use_types=[ProgramUseEnum.OFFICE], min_area=1000)
@@ -82,6 +88,7 @@ def test_space_filter_matches_multiple_criteria(sample_vacant_suite: MockVacantS
     assert not filt_fail.matches(sample_vacant_suite)
 
 # --- AbsorptionPlanBase Tests ---
+
 
 def test_absorption_plan_base_instantiation():
     """Test successful instantiation of AbsorptionPlanBase."""
@@ -95,7 +102,7 @@ def test_absorption_plan_base_instantiation():
         space_filter=SpaceFilter(use_types=[ProgramUseEnum.OFFICE]),
         start_date_anchor=StartDateAnchorEnum.ANALYSIS_START,
         pace=FixedQuantityPace(type="FixedQuantity", quantity=10000, unit="SF", frequency_months=3),
-        leasing_assumptions="Standard Office Rollover", # Using identifier string
+        leasing_assumptions="Standard Office Rollover",  # Using identifier string
         stabilized_expenses=mock_expenses,
         stabilized_losses=mock_losses,
         stabilized_misc_income=mock_misc_income

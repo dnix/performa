@@ -8,7 +8,6 @@ Tests the enhanced PermanentFacility functionality including the "Sizing Trifect
 (LTV, DSCR, Debt Yield) and covenant monitoring capabilities.
 """
 
-import numpy as np
 import pandas as pd
 import pytest
 

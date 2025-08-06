@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import logging
 from datetime import date
-from uuid import uuid4
 
 import pandas as pd
 import pytest
@@ -21,8 +20,8 @@ from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     LeaseStatusEnum,
-    Timeline,
     PropertyAttributeKey,
+    Timeline,
     UponExpirationEnum,
 )
 

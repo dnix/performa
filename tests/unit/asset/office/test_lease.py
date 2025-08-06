@@ -3,13 +3,11 @@
 
 import unittest
 from datetime import date
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import MagicMock
 
 import pandas as pd
 
 from performa.analysis import AnalysisContext
-from performa.asset.office.expense import OfficeOpExItem
-from performa.asset.office.lc import OfficeLeasingCommission
 from performa.asset.office.lease import OfficeLease
 from performa.asset.office.lease_spec import OfficeLeaseSpec
 from performa.asset.office.rollover import (
@@ -19,14 +17,13 @@ from performa.asset.office.rollover import (
     OfficeRolloverTenantImprovement,
 )
 from performa.asset.office.ti import OfficeTenantImprovement
-from performa.core.base import CommissionTier
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     LeaseStatusEnum,
     ProgramUseEnum,
-    Timeline,
     PropertyAttributeKey,
+    Timeline,
     UponExpirationEnum,
 )
 
@@ -168,12 +165,12 @@ class TestOfficeLease(unittest.TestCase):
         lease = OfficeLease.from_spec(
             spec,
             analysis_start_date=self.analysis_start_date,
-            timeline=self.timeline, # Pass the main timeline
+            timeline=self.timeline,  # Pass the main timeline
             settings=self.settings,
         )
         
         # Use a shorter analysis timeline to prevent infinite recursion in test
-        short_analysis_timeline = Timeline(start_date=date(2023, 1, 1), duration_months=36) # Ends Dec 2025
+        short_analysis_timeline = Timeline(start_date=date(2023, 1, 1), duration_months=36)  # Ends Dec 2025
         context = AnalysisContext(
             timeline=short_analysis_timeline,
             settings=self.settings,
@@ -200,7 +197,7 @@ class TestOfficeLease(unittest.TestCase):
         # 3. New lease starts in April 2024
         new_lease_start = pd.Period('2024-04', 'M')
         self.assertGreater(future_df.loc[new_lease_start, 'base_rent'], 0)
-        self.assertEqual(future_df.loc[pd.Period('2024-03', 'M'), 'base_rent'], 0) # Still in downtime
+        self.assertEqual(future_df.loc[pd.Period('2024-03', 'M'), 'base_rent'], 0)  # Still in downtime
 
     def test_project_future_cash_flows_with_ti_lc(self):
         """
@@ -268,7 +265,7 @@ class TestOfficeLease(unittest.TestCase):
             base_rent_value=48.0,
             base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL,
-            upon_expiration=UponExpirationEnum.RENEW, # Explicitly set to RENEW
+            upon_expiration=UponExpirationEnum.RENEW,  # Explicitly set to RENEW
             rollover_profile=self.rollover_profile,
         )
         lease = OfficeLease.from_spec(
@@ -336,7 +333,7 @@ class TestOfficeLease(unittest.TestCase):
             base_rent_value=50.0,
             base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency=FrequencyEnum.ANNUAL,
-            upon_expiration=UponExpirationEnum.REABSORB, # Explicitly set to REABSORB
+            upon_expiration=UponExpirationEnum.REABSORB,  # Explicitly set to REABSORB
             rollover_profile=self.rollover_profile,
         )
         lease = OfficeLease.from_spec(
@@ -476,6 +473,7 @@ class TestOfficeLease(unittest.TestCase):
         self.assertEqual(ti_cf_with_signing.sum(), 3000.0)
         self.assertEqual(ti_cf_without_signing.sum(), 3000.0)
         self.assertTrue(ti_cf_with_signing.equals(ti_cf_without_signing))
+
 
 if __name__ == '__main__':
     unittest.main()

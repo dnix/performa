@@ -5,8 +5,6 @@
 
 from datetime import date
 
-import pytest
-
 from performa.analysis import run
 from performa.asset.office import (
     OfficeAbsorptionPlan,

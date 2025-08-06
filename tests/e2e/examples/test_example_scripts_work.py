@@ -6,10 +6,11 @@ This is the CRITICAL test that was missing - validating that our example scripts
 actually work and produce results that match manual calculations.
 """
 
-import pytest
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "src"))
@@ -26,7 +27,7 @@ def test_value_add_renovation_example_works():
         [sys.executable, str(example_path)],
         capture_output=True,
         text=True,
-        timeout=60  # 60 second timeout
+        timeout=60, check=False  # 60 second timeout
     )
     
     # The script should run without errors
@@ -47,7 +48,7 @@ def test_value_add_example_produces_reasonable_yields(expected_yield_range):
         [sys.executable, str(example_path)], 
         capture_output=True,
         text=True,
-        timeout=60
+        timeout=60, check=False
     )
     
     assert result.returncode == 0, f"Example failed: {result.stderr}"
@@ -124,7 +125,7 @@ class TestExampleValidation:
             [sys.executable, str(example_path)],
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=60, check=False
         )
         
         assert result.returncode == 0, f"Example failed: {result.stderr}"

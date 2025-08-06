@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from performa.core.base import Address, ProgramComponentSpec, PropertyBaseModel
 from performa.core.primitives import AssetTypeEnum, ProgramUseEnum
 

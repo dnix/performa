@@ -507,10 +507,10 @@ class TestDealFeeDrawScheduleIntegration:
         # First 3 periods should follow the pattern 3:6:9 (normalized)
         # values=[3,6,9,1,1,1,1,1,1,1,1,1] sum to 27
         # So normalized: [3/27, 6/27, 9/27, 1/27, ...] = [1/9, 2/9, 3/9, 1/27, ...]
-        assert abs(cash_flows.iloc[0] - (600_000 * 3/27)) < 0.01  # 3/27 * 600k
-        assert abs(cash_flows.iloc[1] - (600_000 * 6/27)) < 0.01  # 6/27 * 600k
-        assert abs(cash_flows.iloc[2] - (600_000 * 9/27)) < 0.01  # 9/27 * 600k
-        assert abs(cash_flows.iloc[3] - (600_000 * 1/27)) < 0.01  # 1/27 * 600k
+        assert abs(cash_flows.iloc[0] - (600_000 * 3 / 27)) < 0.01  # 3/27 * 600k
+        assert abs(cash_flows.iloc[1] - (600_000 * 6 / 27)) < 0.01  # 6/27 * 600k
+        assert abs(cash_flows.iloc[2] - (600_000 * 9 / 27)) < 0.01  # 9/27 * 600k
+        assert abs(cash_flows.iloc[3] - (600_000 * 1 / 27)) < 0.01  # 1/27 * 600k
     
     def test_upfront_fee_calculation_with_draw_schedule(self, timeline, sample_partner):
         """Test upfront_amount with DrawSchedule."""

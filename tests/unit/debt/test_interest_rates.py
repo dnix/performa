@@ -8,7 +8,6 @@ Tests the enhanced InterestRate classes including FixedRate, FloatingRate,
 and the discriminated union pattern with dynamic rate calculations.
 """
 
-import numpy as np
 import pandas as pd
 import pytest
 

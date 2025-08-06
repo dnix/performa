@@ -5,22 +5,19 @@ from __future__ import annotations
 
 import logging
 from datetime import date
-from typing import Any, Dict, List, Optional, Union
 
-import pandas as pd
 import pytest
-from pydantic import ValidationError
 
 from performa.analysis import AnalysisContext
-from performa.core.base.expense import CapExItemBase, ExpenseItemBase, OpExItemBase
+from performa.core.base.expense import CapExItemBase, OpExItemBase
 from performa.core.primitives import (
     CashFlowModel,
     ExpenseSubcategoryEnum,
     FrequencyEnum,
     GlobalSettings,
     PercentageGrowthRate,
-    Timeline,
     PropertyAttributeKey,
+    Timeline,
 )
 
 logger = logging.getLogger(__name__)

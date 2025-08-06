@@ -23,9 +23,10 @@ def test_office_vacant_suite_validation():
     with pytest.raises(ValueError, match="'subdivision_average_lease_area' cannot be greater"):
         OfficeVacantSuite(suite="101", floor="1", area=1000, use_type="office", is_divisible=True, subdivision_average_lease_area=1200)
 
+
 def test_office_rent_roll_properties():
-    lease1 = OfficeLeaseSpec(tenant_name="T1", suite="101", floor="1", area=1000, use_type="office", start_date=date(2024,1,1), end_date=date(2025,1,1), base_rent_value=10, base_rent_unit_of_measure="per_unit", lease_type="net", upon_expiration="market")
-    lease2 = OfficeLeaseSpec(tenant_name="T2", suite="102", floor="1", area=2000, use_type="office", start_date=date(2024,1,1), end_date=date(2025,1,1), base_rent_value=10, base_rent_unit_of_measure="per_unit", lease_type="net", upon_expiration="market")
+    lease1 = OfficeLeaseSpec(tenant_name="T1", suite="101", floor="1", area=1000, use_type="office", start_date=date(2024, 1, 1), end_date=date(2025, 1, 1), base_rent_value=10, base_rent_unit_of_measure="per_unit", lease_type="net", upon_expiration="market")
+    lease2 = OfficeLeaseSpec(tenant_name="T2", suite="102", floor="1", area=2000, use_type="office", start_date=date(2024, 1, 1), end_date=date(2025, 1, 1), base_rent_value=10, base_rent_unit_of_measure="per_unit", lease_type="net", upon_expiration="market")
     vacant_suite = OfficeVacantSuite(suite="103", floor="1", area=500, use_type="office")
     
     rent_roll = OfficeRentRoll(leases=[lease1, lease2], vacant_suites=[vacant_suite])

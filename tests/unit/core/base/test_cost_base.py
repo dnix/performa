@@ -5,11 +5,8 @@ from __future__ import annotations
 
 from datetime import date
 
-import pandas as pd
 import pytest
-from pydantic import ValidationError
 
-from performa.analysis import AnalysisContext
 from performa.core.base import (
     CommissionTier,
     LeasingCommissionBase,
@@ -21,7 +18,6 @@ from performa.core.base.cost import (
     TenantImprovementAllowanceBase,
 )
 from performa.core.primitives import (
-    GlobalSettings,
     PropertyAttributeKey,
     Timeline,
 )
@@ -31,15 +27,17 @@ from performa.core.primitives import (
 def sample_timeline() -> Timeline:
     return Timeline(start_date=date(2024, 1, 1), duration_months=12)
 
+
 def test_leasing_commission_base_instantiation(sample_timeline: Timeline):
     """Test successful instantiation of LeasingCommissionBase."""
     item = LeasingCommissionBase(
         name="Standard LC",
         timeline=sample_timeline,
-        value=0, # Simplified for base test
+        value=0,  # Simplified for base test
         tiers=[CommissionTier(year_start=1, year_end=5, rate=0.06)],
     )
     assert item.name == "Standard LC"
+
 
 def test_tenant_improvement_allowance_base_instantiation(sample_timeline: Timeline):
     """Test successful instantiation of TenantImprovementAllowanceBase."""
@@ -50,6 +48,7 @@ def test_tenant_improvement_allowance_base_instantiation(sample_timeline: Timeli
         reference=PropertyAttributeKey.NET_RENTABLE_AREA,
     )
     assert item.name == "Standard TI"
+
 
 def test_payment_timing(sample_context):
     """

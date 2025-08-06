@@ -3,8 +3,9 @@
 
 from __future__ import annotations
 
-import pytest
 from uuid import uuid4
+
+import pytest
 
 from performa.core.base import (
     RolloverLeaseTermsBase,
@@ -31,12 +32,12 @@ def test_rollover_profile_base_instantiation():
 
     profile = RolloverProfileBase(
         name="Standard Office Rollover",
-        term_months=120, # This seems redundant with market_terms, but testing as is
+        term_months=120,  # This seems redundant with market_terms, but testing as is
         renewal_probability=0.75,
         downtime_months=6,
         market_terms=market_terms,
         renewal_terms=renewal_terms,
-        option_terms=None, # Testing with None
+        option_terms=None,  # Testing with None
         upon_expiration=UponExpirationEnum.MARKET,
     )
 

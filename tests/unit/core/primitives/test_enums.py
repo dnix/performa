@@ -19,6 +19,7 @@ def test_enum_member_values():
     assert AssetTypeEnum.OFFICE == "office"
     assert UnleveredAggregateLineKey.NET_OPERATING_INCOME == "Net Operating Income"
 
+
 def test_unlevered_aggregate_line_key_functionality():
     """Test UnleveredAggregateLineKey enum functionality."""
     # Test key unlevered line items exist
@@ -40,6 +41,7 @@ def test_unlevered_aggregate_line_key_functionality():
     assert UnleveredAggregateLineKey.from_value("Net Operating Income") == noi_key
     assert UnleveredAggregateLineKey.from_value("NonExistentKey") is None
 
+
 def test_levered_aggregate_line_key_functionality():
     """Test LeveredAggregateLineKey enum functionality."""
     # Test key levered line items exist
@@ -60,6 +62,7 @@ def test_levered_aggregate_line_key_functionality():
     assert LeveredAggregateLineKey.from_value("Total Debt Service") == debt_key
     assert LeveredAggregateLineKey.from_value("NonExistentKey") is None
 
+
 def test_architectural_separation():
     """Test that unlevered and levered enums maintain proper separation."""
     # UnleveredAggregateLineKey should NOT have levered concepts
@@ -76,6 +79,7 @@ def test_architectural_separation():
     # Verify the keys exist in the right places
     assert "Unlevered Cash Flow" in unlevered_values
     assert "Levered Cash Flow" in levered_values
+
 
 def test_legacy_enum_removed():
     """Test that the legacy AggregateLineKey enum has been completely removed."""

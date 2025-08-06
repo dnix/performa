@@ -16,7 +16,6 @@ from performa.core.primitives import (
     GlobalSettings,
     RevenueSubcategoryEnum,
     Timeline,
-    PropertyAttributeKey,
 )
 
 

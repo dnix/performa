@@ -8,15 +8,7 @@ Critical tests for partnership distribution calculations including waterfall log
 fee distributions, and comprehensive partner metrics.
 """
 
-import numpy as np
-import pandas as pd
-import pytest
 
-from performa.core.primitives import GlobalSettings, Timeline
-from performa.deal.analysis.partnership import (
-    DistributionCalculator,
-    PartnershipAnalyzer,
-)
 
 
 class TestPartnershipAnalyzer:

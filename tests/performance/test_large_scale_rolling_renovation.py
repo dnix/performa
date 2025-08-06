@@ -7,36 +7,37 @@ This addresses concerns about memory usage, processing time, and correctness
 with large properties (1000+ units).
 """
 
-import pytest
-import time
-import psutil
 import os
+import time
 from datetime import date
 from uuid import uuid4
 
+import psutil
+import pytest
+
+from performa.analysis import run
 from performa.asset.residential import (
-    ResidentialProperty,
-    ResidentialRentRoll,
-    ResidentialUnitSpec,
-    ResidentialRolloverProfile,
-    ResidentialRolloverLeaseTerms,
     ResidentialAbsorptionPlan,
     ResidentialExpenses,
     ResidentialLosses,
     ResidentialOpExItem,
+    ResidentialProperty,
+    ResidentialRentRoll,
+    ResidentialRolloverLeaseTerms,
+    ResidentialRolloverProfile,
+    ResidentialUnitSpec,
 )
-from performa.core.capital import CapitalPlan, CapitalItem
 from performa.asset.residential.absorption import ResidentialDirectLeaseTerms
+from performa.core.base import Address
+from performa.core.base.absorption import FixedQuantityPace
+from performa.core.capital import CapitalItem, CapitalPlan
 from performa.core.primitives import (
     GlobalSettings,
-    Timeline,
-    StartDateAnchorEnum,
-    UponExpirationEnum,
     PropertyAttributeKey,
+    StartDateAnchorEnum,
+    Timeline,
+    UponExpirationEnum,
 )
-from performa.core.base.absorption import FixedQuantityPace
-from performa.core.base import Address
-from performa.analysis import run
 
 
 class TestLargeScaleRollingRenovation:
@@ -88,7 +89,7 @@ class TestLargeScaleRollingRenovation:
                 start_date = date(2024, 1 + (month_offset % 12), 1)
             
             unit_spec = ResidentialUnitSpec(
-                unit_type_name=f"Unit-{i+1}",
+                unit_type_name=f"Unit-{i + 1}",
                 unit_count=1,
                 avg_area_sf=800.0,
                 current_avg_monthly_rent=2000.0,
@@ -294,7 +295,7 @@ class TestScalabilityLimits:
             plan_id = uuid4()
             plan = ResidentialAbsorptionPlan(
                 uid=plan_id,
-                name=f"Plan-{i+1}",
+                name=f"Plan-{i + 1}",
                 start_date_anchor=StartDateAnchorEnum.ANALYSIS_START,
                 pace=FixedQuantityPace(quantity=5, unit="Units", frequency_months=1),
                 leasing_assumptions=ResidentialDirectLeaseTerms(
@@ -318,7 +319,7 @@ class TestScalabilityLimits:
             target_plan_id = absorption_plans[plan_index].uid
             
             rollover_profile = ResidentialRolloverProfile(
-                name=f"Profile-{i+1}",
+                name=f"Profile-{i + 1}",
                 term_months=12,
                 renewal_probability=0.0,
                 downtime_months=2,
@@ -329,7 +330,7 @@ class TestScalabilityLimits:
             )
             
             unit_spec = ResidentialUnitSpec(
-                unit_type_name=f"Multi-Plan-Unit-{i+1}",
+                unit_type_name=f"Multi-Plan-Unit-{i + 1}",
                 unit_count=1,
                 avg_area_sf=800.0,
                 current_avg_monthly_rent=2000.0,
@@ -375,7 +376,7 @@ class TestScalabilityLimits:
         print(f"   Units: {len(unit_specs)}")
         print(f"   Initial Revenue: ${initial_revenue:,.0f}")
         print(f"   Final Revenue: ${final_revenue:,.0f}")
-        print(f"   Growth: {((final_revenue/initial_revenue)-1):.1%}")
+        print(f"   Growth: {((final_revenue / initial_revenue) - 1):.1%}")
     
     def test_memory_efficiency(self):
         """Test memory efficiency by creating and destroying large scenarios."""
@@ -456,7 +457,7 @@ class TestScalabilityLimits:
         unit_specs = []
         for i in range(unit_count):
             unit_spec = ResidentialUnitSpec(
-                unit_type_name=f"Memory-Unit-{i+1}",
+                unit_type_name=f"Memory-Unit-{i + 1}",
                 unit_count=1,
                 avg_area_sf=800.0,
                 current_avg_monthly_rent=2000.0,

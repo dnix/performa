@@ -17,7 +17,6 @@ Test Coverage:
 """
 
 from datetime import date
-from typing import Any
 
 import pandas as pd
 import pytest
@@ -29,7 +28,6 @@ from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     Timeline,
-
     UnleveredAggregateLineKey,
 )
 from performa.development.disposition import DispositionCashFlow

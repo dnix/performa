@@ -14,26 +14,16 @@ from __future__ import annotations
 from datetime import date
 from uuid import uuid4
 
-import pandas as pd
-import pytest
-
-from performa.analysis import run
 from performa.asset.residential import (
     ResidentialAbsorptionPlan,
     ResidentialExpenses,
     ResidentialLosses,
-    ResidentialProperty,
-    ResidentialRentRoll,
     ResidentialRolloverLeaseTerms,
     ResidentialRolloverProfile,
-    ResidentialUnitSpec,
 )
-from performa.core.base import Address
 from performa.core.capital import CapitalItem, CapitalPlan
 from performa.core.primitives import (
     FrequencyEnum,
-    GlobalSettings,
-    LeaseStatusEnum,
     Timeline,
     UponExpirationEnum,
 )

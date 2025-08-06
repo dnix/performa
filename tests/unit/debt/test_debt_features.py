@@ -18,7 +18,6 @@ import sys
 
 sys.path.append('src')
 
-from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
@@ -908,7 +907,7 @@ def run_all_tests():
     print(f"Total Tests: {total_tests}")
     print(f"Passed: {passed_tests}")
     print(f"Failed: {len(failed_tests)}")
-    print(f"Success Rate: {passed_tests/total_tests:.1%}")
+    print(f"Success Rate: {passed_tests / total_tests:.1%}")
     
     if failed_tests:
         print("\n❌ Failed Tests:")

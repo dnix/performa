@@ -10,16 +10,14 @@ without dealing with complex required fields and dependencies.
 
 from __future__ import annotations
 
-from datetime import date
-from typing import Optional, List
-from uuid import uuid4
+from typing import Optional
 
 import pandas as pd
 
 from performa.core.primitives import Timeline
-from performa.deal.entities import Partner
-from performa.deal.partnership import PartnershipStructure, CarryPromote
 from performa.deal.distribution_calculator import DistributionCalculator
+from performa.deal.entities import Partner
+from performa.deal.partnership import CarryPromote, PartnershipStructure
 
 
 # Timeline Utilities  

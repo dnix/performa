@@ -6,30 +6,29 @@ Tests for the specific edge cases identified in the rolling value-add implementa
 These tests document and validate the expected behavior for edge scenarios.
 """
 
-import pytest
 from datetime import date
 from uuid import uuid4
 
+from performa.analysis import run
 from performa.asset.residential import (
-    ResidentialProperty,
-    ResidentialRentRoll,
-    ResidentialUnitSpec,
-    ResidentialRolloverProfile,
-    ResidentialRolloverLeaseTerms,
     ResidentialAbsorptionPlan,
     ResidentialExpenses,
     ResidentialLosses,
+    ResidentialProperty,
+    ResidentialRentRoll,
+    ResidentialRolloverLeaseTerms,
+    ResidentialRolloverProfile,
+    ResidentialUnitSpec,
 )
 from performa.asset.residential.absorption import ResidentialDirectLeaseTerms
+from performa.core.base import Address
+from performa.core.base.absorption import FixedQuantityPace
 from performa.core.primitives import (
     GlobalSettings,
-    Timeline,
     StartDateAnchorEnum,
+    Timeline,
     UponExpirationEnum,
 )
-from performa.core.base.absorption import FixedQuantityPace
-from performa.core.base import Address
-from performa.analysis import run
 
 
 class TestZeroDowntimeScenarios:
@@ -112,7 +111,7 @@ class TestZeroDowntimeScenarios:
         # Verify no gap in revenue (zero downtime working correctly)
         for i in range(len(pgr_series)):
             if pgr_series.iloc[i] > 0:  # If there's revenue, ensure no unexpected gaps
-                assert pgr_series.iloc[i] in [2000.0, 2500.0], f"Unexpected revenue amount at month {i+1}"
+                assert pgr_series.iloc[i] in [2000.0, 2500.0], f"Unexpected revenue amount at month {i + 1}"
 
 
 class TestExtendedDowntimeScenarios:
@@ -197,7 +196,7 @@ class TestExtendedDowntimeScenarios:
         # Should have zero revenue during expiration + downtime (months 6-23)
         for month_idx in range(5, 23):  # Months 6-23 (0-indexed)
             if month_idx < len(pgr_series):
-                assert pgr_series.iloc[month_idx] == 0.0, f"Should have zero revenue during downtime (month {month_idx+1})"
+                assert pgr_series.iloc[month_idx] == 0.0, f"Should have zero revenue during downtime (month {month_idx + 1})"
         
         # Verify premium rent after extended renovation (month 24+)
         if len(pgr_series) > 23:  
@@ -279,11 +278,11 @@ class TestLeaseExpirationBeyondAnalysis:
         
         # No revenue before lease starts (months 1-17)
         for month_idx in range(17):  # months 1-17 (0-indexed 0-16)
-            assert pgr_series.iloc[month_idx] == 0.0, f"Should have no revenue before lease starts (month {month_idx+1})"
+            assert pgr_series.iloc[month_idx] == 0.0, f"Should have no revenue before lease starts (month {month_idx + 1})"
         
         # Revenue from lease start through analysis end (months 18-24)
         for month_idx in range(17, len(pgr_series)):  # months 18-24 (0-indexed 17-23)
-            assert pgr_series.iloc[month_idx] == 2000.0, f"Should have original rent from lease start (month {month_idx+1})"
+            assert pgr_series.iloc[month_idx] == 2000.0, f"Should have original rent from lease start (month {month_idx + 1})"
         
         # This documents expected behavior: transformations beyond analysis period don't affect projections
         # Since the lease doesn't expire until June 2026 (beyond Dec 2025 analysis end), no transformation occurs
@@ -410,7 +409,7 @@ class TestCircularReferenceDetection:
         # Verify only one transformation occurs (no circular behavior)
         transformations = 0
         for i in range(1, len(pgr_series)):
-            if pgr_series.iloc[i] != pgr_series.iloc[i-1] and pgr_series.iloc[i] > 0:
+            if pgr_series.iloc[i] != pgr_series.iloc[i - 1] and pgr_series.iloc[i] > 0:
                 transformations += 1
         
         # Should have at most 2 transitions: original->zero (downtime) and zero->premium
@@ -467,7 +466,7 @@ class TestEdgeCaseDocumentation:
         )
         
         # Capital plan that is misaligned with lease timing (intentionally)
-        from performa.core.capital import CapitalPlan, CapitalItem
+        from performa.core.capital import CapitalItem, CapitalPlan
         from performa.core.primitives import PropertyAttributeKey
         
         capital_timeline = Timeline(start_date=date(2024, 1, 1), duration_months=3)

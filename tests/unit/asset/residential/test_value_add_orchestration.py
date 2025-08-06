@@ -11,7 +11,6 @@ rolling value-add scenarios.
 from __future__ import annotations
 
 from datetime import date
-from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -29,7 +28,6 @@ from performa.asset.residential import (
     ResidentialRolloverLeaseTerms,
     ResidentialRolloverProfile,
     ResidentialUnitSpec,
-    ResidentialVacantUnit,
 )
 from performa.core.base import Address
 from performa.core.primitives import (

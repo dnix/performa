@@ -1,7 +1,7 @@
 # Copyright 2024-2025 David Gordon Nix
 # SPDX-License-Identifier: Apache-2.0
 
-#!/usr/bin/env python
+# !/usr/bin/env python
 """
 Real-World Waterfall Validation Tests
 
@@ -15,7 +15,6 @@ implementation, providing an independent validation of our waterfall algorithms.
 from datetime import datetime
 
 import pandas as pd
-import pytest
 
 from performa.core.primitives import Timeline
 from performa.deal.analysis.partnership import DistributionCalculator

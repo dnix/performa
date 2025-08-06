@@ -21,8 +21,7 @@ Test Coverage:
 """
 
 from datetime import date
-from typing import Dict
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from uuid import UUID
 
 import pandas as pd

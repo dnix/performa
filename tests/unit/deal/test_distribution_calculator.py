@@ -436,8 +436,9 @@ class TestEdgeCases:
     
     def test_irr_calculation_edge_cases(self):
         """Test IRR calculation edge cases that can return None."""
-        from performa.deal.partnership import CarryPromote
         import numpy as np
+
+        from performa.deal.partnership import CarryPromote
         
         # Create partnership for waterfall testing
         gp = Partner(name="GP", kind="GP", share=0.20)
@@ -490,8 +491,9 @@ class TestEdgeCases:
     
     def test_irr_calculation_exception_handling(self):
         """Test IRR calculation with forced exception to cover exception handling."""
-        from performa.deal.partnership import CarryPromote
         from unittest.mock import patch
+
+        from performa.deal.partnership import CarryPromote
         
         # Create partnership for waterfall testing
         gp = Partner(name="GP", kind="GP", share=0.20)

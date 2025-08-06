@@ -9,7 +9,6 @@ import pytest
 
 from performa.asset.office.lease_spec import OfficeLeaseSpec
 from performa.core.primitives import (
-    FrequencyEnum,
     LeaseTypeEnum,
     PropertyAttributeKey,
     UponExpirationEnum,
@@ -25,6 +24,7 @@ def test_lease_spec_computed_end_date():
     )
     assert spec.computed_end_date == date(2025, 12, 31)
 
+
 def test_lease_spec_computed_term_months():
     spec = OfficeLeaseSpec(
         tenant_name="Test", suite="100", floor="1", area=1000, use_type="office",
@@ -33,6 +33,7 @@ def test_lease_spec_computed_term_months():
         base_rent_value=10, base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA
     )
     assert spec.computed_term_months == 24
+
 
 def test_lease_spec_term_validation():
     with pytest.raises(ValueError, match="Either end_date or term_months must be provided"):

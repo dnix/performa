@@ -12,7 +12,7 @@ This test validates that DealCalculator properly handles fees with:
 """
 
 from datetime import date
-from unittest.mock import MagicMock, Mock
+from unittest.mock import Mock
 
 import pandas as pd
 import pytest

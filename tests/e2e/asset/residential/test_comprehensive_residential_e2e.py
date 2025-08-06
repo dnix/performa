@@ -31,8 +31,8 @@ from performa.asset.residential import (
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
-    Timeline,
     PropertyAttributeKey,
+    Timeline,
 )
 
 
@@ -301,7 +301,7 @@ def test_e2e_institutional_scale_residential():
     print(f"   💰 Monthly Income: ${expected_income:,.0f}")
     print(f"   📐 Total NRA: {property_model.net_rentable_area:,.0f} SF")
     print(f"   ⚡ Analysis Time: {analysis_time:.3f} seconds")
-    print(f"   🚀 Processing Rate: {property_model.unit_count/analysis_time:.0f} units/second")
+    print(f"   🚀 Processing Rate: {property_model.unit_count / analysis_time:.0f} units/second")
     
     # Validate analysis completed successfully
     assert scenario is not None
@@ -560,7 +560,7 @@ def test_e2e_value_add_positioning_strategy():
     print(f"   💰 Current Income: ${current_income:,.0f}/month")
     print(f"   🎯 Market Potential: ${market_potential:,.0f}/month")
     print(f"   📊 Monthly Upside: ${upside_potential:,.0f}")
-    print(f"   📈 Rent Premium: {((market_potential/current_income) - 1) * 100:.1f}%")
+    print(f"   📈 Rent Premium: {((market_potential / current_income) - 1) * 100:.1f}%")
     print(f"   ⚡ Analysis Time: {analysis_time:.3f} seconds")
     
     assert scenario is not None
@@ -857,7 +857,7 @@ def test_e2e_vacant_units_lease_up_scenario():
     print(f"   🔲 Vacant Units: {property_model.unit_mix.vacant_unit_count}")
     print(f"   📈 Occupancy Rate: {property_model.occupancy_rate:.1%}")
     print(f"   ⚡ Analysis Time: {analysis_time:.3f} seconds")
-    print(f"   🚀 Processing Rate: {property_model.unit_count/analysis_time:.0f} units/second")
+    print(f"   🚀 Processing Rate: {property_model.unit_count / analysis_time:.0f} units/second")
     
     # Validate analysis results
     assert scenario is not None
@@ -888,15 +888,15 @@ def test_e2e_vacant_units_lease_up_scenario():
     print(f"   📊 Current Monthly Income: ${current_income:,.0f}")
     print(f"   🎯 Total Income Potential: ${total_potential:,.0f}")
     print(f"   📈 Lease-Up Upside: ${total_potential - current_income:,.0f}")
-    print(f"   📊 Income Per Unit (Current): ${current_income/75:,.0f}")
-    print(f"   🎯 Income Per Unit (Potential): ${total_potential/100:,.0f}")
+    print(f"   📊 Income Per Unit (Current): ${current_income / 75:,.0f}")
+    print(f"   🎯 Income Per Unit (Potential): ${total_potential / 100:,.0f}")
     
     # Property efficiency metrics
     print("\n🏗️ Property Efficiency:")
     print(f"   📐 Total Rentable SF: {property_model.net_rentable_area:,.0f}")
-    print(f"   🏠 Average Unit Size: {property_model.net_rentable_area/100:.0f} SF")
-    print(f"   💰 Current $/SF/Month: ${current_income/(property_model.net_rentable_area*0.75):.2f}")
-    print(f"   🎯 Potential $/SF/Month: ${total_potential/property_model.net_rentable_area:.2f}")
+    print(f"   🏠 Average Unit Size: {property_model.net_rentable_area / 100:.0f} SF")
+    print(f"   💰 Current $/SF/Month: ${current_income / (property_model.net_rentable_area * 0.75):.2f}")
+    print(f"   🎯 Potential $/SF/Month: ${total_potential / property_model.net_rentable_area:.2f}")
     
     # Assert that the analysis handles vacant units properly
     assert scenario._orchestrator is not None

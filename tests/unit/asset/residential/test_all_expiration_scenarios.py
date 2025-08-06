@@ -6,30 +6,29 @@ Comprehensive testing of all lease expiration scenarios to ensure our REABSORB f
 didn't break other rollover behaviors.
 """
 
-import pytest
 from datetime import date
 from uuid import uuid4
 
+from performa.analysis import run
 from performa.asset.residential import (
-    ResidentialProperty,
-    ResidentialRentRoll,
-    ResidentialUnitSpec,
-    ResidentialRolloverProfile,
-    ResidentialRolloverLeaseTerms,
     ResidentialAbsorptionPlan,
     ResidentialExpenses,
     ResidentialLosses,
+    ResidentialProperty,
+    ResidentialRentRoll,
+    ResidentialRolloverLeaseTerms,
+    ResidentialRolloverProfile,
+    ResidentialUnitSpec,
 )
 from performa.asset.residential.absorption import ResidentialDirectLeaseTerms
+from performa.core.base import Address
+from performa.core.base.absorption import FixedQuantityPace
 from performa.core.primitives import (
     GlobalSettings,
-    Timeline,
     StartDateAnchorEnum,
+    Timeline,
     UponExpirationEnum,
 )
-from performa.core.base.absorption import FixedQuantityPace
-from performa.core.base import Address
-from performa.analysis import run
 
 
 class TestAllExpirationScenarios:

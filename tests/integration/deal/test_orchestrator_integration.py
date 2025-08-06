@@ -8,18 +8,11 @@ These tests validate that the orchestrator correctly delegates to specialist ser
 and that the data flow between services works as expected.
 """
 
-from unittest.mock import MagicMock, Mock, patch
-
-import pytest
+from unittest.mock import Mock
 
 from src.performa.core.primitives import GlobalSettings, Timeline
 from src.performa.deal.deal import Deal
 from src.performa.deal.orchestrator import DealCalculator
-from src.performa.deal.results import (
-    FinancingAnalysisResult,
-    LeveredCashFlowResult,
-    UnleveredAnalysisResult,
-)
 
 
 class TestOrchestratorIntegration:

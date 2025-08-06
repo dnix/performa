@@ -17,7 +17,6 @@ Test Coverage:
 """
 
 from datetime import date
-from typing import Any, Dict
 from unittest.mock import Mock, patch
 
 import pandas as pd
@@ -102,7 +101,7 @@ def sample_unlevered_analysis_with_values(sample_timeline: Timeline) -> Unlevere
     """Unlevered analysis with property value data."""
     # Create appreciation over time
     initial_value = 2500000.0
-    values = [initial_value * (1.02 ** (i/12)) for i in range(24)]  # 2% annual appreciation
+    values = [initial_value * (1.02 ** (i / 12)) for i in range(24)]  # 2% annual appreciation
     
     cash_flows = pd.DataFrame({
         UnleveredAggregateLineKey.NET_OPERATING_INCOME.value: [75000.0] * 24,

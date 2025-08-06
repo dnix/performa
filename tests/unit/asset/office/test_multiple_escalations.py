@@ -9,9 +9,7 @@ timing patterns, rate types, and compounding effects.
 """
 
 from datetime import date
-from typing import List
 
-import pandas as pd
 import pytest
 
 from performa.analysis import AnalysisContext
@@ -28,8 +26,8 @@ from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     LeaseTypeEnum,
-    Timeline,
     PropertyAttributeKey,
+    Timeline,
     UponExpirationEnum,
 )
 from performa.core.primitives.growth_rates import (

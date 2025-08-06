@@ -16,7 +16,6 @@ The refactoring implements the "Don't Ask, Tell" principle by:
 from unittest.mock import Mock
 
 import pandas as pd
-import pytest
 
 from performa.core.primitives import Timeline, UnleveredAggregateLineKey
 from performa.deal.results import UnleveredAnalysisResult
@@ -266,9 +265,9 @@ def test_architectural_improvement_summary():
     timeline = Timeline.from_dates('2024-01-01', '2024-12-31')
     
     cash_flows = pd.DataFrame({
-        UnleveredAggregateLineKey.NET_OPERATING_INCOME.value: [1000 + i*100 for i in range(12)],
+        UnleveredAggregateLineKey.NET_OPERATING_INCOME.value: [1000 + i * 100 for i in range(12)],
         UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value: [600] * 12,
-        UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME.value: [1600 + i*100 for i in range(12)],
+        UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME.value: [1600 + i * 100 for i in range(12)],
     }, index=timeline.period_index)
     
     # Create a minimal DealCalculator setup

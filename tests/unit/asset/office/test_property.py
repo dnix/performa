@@ -21,8 +21,8 @@ from performa.core.primitives import AssetTypeEnum
 
 @pytest.fixture
 def sample_property():
-    lease1 = OfficeLeaseSpec(tenant_name="T1", suite="101", floor="1", area=1000, use_type="office", start_date=date(2024,1,1), end_date=date(2025,1,1), base_rent_value=10, base_rent_unit_of_measure="per_unit", lease_type="net", upon_expiration="market")
-    lease2 = OfficeLeaseSpec(tenant_name="T2", suite="201", floor="2", area=2000, use_type="office", start_date=date(2024,1,1), end_date=date(2025,1,1), base_rent_value=10, base_rent_unit_of_measure="per_unit", lease_type="net", upon_expiration="market")
+    lease1 = OfficeLeaseSpec(tenant_name="T1", suite="101", floor="1", area=1000, use_type="office", start_date=date(2024, 1, 1), end_date=date(2025, 1, 1), base_rent_value=10, base_rent_unit_of_measure="per_unit", lease_type="net", upon_expiration="market")
+    lease2 = OfficeLeaseSpec(tenant_name="T2", suite="201", floor="2", area=2000, use_type="office", start_date=date(2024, 1, 1), end_date=date(2025, 1, 1), base_rent_value=10, base_rent_unit_of_measure="per_unit", lease_type="net", upon_expiration="market")
     rent_roll = OfficeRentRoll(leases=[lease1, lease2], vacant_suites=[])
     
     return OfficeProperty(
@@ -38,11 +38,13 @@ def sample_property():
         ),
     )
 
+
 def test_property_suites(sample_property):
     suites = sample_property.suites
     assert len(suites) == 2
     assert suites[0].suite_id == "101"
     assert suites[1].tenant.name == "T2"
+
 
 def test_property_floors(sample_property):
     floors = sample_property.floors

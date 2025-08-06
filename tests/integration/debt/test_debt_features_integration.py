@@ -70,6 +70,7 @@ def test_debt_service_with_interest_only():
     print(f"✓ I/O payment: ${first_24_months['Payment'].iloc[0]:,.0f}")
     print(f"✓ Amortizing payment: ${amortizing_months['Payment'].iloc[0]:,.0f}")
 
+
 def test_floating_rate_calculations():
     """Test floating rate calculations with time-varying indices."""
     print("\n🔧 Testing Floating Rate Calculations")
@@ -103,6 +104,7 @@ def test_floating_rate_calculations():
     
     print(f"✓ Dynamic rates calculated: {min(rates):.3%} to {max(rates):.3%}")
     print(f"✓ Rate cap enforced at: {max_rate:.3%}")
+
 
 def test_construction_to_permanent_refinancing():
     """Test construction-to-permanent loan refinancing with automatic sizing."""
@@ -178,6 +180,7 @@ def test_construction_to_permanent_refinancing():
     print(f"✓ Most restrictive constraint: {transaction['sizing_analysis']['most_restrictive']}")
     print(f"✓ Covenant monitoring enabled: {transaction['covenant_monitoring']['monitoring_enabled']}")
 
+
 def test_loan_covenant_monitoring():
     """Test loan covenant monitoring functionality."""
     print("\n🔧 Testing Loan Covenant Monitoring")
@@ -242,6 +245,7 @@ def test_loan_covenant_monitoring():
     print(f"✓ Stressed scenario breach rate: {breach_summary_bad['Breach_Rate']:.1%}")
     print("✓ Covenant monitoring working correctly")
 
+
 def test_interest_rate_caps():
     """Test that interest rate caps are properly enforced."""
     print("\n🔧 Testing Interest Rate Cap Enforcement")
@@ -272,6 +276,7 @@ def test_interest_rate_caps():
     print(f"✓ Uncapped: {expected_uncapped:.2%}")
     print(f"✓ Capped rate: {capped_rate:.2%}")
     print("✓ Rate cap enforcement working")
+
 
 def run_all_integration_tests():
     """Run all debt module integration tests."""
@@ -304,7 +309,7 @@ def run_all_integration_tests():
     print("=" * 60)
     print(f"Tests Passed: {passed}")
     print(f"Tests Failed: {failed}")
-    print(f"Success Rate: {passed/(passed+failed):.1%}")
+    print(f"Success Rate: {passed / (passed + failed):.1%}")
     
     if failed == 0:
         print("\n🎉 All integration tests passed!")
@@ -313,6 +318,7 @@ def run_all_integration_tests():
     else:
         print(f"\n❌ {failed} integration tests failed")
         return False
+
 
 if __name__ == "__main__":
     success = run_all_integration_tests()

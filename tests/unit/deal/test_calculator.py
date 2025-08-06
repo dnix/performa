@@ -423,7 +423,7 @@ class TestFundingCascade:
         # Test 2: Cumulative equity is monotonic (never decreases)
         for i in range(1, len(equity_cumulative)):
             current = equity_cumulative.iloc[i]
-            previous = equity_cumulative.iloc[i-1]
+            previous = equity_cumulative.iloc[i - 1]
             assert current >= previous, f"Cumulative equity should never decrease: period {i} has ${current:,.0f} < previous ${previous:,.0f}"
         
         # Test 3: Cumulative equity equals cumulative contributions
@@ -845,7 +845,7 @@ class TestFundingCascade:
         # Test 2: Cumulative debt tracking is monotonic
         for i in range(1, len(debt_cumulative)):
             current = debt_cumulative.iloc[i]
-            previous = debt_cumulative.iloc[i-1]
+            previous = debt_cumulative.iloc[i - 1]
             assert current >= previous, f"Cumulative debt should never decrease: period {i} has ${current:,.0f} < previous ${previous:,.0f}"
         
         # Test 3: Final debt amount is reasonable (accounting for LTC constraints and interest compounding)
@@ -996,7 +996,7 @@ class TestFundingCascade:
         # Interest should be calculated on previous period's balance
         for i in range(1, len(sample_timeline.period_index)):
             period = sample_timeline.period_index[i]
-            previous_balance = debt_cumulative.iloc[i-1]
+            previous_balance = debt_cumulative.iloc[i - 1]
             
             if previous_balance > 0:
                 expected_interest = float(previous_balance) * float(monthly_rate)
@@ -1012,7 +1012,7 @@ class TestFundingCascade:
         # Interest should be calculated starting from the period after first debt draw
         for i in range(1, len(sample_timeline.period_index)):
             period = sample_timeline.period_index[i]
-            previous_debt = debt_cumulative.iloc[i-1]
+            previous_debt = debt_cumulative.iloc[i - 1]
             
             if previous_debt > 0:
                 assert interest_expense[period] > 0, f"Should have interest expense when debt outstanding in period {period}"
@@ -1046,7 +1046,7 @@ class TestFundingCascade:
         )
         
         financing_plan = FinancingPlan(
-            name="Construction Financing",  
+            name="Construction Financing", 
             facilities=[construction_facility]
         )
         

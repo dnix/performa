@@ -137,6 +137,7 @@ def test_refinancing_orchestration():
         print("❌ No refinancing transactions generated")
         assert False, "No refinancing transactions generated"
 
+
 if __name__ == "__main__":
     try:
         test_refinancing_orchestration()

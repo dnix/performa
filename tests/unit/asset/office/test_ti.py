@@ -11,7 +11,7 @@ import pytest
 from performa.analysis import AnalysisContext
 from performa.asset.office.property import OfficeProperty
 from performa.asset.office.ti import OfficeTenantImprovement
-from performa.core.primitives import GlobalSettings, PropertyAttributeKey, Timeline
+from performa.core.primitives import GlobalSettings, Timeline
 
 
 @pytest.fixture
@@ -42,6 +42,7 @@ def test_ti_compute_cf_upfront(sample_context: AnalysisContext):
     assert cf.iloc[0] == 10000.0
     assert cf.iloc[1] == 0.0
 
+
 def test_ti_compute_cf_amortized(sample_context: AnalysisContext):
     """Test the TI compute_cf for an amortized payment."""
     ti = OfficeTenantImprovement(
@@ -58,6 +59,7 @@ def test_ti_compute_cf_amortized(sample_context: AnalysisContext):
     assert cf.iloc[0] == pytest.approx(1000.0)
     assert cf.iloc[11] == pytest.approx(1000.0)
     assert cf.iloc[12] == 0.0
+
 
 def test_ti_payment_timing(sample_context: AnalysisContext):
     """
