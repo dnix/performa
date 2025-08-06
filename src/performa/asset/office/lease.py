@@ -205,7 +205,7 @@ class OfficeLease(CommercialLeaseBase):
             ti_config = lease_terms.ti_allowance
             ti_value = ti_config.value
             if ti_config.reference == PropertyAttributeKey.NET_RENTABLE_AREA:
-                 ti_value = ti_config.value * area
+                ti_value = ti_config.value * area
             
             ti_allowance = OfficeTenantImprovement(
                 name=f"TI for {timeline.start_date}",

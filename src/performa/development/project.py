@@ -93,4 +93,3 @@ class DevelopmentProject(PropertyBaseModel):
                 for vacant_unit in blueprint.vacant_inventory:
                     total_units += vacant_unit.unit_count
         return total_units
- 

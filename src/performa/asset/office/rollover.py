@@ -194,7 +194,7 @@ class OfficeRolloverProfile(RolloverProfileBase):
             # Use the market terms TI as a template, or renewal if market doesn't have one
             base_ti = market_terms.ti_allowance or renewal_terms.ti_allowance
             if blended_ti_value > 0 and base_ti:
-                 blended_ti = base_ti.model_copy(update={'value': blended_ti_value})
+                blended_ti = base_ti.model_copy(update={'value': blended_ti_value})
 
         # Blend Leasing Commission
         blended_lc = None

@@ -346,8 +346,8 @@ class FixedQuantityPaceStrategy(PaceStrategy):
 
                 # Mark non-divisible suites as leased
                 for suite in suites_to_lease_this_period:
-                     if not suite.is_divisible:
-                         context._suite_states[suite.suite].remaining_area = 0
+                    if not suite.is_divisible:
+                        context._suite_states[suite.suite].remaining_area = 0
                 
                 local_remaining_suites = [s for s in local_remaining_suites if context._suite_states[s.suite].remaining_area > 0]
 

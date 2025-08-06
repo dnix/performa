@@ -47,15 +47,15 @@ class CommercialLeasingCommissionBase(LeasingCommissionBase):
                 total_commission += commissionable_rent_in_tier * tier.rate
                 
         if self.renewal_rate is not None:
-             total_commission *= self.renewal_rate
+            total_commission *= self.renewal_rate
 
         lc_cf = pd.Series(0.0, index=self.timeline.period_index)
         if total_commission > 0 and not self.timeline.period_index.empty:
             payment_period = self.timeline.period_index[0]
             if self.payment_timing == "commencement":
-                 # This is a simplification; a more robust model might have an explicit
-                 # rent commencement date that differs from the timeline start.
-                 payment_period = self.timeline.period_index[0]
+                # This is a simplification; a more robust model might have an explicit
+                # rent commencement date that differs from the timeline start.
+                payment_period = self.timeline.period_index[0]
             
             if payment_period in lc_cf.index:
                 lc_cf[payment_period] = total_commission

@@ -442,4 +442,3 @@ class ResidentialAnalysisScenario(AnalysisScenarioBase):
         
         logger.info(f"Added {len(models)} miscellaneous income models")
         return models
- 

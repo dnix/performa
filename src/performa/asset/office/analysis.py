@@ -337,7 +337,7 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
                     if isinstance(item, OfficeOpExItem):
                         models.append(item)
             if self.model.expenses.capital_expenses:
-                 for item in self.model.expenses.capital_expenses:
+                for item in self.model.expenses.capital_expenses:
                     if isinstance(item, OfficeCapExItem):
                         models.append(item)
         return models
