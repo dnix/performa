@@ -77,15 +77,14 @@ Institutional Standards:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import pandas as pd
 
-if TYPE_CHECKING:
-    from performa.core.primitives import GlobalSettings, Timeline
-    from performa.deal.deal import Deal
-
+from performa.analysis import AnalysisContext
+from performa.core.primitives import UnleveredAggregateLineKey
 from performa.deal.results import (
     CashFlowComponents,
     CashFlowSummary,
@@ -97,6 +96,13 @@ from performa.deal.results import (
     # Note: Advanced interest features not included in MVP
     UnleveredAnalysisResult,
 )
+
+if TYPE_CHECKING:
+    from performa.core.primitives import GlobalSettings, Timeline
+    from performa.deal.deal import Deal
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -248,8 +254,6 @@ class CashFlowEngine:
         # 1. Calculate acquisition costs
         if self.deal.acquisition:
             try:
-                from performa.analysis import AnalysisContext
-
                 context = AnalysisContext(
                     timeline=self.timeline,
                     settings=self.settings,
@@ -265,9 +269,6 @@ class CashFlowEngine:
 
             except Exception as e:
                 # Log warning but continue analysis
-                import logging
-
-                logger = logging.getLogger(__name__)
                 logger.warning(f"Acquisition cost calculation failed: {e}")
 
         # 2. Calculate construction costs from CapitalPlan
@@ -276,8 +277,6 @@ class CashFlowEngine:
             and self.deal.asset.construction_plan
         ):
             try:
-                from performa.analysis import AnalysisContext
-
                 context = AnalysisContext(
                     timeline=self.timeline,
                     settings=self.settings,
@@ -296,9 +295,6 @@ class CashFlowEngine:
 
             except Exception as e:
                 # Log warning but continue analysis
-                import logging
-
-                logger = logging.getLogger(__name__)
                 logger.warning(f"Construction cost calculation failed: {e}")
 
         # 3. Calculate developer fees
@@ -312,9 +308,6 @@ class CashFlowEngine:
 
             except Exception as e:
                 # Log warning but continue analysis
-                import logging
-
-                logger = logging.getLogger(__name__)
                 logger.warning(f"Deal fee calculation failed: {e}")
 
         # 4. Calculate total Uses for each period
@@ -379,8 +372,6 @@ class CashFlowEngine:
         Returns:
             Dictionary with cascade results and detailed tracking
         """
-        import pandas as pd
-
         # === STEP 1: Initialize State Variables ===
         # Working uses will be modified with interest compounding
         working_uses = base_uses.copy()
@@ -668,9 +659,6 @@ class CashFlowEngine:
 
         except Exception as e:
             # Fallback to simple debt calculation if facility method fails
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.warning(f"Multi-tranche debt calculation failed: {e}")
 
             # Simple fallback: use first tranche to fund up to its LTC threshold
@@ -931,9 +919,6 @@ class CashFlowEngine:
                     )
                 except Exception as e:
                     # Log warning but continue - some facilities may not have debt service
-                    import logging
-
-                    logger = logging.getLogger(__name__)
                     logger.warning(
                         f"Could not calculate debt service for {facility.name}: {e}"
                     )
@@ -984,9 +969,6 @@ class CashFlowEngine:
 
                 except Exception as e:
                     # Log warning but continue
-                    import logging
-
-                    logger = logging.getLogger(__name__)
                     logger.warning(
                         f"Could not calculate loan payoff for {facility.name}: {e}"
                     )
@@ -1070,8 +1052,6 @@ class CashFlowEngine:
         if self.deal.exit_valuation:
             try:
                 # Calculate disposition proceeds from the disposition model
-                from performa.analysis import AnalysisContext
-
                 context = AnalysisContext(
                     timeline=self.timeline,
                     settings=self.settings,
@@ -1085,10 +1065,6 @@ class CashFlowEngine:
                     # Also populate resolved_lookups for backward compatibility
                     if hasattr(context, "resolved_lookups"):
                         try:
-                            from performa.core.primitives import (
-                                UnleveredAggregateLineKey,
-                            )
-
                             noi_series = unlevered_analysis.get_series(
                                 UnleveredAggregateLineKey.NET_OPERATING_INCOME,
                                 self.timeline,
@@ -1110,9 +1086,6 @@ class CashFlowEngine:
 
             except Exception as e:
                 # Log warning but continue
-                import logging
-
-                logger = logging.getLogger(__name__)
                 logger.warning(f"Could not calculate disposition proceeds: {e}")
 
         return disposition_proceeds

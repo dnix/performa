@@ -20,6 +20,7 @@ Test Coverage:
 from datetime import date
 
 import pytest
+from pydantic import ValidationError
 
 from performa.asset.office import (
     OfficeAbsorptionPlan,
@@ -444,8 +445,6 @@ def test_blueprint_name_inheritance_to_assets(office_blueprint, residential_blue
 
 def test_development_project_required_fields():
     """Test that development project requires all necessary fields."""
-    from pydantic import ValidationError
-
     # Test missing required fields
     with pytest.raises(ValidationError):
         DevelopmentProject()  # Missing all required fields

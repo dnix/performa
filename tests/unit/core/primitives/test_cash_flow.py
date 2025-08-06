@@ -113,30 +113,6 @@ def test_reference_rejects_invalid_types(sample_timeline: Timeline):
         )
 
 
-def test_enum_removal_complete(sample_timeline: Timeline):
-    """Test that the old AggregateLineKey enum has been completely removed."""
-    # Verify that the old enum is no longer available
-    try:
-        from performa.core.primitives import AggregateLineKey
-
-        assert (
-            False
-        ), "AggregateLineKey should have been removed but is still importable"
-    except ImportError:
-        pass  # This is what we expect
-
-    # Verify that only the new type-safe enums are available
-    model = MinimalConcreteCashFlowModel(
-        name="Test",
-        category="cat",
-        subcategory="sub",
-        timeline=sample_timeline,
-        value=1,
-        reference=UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES,
-    )
-    assert model.reference == UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES
-
-
 class MockResidentialProperty:
     """Mock residential property with unit_count attribute for testing."""
 

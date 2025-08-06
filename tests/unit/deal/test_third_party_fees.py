@@ -31,7 +31,7 @@ class TestEntityModels:
         assert partner.kind == "GP"
         assert partner.share == 0.25
         assert partner.description == "Lead developer"
-        assert partner.is_equity_participant == True
+        assert partner.is_equity_participant == True  # noqa: E712
         assert "Developer LLC (GP): 25.0% equity" in str(partner)
 
     def test_third_party_creation(self):
@@ -43,7 +43,7 @@ class TestEntityModels:
         assert third_party.name == "Smith Architecture"
         assert third_party.kind == "Third Party"
         assert third_party.description == "Architectural design services"
-        assert third_party.is_equity_participant == False
+        assert third_party.is_equity_participant == False  # noqa: E712
         assert "Smith Architecture (Third Party)" in str(third_party)
 
     def test_partner_share_validation(self):
@@ -69,8 +69,8 @@ class TestEntityModels:
         assert isinstance(third_party, Entity)
 
         # But have different equity participation behavior
-        assert partner.is_equity_participant == True
-        assert third_party.is_equity_participant == False
+        assert partner.is_equity_participant == True  # noqa: E712
+        assert third_party.is_equity_participant == False  # noqa: E712
 
 
 class TestThirdPartyFees:
@@ -108,7 +108,7 @@ class TestThirdPartyFees:
         assert fee.name == "Development Fee"
         assert fee.value == 500_000
         assert fee.payee == developer_partner
-        assert fee.payee.is_equity_participant == True
+        assert fee.payee.is_equity_participant == True  # noqa: E712
         assert fee.fee_type == "Developer"
 
     def test_third_party_fee_creation(self, timeline, architect_third_party):
@@ -124,7 +124,7 @@ class TestThirdPartyFees:
         assert fee.name == "Architectural Services"
         assert fee.value == 150_000
         assert fee.payee == architect_third_party
-        assert fee.payee.is_equity_participant == False
+        assert fee.payee.is_equity_participant == False  # noqa: E712
         assert fee.fee_type == "Professional Services"
 
     def test_mixed_fee_types(self, timeline, developer_partner, architect_third_party):
@@ -146,8 +146,8 @@ class TestThirdPartyFees:
         )
 
         # Both should work with the same DealFee interface
-        assert dev_fee.payee.is_equity_participant == True
-        assert arch_fee.payee.is_equity_participant == False
+        assert dev_fee.payee.is_equity_participant == True  # noqa: E712
+        assert arch_fee.payee.is_equity_participant == False  # noqa: E712
 
         # Both should compute cash flows correctly
         dev_cf = dev_fee.compute_cf()

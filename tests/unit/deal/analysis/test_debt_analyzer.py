@@ -22,6 +22,7 @@ Test Coverage:
 from datetime import date
 from unittest.mock import Mock, patch
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -894,8 +895,6 @@ class TestPrivateMethodsAndUtilities:
         dscr_values = [2.0] * 20 + [1.1] * 20 + [0.9] * 20  # Mix of good and bad DSCR
 
         # Test manually with direct calculations to avoid numpy issues
-        import numpy as np
-
         dscr_array = np.array(dscr_values)
 
         min_dscr = np.min(dscr_array)
@@ -1052,7 +1051,7 @@ class TestEdgeCasesAndErrorHandling:
 
         # Should handle gracefully with empty description
         assert len(result.facilities) == 1
-        assert result.facilities[0].description == ""
+        assert result.facilities[0].description == ""  # FIXME: testing what?  # noqa
 
     def test_dscr_calculation_with_missing_noi_key(
         self,

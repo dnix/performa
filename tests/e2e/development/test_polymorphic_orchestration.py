@@ -15,6 +15,8 @@ Test Intent:
 5. Performance: Simplified orchestrator is efficient and maintainable
 """
 
+import inspect
+import time
 from datetime import date
 
 import pytest
@@ -508,8 +510,6 @@ def test_orchestrator_performance_no_conditionals(
     )
 
     # Time the polymorphic iteration (simulating the core loop)
-    import time
-
     start_time = time.time()
 
     # This should be the polymorphic loop from prepare_models
@@ -555,9 +555,6 @@ def test_orchestrator_simplified_vs_old_complexity():
     #     asset_models = self._prepare_asset_models(stabilized_asset)
 
     # Validate the new pattern is dramatically simpler
-    import inspect
-
-    from performa.development.analysis import DevelopmentAnalysisScenario
 
     # Get the source of prepare_models method
     source_lines = inspect.getsourcelines(DevelopmentAnalysisScenario.prepare_models)[0]

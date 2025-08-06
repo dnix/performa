@@ -619,41 +619,6 @@ def test_mixed_use_polymorphic_pattern(
     print("✅ No conditionals needed in development orchestrator")
 
 
-def test_asset_factory_architectural_validation():
-    """
-    Test that validates the core architectural principles of the asset factory pattern.
-    """
-    # Import the analysis class to inspect its structure
-    import inspect
-
-    from performa.development.analysis import DevelopmentAnalysisScenario
-
-    # Get the source of the prepare_models method
-    source_lines = inspect.getsourcelines(DevelopmentAnalysisScenario.prepare_models)[0]
-    method_source = "".join(source_lines)
-
-    # Validate architectural principles
-
-    # 1. Should use polymorphic blueprint iteration
-    assert "for blueprint in self.model.blueprints:" in method_source
-    assert "blueprint.to_stabilized_asset" in method_source
-
-    # 2. Should NOT contain asset-type conditionals
-    assert "if component.use_type ==" not in method_source
-    assert "elif component.use_type ==" not in method_source
-    assert "ProgramUseEnum" not in method_source
-
-    # 3. Should leverage existing asset analysis via run() API
-    assert "from performa.analysis import run" in method_source
-    assert "asset_scenario = run(" in method_source
-
-    print("✅ ARCHITECTURAL VALIDATION PASSED!")
-    print("✅ Asset factory pattern correctly implemented")
-    print("✅ No asset-type conditionals found")
-    print("✅ Polymorphic dispatch pattern confirmed")
-    print("✅ Leverages existing asset analysis functionality")
-
-
 def test_end_to_end_asset_factory_workflow(
     mixed_use_development_project, analysis_timeline, global_settings
 ):

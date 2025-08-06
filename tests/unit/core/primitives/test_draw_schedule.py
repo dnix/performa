@@ -3,6 +3,8 @@
 
 """Unit tests for draw schedule classes."""
 
+from datetime import date
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -15,6 +17,7 @@ from performa.core.primitives import (
     LastOnlyDrawSchedule,
     ManualDrawSchedule,
     SCurveDrawSchedule,
+    Timeline,
     UniformDrawSchedule,
 )
 
@@ -173,10 +176,6 @@ class TestManualDrawSchedule:
 
     def test_manual_create_for_timeline(self):
         """Test the create_for_timeline factory method."""
-        from datetime import date
-
-        from performa.core.primitives import Timeline
-
         timeline = Timeline(start_date=date(2024, 1, 1), duration_months=3)
 
         # Factory methods are simple constructors

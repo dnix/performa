@@ -29,11 +29,14 @@ from performa.asset.residential import (
     ResidentialRolloverProfile,
     ResidentialUnitSpec,
 )
+from performa.asset.residential.absorption import ResidentialDirectLeaseTerms
 from performa.core.base import Address
+from performa.core.base.absorption import FixedQuantityPace
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     LeaseStatusEnum,
+    StartDateAnchorEnum,
     Timeline,
     UponExpirationEnum,
 )
@@ -229,10 +232,6 @@ class TestValueAddOrchestration:
 
     def _create_absorption_plan(self) -> ResidentialAbsorptionPlan:
         """Create a basic absorption plan for testing."""
-        from performa.asset.residential.absorption import ResidentialDirectLeaseTerms
-        from performa.core.base.absorption import FixedQuantityPace
-        from performa.core.primitives import StartDateAnchorEnum
-
         return ResidentialAbsorptionPlan(
             name="Test Absorption Plan",
             start_date_anchor=StartDateAnchorEnum.ANALYSIS_START,

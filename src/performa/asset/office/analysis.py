@@ -3,13 +3,15 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Dict, List, Optional
 from uuid import UUID
 
 from performa.analysis import register_scenario
 from performa.analysis.orchestrator import AnalysisContext, CashFlowOrchestrator
 from performa.core.base import LeaseSpecBase
-from performa.core.primitives import CashFlowModel
+from performa.core.primitives import CashFlowModel, PropertyAttributeKey
+from performa.core.primitives.enums import FrequencyEnum
 
 from ..commercial.analysis import CommercialAnalysisScenarioBase
 from .expense import OfficeCapExItem, OfficeOpExItem
@@ -17,6 +19,8 @@ from .lease import OfficeLease
 from .misc_income import OfficeMiscIncome
 from .property import OfficeProperty
 from .recovery import RecoveryCalculationState
+
+logger = logging.getLogger(__name__)
 
 
 @register_scenario(OfficeProperty)
@@ -171,9 +175,6 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
                             recovery_methods_to_process.append(spec.recovery_method)
                 except Exception as e:
                     # Log error but continue processing - absorption plans are optional
-                    import logging
-
-                    logger = logging.getLogger(__name__)
                     logger.warning(
                         f"Failed to generate lease specs from absorption plan: {e}"
                     )
@@ -262,15 +263,11 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
 
                 # Convert to annual if needed
                 if hasattr(expense_item, "frequency"):
-                    from performa.core.primitives.enums import FrequencyEnum
-
                     if expense_item.frequency == FrequencyEnum.MONTHLY:
                         annual_value *= 12
 
                 # Apply reference-based adjustments (PropertyAttributeKey multiplication)
                 if hasattr(expense_item, "reference") and expense_item.reference:
-                    from performa.core.primitives import PropertyAttributeKey
-
                     # DYNAMIC RESOLUTION: Use enum value as attribute name
                     # This approach is extensible and not brittle - works for ANY PropertyAttributeKey
                     if isinstance(expense_item.reference, PropertyAttributeKey):

@@ -15,14 +15,23 @@ from decimal import Decimal
 import pandas as pd
 import pytest
 
-from performa.core.capital import CapitalPlan
+from performa.core.capital import CapitalItem, CapitalPlan
 from performa.core.primitives import AssetTypeEnum, GlobalSettings, Timeline
 from performa.deal import Deal, analyze
 from performa.deal.acquisition import AcquisitionTerms
+from performa.deal.results import (
+    DealAnalysisResult,
+    DealMetricsResult,
+    LeveredCashFlowResult,
+    PartnerDistributionResult,
+    UnleveredAnalysisResult,
+)
+from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
+from performa.debt.rates import FixedRate, InterestRate
 from performa.development.project import DevelopmentProject
 
 
-class TestFundingCascade:
+class TestFundingCascade:  # noqa: PLR0904
     """Test suite for funding cascade logic implementation (TDD approach)."""
 
     @pytest.fixture
@@ -35,7 +44,6 @@ class TestFundingCascade:
     @pytest.fixture
     def sample_development_project(self):
         """Create a sample development project with known construction costs."""
-        from performa.core.capital import CapitalItem
 
         # Create construction plan with known costs
         construction_items = [
@@ -260,7 +268,6 @@ class TestFundingCascade:
         - Periods with zero Uses
         """
         # Create a minimal deal with zero construction costs
-        from performa.development.project import DevelopmentProject
 
         minimal_project = DevelopmentProject(
             name="Minimal Project",
@@ -564,7 +571,6 @@ class TestFundingCascade:
         - No unnecessary equity contributions
         """
         # Create a deal with gaps in Uses (no construction for some periods)
-        from performa.core.capital import CapitalItem
 
         # Create construction plan with gaps
         construction_items = [
@@ -644,8 +650,6 @@ class TestFundingCascade:
         - Generates correct debt_draws and loan_proceeds components
         """
         # Create a leveraged deal with construction financing
-        from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
-        from performa.debt.rates import FixedRate, InterestRate
 
         # Create construction facility with 70% LTC
         senior_tranche = DebtTranche(
@@ -739,8 +743,6 @@ class TestFundingCascade:
         - Debt funding continues until Uses are fully funded
         """
         # Create leveraged deal with 50% LTC for clear equity/debt split
-        from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
-        from performa.debt.rates import FixedRate, InterestRate
 
         senior_tranche = DebtTranche(
             name="Senior Tranche",
@@ -823,8 +825,6 @@ class TestFundingCascade:
         - Proper seniority ordering and LTC limits
         """
         # Create multi-tranche construction facility
-        from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
-        from performa.debt.rates import FixedRate, InterestRate
 
         senior_tranche = DebtTranche(
             name="Senior Tranche",
@@ -922,8 +922,6 @@ class TestFundingCascade:
         - Cumulative debt tracking is accurate
         """
         # Create leveraged deal with 60% LTC
-        from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
-        from performa.debt.rates import FixedRate, InterestRate
 
         senior_tranche = DebtTranche(
             name="Senior Tranche",
@@ -1028,8 +1026,6 @@ class TestFundingCascade:
         - Components integrate with levered cash flow assembly
         """
         # Create leveraged deal with 65% LTC
-        from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
-        from performa.debt.rates import FixedRate, InterestRate
 
         senior_tranche = DebtTranche(
             name="Senior Tranche",
@@ -1118,8 +1114,6 @@ class TestFundingCascade:
         - Interest becomes a Use for the following period
         """
         # Create leveraged deal with 60% LTC
-        from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
-        from performa.debt.rates import FixedRate, InterestRate
 
         senior_tranche = DebtTranche(
             name="Senior Tranche",
@@ -1218,8 +1212,6 @@ class TestFundingCascade:
         - Updated Uses are reflected in funding cascade
         """
         # Create leveraged deal with 70% LTC
-        from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
-        from performa.debt.rates import FixedRate, InterestRate
 
         senior_tranche = DebtTranche(
             name="Senior Tranche",
@@ -1317,8 +1309,6 @@ class TestFundingCascade:
         - Interest reserve is properly accounted for in debt balance
         """
         # Create leveraged deal with interest reserve
-        from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
-        from performa.debt.rates import FixedRate, InterestRate
 
         senior_tranche = DebtTranche(
             name="Senior Tranche",
@@ -1424,8 +1414,6 @@ class TestFundingCascade:
         - Component tracking is comprehensive and accurate
         """
         # Create complex leveraged deal for comprehensive integration test
-        from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
-        from performa.debt.rates import FixedRate, InterestRate
 
         # Multi-tranche facility with different interest rates
         senior_tranche = DebtTranche(
@@ -1609,9 +1597,6 @@ class TestAnalyzeDeal:
         """Test that analyze executes without errors."""
         results = analyze(sample_deal, sample_timeline, sample_settings)
 
-        # Should return a DealAnalysisResult Pydantic model with expected properties
-        from performa.deal.results import DealAnalysisResult
-
         assert isinstance(results, DealAnalysisResult)
 
         # Should have all expected analysis components
@@ -1625,8 +1610,6 @@ class TestAnalyzeDeal:
     def test_analyze_with_default_settings(self, sample_deal, sample_timeline):
         """Test analyze with default settings."""
         results = analyze(sample_deal, sample_timeline)
-
-        from performa.deal.results import DealAnalysisResult
 
         assert isinstance(results, DealAnalysisResult)
         assert hasattr(results, "deal_summary")
@@ -1648,7 +1631,6 @@ class TestAnalyzeDeal:
         results = analyze(sample_deal, sample_timeline, sample_settings)
 
         unlevered_analysis = results.unlevered_analysis
-        from performa.deal.results import UnleveredAnalysisResult
 
         assert isinstance(unlevered_analysis, UnleveredAnalysisResult)
 
@@ -1674,7 +1656,6 @@ class TestAnalyzeDeal:
         results = analyze(sample_deal, sample_timeline, sample_settings)
 
         levered_cash_flows = results.levered_cash_flows
-        from performa.deal.results import LeveredCashFlowResult
 
         assert isinstance(levered_cash_flows, LeveredCashFlowResult)
 
@@ -1696,7 +1677,6 @@ class TestAnalyzeDeal:
         results = analyze(sample_deal, sample_timeline, sample_settings)
 
         partner_distributions = results.partner_distributions
-        from performa.deal.results import PartnerDistributionResult
 
         assert isinstance(partner_distributions, PartnerDistributionResult)
 
@@ -1714,7 +1694,6 @@ class TestAnalyzeDeal:
         results = analyze(sample_deal, sample_timeline, sample_settings)
 
         deal_metrics = results.deal_metrics
-        from performa.deal.results import DealMetricsResult
 
         assert isinstance(deal_metrics, DealMetricsResult)
 

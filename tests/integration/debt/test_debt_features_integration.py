@@ -13,6 +13,9 @@ This test suite demonstrates the key integration points of the debt module:
 - Rate cap and floor enforcement
 """
 
+import sys
+import traceback
+
 import numpy as np
 import pandas as pd
 
@@ -179,7 +182,7 @@ def test_construction_to_permanent_refinancing():
     assert transaction["transaction_type"] == "construction_to_permanent_refinancing"
     assert transaction["new_loan_amount"] > 0
     assert transaction["sizing_analysis"]["sizing_method"] == "automatic"
-    assert transaction["covenant_monitoring"]["monitoring_enabled"] == True
+    assert transaction["covenant_monitoring"]["monitoring_enabled"] == True  # noqa: E712
 
     print("✓ Refinancing transaction generated")
     print(f"✓ New loan amount: ${transaction['new_loan_amount']:,.0f}")
@@ -322,8 +325,6 @@ def run_all_integration_tests():
         except Exception as e:
             failed += 1
             print(f"❌ {test.__name__} failed with error: {str(e)}")
-            import traceback
-
             traceback.print_exc()
 
     print("\n" + "=" * 60)
@@ -344,4 +345,4 @@ def run_all_integration_tests():
 
 if __name__ == "__main__":
     success = run_all_integration_tests()
-    exit(0 if success else 1)
+    sys.exit(0 if success else 1)

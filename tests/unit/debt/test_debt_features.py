@@ -16,14 +16,15 @@ Run with: python test_debt_features.py
 
 import sys
 
-sys.path.append("src")
-
-
 import numpy as np
 import pandas as pd
 import pytest
 
+from performa.core.primitives import Timeline
 from performa.debt import (
+    ConstructionFacility,
+    DebtTranche,
+    FinancingPlan,
     FixedRate,
     FloatingRate,
     InterestRate,
@@ -468,14 +469,6 @@ class TestRefinancingOrchestration:
 
     def test_construction_to_permanent_refinancing_workflow(self):
         """Test the complete construction-to-permanent refinancing workflow with automatic sizing."""
-        import pandas as pd
-
-        from performa.core.primitives import Timeline
-        from performa.debt.construction import ConstructionFacility, DebtTranche
-        from performa.debt.permanent import PermanentFacility
-        from performa.debt.plan import FinancingPlan
-        from performa.debt.rates import FixedRate, InterestRate
-
         # Create timeline for 5-year analysis
         timeline = Timeline.from_dates(start_date="2024-01-01", end_date="2029-01-01")
 
@@ -602,7 +595,7 @@ class TestRefinancingOrchestration:
 
         # Verify covenant monitoring setup
         covenant_monitoring = transaction["covenant_monitoring"]
-        assert covenant_monitoring["monitoring_enabled"] == True
+        assert covenant_monitoring["monitoring_enabled"] == True  # noqa: E712
         assert covenant_monitoring["ongoing_ltv_max"] == 0.80
         assert covenant_monitoring["ongoing_dscr_min"] == 1.20
         assert covenant_monitoring["ongoing_debt_yield_min"] == 0.075
@@ -629,14 +622,6 @@ class TestRefinancingOrchestration:
 
     def test_manual_sizing_override(self):
         """Test refinancing with manual sizing override."""
-        import pandas as pd
-
-        from performa.core.primitives import Timeline
-        from performa.debt.construction import ConstructionFacility, DebtTranche
-        from performa.debt.permanent import PermanentFacility
-        from performa.debt.plan import FinancingPlan
-        from performa.debt.rates import FixedRate, InterestRate
-
         # Create timeline
         timeline = Timeline.from_dates(start_date="2024-01-01", end_date="2029-01-01")
 
@@ -710,14 +695,6 @@ class TestRefinancingOrchestration:
 
     def test_covenant_monitoring_integration(self):
         """Test that covenant monitoring is properly integrated into refinancing."""
-        import pandas as pd
-
-        from performa.core.primitives import Timeline
-        from performa.debt.construction import ConstructionFacility, DebtTranche
-        from performa.debt.permanent import PermanentFacility
-        from performa.debt.plan import FinancingPlan
-        from performa.debt.rates import FixedRate, InterestRate
-
         # Create timeline
         timeline = Timeline.from_dates(start_date="2024-01-01", end_date="2029-01-01")
 
@@ -782,7 +759,7 @@ class TestRefinancingOrchestration:
         transaction = refinancing_transactions[0]
         covenant_monitoring = transaction["covenant_monitoring"]
 
-        assert covenant_monitoring["monitoring_enabled"] == True
+        assert covenant_monitoring["monitoring_enabled"] == True  # noqa: E712
         assert covenant_monitoring["ongoing_ltv_max"] == 0.75
         assert covenant_monitoring["ongoing_dscr_min"] == 1.35
         assert covenant_monitoring["ongoing_debt_yield_min"] == 0.095
@@ -808,14 +785,6 @@ class TestRefinancingOrchestration:
 
     def test_refinancing_with_interest_only_periods(self):
         """Test refinancing creates permanent loan with interest-only periods."""
-        import pandas as pd
-
-        from performa.core.primitives import Timeline
-        from performa.debt.construction import ConstructionFacility, DebtTranche
-        from performa.debt.permanent import PermanentFacility
-        from performa.debt.plan import FinancingPlan
-        from performa.debt.rates import FixedRate, InterestRate
-
         # Create timeline
         timeline = Timeline.from_dates(start_date="2024-01-01", end_date="2029-01-01")
 

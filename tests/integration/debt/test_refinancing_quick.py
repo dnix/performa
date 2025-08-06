@@ -1,6 +1,8 @@
 # Copyright 2024-2025 David Gordon Nix
 # SPDX-License-Identifier: Apache-2.0
 
+import sys
+
 import pandas as pd
 
 from performa.core.primitives import Timeline
@@ -141,7 +143,7 @@ if __name__ == "__main__":
     try:
         test_refinancing_orchestration()
         print("Test PASSED")
-        exit(0)
+        sys.exit(0)
     except Exception as e:
         print(f"Test FAILED: {e}")
-        exit(1)
+        sys.exit(1)

@@ -17,6 +17,7 @@ from datetime import date
 from typing import Any, Dict, List
 
 from performa.analysis import run
+from performa.analysis.orchestrator import AnalysisContext
 from performa.asset.residential import (
     ResidentialCollectionLoss,
     ResidentialExpenses,
@@ -30,6 +31,8 @@ from performa.asset.residential import (
     ResidentialRolloverProfile,
     ResidentialUnitSpec,
 )
+from performa.asset.residential.lease import ResidentialLease
+from performa.core.capital import CapitalPlan
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -471,9 +474,6 @@ def test_fundamental_sanity() -> bool:
 
     # Test 1: Basic lease cash flow computation
     print("  Test 1: Basic lease cash flow...")
-    from performa.analysis.orchestrator import AnalysisContext
-    from performa.asset.residential.lease import ResidentialLease
-
     timeline = Timeline(start_date=date(2024, 1, 1), duration_months=3)
     lease = ResidentialLease(
         name="Test Lease",
@@ -515,13 +515,6 @@ def test_fundamental_sanity() -> bool:
 
     # Test 3: UUID field presence
     print("  Test 3: UUID field presence...")
-    from performa.asset.residential.expense import ResidentialExpenses
-    from performa.asset.residential.rollover import (
-        ResidentialRolloverLeaseTerms,
-        ResidentialRolloverProfile,
-    )
-    from performa.core.capital import CapitalPlan
-
     plan = CapitalPlan(name="Test Plan")
     profile = ResidentialRolloverProfile(
         name="Test Profile",

@@ -12,6 +12,7 @@ from datetime import datetime
 
 import pandas as pd
 import pytest
+from pydantic import ValidationError
 
 from performa.core.capital import CapitalPlan
 from performa.core.primitives import AssetTypeEnum, Timeline
@@ -314,10 +315,6 @@ class TestPartnershipIntegrationWithRealDeals:
 
         This validates the reporting functionality for partnership results.
         """
-        from datetime import datetime
-
-        import pandas as pd
-
         # Create partnership
         partnership = create_simple_partnership(
             gp_name="Sponsor GP", gp_share=0.30, lp_name="Investor LP", lp_share=0.70
@@ -402,8 +399,6 @@ class TestPartnershipFoundationEdgeCases:
 
         This ensures backward compatibility and proper handling of single-entity deals.
         """
-        from datetime import datetime
-
         # Create basic deal components
         timeline = Timeline(start_date=datetime(2024, 1, 1), duration_months=12)
         acquisition_timeline = Timeline(
@@ -470,11 +465,6 @@ class TestPartnershipFoundationEdgeCases:
 
         This ensures that invalid partnerships are caught during deal creation.
         """
-        from datetime import datetime
-
-        import pytest
-        from pydantic import ValidationError
-
         # Create basic deal components
         timeline = Timeline(start_date=datetime(2024, 1, 1), duration_months=1)
 

@@ -42,10 +42,17 @@ from ...core.base import (
 )
 from ...core.primitives import (
     GlobalSettings,
+    PercentageGrowthRate,
+    PropertyAttributeKey,
     StartDateAnchorEnum,
+    Timeline,
 )
-from .expense import ResidentialExpenses
-from .losses import ResidentialLosses
+from .expense import ResidentialCapExItem, ResidentialExpenses, ResidentialOpExItem
+from .losses import (
+    ResidentialCollectionLoss,
+    ResidentialGeneralVacancyLoss,
+    ResidentialLosses,
+)
 from .misc_income import ResidentialMiscIncome
 from .rent_roll import ResidentialUnitSpec, ResidentialVacantUnit
 from .rollover import ResidentialRolloverLeaseTerms, ResidentialRolloverProfile
@@ -255,16 +262,6 @@ class ResidentialAbsorptionPlan(
         Returns:
             ResidentialAbsorptionPlan with standard operating assumptions
         """
-        from datetime import date
-
-        from ...core.primitives import (
-            PercentageGrowthRate,
-            PropertyAttributeKey,
-            Timeline,
-        )
-        from .expense import ResidentialCapExItem, ResidentialOpExItem
-        from .losses import ResidentialCollectionLoss, ResidentialGeneralVacancyLoss
-
         # Create a basic timeline for the expense items
         timeline = Timeline(
             start_date=date(2024, 1, 1),

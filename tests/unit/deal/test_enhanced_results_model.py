@@ -26,7 +26,11 @@ from performa.deal.deal import Deal
 from performa.deal.entities import Partner
 from performa.deal.fees import DealFee
 from performa.deal.orchestrator import DealCalculator
-from performa.deal.partnership import PartnershipStructure
+from performa.deal.partnership import CarryPromote, PartnershipStructure
+from performa.deal.results import (
+    FeeAccountingDetails,
+    WaterfallDistributionResult,
+)
 
 
 class TestEnhancedResultsModel:
@@ -48,8 +52,6 @@ class TestEnhancedResultsModel:
         gp = Partner(name="Developer GP", kind="GP", share=0.20)
 
         lp = Partner(name="Investor LP", kind="LP", share=0.80)
-
-        from performa.deal.partnership import CarryPromote
 
         return PartnershipStructure(
             partners=[gp, lp],
@@ -441,12 +443,6 @@ class TestEnhancedResultsModel:
 
         # Test that the result models validate successfully
         assert calculator.partner_distributions is not None
-
-        # Test specific model validation
-        from performa.deal.results import (
-            FeeAccountingDetails,
-            WaterfallDistributionResult,
-        )
 
         # Test that the result is a valid WaterfallDistributionResult
         assert isinstance(calculator.partner_distributions, WaterfallDistributionResult)

@@ -77,12 +77,8 @@ deal modeling, demonstrating best practices for multi-layered financial analysis
 with proper separation of concerns between asset, debt, and equity components.
 """
 
-import sys
+import traceback
 from datetime import date
-from pathlib import Path
-
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from performa.asset.office import (
     DirectLeaseTerms,
@@ -356,8 +352,6 @@ def main():
         print(f"   Financing: {deal.financing.name}")
     except Exception as e:
         print(f"❌ Failed to create development deal: {e}")
-        import traceback
-
         traceback.print_exc()
         return
 
@@ -414,8 +408,6 @@ def main():
 
     except Exception as e:
         print(f"❌ Deal Analysis failed: {e}")
-        import traceback
-
         traceback.print_exc()
         return
 
@@ -436,8 +428,6 @@ def main():
         print("✅ Sources & Uses Report generated successfully")
     except Exception as e:
         print(f"❌ Sources & Uses Report failed: {e}")
-        import traceback
-
         traceback.print_exc()
 
     # Test Development Summary Report
@@ -453,8 +443,6 @@ def main():
         print("✅ Development Summary generated successfully")
     except Exception as e:
         print(f"❌ Development Summary failed: {e}")
-        import traceback
-
         traceback.print_exc()
 
     # Test Construction Draw Report
@@ -471,8 +459,6 @@ def main():
         print("✅ Construction Draw Request generated successfully")
     except Exception as e:
         print(f"❌ Construction Draw Request failed: {e}")
-        import traceback
-
         traceback.print_exc()
 
     # Test Leasing Status Report
@@ -489,8 +475,6 @@ def main():
         print("✅ Leasing Status Report generated successfully")
     except Exception as e:
         print(f"❌ Leasing Status Report failed: {e}")
-        import traceback
-
         traceback.print_exc()
 
     print("\n🎉 Complete development deal analysis working!")

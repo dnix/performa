@@ -14,6 +14,7 @@ from datetime import date
 import pytest
 
 from performa.analysis import run
+from performa.analysis.orchestrator import AnalysisContext
 from performa.asset.residential import (
     ResidentialAnalysisScenario,
     ResidentialCollectionLoss,
@@ -28,6 +29,7 @@ from performa.asset.residential import (
     ResidentialUnitSpec,
 )
 from performa.core.primitives import (
+    CashFlowModel,
     FrequencyEnum,
     GlobalSettings,
     Timeline,
@@ -217,9 +219,6 @@ def test_analysis_scenario_properties(
         settings=global_settings,
     )
 
-    # Create mock context (similar to what run() creates)
-    from performa.analysis.orchestrator import AnalysisContext
-
     context = AnalysisContext(
         timeline=analysis_timeline,
         settings=global_settings,
@@ -242,9 +241,6 @@ def test_analysis_scenario_properties(
     assert (
         len(models) == expected_total
     ), f"Expected {expected_total} total models, got {len(models)}"
-
-    # All models should be CashFlowModel instances
-    from performa.core.primitives import CashFlowModel
 
     for model in models:
         assert isinstance(

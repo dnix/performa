@@ -8,8 +8,16 @@ from unittest.mock import MagicMock
 import pandas as pd
 
 from performa.analysis import AnalysisContext
+from performa.asset.office.expense import OfficeExpenses
 from performa.asset.office.lease import OfficeLease
 from performa.asset.office.lease_spec import OfficeLeaseSpec
+from performa.asset.office.losses import (
+    OfficeCollectionLoss,
+    OfficeGeneralVacancyLoss,
+    OfficeLosses,
+)
+from performa.asset.office.property import OfficeProperty
+from performa.asset.office.rent_roll import OfficeRentRoll
 from performa.asset.office.rollover import (
     OfficeRolloverLeaseTerms,
     OfficeRolloverLeasingCommission,
@@ -55,9 +63,7 @@ class TestOfficeLease(unittest.TestCase):
             renewal_terms=OfficeRolloverLeaseTerms(market_rent=45.0, term_months=60),
         )
         self.lookup_fn = MagicMock()
-        self.lookup_fn.side_effect = lambda ref: {
-            "rollover_1": self.rollover_profile
-        }.get(ref)
+        self.lookup_fn.side_effect = {"rollover_1": self.rollover_profile}.get
 
     def test_from_spec_creation(self):
         """
@@ -145,9 +151,7 @@ class TestOfficeLease(unittest.TestCase):
                 )
             },
         )
-        self.lookup_fn.side_effect = lambda ref: {
-            "rollover_1": rollover_profile_no_costs
-        }.get(ref)
+        self.lookup_fn.side_effect = {"rollover_1": rollover_profile_no_costs}.get
 
         spec = OfficeLeaseSpec(
             tenant_name="Expiring Tenant",
@@ -286,16 +290,6 @@ class TestOfficeLease(unittest.TestCase):
         short_analysis_timeline = Timeline(
             start_date=date(2023, 1, 1), duration_months=36
         )
-
-        # Create a context with NO general vacancy to isolate the test
-        from performa.asset.office.expense import OfficeExpenses
-        from performa.asset.office.losses import (
-            OfficeCollectionLoss,
-            OfficeGeneralVacancyLoss,
-            OfficeLosses,
-        )
-        from performa.asset.office.property import OfficeProperty
-        from performa.asset.office.rent_roll import OfficeRentRoll
 
         mock_property = OfficeProperty(
             name="Mock Property",

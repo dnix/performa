@@ -16,6 +16,8 @@ working together in a realistic real estate development scenario:
 Uses real Pydantic models to ensure proper integration.
 """
 
+import sys
+
 import pandas as pd
 
 from performa.core.primitives import Timeline
@@ -312,4 +314,4 @@ def test_comprehensive_debt_integration():
 if __name__ == "__main__":
     test_comprehensive_debt_integration()
     print("\nTest PASSED")
-    exit(0)
+    sys.exit(0)

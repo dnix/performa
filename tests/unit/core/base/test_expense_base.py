@@ -286,7 +286,7 @@ def test_capex_recoverable_inheritance():
     )
 
     assert capex_non_recoverable.recoverable_ratio == 0.0
-    assert capex_non_recoverable.is_recoverable == False
+    assert capex_non_recoverable.is_recoverable == False  # noqa: E712
 
     # Test partially recoverable CapEx (tenant improvement pass-through)
     capex_recoverable = CapExItemBase(
@@ -298,7 +298,7 @@ def test_capex_recoverable_inheritance():
     )
 
     assert capex_recoverable.recoverable_ratio == 0.6
-    assert capex_recoverable.is_recoverable == True
+    assert capex_recoverable.is_recoverable == True  # noqa: E712
 
     # Test fully recoverable CapEx
     capex_fully_recoverable = CapExItemBase(
@@ -310,7 +310,7 @@ def test_capex_recoverable_inheritance():
     )
 
     assert capex_fully_recoverable.recoverable_ratio == 1.0
-    assert capex_fully_recoverable.is_recoverable == True
+    assert capex_fully_recoverable.is_recoverable == True  # noqa: E712
 
 
 def test_opex_recoverable_still_works():
@@ -331,7 +331,7 @@ def test_opex_recoverable_still_works():
     )
 
     assert opex_non_recoverable.recoverable_ratio == 0.0
-    assert opex_non_recoverable.is_recoverable == False
+    assert opex_non_recoverable.is_recoverable == False  # noqa: E712
 
     # Test fully recoverable OpEx (CAM charges)
     opex_recoverable = OpExItemBase(
@@ -343,7 +343,7 @@ def test_opex_recoverable_still_works():
     )
 
     assert opex_recoverable.recoverable_ratio == 1.0
-    assert opex_recoverable.is_recoverable == True
+    assert opex_recoverable.is_recoverable == True  # noqa: E712
 
     # Test variable OpEx (OpEx-specific feature)
     opex_variable = OpExItemBase(
@@ -356,6 +356,6 @@ def test_opex_recoverable_still_works():
     )
 
     assert opex_variable.recoverable_ratio == 0.8
-    assert opex_variable.is_recoverable == True
+    assert opex_variable.is_recoverable == True  # noqa: E712
     assert opex_variable.variable_ratio == 0.7
-    assert opex_variable.is_variable == True
+    assert opex_variable.is_variable == True  # noqa: E712

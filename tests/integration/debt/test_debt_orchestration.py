@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 from performa.core.primitives import Timeline
+from performa.debt.amortization import LoanAmortization
 from performa.debt.construction import ConstructionFacility, DebtTranche
 from performa.debt.permanent import PermanentFacility
 from performa.debt.plan import FinancingPlan
@@ -93,8 +94,6 @@ class TestEnhancedDebtServiceIntegration:
         sofr_curve = pd.Series(sofr_values, index=timeline.period_index)
 
         # Create LoanAmortization with floating rate
-        from performa.debt.amortization import LoanAmortization
-
         amortization = LoanAmortization(
             loan_amount=3_000_000,
             term=5,
@@ -188,7 +187,7 @@ class TestRefinancingOrchestrationIntegration:
         )
         assert transaction["new_loan_amount"] > 0
         assert transaction["sizing_analysis"]["sizing_method"] == "automatic"
-        assert transaction["covenant_monitoring"]["monitoring_enabled"] == True
+        assert transaction["covenant_monitoring"]["monitoring_enabled"] == True  # noqa: E712
 
         # Verify sizing analysis
         sizing_analysis = transaction["sizing_analysis"]
@@ -358,8 +357,6 @@ class TestRateCapEnforcementIntegration:
         )
 
         # Create amortization with rate cap
-        from performa.debt.amortization import LoanAmortization
-
         amortization = LoanAmortization(
             loan_amount=1_000_000,
             term=5,
@@ -441,8 +438,6 @@ class TestFullDebtModuleIntegration:
         )
 
         # Create amortization with floating rate and I/O periods
-        from performa.debt.amortization import LoanAmortization
-
         amortization = LoanAmortization(
             loan_amount=loan_amount,
             term=10,

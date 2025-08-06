@@ -1,4 +1,6 @@
-#!/usr/bin/env python3
+# Copyright 2024-2025 David Gordon Nix
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Edge Case Validation Tests
 
@@ -23,8 +25,10 @@ from performa.asset.residential import (
 from performa.asset.residential.absorption import ResidentialDirectLeaseTerms
 from performa.core.base import Address
 from performa.core.base.absorption import FixedQuantityPace
+from performa.core.capital import CapitalItem, CapitalPlan
 from performa.core.primitives import (
     GlobalSettings,
+    PropertyAttributeKey,
     StartDateAnchorEnum,
     Timeline,
     UponExpirationEnum,
@@ -529,10 +533,6 @@ class TestEdgeCaseDocumentation:
             rollover_profile=rollover_profile,
             lease_start_date=date(2023, 6, 1),  # Expires June 2024
         )
-
-        # Capital plan that is misaligned with lease timing (intentionally)
-        from performa.core.capital import CapitalItem, CapitalPlan
-        from performa.core.primitives import PropertyAttributeKey
 
         capital_timeline = Timeline(start_date=date(2024, 1, 1), duration_months=3)
         capital_plan = CapitalPlan(

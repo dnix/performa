@@ -15,7 +15,7 @@ from performa.core.primitives.growth_rates import (
 )
 
 
-class TestRentEscalationValidation(unittest.TestCase):
+class TestRentEscalationValidation(unittest.TestCase):  # noqa: PLR0904
     """
     Unit tests for validation and error cases in the unified rate API.
 

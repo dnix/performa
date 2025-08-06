@@ -53,6 +53,7 @@ from datetime import date
 from typing import Any, Dict
 
 from performa.analysis import run
+from performa.analysis.orchestrator import AnalysisContext
 from performa.asset.office import (
     DirectLeaseTerms,
     ExpensePool,
@@ -102,8 +103,6 @@ def test_office_fundamental_sanity() -> bool:
 
     # Test 1: Basic office lease cash flow computation
     print("  Test 1: Basic office lease cash flow...")
-    from performa.analysis.orchestrator import AnalysisContext
-    from performa.asset.office.lease import OfficeLease
 
     timeline = Timeline(start_date=date(2024, 1, 1), duration_months=3)
 

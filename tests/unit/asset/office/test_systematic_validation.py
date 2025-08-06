@@ -36,6 +36,7 @@ from performa.asset.office import (
 )
 from performa.core.base import Address
 from performa.core.primitives import (
+    CalculationSettings,
     FrequencyEnum,
     GlobalSettings,
     LeaseTypeEnum,
@@ -1053,10 +1054,7 @@ class TestSystematicValidation:
             analysis_start_date=timeline.start_date.to_timestamp().date()
         )
         assert default_settings.calculation.max_dependency_depth == 2
-        assert default_settings.calculation.allow_complex_dependencies == False
-
-        # Test restrictive settings (max_depth=1)
-        from performa.core.primitives.settings import CalculationSettings
+        assert default_settings.calculation.allow_complex_dependencies == False  # noqa: E712
 
         restrictive_calc_settings = CalculationSettings(max_dependency_depth=1)
         restrictive_settings = GlobalSettings(
@@ -1325,7 +1323,7 @@ class TestSystematicValidation:
         )
 
         assert non_recoverable.recoverable_ratio == 0.0
-        assert non_recoverable.is_recoverable == False
+        assert non_recoverable.is_recoverable == False  # noqa: E712
 
         # Test 2: Partially recoverable expense
         partial_recoverable = OfficeOpExItem(
@@ -1337,7 +1335,7 @@ class TestSystematicValidation:
         )
 
         assert partial_recoverable.recoverable_ratio == 0.8
-        assert partial_recoverable.is_recoverable == True
+        assert partial_recoverable.is_recoverable == True  # noqa: E712
 
         # Test 3: Fully recoverable expense
         fully_recoverable = OfficeOpExItem(
@@ -1350,7 +1348,7 @@ class TestSystematicValidation:
         )
 
         assert fully_recoverable.recoverable_ratio == 1.0
-        assert fully_recoverable.is_recoverable == True
+        assert fully_recoverable.is_recoverable == True  # noqa: E712
 
         # Test 4: Verify computed field appears in model fields
         model_fields = fully_recoverable.model_fields
@@ -1367,7 +1365,7 @@ class TestSystematicValidation:
         assert "recoverable_ratio" in serialized
         assert "is_recoverable" in serialized
         assert serialized["recoverable_ratio"] == 1.0
-        assert serialized["is_recoverable"] == True
+        assert serialized["is_recoverable"] == True  # noqa: E712
 
         print("✅ Computed field pattern validation:")
         print(
@@ -2746,9 +2744,6 @@ class TestSystematicValidation:
         """
 
         timeline = Timeline.from_dates(date(2024, 1, 1), end_date=date(2024, 12, 31))
-
-        # Use standard GlobalSettings (cap functionality currently at Recovery level)
-        from performa.core.primitives.settings import GlobalSettings
 
         settings = GlobalSettings(
             analysis_start_date=timeline.start_date.to_timestamp().date()

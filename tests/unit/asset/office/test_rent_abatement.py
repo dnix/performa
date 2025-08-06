@@ -8,8 +8,10 @@ from performa.analysis import AnalysisContext
 from performa.asset.office.expense import OfficeOpExItem
 from performa.asset.office.lease import OfficeLease
 from performa.asset.office.lease_spec import OfficeLeaseSpec
+from performa.asset.office.property import OfficeProperty
 from performa.asset.office.recovery import ExpensePool, OfficeRecoveryMethod, Recovery
 from performa.asset.office.rent_abatement import OfficeRentAbatement
+from performa.core.base import RecoveryCalculationState
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -281,10 +283,6 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        # Set up proper context with property data and recovery states
-        from performa.asset.office.property import OfficeProperty
-        from performa.core.base import RecoveryCalculationState
-
         property_data = OfficeProperty.model_construct(net_rentable_area=10000.0)
         context = AnalysisContext(
             timeline=self.timeline,
@@ -366,10 +364,6 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        # Set up proper context with property data and recovery states
-        from performa.asset.office.property import OfficeProperty
-        from performa.core.base import RecoveryCalculationState
-
         property_data = OfficeProperty.model_construct(net_rentable_area=10000.0)
         context = AnalysisContext(
             timeline=self.timeline,
@@ -449,10 +443,6 @@ class TestOfficeRentAbatement(unittest.TestCase):
         lease = OfficeLease.from_spec(
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
-
-        # Set up proper context with property data and recovery states
-        from performa.asset.office.property import OfficeProperty
-        from performa.core.base import RecoveryCalculationState
 
         property_data = OfficeProperty.model_construct(net_rentable_area=10000.0)
         context = AnalysisContext(
@@ -675,10 +665,6 @@ class TestOfficeRentAbatement(unittest.TestCase):
         lease = OfficeLease.from_spec(
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
-
-        # Set up proper context with property data and recovery states
-        from performa.asset.office.property import OfficeProperty
-        from performa.core.base import RecoveryCalculationState
 
         property_data = OfficeProperty.model_construct(net_rentable_area=10000.0)
         context = AnalysisContext(

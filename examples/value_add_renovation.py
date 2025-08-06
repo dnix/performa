@@ -98,6 +98,8 @@ from uuid import uuid4
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+import traceback
+
 from performa.analysis import run
 from performa.asset.residential import (
     ResidentialAbsorptionPlan,
@@ -750,8 +752,6 @@ def main():
     except Exception as e:
         print(f"❌ Error during rolling renovation analysis: {e}")
         print("This helps identify areas that need further development.")
-        import traceback
-
         traceback.print_exc()
         return None
 

@@ -1,4 +1,6 @@
-#!/usr/bin/env python3
+# Copyright 2024-2025 David Gordon Nix
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Large Scale Rolling Renovation Performance Test
 
@@ -7,6 +9,7 @@ This addresses concerns about memory usage, processing time, and correctness
 with large properties (1000+ units).
 """
 
+import gc
 import os
 import time
 from datetime import date
@@ -406,8 +409,6 @@ class TestScalabilityLimits:
 
     def test_memory_efficiency(self):
         """Test memory efficiency by creating and destroying large scenarios."""
-
-        import gc
 
         process = psutil.Process(os.getpid())
         initial_memory = process.memory_info().rss / 1024 / 1024  # MB

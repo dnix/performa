@@ -7,7 +7,7 @@ from datetime import date
 from typing import Dict, Optional, Union
 
 import pandas as pd
-from pydantic import field_validator
+from pydantic import create_model, field_validator
 
 from .model import Model
 from .types import FloatBetween0And1, PositiveFloat
@@ -181,8 +181,6 @@ class GrowthRates(Model):
         Any standard fields not provided in kwargs will be populated using the default_rate,
         which must be provided if not all standard fields are specified.
         """
-        from pydantic import create_model
-
         extra_rates = extra_rates or {}
 
         # Use a default rate if provided, otherwise check if all fields are covered

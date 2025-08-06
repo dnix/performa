@@ -12,11 +12,6 @@ from performa.core.base import (
     LeasingCommissionBase,
     TenantImprovementAllowanceBase,
 )
-from performa.core.base.cost import (
-    CommissionTier,
-    LeasingCommissionBase,
-    TenantImprovementAllowanceBase,
-)
 from performa.core.primitives import (
     PropertyAttributeKey,
     Timeline,

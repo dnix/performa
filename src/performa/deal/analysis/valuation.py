@@ -44,10 +44,13 @@ Architecture:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import pandas as pd
+
+from performa.analysis import AnalysisContext
 
 if TYPE_CHECKING:
     from performa.core.primitives import GlobalSettings, Timeline
@@ -320,8 +323,6 @@ class ValuationEngine:
             try:
                 # Step 1: Create analysis context for valuation model
                 # This provides the valuation model with all necessary data and configuration
-                from performa.analysis import AnalysisContext
-
                 context = AnalysisContext(
                     timeline=self.timeline,
                     settings=self.settings,
@@ -364,8 +365,6 @@ class ValuationEngine:
             except Exception as e:
                 # Robust error handling: log warning but continue with zeros
                 # This ensures that disposition errors don't break the entire analysis
-                import logging
-
                 logger = logging.getLogger(__name__)
                 logger.warning(f"Could not calculate disposition proceeds: {e}")
                 logger.debug("Disposition calculation stack trace:", exc_info=True)

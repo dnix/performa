@@ -8,18 +8,9 @@ Tests that the new test utilities in conftest.py work correctly and solve
 the original developer experience issues.
 """
 
-import sys
-from pathlib import Path
-
-# Add the project root to the path
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root / "src"))
-sys.path.insert(0, str(project_root / "tests"))
-
 import pytest
 
-# Import our new utilities
-from conftest import (
+from ..conftest import (
     create_distribution_calculator,
     create_simple_cash_flows,
     create_simple_partnership,

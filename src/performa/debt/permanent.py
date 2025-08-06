@@ -5,6 +5,7 @@
 
 from typing import Literal, Optional
 
+import numpy as np
 import pandas as pd
 from pydantic import Field, model_validator
 
@@ -438,8 +439,6 @@ class PermanentFacility(DebtFacility):
         Raises:
             ValueError: If covenant monitoring fields are not configured or required data is missing
         """
-        import numpy as np
-
         # === Step 1: Input Validation and Setup ===
         if not any([
             self.ongoing_ltv_max,

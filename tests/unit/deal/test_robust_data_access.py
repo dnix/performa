@@ -18,6 +18,7 @@ from unittest.mock import Mock
 import pandas as pd
 
 from performa.core.primitives import Timeline, UnleveredAggregateLineKey
+from performa.deal.orchestrator import DealCalculator
 from performa.deal.results import UnleveredAnalysisResult
 
 
@@ -152,9 +153,6 @@ class TestDealCalculatorDataAccess:
 
     def test_extract_noi_time_series_uses_get_series(self):
         """Test that _extract_noi_time_series uses the new get_series method."""
-        from performa.deal.orchestrator import DealCalculator
-        from performa.deal.results import UnleveredAnalysisResult
-
         # Setup
         timeline = Timeline.from_dates("2024-01-01", "2024-12-31")
         noi_data = [1000] * 12
@@ -187,9 +185,6 @@ class TestDealCalculatorDataAccess:
 
     def test_extract_noi_series_uses_get_series(self):
         """Test that _extract_noi_series uses the new get_series method."""
-        from performa.deal.orchestrator import DealCalculator
-        from performa.deal.results import UnleveredAnalysisResult
-
         # Setup
         timeline = Timeline.from_dates("2024-01-01", "2024-12-31")
         noi_data = [2000] * 12
@@ -300,9 +295,6 @@ def test_architectural_improvement_summary():
     - Type-safe enum access eliminates brittle string matching
     - Graceful degradation prevents errors from missing data
     """
-    from performa.deal.orchestrator import DealCalculator
-    from performa.deal.results import UnleveredAnalysisResult
-
     # Setup scenario where cash flows have the expected structure
     timeline = Timeline.from_dates("2024-01-01", "2024-12-31")
 

@@ -19,6 +19,8 @@ from typing import List
 
 import pandas as pd
 
+from performa.analysis import run
+
 from ..analysis import AnalysisScenarioBase, register_scenario
 from ..core.primitives import CashFlowModel, Timeline
 from .project import DevelopmentProject
@@ -81,8 +83,6 @@ class DevelopmentAnalysisScenario(AnalysisScenarioBase):
             if stabilized_asset:
                 # Use the existing analysis API to get the correct sub-scenario.
                 # This integrates with the asset analysis engine.
-                from performa.analysis import run
-
                 asset_scenario = run(
                     model=stabilized_asset,
                     timeline=stabilized_timeline,

@@ -27,8 +27,11 @@ from performa.asset.residential import (
     ResidentialGeneralVacancyLoss,
     ResidentialLosses,
     ResidentialOpExItem,
+    ResidentialProperty,
+    ResidentialRentRoll,
     ResidentialRolloverLeaseTerms,
     ResidentialRolloverProfile,
+    ResidentialUnitSpec,
     ResidentialVacantUnit,
 )
 from performa.asset.residential.absorption import (
@@ -302,12 +305,6 @@ def test_backward_compatibility_with_stabilized_properties():
 
     This ensures our fix doesn't break existing functionality.
     """
-    from performa.asset.residential import (
-        ResidentialProperty,
-        ResidentialRentRoll,
-        ResidentialUnitSpec,
-    )
-
     # Create traditional stabilized property without lease_start_date
     unit_spec = ResidentialUnitSpec(
         unit_type_name="Existing Units",

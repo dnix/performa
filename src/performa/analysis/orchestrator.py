@@ -64,9 +64,12 @@ from uuid import UUID
 
 import pandas as pd
 
+from performa.core.base import LeaseBase
 from performa.core.primitives import (
     CalculationPass,
+    ExpenseSubcategoryEnum,
     PropertyAttributeKey,
+    RevenueSubcategoryEnum,
     UnleveredAggregateLineKey,
     UponExpirationEnum,
 )
@@ -391,8 +394,6 @@ class CashFlowOrchestrator:
     # --- CRITICAL METHOD 2: _calculate_occupancy_series() ---
     def _calculate_occupancy_series(self) -> pd.Series:
         """Calculates the property-wide occupancy rate for each period."""
-        from performa.core.base import LeaseBase
-
         total_occupied_area = pd.Series(0.0, index=self.context.timeline.period_index)
         lease_models = [m for m in self.models if isinstance(m, LeaseBase)]
 
@@ -450,8 +451,6 @@ class CashFlowOrchestrator:
             model = self.model_map[model_uid]
 
             # For leases with rollover profiles, use project_future_cash_flows to handle renewals
-            from performa.core.base import LeaseBase
-
             if (
                 isinstance(model, LeaseBase)
                 and hasattr(model, "rollover_profile")
@@ -628,11 +627,6 @@ class CashFlowOrchestrator:
         self, category: str, subcategory: Union[str, Any], component: str = "value"
     ) -> Optional[UnleveredAggregateLineKey]:
         # Mapping logic from raw categories to summary lines
-        from performa.core.primitives import (
-            ExpenseSubcategoryEnum,
-            RevenueSubcategoryEnum,
-        )
-
         if category == "Revenue":
             # Handle both enum values and string values for subcategory
             if (
@@ -989,9 +983,6 @@ class CashFlowOrchestrator:
 
             # Check if this model's primary output maps to the target aggregate
             target_key = self._get_aggregate_key(model.category, model.subcategory)
-
-            # Handle complex models (like leases) that produce multiple components
-            from performa.core.base import LeaseBase
 
             if isinstance(model, LeaseBase):
                 # Leases can contribute to multiple aggregates through different components

@@ -5,10 +5,14 @@
 Tests for DCF Valuation module.
 """
 
+from datetime import datetime
+from unittest.mock import Mock
+
 import pandas as pd
 import pytest
 from pydantic import ValidationError
 
+from performa.core.primitives import Timeline, UnleveredAggregateLineKey
 from performa.valuation import DCFValuation
 
 
@@ -418,11 +422,6 @@ class TestDCFContextIntegration:
 
     def test_compute_cf_with_unlevered_analysis(self):
         """Test compute_cf with unlevered analysis data."""
-        from datetime import datetime
-        from unittest.mock import Mock
-
-        from performa.core.primitives import Timeline, UnleveredAggregateLineKey
-
         dcf = DCFValuation(
             name="Test",
             discount_rate=0.08,
@@ -466,11 +465,6 @@ class TestDCFContextIntegration:
 
     def test_compute_cf_with_resolved_lookups_fallback(self):
         """Test compute_cf fallback to resolved lookups when no unlevered analysis."""
-        from datetime import datetime
-        from unittest.mock import Mock
-
-        from performa.core.primitives import Timeline, UnleveredAggregateLineKey
-
         dcf = DCFValuation(
             name="Test",
             discount_rate=0.08,
@@ -506,11 +500,6 @@ class TestDCFContextIntegration:
 
     def test_compute_cf_with_empty_noi_series(self):
         """Test compute_cf with empty NOI series."""
-        from datetime import datetime
-        from unittest.mock import Mock
-
-        from performa.core.primitives import Timeline
-
         dcf = DCFValuation(
             name="Test",
             discount_rate=0.08,
@@ -539,11 +528,6 @@ class TestDCFContextIntegration:
 
     def test_compute_cf_with_no_analysis_data(self):
         """Test compute_cf with no analysis data available."""
-        from datetime import datetime
-        from unittest.mock import Mock
-
-        from performa.core.primitives import Timeline, UnleveredAggregateLineKey
-
         dcf = DCFValuation(
             name="Test",
             discount_rate=0.08,
@@ -570,11 +554,6 @@ class TestDCFContextIntegration:
 
     def test_compute_cf_with_exception_handling(self):
         """Test compute_cf handles exceptions gracefully."""
-        from datetime import datetime
-        from unittest.mock import Mock
-
-        from performa.core.primitives import Timeline
-
         dcf = DCFValuation(
             name="Test",
             discount_rate=0.08,
@@ -602,11 +581,6 @@ class TestDCFContextIntegration:
 
     def test_compute_cf_with_short_hold_period(self):
         """Test compute_cf with hold period shorter than timeline."""
-        from datetime import datetime
-        from unittest.mock import Mock
-
-        from performa.core.primitives import Timeline
-
         dcf = DCFValuation(
             name="Test",
             discount_rate=0.08,
@@ -645,11 +619,6 @@ class TestDCFContextIntegration:
 
     def test_compute_cf_edge_case_zero_hold_period_end(self):
         """Test compute_cf when hold_period_end calculation results in zero."""
-        from datetime import datetime
-        from unittest.mock import Mock
-
-        from performa.core.primitives import Timeline
-
         dcf = DCFValuation(
             name="Test",
             discount_rate=0.08,

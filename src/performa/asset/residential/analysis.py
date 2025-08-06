@@ -6,6 +6,8 @@ from __future__ import annotations
 import logging
 from typing import List
 
+from dateutil.relativedelta import relativedelta
+
 from performa.analysis import AnalysisScenarioBase, register_scenario
 from performa.analysis.orchestrator import AnalysisContext, CashFlowOrchestrator
 from performa.core.primitives import (
@@ -20,7 +22,8 @@ from .expense import ResidentialCapExItem, ResidentialOpExItem
 from .lease import ResidentialLease
 from .misc_income import ResidentialMiscIncome
 from .property import ResidentialProperty
-from .rent_roll import ResidentialUnitSpec
+from .rent_roll import ResidentialUnitSpec, ResidentialVacantUnit
+from .rollover import ResidentialRolloverLeaseTerms, ResidentialRolloverProfile
 
 logger = logging.getLogger(__name__)
 
@@ -317,8 +320,6 @@ class ResidentialAnalysisScenario(AnalysisScenarioBase):
         original_end_date = original_lease.timeline.end_date.to_timestamp().date()
 
         # Calculate new lease start: end date + downtime months
-        from dateutil.relativedelta import relativedelta
-
         new_lease_start_date = original_end_date + relativedelta(
             months=renovation_downtime + 1
         )
@@ -332,9 +333,6 @@ class ResidentialAnalysisScenario(AnalysisScenarioBase):
         lease_terms = target_plan.leasing_assumptions
 
         # Create rollover terms from absorption plan
-        from ...core.primitives import UponExpirationEnum
-        from .rollover import ResidentialRolloverLeaseTerms, ResidentialRolloverProfile
-
         post_reno_market_terms = ResidentialRolloverLeaseTerms(
             market_rent=lease_terms.monthly_rent
             or rollover_profile.market_terms.market_rent,
@@ -378,8 +376,6 @@ class ResidentialAnalysisScenario(AnalysisScenarioBase):
         # Circular reference prevention: target_absorption_plan_id=None prevents infinite loops
 
         # Create transient vacant unit representing the renovated unit
-        from .rent_roll import ResidentialVacantUnit
-
         transient_vacant_unit = ResidentialVacantUnit(
             unit_type_name=f"{original_lease.suite}_renovated",
             unit_count=1,

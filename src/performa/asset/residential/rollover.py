@@ -7,6 +7,7 @@ import logging
 from datetime import date
 from typing import Any, Dict, Optional
 
+import pandas as pd
 from pydantic import Field
 
 from ...core.base import RolloverLeaseTermsBase, RolloverProfileBase
@@ -118,8 +119,6 @@ class ResidentialRolloverProfile(RolloverProfileBase):
                 growth_base_date = global_settings.analysis_start_date
                 if as_of_date >= growth_base_date:
                     # Calculate growth from base date to as_of_date
-                    import pandas as pd
-
                     growth_periods = pd.period_range(
                         start=growth_base_date, end=as_of_date, freq="M"
                     )

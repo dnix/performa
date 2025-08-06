@@ -19,6 +19,7 @@ from performa.core.primitives import (
     Timeline,
     UponExpirationEnum,
 )
+from performa.core.primitives.growth_rates import FixedGrowthRate, PercentageGrowthRate
 
 
 class TestOfficeRentEscalation(unittest.TestCase):
@@ -592,8 +593,6 @@ class TestOfficeRentEscalation(unittest.TestCase):
         Scenario: 3% growth rate applied as percentage escalation
         Expected: 3% compound growth from Year 2 onwards
         """
-        from performa.core.primitives.growth_rates import PercentageGrowthRate
-
         # Create a constant 3% growth rate
         growth_rate = PercentageGrowthRate(name="Market Growth", value=0.03)
 
@@ -664,8 +663,6 @@ class TestOfficeRentEscalation(unittest.TestCase):
         Scenario: Escalation rate defining $1.50/SF increase annually
         Expected: Cumulative $1.50/SF increases each year
         """
-        from performa.core.primitives.growth_rates import FixedGrowthRate
-
         # Create fixed escalation rate representing $1.50/SF/year increase
         escalation_rate = FixedGrowthRate(name="Fixed Growth", value=1.50)
 
@@ -737,8 +734,6 @@ class TestOfficeRentEscalation(unittest.TestCase):
         Scenario: Different growth rates by period (2% Year 2, 4% Year 3)
         Expected: Variable percentage increases based on period
         """
-        from performa.core.primitives.growth_rates import PercentageGrowthRate
-
         # Create time-based growth rates
         growth_series = pd.Series({
             pd.Period("2025-01", freq="M"): 0.02,  # 2% for Year 2
@@ -836,10 +831,6 @@ class TestOfficeRentEscalation(unittest.TestCase):
         Scenario: Growth rates defined for specific dates
         Expected: Rates applied based on date mapping
         """
-        from datetime import date
-
-        from performa.core.primitives.growth_rates import PercentageGrowthRate
-
         # Create date-based growth rates
         growth_dict = {
             date(2025, 1, 1): 0.025,  # 2.5% for Year 2

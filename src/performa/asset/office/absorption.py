@@ -75,8 +75,10 @@ from ...core.base.absorption import AnchorLogic
 from ...core.primitives import (
     GlobalSettings,
     LeaseTypeEnum,
+    PercentageGrowthRate,
     PropertyAttributeKey,
     StartDateAnchorEnum,
+    Timeline,
 )
 from .expense import OfficeExpenses, OfficeOpExItem
 from .lease_spec import OfficeLeaseSpec
@@ -792,10 +794,6 @@ class OfficeAbsorptionPlan(
     @classmethod
     def _create_typical_expenses(cls) -> OfficeExpenses:
         """Create typical office operating expenses."""
-        from datetime import date
-
-        from ...core.primitives import PercentageGrowthRate, Timeline
-
         # Create a basic timeline for the expense items
         timeline = Timeline(
             start_date=date(2024, 1, 1),

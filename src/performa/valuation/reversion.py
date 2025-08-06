@@ -10,6 +10,7 @@ office, residential, development projects, existing assets, etc.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Dict, Literal, Optional
 from uuid import UUID, uuid4
 
@@ -252,8 +253,6 @@ class ReversionValuation(Model):
 
         except Exception as e:
             # Log warning but continue with zeros
-            import logging
-
             logger = logging.getLogger(__name__)
             logger.warning(f"Could not calculate reversion disposition proceeds: {e}")
 

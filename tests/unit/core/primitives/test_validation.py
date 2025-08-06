@@ -19,6 +19,7 @@ from typing import Optional
 import pytest
 from pydantic import ValidationError, model_validator
 
+from performa.core.base.lease import LeaseSpecBase
 from performa.core.primitives import Model
 from performa.core.primitives.validation import (
     ValidationMixin,
@@ -246,8 +247,6 @@ class TestIntegrationWithLeaseSpecBase:
 
     def test_lease_spec_base_integration(self):
         """Test that LeaseSpecBase uses the validation correctly."""
-        from performa.core.base.lease import LeaseSpecBase
-
         # This should work - has end_date
         spec = LeaseSpecBase(
             tenant_name="Test Tenant",
@@ -263,8 +262,6 @@ class TestIntegrationWithLeaseSpecBase:
 
     def test_lease_spec_base_validation_error(self):
         """Test that LeaseSpecBase validation fails correctly."""
-        from performa.core.base.lease import LeaseSpecBase
-
         # This should fail - neither end_date nor term_months
         with pytest.raises(
             ValidationError, match="Either end_date or term_months must be provided"

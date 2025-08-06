@@ -78,6 +78,8 @@ import sys
 from datetime import date
 from pathlib import Path
 
+from performa.asset.residential import ResidentialAnalysisScenario
+
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -386,8 +388,6 @@ def demonstrate_components():
         start_date=date(2024, 1, 1),
         duration_months=60,  # 5-year hold
     )
-
-    from performa.asset.residential import ResidentialAnalysisScenario
 
     # Create analysis scenario (this is the proper way to analyze residential properties)
     scenario = ResidentialAnalysisScenario(

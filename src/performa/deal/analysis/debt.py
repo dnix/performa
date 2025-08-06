@@ -64,20 +64,24 @@ Institutional Standards:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List
 
+import numpy as np
 import pandas as pd
 
-if TYPE_CHECKING:
-    from performa.core.primitives import GlobalSettings, Timeline
-    from performa.deal.deal import Deal
-
+from performa.core.primitives import Timeline, UnleveredAggregateLineKey
 from performa.deal.results import (
+    DSCRSummary,
     FacilityInfo,
     FinancingAnalysisResult,
     UnleveredAnalysisResult,
 )
+
+if TYPE_CHECKING:
+    from performa.core.primitives import GlobalSettings, Timeline
+    from performa.deal.deal import Deal
 
 
 @dataclass
@@ -278,8 +282,6 @@ class DebtAnalyzer:
 
                     if loan_amount > 0:
                         # Create timeline for the permanent loan term
-                        from performa.core.primitives import Timeline
-
                         loan_timeline = Timeline(
                             start_date=refinance_start,
                             duration_months=permanent_facility.loan_term_years * 12,
@@ -312,8 +314,6 @@ class DebtAnalyzer:
 
         except Exception as e:
             # Log warning and fallback to basic calculation
-            import logging
-
             logger = logging.getLogger(__name__)
             logger.warning(
                 f"Enhanced debt service calculation failed for {permanent_facility.name}: {e}"
@@ -337,8 +337,6 @@ class DebtAnalyzer:
         In a real implementation, this would come from market data or user input.
         For now, we'll create a reasonable SOFR curve.
         """
-        import numpy as np
-
         # Create a sample SOFR curve that starts at 4.5% and gradually rises to 5.5%
         periods = len(self.timeline.period_index)
         # FIXME: we should have default parameters in the method signature, not hard coded here
@@ -568,8 +566,6 @@ class DebtAnalyzer:
             print(f"DSCR trend: {dscr_series.iloc[-12:].mean():.2f}")
             ```
         """
-        from performa.deal.results import DSCRSummary
-
         # Only calculate DSCR if we have financing
         if not self.financing_analysis.has_financing:
             self.financing_analysis.dscr_time_series = None
@@ -623,8 +619,6 @@ class DebtAnalyzer:
         Returns:
             NOI time series aligned with timeline periods
         """
-        from performa.core.primitives import UnleveredAggregateLineKey
-
         # Use the new type-safe accessor method
         return unlevered_analysis.get_series(
             UnleveredAggregateLineKey.NET_OPERATING_INCOME, self.timeline
@@ -702,8 +696,6 @@ class DebtAnalyzer:
         Returns:
             Comprehensive DSCR summary with covenant analysis
         """
-        import numpy as np
-
         if len(dscr_series) == 0:
             return {"error": "No DSCR data available"}
 
@@ -839,11 +831,6 @@ class DebtAnalyzer:
         Args:
             error: The exception that caused the comprehensive calculation to fail
         """
-        # Log the error but provide basic fallback
-        import logging
-
-        from performa.deal.results import DSCRSummary
-
         logger = logging.getLogger(__name__)
         logger.warning(f"DSCR calculation failed with error: {error}")
         logger.debug("DSCR calculation stack trace:", exc_info=True)

@@ -17,6 +17,7 @@ Test Categories:
 5. Multi-Property Portfolios
 """
 
+import time
 from datetime import date
 
 import pytest
@@ -414,8 +415,6 @@ class TestLargeScaleProperties:
         print(f"Property: {property_model.name}")
         print(f"Total Units: {property_model.unit_count}")
         print(f"Analysis Periods: {timeline.duration_months}")
-
-        import time
 
         start_time = time.time()
 

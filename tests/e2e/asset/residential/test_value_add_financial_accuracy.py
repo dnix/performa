@@ -21,9 +21,12 @@ from performa.asset.residential import (
     ResidentialRolloverLeaseTerms,
     ResidentialRolloverProfile,
 )
+from performa.asset.residential.absorption import ResidentialDirectLeaseTerms
+from performa.core.base.absorption import FixedQuantityPace
 from performa.core.capital import CapitalItem, CapitalPlan
 from performa.core.primitives import (
     FrequencyEnum,
+    StartDateAnchorEnum,
     Timeline,
     UponExpirationEnum,
 )
@@ -74,9 +77,6 @@ class TestValueAddFinancialAccuracy:
         self, plan_id: str, premium_rent: float
     ) -> ResidentialAbsorptionPlan:
         """Create absorption plan for post-renovation units."""
-        from performa.asset.residential.absorption import ResidentialDirectLeaseTerms
-        from performa.core.base.absorption import FixedQuantityPace
-        from performa.core.primitives import StartDateAnchorEnum
 
         return ResidentialAbsorptionPlan(
             uid=plan_id,

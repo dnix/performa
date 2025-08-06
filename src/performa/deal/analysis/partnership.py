@@ -82,12 +82,15 @@ Institutional Standards:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
 from pyxirr import xirr
+
+from performa.deal.results import FeeAccountingDetails
 
 if TYPE_CHECKING:
     from performa.core.primitives import GlobalSettings, Timeline
@@ -769,8 +772,6 @@ class PartnershipAnalyzer:
                         self._create_partner_distributions_result(combined_results)
                     )
                 except Exception as combine_error:
-                    import logging
-
                     logger = logging.getLogger(__name__)
                     logger.error(f"Combination failed: {combine_error}")
                     # Use waterfall results directly if combination fails
@@ -781,8 +782,6 @@ class PartnershipAnalyzer:
 
             except Exception as e:
                 # Fallback for DistributionCalculator errors
-                import logging
-
                 logger = logging.getLogger(__name__)
                 error_results = {
                     "distribution_method": "error",
@@ -1023,8 +1022,6 @@ class PartnershipAnalyzer:
 
                 except Exception:
                     # Log warning but continue
-                    import logging
-
                     logger = logging.getLogger(__name__)
                     logger.warning(f"Could not calculate fee for {fee}")
 
@@ -1067,9 +1064,6 @@ class PartnershipAnalyzer:
         """
         # Combine the results - waterfall_results has structure with total_metrics
         combined_results = waterfall_results.copy()
-
-        # Import and create FeeAccountingDetails object
-        from performa.deal.results import FeeAccountingDetails
 
         fee_accounting_details = FeeAccountingDetails(**fee_details)
         combined_results["fee_accounting_details"] = fee_accounting_details
