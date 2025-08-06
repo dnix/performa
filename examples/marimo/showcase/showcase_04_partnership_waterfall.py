@@ -298,7 +298,7 @@ def __(results, mo, pd, px):
         height=225,  # Much bigger pie chart
         width=225,
     )
-    pie_fig.update_layout(margin = dict(t=5, l=5, r=5, b=5))
+    pie_fig.update_layout(margin=dict(t=5, l=5, r=5, b=5))
     
     # Configure pie chart - no title, no legend
     pie_fig.layout.showlegend = False
