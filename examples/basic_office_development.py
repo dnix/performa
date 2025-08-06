@@ -98,8 +98,8 @@ from performa.core.primitives import (
     FirstOnlyDrawSchedule,
     GlobalSettings,
     ProgramUseEnum,
-    Timeline,
     PropertyAttributeKey,
+    Timeline,
     UponExpirationEnum,
 )
 from performa.deal import (

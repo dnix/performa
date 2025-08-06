@@ -74,8 +74,8 @@ from ...core.base.absorption import AnchorLogic
 from ...core.primitives import (
     GlobalSettings,
     LeaseTypeEnum,
-    StartDateAnchorEnum,
     PropertyAttributeKey,
+    StartDateAnchorEnum,
 )
 from .expense import OfficeExpenses, OfficeOpExItem
 from .lease_spec import OfficeLeaseSpec

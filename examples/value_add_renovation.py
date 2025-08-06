@@ -98,34 +98,34 @@ from uuid import uuid4
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from performa.analysis import run
 from performa.asset.residential import (
+    ResidentialAbsorptionPlan,
+    ResidentialCollectionLoss,
+    ResidentialExpenses,
+    ResidentialGeneralVacancyLoss,
+    ResidentialLosses,
+    ResidentialOpExItem,
     ResidentialProperty,
     ResidentialRentRoll,
-    ResidentialUnitSpec,
-    ResidentialRolloverProfile,
     ResidentialRolloverLeaseTerms,
-    ResidentialAbsorptionPlan,
-    ResidentialExpenses,
-    ResidentialOpExItem,
-    ResidentialLosses,
-    ResidentialGeneralVacancyLoss,
-    ResidentialCollectionLoss,
+    ResidentialRolloverProfile,
+    ResidentialUnitSpec,
 )
 from performa.asset.residential.absorption import (
     ResidentialDirectLeaseTerms,
 )
+from performa.core.base.absorption import FixedQuantityPace
+from performa.core.capital import CapitalPlan
 from performa.core.primitives import (
     ExpenseSubcategoryEnum,
     FrequencyEnum,
     GlobalSettings,
     PropertyAttributeKey,
-    Timeline,
     StartDateAnchorEnum,
+    Timeline,
     UponExpirationEnum,
 )
-from performa.core.capital import CapitalPlan
-from performa.core.base.absorption import FixedQuantityPace
-from performa.analysis import run
 
 
 def create_rolling_renovation_capital_plan() -> CapitalPlan:

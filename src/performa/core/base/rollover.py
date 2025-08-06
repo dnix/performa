@@ -9,8 +9,8 @@ from uuid import UUID, uuid4
 import pandas as pd
 from pydantic import Field, field_validator, model_validator
 
-from ..primitives.enums import FrequencyEnum, UponExpirationEnum
 from ..primitives.cash_flow import ReferenceKey
+from ..primitives.enums import FrequencyEnum, UponExpirationEnum
 from ..primitives.growth_rates import GrowthRate
 from ..primitives.model import Model
 from ..primitives.types import FloatBetween0And1, PositiveFloat, PositiveInt

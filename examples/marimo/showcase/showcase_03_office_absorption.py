@@ -7,29 +7,29 @@ app = marimo.App(width="medium", css_file="../marimo.css")
 @app.cell
 def __():
     """Import all required modules"""
+    from datetime import date, timedelta
+
     import marimo as mo
     import pandas as pd
     import plotly.express as px
     import plotly.graph_objects as go
-    from datetime import date, timedelta
-    
+
     from performa.asset.office import (
-        OfficeAbsorptionPlan, 
-        FixedQuantityPace, 
-        EqualSpreadPace,
         DirectLeaseTerms,
+        EqualSpreadPace,
+        FixedQuantityPace,
+        OfficeAbsorptionPlan,
+        OfficeVacantSuite,
         SpaceFilter,
-        OfficeVacantSuite
     )
     from performa.core.primitives import (
-        UnitOfMeasureEnum, 
-        FrequencyEnum, 
-        UponExpirationEnum
+        FrequencyEnum,
+        UponExpirationEnum,
     )
     
     return (
         DirectLeaseTerms, EqualSpreadPace, FixedQuantityPace, FrequencyEnum, 
-        OfficeAbsorptionPlan, OfficeVacantSuite, SpaceFilter, UnitOfMeasureEnum, 
+        OfficeAbsorptionPlan, OfficeVacantSuite, SpaceFilter,
         UponExpirationEnum, date, go, mo, pd, px, timedelta
     )
 

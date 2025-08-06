@@ -312,8 +312,8 @@ class ResidentialAnalysisScenario(AnalysisScenarioBase):
         lease_terms = target_plan.leasing_assumptions
         
         # Create rollover terms from absorption plan
-        from .rollover import ResidentialRolloverLeaseTerms, ResidentialRolloverProfile
         from ...core.primitives import UponExpirationEnum
+        from .rollover import ResidentialRolloverLeaseTerms, ResidentialRolloverProfile
         
         post_reno_market_terms = ResidentialRolloverLeaseTerms(
             market_rent=lease_terms.monthly_rent or rollover_profile.market_terms.market_rent,

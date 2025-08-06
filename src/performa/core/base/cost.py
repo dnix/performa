@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING, Literal, Optional
 import pandas as pd
 from pydantic import model_validator
 
-from ..primitives.cash_flow import CashFlowModel
 from ..primitives import PropertyAttributeKey
+from ..primitives.cash_flow import CashFlowModel
 from ..primitives.model import Model
 from ..primitives.types import FloatBetween0And1, PositiveFloat, PositiveInt
 

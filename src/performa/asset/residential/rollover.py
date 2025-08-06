@@ -16,7 +16,6 @@ from ...core.primitives import (
     GrowthRate,
     PositiveFloat,
     PositiveInt,
-
 )
 
 logger = logging.getLogger(__name__)

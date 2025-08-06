@@ -82,17 +82,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from performa.asset.residential import (
+    ResidentialCollectionLoss,
+    ResidentialExpenses,
+    ResidentialGeneralVacancyLoss,
+    ResidentialLosses,
+    ResidentialOpExItem,
     ResidentialProperty,
     ResidentialRentRoll,
+    ResidentialRolloverLeaseTerms,
+    ResidentialRolloverProfile,
     ResidentialUnitSpec,
     ResidentialVacantUnit,
-    ResidentialRolloverProfile,
-    ResidentialRolloverLeaseTerms,
-    ResidentialExpenses,
-    ResidentialOpExItem,
-    ResidentialLosses,
-    ResidentialGeneralVacancyLoss,
-    ResidentialCollectionLoss,
 )
 from performa.core.primitives import (
     AssetTypeEnum,
@@ -103,11 +103,11 @@ from performa.core.primitives import (
     Timeline,
     UnleveredAggregateLineKey,
 )
-from performa.debt import PermanentFacility, InterestRate, FixedRate
 from performa.deal import (
     PartnershipStructure,
     create_simple_partnership,
 )
+from performa.debt import FixedRate, InterestRate, PermanentFacility
 
 
 def create_sample_multifamily_property() -> ResidentialProperty:

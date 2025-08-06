@@ -7,25 +7,25 @@ app = marimo.App(width="medium")
 @app.cell
 def __():
     """Import all required modules"""
+    from datetime import date
+
     import marimo as mo
     import pandas as pd
     import plotly.express as px
-    from datetime import date
-    
+
     from performa.core.primitives import (
-        Timeline, 
-        UniformDrawSchedule, 
-        SCurveDrawSchedule, 
-        ManualDrawSchedule,
+        FirstLastDrawSchedule,
         FirstOnlyDrawSchedule,
         LastOnlyDrawSchedule,
-        FirstLastDrawSchedule,
-        UnitOfMeasureEnum
+        ManualDrawSchedule,
+        SCurveDrawSchedule,
+        Timeline,
+        UniformDrawSchedule,
     )
     
     return (
         FirstLastDrawSchedule, FirstOnlyDrawSchedule, LastOnlyDrawSchedule, 
-        ManualDrawSchedule, SCurveDrawSchedule, Timeline, UnitOfMeasureEnum, 
+        ManualDrawSchedule, SCurveDrawSchedule, Timeline, 
         UniformDrawSchedule, date, mo, pd, px
     )
 

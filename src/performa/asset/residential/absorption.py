@@ -260,7 +260,11 @@ class ResidentialAbsorptionPlan(AbsorptionPlanBase[ResidentialExpenses, Resident
         """
         from datetime import date
 
-        from ...core.primitives import PercentageGrowthRate, PropertyAttributeKey, Timeline
+        from ...core.primitives import (
+            PercentageGrowthRate,
+            PropertyAttributeKey,
+            Timeline,
+        )
         from .expense import ResidentialCapExItem, ResidentialOpExItem
         from .losses import ResidentialCollectionLoss, ResidentialGeneralVacancyLoss
         

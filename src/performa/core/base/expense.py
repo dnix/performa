@@ -12,7 +12,6 @@ from ..primitives.cash_flow import CashFlowModel
 from ..primitives.enums import ExpenseSubcategoryEnum
 from ..primitives.types import FloatBetween0And1
 
-
 logger = logging.getLogger(__name__)
 
 

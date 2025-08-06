@@ -15,8 +15,8 @@ from ...core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     LeaseStatusEnum,
-    Timeline,
     PropertyAttributeKey,
+    Timeline,
 )
 from ..commercial.lease import CommercialLeaseBase
 from .lc import OfficeLeasingCommission

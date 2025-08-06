@@ -14,7 +14,6 @@ from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     GrowthRate,
-
 )
 
 logger = logging.getLogger(__name__)

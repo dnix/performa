@@ -93,7 +93,6 @@ from .primitives import (
     RevenueSubcategoryEnum,
     StartDateAnchorEnum,
     Timeline,
-
     UponExpirationEnum,
     VacancyLossMethodEnum,
     # Validation

@@ -7,19 +7,25 @@ app = marimo.App(width="medium", css_file="../marimo.css")
 @app.cell
 def __():
     """Import all required modules"""
+    from datetime import date, datetime
+    from typing import Any, Dict, List
+
     import marimo as mo
+    import numpy as np
     import pandas as pd
     import plotly.express as px
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
-    import numpy as np
-    from datetime import date, datetime
-    from typing import Dict, List, Any
-    
-    from performa.deal.entities import Partner
-    from performa.deal.partnership import PartnershipStructure, WaterfallTier, WaterfallPromote, CarryPromote
-    from performa.deal.analysis.partnership import DistributionCalculator
+
     from performa.core.primitives import Timeline
+    from performa.deal.analysis.partnership import DistributionCalculator
+    from performa.deal.entities import Partner
+    from performa.deal.partnership import (
+        CarryPromote,
+        PartnershipStructure,
+        WaterfallPromote,
+        WaterfallTier,
+    )
     
     return (
         CarryPromote, DistributionCalculator, Partner, PartnershipStructure, 

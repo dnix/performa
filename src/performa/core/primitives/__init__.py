@@ -34,7 +34,6 @@ from .enums import (
     PropertyAttributeKey,
     RevenueSubcategoryEnum,
     StartDateAnchorEnum,
-
     UnleveredAggregateLineKey,
     UponExpirationEnum,
     VacancyLossMethodEnum,
