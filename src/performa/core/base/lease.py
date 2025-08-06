@@ -25,9 +25,6 @@ from .lease_components import RentAbatementBase
 if TYPE_CHECKING:
     from performa.analysis import AnalysisContext
 
-# Now we can import these directly since there's no circular dependency
-from .rollover import RolloverProfileBase
-
 # --- Main Base Models ---
 
 
@@ -165,21 +162,3 @@ class RolloverLeaseTermsBase(Model, ABC):
     term_months: Optional[int] = None
     reference: Optional[ReferenceKey] = None
     frequency: FrequencyEnum = FrequencyEnum.MONTHLY
-
-
-class RolloverProfileBase(Model, ABC):
-    """
-    Abstract base class for rollover profiles that define how leases
-    transition when they expire.
-    
-    Contains probability-based logic for renewals vs. new leases,
-    downtime periods, and associated costs.
-    """
-    renewal_probability: float = 0.0
-    downtime_months: int = 0
-    term_months: int = 60
-    upon_expiration: UponExpirationEnum = UponExpirationEnum.MARKET
-
-    # Options for flexibility
-    allow_renewals: bool = True
-    allow_options: bool = False 

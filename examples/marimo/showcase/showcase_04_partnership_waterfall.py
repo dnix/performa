@@ -439,7 +439,7 @@ def __(
     partner_table = mo.md(metrics_md)
     
     # Left column: All controls
-    controls_column = mo.vstack([        
+    controls_column = mo.vstack([
         mo.md("## 👥 Partnership Configuration"),
         mo.hstack([
             mo.vstack([
@@ -494,7 +494,6 @@ def __(
         
     ], gap=2)
     
-        ######################################################### HERE
     # Right column: Metrics first, then charts
     charts_column = mo.vstack([
 
