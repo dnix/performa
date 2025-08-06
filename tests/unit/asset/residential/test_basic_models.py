@@ -11,7 +11,6 @@ Tests the core components built in Steps 1.1-1.3:
 """
 
 from datetime import date
-from uuid import UUID
 
 import pytest
 
@@ -30,12 +29,12 @@ from performa.asset.residential import (
 )
 from performa.core.primitives import (
     AssetTypeEnum,
-    GrowthRate,
+    PercentageGrowthRate,
     Timeline,
-    PropertyAttributeKey,
 )
 
 # Test Step 1.1: Basic model creation and inheritance
+
 
 def test_residential_expenses_creation():
     """Test that ResidentialExpenses can be created and inherits properly"""
@@ -175,7 +174,7 @@ def test_rent_roll_computed_properties():
 
 def test_residential_rollover_lease_terms():
     """Test that ResidentialRolloverLeaseTerms captures simplified residential logic"""
-    market_growth = GrowthRate(name="Market Growth", value=0.04)
+    market_growth = PercentageGrowthRate(name="Market Growth", value=0.04)
 
     # Test CapitalPlan-based approach (costs handled at property level)
     terms = ResidentialRolloverLeaseTerms(
@@ -195,7 +194,7 @@ def test_residential_rollover_lease_terms():
 
 def test_residential_rollover_profile_blending():
     """Test that ResidentialRolloverProfile properly blends market vs renewal terms"""
-    market_growth = GrowthRate(name="Market Growth", value=0.04)
+    market_growth = PercentageGrowthRate(name="Market Growth", value=0.04)
     
     # Market terms (costs handled at property level via CapitalPlan)
     market_terms = ResidentialRolloverLeaseTerms(
@@ -233,7 +232,7 @@ def test_residential_rollover_profile_blending():
 def test_complete_residential_property_creation():
     """Test creating a complete ResidentialProperty with all components"""
     # Create all required components
-    market_growth = GrowthRate(name="Market Growth", value=0.04)
+    market_growth = PercentageGrowthRate(name="Market Growth", value=0.04)
     
     market_terms = ResidentialRolloverLeaseTerms(
         market_rent=2500.0,
@@ -414,11 +413,11 @@ def test_rent_roll_with_vacant_units():
     assert rent_roll.total_monthly_income_potential == total_potential
     
     # Test occupancy calculation
-    assert rent_roll.occupancy_rate == pytest.approx(35/40, rel=1e-6)  # 87.5%
+    assert rent_roll.occupancy_rate == pytest.approx(35 / 40, rel=1e-6)  # 87.5%
     
     # Test rent calculations
-    assert rent_roll.current_average_rent_per_occupied_unit == pytest.approx(current_income/35, rel=1e-6)
-    assert rent_roll.average_rent_per_unit == pytest.approx(total_potential/40, rel=1e-6)
+    assert rent_roll.current_average_rent_per_occupied_unit == pytest.approx(current_income / 35, rel=1e-6)
+    assert rent_roll.average_rent_per_unit == pytest.approx(total_potential / 40, rel=1e-6)
 
 
 def test_property_with_vacant_units():
@@ -473,7 +472,7 @@ def test_property_with_vacant_units():
     # Test property-level calculations
     assert property_model.unit_count == 50  # 40 + 10
     assert property_model.occupancy_rate == 0.8  # 40/50 = 80%
-    assert property_model.weighted_avg_rent == pytest.approx((40*2000 + 10*2100)/50, rel=1e-6)
+    assert property_model.weighted_avg_rent == pytest.approx((40 * 2000 + 10 * 2100) / 50, rel=1e-6)
 
 
 def test_vacant_units_analysis_integration():

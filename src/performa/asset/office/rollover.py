@@ -13,8 +13,8 @@ from ...core.base import RolloverLeaseTermsBase, RolloverProfileBase
 from ...core.primitives import (
     FrequencyEnum,
     GlobalSettings,
-    GrowthRate,
     Model,
+    PercentageGrowthRate,
     PositiveFloat,
 )
 from ...core.primitives.cash_flow import ReferenceKey
@@ -46,7 +46,7 @@ class OfficeRolloverLeaseTerms(RolloverLeaseTermsBase):
     Office-specific lease terms for rollover scenarios.
     """
     market_rent: Optional[Union[float, pd.Series, Dict, List]] = None
-    growth_rate: Optional[GrowthRate] = None
+    growth_rate: Optional[PercentageGrowthRate] = None
     
     # Multiple escalations support (new)
     rent_escalations: Optional[Union[OfficeRentEscalation, List[OfficeRentEscalation]]] = None
@@ -109,7 +109,7 @@ class OfficeRolloverProfile(RolloverProfileBase):
                 aligned_rates = dict_series.reindex(growth_periods, method="ffill").fillna(0.0)
                 period_rates = aligned_rates
             else:
-                raise TypeError(f"Unsupported type for GrowthRate value: {type(growth_value)}")
+                raise TypeError(f"Unsupported type for PercentageGrowthRate value: {type(growth_value)}")
 
             growth_factors = 1.0 + period_rates
             cumulative_growth_factor = growth_factors.prod()
@@ -162,7 +162,7 @@ class OfficeRolloverProfile(RolloverProfileBase):
         blended_growth = None
         if market_terms.growth_rate and renewal_terms.growth_rate and isinstance(market_terms.growth_rate.value, (int, float)) and isinstance(renewal_terms.growth_rate.value, (int, float)):
             blended_rate_value = (renewal_terms.growth_rate.value * renewal_prob) + (market_terms.growth_rate.value * market_prob)
-            blended_growth = GrowthRate(name="Blended Growth", value=blended_rate_value)
+            blended_growth = PercentageGrowthRate(name="Blended Growth", value=blended_rate_value)
         else:
             blended_growth = market_terms.growth_rate
 

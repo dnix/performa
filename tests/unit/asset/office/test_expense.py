@@ -19,9 +19,9 @@ from performa.asset.office.property import OfficeProperty
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
-    GrowthRate,
-    Timeline,
+    PercentageGrowthRate,
     PropertyAttributeKey,
+    Timeline,
 )
 
 logger = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ def test_opex_with_growth(sample_context: AnalysisContext):
         timeline=sample_context.timeline,
         value=100.0,
         frequency=FrequencyEnum.MONTHLY,
-        growth_rate=GrowthRate(name="Test Growth", value=0.12),  # 12% annual -> 1% monthly
+        growth_rate=PercentageGrowthRate(name="Test Growth", value=0.12),  # 12% annual -> 1% monthly
     )
     cf = opex.compute_cf(context=sample_context)
     assert cf.iloc[0] == pytest.approx(100.0 * 1.01)

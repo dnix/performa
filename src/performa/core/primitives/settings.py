@@ -138,8 +138,8 @@ class CalculationSettings(Model):
 class InflationSettings(Model):
     """Global assumptions for general inflation rates."""
 
-    # NOTE: this only applies for GrowthRate named inflation
-    # NOTE: all rates are defined as GrowthRate, not percentages here in settings
+    # NOTE: this only applies for PercentageGrowthRate named inflation
+    # NOTE: all rates are defined as PercentageGrowthRate, not percentages here in settings
     # FIXME: add support for inflation rate, here and in growth_rates and analysis
     inflation_timing: InflationTimingEnum = Field(
         default=InflationTimingEnum.START_OF_YEAR,

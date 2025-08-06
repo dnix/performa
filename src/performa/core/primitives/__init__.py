@@ -38,7 +38,7 @@ from .enums import (
     UponExpirationEnum,
     VacancyLossMethodEnum,
 )
-from .growth_rates import FixedGrowthRate, GrowthRate, GrowthRates, PercentageGrowthRate
+from .growth_rates import FixedGrowthRate, GrowthRates, PercentageGrowthRate
 from .model import Model
 from .settings import (
     CalculationSettings,
@@ -89,7 +89,7 @@ __all__ = [
     "LeveredAggregateLineKey",
     
     # Growth rates
-    "GrowthRate",
+
     "GrowthRates", 
     "PercentageGrowthRate",
     "FixedGrowthRate",

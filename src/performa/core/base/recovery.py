@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 
 from pydantic import Field, model_validator
 
-from ..primitives.growth_rates import GrowthRate
+from ..primitives.growth_rates import PercentageGrowthRate
 from ..primitives.model import Model
 from ..primitives.types import FloatBetween0And1, PositiveFloat
 from .expense import ExpenseItemBase
@@ -56,7 +56,7 @@ class RecoveryBase(Model):
     base_amount: Optional[PositiveFloat] = None
     base_amount_unit: Optional[Literal["total", "psf"]] = "psf"
     base_year: Optional[int] = None
-    growth_rate: Optional[GrowthRate] = None
+    growth_rate: Optional[PercentageGrowthRate] = None
     contribution_deduction: Optional[PositiveFloat] = None
     admin_fee_percent: Optional[FloatBetween0And1] = None
     prorata_share: Optional[PositiveFloat] = None

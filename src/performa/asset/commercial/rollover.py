@@ -13,7 +13,7 @@ from performa.core.base import RolloverLeaseTermsBase, RolloverProfileBase
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
-    GrowthRate,
+    PercentageGrowthRate,
 )
 
 logger = logging.getLogger(__name__)
@@ -96,7 +96,7 @@ class CommercialRolloverProfileBase(RolloverProfileBase):
         blended_growth = None
         if self.renewal_terms.growth_rate and self.market_terms.growth_rate:
             blended_rate_value = (self.renewal_terms.growth_rate.value * self.renewal_probability) + (self.market_terms.growth_rate.value * market_prob)
-            blended_growth = GrowthRate(name="Blended Growth", value=blended_rate_value)
+            blended_growth = PercentageGrowthRate(name="Blended Growth", value=blended_rate_value)
 
         # Simplified blending for other terms for now
         blended_abatement = self.renewal_terms.rent_abatement if self.renewal_probability > 0.5 else self.market_terms.rent_abatement

@@ -15,7 +15,7 @@ from .enums import (
     PropertyAttributeKey,
     UnleveredAggregateLineKey,
 )
-from .growth_rates import GrowthRate
+from .growth_rates import PercentageGrowthRate
 from .model import Model
 from .settings import GlobalSettings
 from .timeline import Timeline
@@ -83,7 +83,7 @@ class CashFlowModel(Model):
     frequency: FrequencyEnum = FrequencyEnum.MONTHLY
     reference: Optional[ReferenceKey] = None
     settings: GlobalSettings = Field(default_factory=GlobalSettings)
-    growth_rate: Optional[GrowthRate] = None
+    growth_rate: Optional[PercentageGrowthRate] = None
     
     @field_validator("value")
     @classmethod
@@ -234,7 +234,7 @@ class CashFlowModel(Model):
     def _apply_compounding_growth(
         self,
         base_series: pd.Series,
-        growth_rate: "GrowthRate",
+        growth_rate: "PercentageGrowthRate",
     ) -> pd.Series:
         if not isinstance(base_series.index, pd.PeriodIndex):
             raise ValueError("Base series index must be a monthly PeriodIndex.")
@@ -253,7 +253,7 @@ class CashFlowModel(Model):
             aligned_rates = dict_series.reindex(periods, method="ffill").fillna(0)
             period_rates = aligned_rates
         else:
-            raise TypeError(f"Unsupported type for GrowthRate value: {type(growth_value)}")
+            raise TypeError(f"Unsupported type for PercentageGrowthRate value: {type(growth_value)}")
         compounding_factors = (1 + period_rates).cumprod()
         return base_series * compounding_factors
 

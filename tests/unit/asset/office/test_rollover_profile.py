@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from datetime import date
 
-import pandas as pd
 import pytest
 
 from performa.asset.office.rollover import (
@@ -16,9 +15,9 @@ from performa.asset.office.rollover import (
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
-    GrowthRate,
-    Timeline,
+    PercentageGrowthRate,
     PropertyAttributeKey,
+    Timeline,
 )
 
 
@@ -26,15 +25,17 @@ from performa.core.primitives import (
 def sample_global_settings():
     return GlobalSettings()
 
+
 @pytest.fixture
 def sample_timeline():
     return Timeline.from_dates(start_date=date(2024, 1, 1), end_date=date(2028, 12, 31))
+
 
 def test_calculate_rent_with_growth(sample_global_settings):
     terms = OfficeRolloverLeaseTerms(
         market_rent=100.0,
         frequency=FrequencyEnum.ANNUAL,
-        growth_rate=GrowthRate(name="Test Growth", value=0.03) # 3% annual
+        growth_rate=PercentageGrowthRate(name="Test Growth", value=0.03)  # 3% annual
     )
     profile = OfficeRolloverProfile(
         name="Test Profile",
@@ -50,6 +51,7 @@ def test_calculate_rent_with_growth(sample_global_settings):
     # as_of_date is before analysis_start_date, so no growth should apply
     assert rent == (100.0 / 12.0)
     
+
 def test_blend_lease_terms(sample_timeline):
     market_terms = OfficeRolloverLeaseTerms(
         market_rent=60.0,
@@ -68,7 +70,7 @@ def test_blend_lease_terms(sample_timeline):
     profile = OfficeRolloverProfile(
         name="Test Profile",
         term_months=60,
-        renewal_probability=0.75, # 75% renewal
+        renewal_probability=0.75,  # 75% renewal
         downtime_months=3,
         market_terms=market_terms,
         renewal_terms=renewal_terms,

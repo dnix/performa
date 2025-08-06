@@ -13,7 +13,7 @@ from pydantic import Field
 
 from ...core.base import ExpensePoolBase as CoreExpensePoolBase
 from ...core.base import OpExItemBase, RecoveryBase
-from ...core.primitives import GlobalSettings, GrowthRate
+from ...core.primitives import GlobalSettings, PercentageGrowthRate
 from ..commercial.recovery import CommercialRecoveryMethodBase
 
 if TYPE_CHECKING:
@@ -63,7 +63,7 @@ class Recovery(RecoveryBase):
     base_amount: Optional[float] = None
     base_amount_unit: Optional[Literal["total", "psf"]] = "psf"
     base_year: Optional[int] = None
-    growth_rate: Optional[GrowthRate] = None
+    growth_rate: Optional[PercentageGrowthRate] = None
     admin_fee_percent: Optional[float] = None
     prorata_share: Optional[float] = None
     denominator: Optional[float] = None

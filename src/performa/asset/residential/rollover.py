@@ -13,7 +13,7 @@ from ...core.base import RolloverLeaseTermsBase, RolloverProfileBase
 from ...core.primitives import (
     FrequencyEnum,
     GlobalSettings,
-    GrowthRate,
+    PercentageGrowthRate,
     PositiveFloat,
     PositiveInt,
 )
@@ -34,7 +34,7 @@ class ResidentialRolloverLeaseTerms(RolloverLeaseTermsBase):
     
     # === RENT TERMS ===
     market_rent: PositiveFloat  # Current market rent for this unit type
-    market_rent_growth: Optional[GrowthRate] = None
+    market_rent_growth: Optional[PercentageGrowthRate] = None
     renewal_rent_increase_percent: PositiveFloat = 0.04  # 4% typical renewal increase
     
     # === CONCESSIONS ===
@@ -172,7 +172,7 @@ class ResidentialRolloverProfile(RolloverProfileBase):
             isinstance(market_terms.market_rent_growth.value, (int, float)) and 
             isinstance(renewal_terms.market_rent_growth.value, (int, float))):
             blended_rate_value = (renewal_terms.market_rent_growth.value * renewal_prob) + (market_terms.market_rent_growth.value * market_prob)
-            blended_growth = GrowthRate(name="Blended Growth", value=blended_rate_value)
+            blended_growth = PercentageGrowthRate(name="Blended Growth", value=blended_rate_value)
         else:
             blended_growth = market_terms.market_rent_growth or renewal_terms.market_rent_growth
 

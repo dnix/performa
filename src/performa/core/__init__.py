@@ -79,7 +79,6 @@ from .primitives import (
     # Settings
     GlobalSettings,
     # Growth rates
-    GrowthRate,
     GrowthRates,
     InflationSettings,
     InflationTimingEnum,
@@ -188,7 +187,7 @@ __all__ = [
     "VacancyLossMethodEnum",
     
     # Growth rates
-    "GrowthRate",
+
     "GrowthRates",
     
     # Types

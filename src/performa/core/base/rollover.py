@@ -11,7 +11,7 @@ from pydantic import Field, field_validator, model_validator
 
 from ..primitives.cash_flow import ReferenceKey
 from ..primitives.enums import FrequencyEnum, UponExpirationEnum
-from ..primitives.growth_rates import GrowthRate
+from ..primitives.growth_rates import PercentageGrowthRate
 from ..primitives.model import Model
 from ..primitives.types import FloatBetween0And1, PositiveFloat, PositiveInt
 from ..primitives.validation import validate_monthly_period_index
@@ -28,7 +28,7 @@ class RolloverLeaseTermsBase(Model):
     market_rent: Optional[Union[PositiveFloat, pd.Series, Dict, List]] = None
     reference: Optional[ReferenceKey] = None  # For per-unit calculations
     frequency: FrequencyEnum = FrequencyEnum.ANNUAL
-    growth_rate: Optional[GrowthRate] = None
+    growth_rate: Optional[PercentageGrowthRate] = None
     rent_escalation: Optional[RentEscalationBase] = None
     rent_abatement: Optional[RentAbatementBase] = None
     recovery_method: Optional[RecoveryMethodBase] = None

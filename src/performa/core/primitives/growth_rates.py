@@ -200,8 +200,3 @@ class GrowthRates(Model):
         DynamicGrowthRates = create_model("DynamicGrowthRates", __base__=cls, **dynamic_fields)
 
         return DynamicGrowthRates.model_validate(instance_data)
-
-
-# Legacy aliases for backward compatibility
-GrowthRate = PercentageGrowthRate
-GrowthRates = GrowthRates 

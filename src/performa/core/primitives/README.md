@@ -31,7 +31,7 @@ calculations, settings, validation, and fundamental data types.
 - **Consistent vocabulary** across the entire framework
 
 ### Growth & Rates
-- **GrowthRate**: Flexible growth rate modeling (percentage, fixed)
+- **PercentageGrowthRate**: Flexible percentage-based growth rate modeling
 - **Support for time-varying rates** via Series and dictionaries
 - **Inflation-aware calculations** with proper timing
 
@@ -59,7 +59,7 @@ The primitives module provides the foundation that enables:
 
 ```python
 from performa.core.primitives import (
-    Timeline, CashFlowModel, GlobalSettings, GrowthRate
+    Timeline, CashFlowModel, GlobalSettings, PercentageGrowthRate
 )
 
 # Create timeline

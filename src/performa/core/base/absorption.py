@@ -29,7 +29,7 @@ from ..primitives.enums import (
     StartDateAnchorEnum,
     UponExpirationEnum,
 )
-from ..primitives.growth_rates import GrowthRate
+from ..primitives.growth_rates import PercentageGrowthRate
 from ..primitives.model import Model
 from ..primitives.settings import GlobalSettings
 from ..primitives.types import PositiveFloat, PositiveInt
@@ -133,7 +133,7 @@ class DirectLeaseTerms(Model):
     recovery_method: Optional["RecoveryMethodBase"] = None
     ti_allowance: Optional["TenantImprovementAllowanceBase"] = None
     leasing_commission: Optional["LeasingCommissionBase"] = None
-    market_rent_growth: Optional[GrowthRate] = None  # Allows rents to escalate during multi-year lease-up
+    market_rent_growth: Optional[PercentageGrowthRate] = None  # Allows rents to escalate during multi-year lease-up
     # FIXME: review this for internal consistency
 
 
