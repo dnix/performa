@@ -1253,10 +1253,8 @@ dependencies = [
     { name = "pydantic" },
     { name = "pyobsplot" },
     { name = "pyxirr" },
-    { name = "ruff" },
     { name = "scipy" },
     { name = "squarify" },
-    { name = "uv" },
 ]
 
 [package.optional-dependencies]
@@ -1270,6 +1268,7 @@ dev = [
     { name = "streamlit" },
     { name = "streamlit-extras" },
     { name = "streamlit-pydantic" },
+    { name = "uv" },
     { name = "watchdog" },
 ]
 
@@ -1288,14 +1287,13 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
     { name = "pyxirr" },
-    { name = "ruff" },
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "scipy" },
     { name = "squarify" },
     { name = "streamlit", marker = "extra == 'dev'" },
     { name = "streamlit-extras", marker = "extra == 'dev'" },
     { name = "streamlit-pydantic", marker = "extra == 'dev'", git = "https://github.com/HIL340/streamlit-pydantic.git?rev=pydantic-2.7" },
-    { name = "uv" },
+    { name = "uv", marker = "extra == 'dev'" },
     { name = "watchdog", marker = "extra == 'dev'" },
 ]
 

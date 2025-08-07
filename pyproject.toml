@@ -38,8 +38,6 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "uv",
-    "ruff",
     "numpy",
     "numpy-financial",
     "pandas",
@@ -54,6 +52,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "uv",
     "ruff",
     "pytest",
     "pytest-cov",
@@ -96,12 +95,35 @@ extend-select = [
     "PL",  # Pylint
     "CPY", # flake8-copyright
 ]
-unfixable = ["F401"]  # e.g., unused imports not autofixed
-ignore = ["E501"]  # Ignore line length errors
+ignore = [
+    "E501",  # Ignore line length errors
+    "F541",  # Ignore f-string without any placeholders
+    "F841",  # Ignore unused variable
+    "E303",  # Ignore too many blank lines
+    "E722",  # Ignore bare except
+    "E266",  # Ignore too many leading '#' for block comment
+]
+extend-ignore = [
+    "PLR2004",  # Ignore magic value used
+    "PLR0911",  # Ignore too many return statements
+    "PLR0912",  # Ignore too many branches
+    "PLR0913",  # Ignore too many arguments in function definition
+    "PLR0914",  # Ignore too many local variables
+    "PLR0917",  # Ignore too many positional arguments
+    "PLR0915",  # Ignore too many statements in function
+    "PLR0916",  # Ignore too many branches in function
+    "PLR1702",  # Ignore too many nested blocks
+    "PLR6201",  # Ignore use set literal when testing for membership
+    "PLR6301",  # Ignore could be a function, class method, or static method
+    "PLR1714",  # Ignore consider merging multiple comparisons
+]
 
 [tool.ruff.lint.per-file-ignores]
 # Marimo notebooks often need empty returns for display cells
-"examples/marimo/**/*.py" = ["PLR1711"]
+"examples/marimo/**/*.py" = [
+    "PLR1711",
+    "PLC0415",
+]
 # Scripts and examples need to be runnable (shebang first line), so ignore the copyright header.
 "scripts/**/*.py" = ["CPY001"]
 "examples/**/*.py" = ["CPY001"]
