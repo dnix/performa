@@ -125,8 +125,7 @@ performa/
 │   ├── unit/         # Unit tests
 │   ├── integration/  # Integration tests
 │   └── e2e/          # End-to-end tests
-├── examples/         # Usage examples
-├── notebooks/        # Interactive Marimo notebooks
+├── examples/         # Usage examples, including notebooks
 └── docs/             # Additional documentation
 ```
 
