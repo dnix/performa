@@ -15,20 +15,27 @@ authors:
     orcid: https://orcid.org/0009-0000-6784-8485
 repository-code: https://github.com/dnix/performa
 keywords:
+  - performa
   - python
+  - pydantic
+  - "data modeling"
   - "real estate"
+  - "commercial real estate"
+  - "real estate finance"
   - "real estate development"
   - "real estate investment"
-  - "real estate finance"
   - "real estate analysis"
   - "real estate modeling"
   - finance
   - "financial modeling"
-  - construction
-  - "cash flow analysis"
+  - "financial analysis"
+  - underwriting
+  - valuation
+  - "asset management"
+  - "artificial intelligence"
+  - "open source"
   - dcf
   - "discounted cash flow"
-  - "data analysis"
-  - analytics
+  - "cash flow analysis"
 license: Apache-2.0
 license-url: https://github.com/dnix/performa/blob/main/LICENSE
