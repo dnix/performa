@@ -313,6 +313,7 @@ class DealCalculator:
 
         except Exception:
             # Fallback: Return empty metrics if calculation fails
+            # FIXME: Consider logging this error in production
             pass
 
     # === BACKWARD COMPATIBILITY METHODS ===

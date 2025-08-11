@@ -4,6 +4,7 @@
 # Import all debt classes
 from .amortization import LoanAmortization
 from .construction import ConstructionFacility, DebtTranche
+from .constructs import create_construction_to_permanent_plan
 from .debt_facility import DebtFacility
 from .permanent import PermanentFacility
 from .plan import FinancingPlan
@@ -35,4 +36,6 @@ __all__ = [
     "LoanAmortization",
     # Type unions
     "AnyDebtFacility",
+    # Construct constructs
+    "create_construction_to_permanent_plan",
 ]

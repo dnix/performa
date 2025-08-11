@@ -9,7 +9,7 @@ and internal calculation methods for funding cascades, partnership distributions
 and metric calculations.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 import pandas as pd
@@ -29,6 +29,9 @@ from performa.deal.results import (
 from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
 from performa.debt.rates import FixedRate, InterestRate
 from performa.development.project import DevelopmentProject
+from performa.patterns import (
+    ValueAddAcquisitionPattern,
+)
 
 
 class TestFundingCascade:  # noqa: PLR0904
@@ -1731,6 +1734,66 @@ class TestAnalyzeDeal:
         # This should not raise an exception if validation passes
         results = analyze(sample_deal, sample_timeline, sample_settings)
         assert results is not None
+
+    def test_analyze_fluent_reporting_interface_with_l3_pattern(self):
+        """Test that analyze results work with fluent reporting interface using L3 pattern."""
+
+        # Use Pattern class to create a complete, working deal
+        pattern = ValueAddAcquisitionPattern(
+            property_name="Fluent Test Property",
+            acquisition_price=3_000_000,
+            acquisition_date=date(2024, 1, 1),
+            renovation_budget=450_000,
+            current_avg_rent=1400,
+            target_avg_rent=1700,
+            hold_period_years=5,
+            ltv_ratio=0.65,  # Use valid LTV ratio
+        )
+        deal = pattern.create()
+
+        timeline = Timeline.from_dates("2024-01-01", "2029-12-31")
+        results = analyze(deal, timeline)
+
+        # Test reporting interface availability
+        assert hasattr(results, "reporting")
+        assert results.reporting is not None
+
+        # Test interface caching
+        reporting_interface = results.reporting
+        assert results.reporting is reporting_interface  # Same object
+
+        # Annual summary
+        annual_summary = results.reporting.pro_forma_summary(frequency="A")
+        assert isinstance(annual_summary, pd.DataFrame)
+        assert annual_summary.shape[0] > 0  # Has financial metrics
+        assert annual_summary.shape[1] > 0  # Has time periods
+
+        # Quarterly summary
+        quarterly_summary = results.reporting.pro_forma_summary(frequency="Q")
+        assert isinstance(quarterly_summary, pd.DataFrame)
+        assert (
+            quarterly_summary.shape[1] >= annual_summary.shape[1]
+        )  # More or equal periods
+
+        # Test explicit monthly frequency
+        monthly_summary = results.reporting.pro_forma_summary(frequency="M")
+        assert isinstance(monthly_summary, pd.DataFrame)
+        assert (
+            monthly_summary.shape[1] >= quarterly_summary.shape[1]
+        )  # More periods than quarterly
+
+        # Default summary (should be annual)
+        default_summary = results.reporting.pro_forma_summary()
+        assert isinstance(default_summary, pd.DataFrame)
+        assert default_summary.equals(annual_summary)  # Default should equal annual
+
+        # Test that we have financial metrics (L3 patterns generate realistic data)
+        assert (
+            annual_summary.shape[0] >= 5
+        ), f"Expected multiple financial metrics, got {annual_summary.shape[0]}"
+        assert (
+            annual_summary.shape[1] >= 5
+        ), f"Expected multiple time periods, got {annual_summary.shape[1]}"
 
     def test_analyze_with_different_asset_types(
         self, sample_acquisition, sample_timeline, sample_settings

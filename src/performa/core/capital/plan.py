@@ -44,7 +44,7 @@ class CapitalItem(CashFlowModel):
     """
 
     category: str = "Capital"
-    subcategory: str = "RENOVATION"  # Can be overridden for specific types
+    subcategory: str = "RENOVATION"  # FIXME: Can be overridden for specific types
 
     # Optional renovation-specific fields
     work_type: Optional[str] = None  # "Demo", "Construction", "Finishes", etc.

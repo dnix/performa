@@ -17,7 +17,7 @@ import pandas as pd
 from pyxirr import xirr
 
 from ..core.primitives import Timeline
-from .partnership import Partner, PartnershipStructure
+from .partnership import PartnershipStructure
 
 # Constants for numerical precision
 BINARY_SEARCH_ITERATIONS = 30  # Iterations for binary search precision
@@ -592,29 +592,5 @@ def calculate_partner_distributions_with_structure(
     return calculator.calculate_distributions(cash_flows, timeline)
 
 
-def create_simple_partnership(
-    gp_name: str,
-    gp_share: float,
-    lp_name: str,
-    lp_share: float,
-    distribution_method: str = "pari_passu",
-) -> PartnershipStructure:
-    """
-    Helper function to create a simple 2-partner structure.
-
-    Args:
-        gp_name: General Partner name
-        gp_share: GP ownership percentage (0.0 to 1.0)
-        lp_name: Limited Partner name
-        lp_share: LP ownership percentage (0.0 to 1.0)
-        distribution_method: Distribution method ("pari_passu" or "waterfall")
-
-    Returns:
-        PartnershipStructure object
-    """
-    gp = Partner(name=gp_name, kind="GP", share=gp_share)
-    lp = Partner(name=lp_name, kind="LP", share=lp_share)
-
-    return PartnershipStructure(
-        partners=[gp, lp], distribution_method=distribution_method
-    )
+# Note: `create_simple_partnership` is imported from `performa.deal.constructs`
+# to preserve import paths used in tests. No local wrapper is defined here.

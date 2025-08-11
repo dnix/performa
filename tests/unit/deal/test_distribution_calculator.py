@@ -15,10 +15,10 @@ import pandas as pd
 import pytest
 
 from performa.core.primitives import Timeline
+from performa.deal import create_simple_partnership
 from performa.deal.distribution_calculator import (
     DistributionCalculator,
     calculate_partner_distributions_with_structure,
-    create_simple_partnership,
 )
 from performa.deal.entities import Partner
 from performa.deal.partnership import (

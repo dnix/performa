@@ -115,12 +115,8 @@ from performa.debt import (
     PermanentFacility,
 )
 from performa.development import DevelopmentProject
-from performa.reporting import (
-    create_development_summary,
-    create_draw_request,
-    create_leasing_status_report,
-    create_sources_and_uses_report,
-)
+
+# Note: Reporting now uses fluent API: results.reporting.*
 from performa.valuation import ReversionValuation
 
 
@@ -411,74 +407,39 @@ def main():
         traceback.print_exc()
         return
 
-    # Test Sources & Uses Report (using the asset directly)
-    print("\n📊 Generating Sources & Uses Report...")
+    # Note: Legacy development-specific reporting functions were deprecated
+    # in favor of the new fluent API demonstrated below
+    print("\n📊 Legacy reporting functions have been replaced by fluent API...")
+    print("     See NEW Fluent Reporting Interface section below for examples")
+
+    # Test NEW Fluent Reporting Interface
+    print("\n📊 Testing New Fluent Reporting Interface...")
     try:
-        sources_uses_report = create_sources_and_uses_report(deal.asset)
-        report_data = sources_uses_report.generate_data()
+        # Test the fluent API for pro forma summary
+        print("   Generating annual pro forma summary...")
+        annual_summary = results.reporting.pro_forma_summary(frequency="A")
+        print(f"     Annual Pro Forma shape: {annual_summary.shape}")
+        print(
+            f"     Available metrics: {list(annual_summary.index)[:5]}..."
+        )  # Show first 5
 
-        print("   Project Info:")
-        for key, value in report_data["project_info"].items():
-            print(f"     {key}: {value}")
+        # Test quarterly reporting
+        print("   Generating quarterly pro forma summary...")
+        quarterly_summary = results.reporting.pro_forma_summary(frequency="Q")
+        print(f"     Quarterly Pro Forma shape: {quarterly_summary.shape}")
 
-        print("   Uses Summary:")
-        for key, value in report_data["uses"].items():
-            print(f"     {key}: {value}")
+        # Test interface caching
+        assert results.reporting is results.reporting
+        print("     ✅ Reporting interface caching verified")
 
-        print("✅ Sources & Uses Report generated successfully")
+        print("✅ New Fluent Reporting Interface working perfectly!")
     except Exception as e:
-        print(f"❌ Sources & Uses Report failed: {e}")
-        traceback.print_exc()
-
-    # Test Development Summary Report
-    print("\n📈 Generating Development Summary...")
-    try:
-        summary_report = create_development_summary(deal.asset)
-        summary_data = summary_report.generate_data()
-
-        print("   Financial Summary:")
-        for key, value in summary_data["financial_summary"].items():
-            print(f"     {key}: {value}")
-
-        print("✅ Development Summary generated successfully")
-    except Exception as e:
-        print(f"❌ Development Summary failed: {e}")
-        traceback.print_exc()
-
-    # Test Construction Draw Report
-    print("\n🏗️ Generating Construction Draw Request...")
-    try:
-        draw_period = date(2024, 6, 1)
-        draw_report = create_draw_request(deal.asset, draw_period)
-        draw_data = draw_report.generate_data()
-
-        print("   Draw Header:")
-        for key, value in draw_data["draw_header"].items():
-            print(f"     {key}: {value}")
-
-        print("✅ Construction Draw Request generated successfully")
-    except Exception as e:
-        print(f"❌ Construction Draw Request failed: {e}")
-        traceback.print_exc()
-
-    # Test Leasing Status Report
-    print("\n🏢 Generating Leasing Status Report...")
-    try:
-        status_date = date(2025, 9, 1)
-        leasing_report = create_leasing_status_report(deal.asset, status_date)
-        leasing_data = leasing_report.generate_data()
-
-        print("   Leasing Summary:")
-        for key, value in leasing_data["leasing_summary"].items():
-            print(f"     {key}: {value}")
-
-        print("✅ Leasing Status Report generated successfully")
-    except Exception as e:
-        print(f"❌ Leasing Status Report failed: {e}")
+        print(f"❌ Fluent Reporting Interface failed: {e}")
         traceback.print_exc()
 
     print("\n🎉 Complete development deal analysis working!")
     print("📋 All Deal components and reporting functionality demonstrated!")
+    print("🚀 New fluent reporting interface (results.reporting.*) validated!")
 
 
 if __name__ == "__main__":
