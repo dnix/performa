@@ -1,6 +1,19 @@
 # Copyright 2024-2025 David Gordon Nix
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
+import warnings
+
+from . import analysis, asset, core, deal, debt, development, reporting, valuation
+
+# Silence pandas FutureWarning about 'M' frequency being deprecated
+# This warning is misleading - pandas has threatened this for years without action
+warnings.filterwarnings(
+    "ignore",
+    message=".*'M' is deprecated and will be removed in a future version.*",
+    category=FutureWarning,
+)
+
 """
 Performa - Open-Source Real Estate Financial Modeling Framework
 
@@ -35,17 +48,13 @@ Example Usage:
     ```
 """
 
-import logging
-
-# Import core modules to expose them at package level
-from . import analysis, asset, core, deal, debt, development, reporting, valuation
-
 # Add a NullHandler to the root logger to prevent "No handlers could be found" warnings
 # when the library is used in applications that don't configure logging.
 # This follows the logging best practice for libraries as described in the Python
 # logging documentation. Applications using this library can configure their own
 # logging handlers as needed.
 logging.getLogger(__name__).addHandler(logging.NullHandler())
+
 
 # Guide users to the new, explicit API surface
 __all__ = [

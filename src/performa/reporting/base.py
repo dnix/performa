@@ -8,14 +8,15 @@ These classes provide the foundation for translating Performa's internal
 models into familiar real estate industry formats and terminology.
 """
 
-# FIXME: this whole file needs some deep thinking to be sure it hits all the use cases
+
 
 from abc import ABC, abstractmethod
-from datetime import date
-from typing import Any, Dict, List, Optional, Union
-from uuid import UUID, uuid4
+from typing import TYPE_CHECKING, Any, Dict, List
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from ..deal.results import DealAnalysisResult
 
 
 class ReportTemplate(BaseModel):
@@ -45,102 +46,39 @@ class ReportTemplate(BaseModel):
     styling: Dict[str, Any] = Field(default_factory=dict)
 
 
-class Report(BaseModel, ABC):
+class BaseReport(ABC):
     """
-    Base class for all industry-standard reports.
+    Abstract base class for all report formatters.
 
-    Provides common functionality for data translation, formatting,
-    and export while allowing specific report types to customize
-    their presentation and terminology.
+    Reports operate on final DealAnalysisResult objects and transform
+    them into presentation-ready formats. Reports should only format
+    and present data, never perform calculations.
     """
 
-    # Report metadata
-    report_id: UUID = Field(default_factory=uuid4)
-    report_type: str
-    title: str
-    generated_date: date = Field(default_factory=date.today)
+    def __init__(self, results: "DealAnalysisResult"):
+        """
+        Initialize report with analysis results.
 
-    # Source data reference
-    source_project_id: Optional[UUID] = None
-    as_of_date: Optional[date] = None
+        Args:
+            results: Complete DealAnalysisResult from performa.deal.analyze()
+        """
+        # Import at runtime to avoid circular dependencies
+        from ..deal.results import DealAnalysisResult  # noqa: PLC0415
 
-    # Template and formatting
-    template: Optional[ReportTemplate] = None
-
-    # Project reference (for report classes that need to store the project)
-    project: Optional[Any] = None
-    period: Optional[Any] = None  # For period-specific reports
+        if not isinstance(results, DealAnalysisResult):
+            raise TypeError("BaseReport requires a DealAnalysisResult object")
+        self._results = results
 
     @abstractmethod
-    def generate_data(self) -> Dict[str, Any]:
+    def generate(self, **kwargs) -> Any:
         """
-        Generate the report data in industry-standard format.
+        Generate the formatted report output.
 
-        This method should transform internal Performa models into
-        dictionaries using familiar real estate terminology.
+        This method should transform the analysis results into the
+        appropriate output format (DataFrame, dict, etc.) without
+        performing any financial calculations.
         """
         pass
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert report to dictionary format for export"""
-        return {
-            "metadata": {
-                "report_id": str(self.report_id),
-                "report_type": self.report_type,
-                "title": self.title,
-                "generated_date": self.generated_date.isoformat(),
-                "as_of_date": self.as_of_date.isoformat() if self.as_of_date else None,
-            },
-            "data": self.generate_data(),
-        }
-
-    def to_excel_data(self) -> Dict[str, List[Dict[str, Any]]]:
-        """
-        Format data for Excel export.
-
-        Returns dictionary where keys are sheet names and values are
-        lists of row dictionaries suitable for pandas DataFrame creation.
-        """
-        data = self.generate_data()
-        return {"Report": [data]}  # Default single sheet
-
-    def format_currency(self, value: Union[float, int]) -> str:
-        """Format currency using template formatting"""
-        if self.template and hasattr(self.template, "currency_format"):
-            return self.template.currency_format.format(value)
-        return f"${value:,.0f}"
-
-    def format_percentage(self, value: float) -> str:
-        """Format percentage using template formatting"""
-        if self.template and hasattr(self.template, "percentage_format"):
-            return self.template.percentage_format.format(value)
-        return f"{value:.1%}"
-
-    def translate_term(self, internal_term: str) -> str:
-        """
-        Translate internal terminology to industry-standard terms.
-
-        Uses template terminology mapping or falls back to defaults.
-        """
-        if self.template and internal_term in self.template.terminology:
-            return self.template.terminology[internal_term]
-
-        # Default terminology mappings
-        default_mappings = {
-            "capital_plan": "Sources & Uses",
-            "construction_plan": "Construction Budget",
-            "absorption_plan": "Market Leasing",
-            "lease_up_plan": "Space Absorption",
-            "disposition_assumptions": "Reversion Analysis",
-            "hard_costs": "Direct Construction Costs",
-            "soft_costs": "Indirect Costs",
-            "ltc_ratio": "Loan-to-Cost",
-            "completion_date": "Substantial Completion",
-        }
-
-        return default_mappings.get(
-            internal_term, internal_term.replace("_", " ").title()
-        )
 
 
 class IndustryMetrics:

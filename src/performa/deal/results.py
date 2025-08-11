@@ -17,13 +17,17 @@ Key Features:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Optional, Union
+from functools import cached_property
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
 
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # Add import for the enum
 from ..core.primitives import Timeline, UnleveredAggregateLineKey
+
+if TYPE_CHECKING:
+    from ..reporting.interface import ReportingInterface
 
 # =============================================================================
 # Base Result Model
@@ -700,41 +704,25 @@ class DealAnalysisResult(ResultModel):
         None, description="Deal-level performance metrics"
     )
 
+    @cached_property
+    def reporting(self) -> "ReportingInterface":
+        """
+        Provides access to standardized report formatters.
 
-# =============================================================================
-# Export all models
-# =============================================================================
+        This cached property exposes a fluent interface for generating various
+        industry-standard reports from the analysis results.
 
-__all__ = [
-    # Main result
-    "DealAnalysisResult",
-    # Core models
-    "DealSummary",
-    "DealMetricsResult",
-    # Unlevered analysis
-    "UnleveredAnalysisResult",
-    # Financing analysis
-    "FinancingAnalysisResult",
-    "FacilityInfo",
-    "DSCRSummary",
-    # Cash flow analysis
-    "LeveredCashFlowResult",
-    "CashFlowComponents",
-    "CashFlowSummary",
-    "FundingCascadeDetails",
-    "InterestCompoundingDetails",
-    # Note: Advanced interest features not included in MVP
-    "InterestReserveDetails",
-    # Distribution analysis
-    "PartnerDistributionResult",
-    "WaterfallDistributionResult",
-    "SingleEntityDistributionResult",
-    "ErrorDistributionResult",
-    "BaseDistributionResult",
-    "WaterfallDetails",
-    "SingleEntityWaterfallDetails",
-    "ErrorWaterfallDetails",
-    "FeeAccountingDetails",
-    "EmptyFeeAccountingDetails",
-    "PartnerMetrics",
-]
+        Returns:
+            ReportingInterface instance for accessing reports (cached)
+
+        Example:
+            results = analyze(deal, timeline)
+            pro_forma = results.reporting.pro_forma_summary()
+
+            if results.deal_summary.is_development:
+                sources_uses = results.reporting.sources_and_uses()
+        """
+        # Import at runtime to avoid circular dependencies during module loading
+        from ..reporting.interface import ReportingInterface  # noqa: PLC0415
+
+        return ReportingInterface(self)
