@@ -256,7 +256,6 @@ class TestIntegrationWithLeaseSpecBase:
             floor="1",
             area=1000.0,
             base_rent_value=50.0,
-            base_rent_unit_of_measure="currency",
         )
         assert spec.end_date == date(2024, 12, 31)
 
@@ -273,7 +272,6 @@ class TestIntegrationWithLeaseSpecBase:
                 floor="1",
                 area=1000.0,
                 base_rent_value=50.0,
-                base_rent_unit_of_measure="currency",
             )
 
 

@@ -67,7 +67,6 @@ absorption_plan = OfficeAbsorptionPlan.with_typical_assumptions(
     ),
     leasing_assumptions=DirectLeaseTerms(
         base_rent_value=45.0,
-        base_rent_unit_of_measure="per_unit",
         base_rent_frequency="annual",
         term_months=60,
         upon_expiration="market"

@@ -36,7 +36,7 @@ class CapitalItem(CashFlowModel):
     Inherits all CashFlowModel functionality:
     - timeline: When and for how long the work occurs
     - value: Cost amount (supports scalar, series, dict for complex timing)
-    - unit_of_measure: Currency, per-unit, or percentage
+    - reference: Reference for the capital item (PropertyAttributeKey, UnleveredAggregateLineKey, or None)
     - compute_cf(): Handles all cash flow logic with growth rates
 
     Key Difference from OpEx: Capital items typically don't grow, but

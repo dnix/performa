@@ -33,7 +33,12 @@ from performa.asset.residential.rollover import (
 )
 from performa.core.base import FixedQuantityPace as ResidentialFixedQuantityPace
 from performa.core.capital import CapitalItem, CapitalPlan
-from performa.core.primitives import AssetTypeEnum, GlobalSettings, Timeline
+from performa.core.primitives import (
+    AssetTypeEnum,
+    GlobalSettings,
+    PropertyAttributeKey,
+    Timeline,
+)
 from performa.debt import (
     ConstructionFacility,
     DebtTranche,
@@ -52,7 +57,6 @@ def test_development_analysis_scenario_instantiation():
                 name="Construction",
                 timeline=Timeline.from_dates(date(2024, 1, 1), date(2024, 12, 31)),
                 value=10000000.0,
-                unit_of_measure="currency",
                 frequency="monthly",
             )
         ],
@@ -84,7 +88,7 @@ def test_development_analysis_scenario_instantiation():
             ),
             leasing_assumptions=DirectLeaseTerms(
                 base_rent_value=40.0,
-                base_rent_unit_of_measure="per_unit",
+                base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 base_rent_frequency="annual",  # $40/SF/year (not monthly!)
                 term_months=60,
                 upon_expiration="market",
@@ -126,14 +130,12 @@ def test_development_analysis_scenario_prepare_models():
                 name="Site Preparation",
                 timeline=Timeline.from_dates(date(2024, 1, 1), date(2024, 6, 30)),
                 value=2000000.0,
-                unit_of_measure="currency",
                 frequency="monthly",
             ),
             CapitalItem(
                 name="Building Construction",
                 timeline=Timeline.from_dates(date(2024, 3, 1), date(2025, 3, 31)),
                 value=15000000.0,
-                unit_of_measure="currency",
                 frequency="monthly",
             ),
         ],
@@ -169,7 +171,7 @@ def test_development_analysis_scenario_prepare_models():
             ),
             leasing_assumptions=DirectLeaseTerms(
                 base_rent_value=40.0,
-                base_rent_unit_of_measure="per_unit",
+                base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 base_rent_frequency="annual",  # $40/SF/year (not monthly!)
                 term_months=60,
                 upon_expiration="market",
@@ -222,7 +224,6 @@ def test_development_analysis_scenario_mixed_use():
                 name="Foundation and Structure",
                 timeline=Timeline.from_dates(date(2024, 1, 1), date(2025, 12, 31)),
                 value=35000000.0,
-                unit_of_measure="currency",
                 frequency="monthly",
             )
         ],
@@ -254,7 +255,7 @@ def test_development_analysis_scenario_mixed_use():
             ),
             leasing_assumptions=DirectLeaseTerms(
                 base_rent_value=40.0,
-                base_rent_unit_of_measure="per_unit",
+                base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 base_rent_frequency="annual",  # $40/SF/year (not monthly!)
                 term_months=84,
                 upon_expiration="market",
@@ -335,7 +336,6 @@ def test_development_analysis_scenario_empty_blueprints():
                 name="Site Preparation",
                 timeline=Timeline.from_dates(date(2024, 1, 1), date(2024, 8, 31)),
                 value=5000000.0,
-                unit_of_measure="currency",
                 frequency="monthly",
             )
         ],
@@ -388,7 +388,6 @@ def test_development_analysis_scenario_with_disposition():
                 name="Investment Grade Construction",
                 timeline=Timeline.from_dates(date(2024, 1, 1), date(2025, 6, 30)),
                 value=25000000.0,
-                unit_of_measure="currency",
                 frequency="monthly",
             )
         ],
@@ -420,7 +419,7 @@ def test_development_analysis_scenario_with_disposition():
             ),
             leasing_assumptions=DirectLeaseTerms(
                 base_rent_value=40.0,
-                base_rent_unit_of_measure="per_unit",
+                base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 base_rent_frequency="annual",  # $40/SF/year (not monthly!)
                 term_months=120,  # Long-term lease for investment sale
                 upon_expiration="market",
@@ -476,7 +475,6 @@ def test_development_analysis_scenario_polymorphic_iteration():
                 name="Construction",
                 timeline=Timeline.from_dates(date(2024, 1, 1), date(2024, 12, 31)),
                 value=20000000.0,
-                unit_of_measure="currency",
                 frequency="monthly",
             )
         ],
@@ -508,7 +506,7 @@ def test_development_analysis_scenario_polymorphic_iteration():
             ),
             leasing_assumptions=DirectLeaseTerms(
                 base_rent_value=40.0,
-                base_rent_unit_of_measure="per_unit",
+                base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 base_rent_frequency="annual",  # $40/SF/year (not monthly!)
                 term_months=60,
                 upon_expiration="market",
@@ -585,7 +583,6 @@ def test_development_analysis_end_to_end():
                 name="Complete Building",
                 timeline=Timeline.from_dates(date(2024, 1, 1), date(2025, 6, 30)),
                 value=30000000.0,
-                unit_of_measure="currency",
                 frequency="monthly",
             )
         ],
@@ -620,7 +617,7 @@ def test_development_analysis_end_to_end():
             ),
             leasing_assumptions=DirectLeaseTerms(
                 base_rent_value=40.0,
-                base_rent_unit_of_measure="per_unit",
+                base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 base_rent_frequency="annual",  # $40/SF/year (not monthly!)
                 term_months=84,
                 upon_expiration="market",

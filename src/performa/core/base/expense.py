@@ -66,7 +66,7 @@ class OpExItemBase(ExpenseItemBase):
     Base class for operating expenses.
 
     This class inherits the powerful `compute_cf` method from `CashFlowModel`,
-    which automatically handles value calculation based on `unit_of_measure`,
+    which automatically handles value calculation based on `reference`,
     dependency resolution via `reference`, and growth rate application.
     Subclasses like `OfficeOpExItem` can then call `super().compute_cf()` and
     apply their own specific adjustments (e.g., for occupancy).

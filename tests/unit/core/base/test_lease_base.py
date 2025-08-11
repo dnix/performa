@@ -53,7 +53,6 @@ def test_lease_spec_base_term_validation():
             signing_date=date(2024, 2, 1),  # After start_date
             end_date=date(2024, 12, 31),
             base_rent_value=1,
-            base_rent_unit_of_measure="currency",
         )
 
 
@@ -68,7 +67,6 @@ def test_lease_spec_computed_end_date():
         floor="f",
         area=1,
         base_rent_value=1,
-        base_rent_unit_of_measure="currency",
     )
     assert spec1.computed_end_date == date(2024, 12, 31)
 
@@ -81,7 +79,6 @@ def test_lease_spec_computed_end_date():
         floor="f",
         area=1,
         base_rent_value=1,
-        base_rent_unit_of_measure="currency",
     )
     assert spec2.computed_end_date == date(2024, 12, 31)
 

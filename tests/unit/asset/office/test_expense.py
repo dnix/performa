@@ -94,7 +94,7 @@ def test_expenses_container(sample_timeline: Timeline):
     opex1 = OfficeOpExItem(
         name="CAM",
         value=10,
-        unit_of_measure="per_unit",
+        reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         frequency="annual",
         timeline=sample_timeline,
     )

@@ -63,7 +63,12 @@ from performa.asset.residential.rollover import (
 )
 from performa.core.base import FixedQuantityPace as ResidentialFixedQuantityPace
 from performa.core.capital import CapitalItem, CapitalPlan
-from performa.core.primitives import AssetTypeEnum, GlobalSettings, Timeline
+from performa.core.primitives import (
+    AssetTypeEnum,
+    GlobalSettings,
+    PropertyAttributeKey,
+    Timeline,
+)
 from performa.debt import (
     ConstructionFacility,
     DebtTranche,
@@ -108,7 +113,6 @@ def stabilized_office_baseline(analysis_timeline) -> OfficeProperty:
                 start_date=date(2025, 1, 1),  # After construction completion
                 term_months=60,  # 5-year lease
                 base_rent_value=50.0,  # $50/SF
-                base_rent_unit_of_measure="per_unit",
                 base_rent_frequency="annual",
                 lease_type="gross",
                 upon_expiration="market",
@@ -123,7 +127,7 @@ def stabilized_office_baseline(analysis_timeline) -> OfficeProperty:
                 name="Operating Expenses",
                 timeline=analysis_timeline,
                 value=15.0,  # $15/SF
-                unit_of_measure="per_unit",
+                reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 frequency="annual",
             )
         ]
@@ -180,7 +184,6 @@ def equivalent_office_development_project() -> DevelopmentProject:
                     start_date=date(2024, 1, 1), end_date=date(2024, 12, 31)
                 ),
                 value=20000000.0,
-                unit_of_measure="currency",
                 frequency="monthly",
             )
         ],
@@ -219,7 +222,7 @@ def equivalent_office_development_project() -> DevelopmentProject:
             ),
             leasing_assumptions=DirectLeaseTerms(
                 base_rent_value=50.0,  # Match baseline
-                base_rent_unit_of_measure="per_unit",
+                base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 base_rent_frequency="annual",  # $50/SF/year (not monthly!)
                 term_months=60,
                 upon_expiration="market",
@@ -323,7 +326,6 @@ def equivalent_residential_development_project() -> DevelopmentProject:
                     start_date=date(2024, 1, 1), end_date=date(2024, 12, 31)
                 ),
                 value=15000000.0,
-                unit_of_measure="currency",
                 frequency="monthly",
             )
         ],
@@ -405,7 +407,6 @@ def mixed_use_development_project(
                     start_date=date(2024, 1, 1), end_date=date(2024, 12, 31)
                 ),
                 value=35000000.0,  # Combined cost
-                unit_of_measure="currency",
                 frequency="monthly",
             )
         ],

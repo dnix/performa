@@ -33,7 +33,6 @@ class DispositionCashFlow(CashFlowModel):
             value=net_proceeds,
             category="Disposition",
             subcategory="Sale Proceeds",
-            unit_of_measure="currency",
             frequency="monthly"
         )
         ```

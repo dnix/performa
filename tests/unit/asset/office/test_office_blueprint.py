@@ -18,7 +18,7 @@ from performa.asset.office.absorption import (
     SpaceFilter,
 )
 from performa.core.base import DevelopmentBlueprintBase
-from performa.core.primitives import Timeline
+from performa.core.primitives import PropertyAttributeKey, Timeline
 
 
 def test_office_blueprint_inheritance():
@@ -48,7 +48,7 @@ def test_office_blueprint_instantiation():
         ),
         leasing_assumptions=DirectLeaseTerms(
             base_rent_value=45.0,
-            base_rent_unit_of_measure="per_unit",
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             term_months=60,
             upon_expiration="market",
         ),
@@ -96,7 +96,7 @@ def test_office_blueprint_vacant_inventory_aggregation():
         ),
         leasing_assumptions=DirectLeaseTerms(
             base_rent_value=50.0,
-            base_rent_unit_of_measure="per_unit",
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             term_months=84,
             upon_expiration="market",
         ),
@@ -146,7 +146,7 @@ def test_office_blueprint_to_stabilized_asset():
         ),
         leasing_assumptions=DirectLeaseTerms(
             base_rent_value=55.0,
-            base_rent_unit_of_measure="per_unit",
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             term_months=60,
             upon_expiration="market",
         ),
@@ -192,7 +192,7 @@ def test_office_blueprint_relative_timeline_validation():
         ),
         leasing_assumptions=DirectLeaseTerms(
             base_rent_value=40.0,
-            base_rent_unit_of_measure="per_unit",
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             term_months=60,
             upon_expiration="market",
         ),
@@ -228,7 +228,7 @@ def test_office_blueprint_absorption_plan_validation():
         ),
         leasing_assumptions=DirectLeaseTerms(
             base_rent_value=40.0,
-            base_rent_unit_of_measure="per_unit",
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             term_months=60,
             upon_expiration="market",
         ),
@@ -256,7 +256,7 @@ def test_office_blueprint_empty_inventory():
         ),
         leasing_assumptions=DirectLeaseTerms(
             base_rent_value=40.0,
-            base_rent_unit_of_measure="per_unit",
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             term_months=60,
             upon_expiration="market",
         ),
@@ -294,7 +294,7 @@ def test_office_blueprint_pace_type_discriminator():
         ),
         leasing_assumptions=DirectLeaseTerms(
             base_rent_value=45.0,
-            base_rent_unit_of_measure="per_unit",
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             term_months=60,
             upon_expiration="market",
         ),
@@ -332,7 +332,7 @@ def test_office_blueprint_name_inheritance():
         ),
         leasing_assumptions=DirectLeaseTerms(
             base_rent_value=60.0,
-            base_rent_unit_of_measure="per_unit",
+            base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             term_months=120,  # 10-year lease
             upon_expiration="market",
         ),

@@ -47,7 +47,7 @@ from performa.asset.residential.rollover import (
 )
 from performa.core.base import FixedQuantityPace as ResidentialFixedQuantityPace
 from performa.core.capital import CapitalItem, CapitalPlan
-from performa.core.primitives import AssetTypeEnum, Timeline
+from performa.core.primitives import AssetTypeEnum, PropertyAttributeKey, Timeline
 from performa.debt import (
     ConstructionFacility,
     DebtTranche,
@@ -77,7 +77,6 @@ def construction_plan() -> CapitalPlan:
                     start_date=date(2024, 1, 1), end_date=date(2025, 6, 30)
                 ),
                 value=50000000.0,
-                unit_of_measure="currency",
                 frequency="monthly",
             ),
             CapitalItem(
@@ -86,7 +85,6 @@ def construction_plan() -> CapitalPlan:
                     start_date=date(2024, 6, 1), end_date=date(2025, 12, 31)
                 ),
                 value=30000000.0,
-                unit_of_measure="currency",
                 frequency="monthly",
             ),
         ],
@@ -135,7 +133,7 @@ def office_blueprint() -> OfficeDevelopmentBlueprint:
             ),
             leasing_assumptions=DirectLeaseTerms(
                 base_rent_value=55.0,
-                base_rent_unit_of_measure="per_unit",
+                base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 term_months=84,  # 7-year leases
                 upon_expiration="market",
             ),

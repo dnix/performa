@@ -366,7 +366,6 @@ def __(
     # Create lease terms
     lease_terms = DirectLeaseTerms(
         base_rent_value=base_rent.value,
-        base_rent_unit_of_measure=UnitOfMeasureEnum.PER_UNIT,
         base_rent_frequency=FrequencyEnum.ANNUAL,
         term_months=lease_term.value,
         upon_expiration=UponExpirationEnum.MARKET,

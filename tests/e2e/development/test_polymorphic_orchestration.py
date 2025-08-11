@@ -49,7 +49,12 @@ from performa.asset.residential.rollover import (
 )
 from performa.core.base import FixedQuantityPace as ResidentialFixedQuantityPace
 from performa.core.capital import CapitalItem, CapitalPlan
-from performa.core.primitives import AssetTypeEnum, GlobalSettings, Timeline
+from performa.core.primitives import (
+    AssetTypeEnum,
+    GlobalSettings,
+    PropertyAttributeKey,
+    Timeline,
+)
 from performa.debt import (
     ConstructionFacility,
     DebtTranche,
@@ -87,7 +92,6 @@ def simple_construction_plan() -> CapitalPlan:
                     start_date=date(2024, 1, 1), end_date=date(2024, 12, 31)
                 ),
                 value=10000000.0,
-                unit_of_measure="currency",
                 frequency="monthly",
             )
         ],
@@ -131,7 +135,7 @@ def office_blueprint() -> OfficeDevelopmentBlueprint:
             ),
             leasing_assumptions=DirectLeaseTerms(
                 base_rent_value=40.0,
-                base_rent_unit_of_measure="per_unit",
+                base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 term_months=60,
                 upon_expiration="market",
             ),
@@ -187,14 +191,12 @@ def comprehensive_project() -> DevelopmentProject:
                 name="Site Preparation",
                 timeline=Timeline.from_dates(date(2024, 1, 1), date(2024, 3, 31)),
                 value=2000000.0,
-                unit_of_measure="currency",
                 frequency="monthly",
             ),
             CapitalItem(
                 name="Building Construction",
                 timeline=Timeline.from_dates(date(2024, 2, 1), date(2025, 8, 31)),
                 value=25000000.0,
-                unit_of_measure="currency",
                 frequency="monthly",
             ),
         ],
@@ -233,7 +235,7 @@ def comprehensive_project() -> DevelopmentProject:
             ),
             leasing_assumptions=DirectLeaseTerms(
                 base_rent_value=65.0,
-                base_rent_unit_of_measure="per_unit",
+                base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 base_rent_frequency="annual",  # $65/SF/year (not monthly!)
                 term_months=120,
                 upon_expiration="market",

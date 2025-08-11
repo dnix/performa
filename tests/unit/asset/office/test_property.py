@@ -16,7 +16,7 @@ from performa.asset.office.losses import (
 )
 from performa.asset.office.property import OfficeProperty
 from performa.asset.office.rent_roll import OfficeRentRoll
-from performa.core.primitives import AssetTypeEnum
+from performa.core.primitives import AssetTypeEnum, PropertyAttributeKey
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def sample_property():
         start_date=date(2024, 1, 1),
         end_date=date(2025, 1, 1),
         base_rent_value=10,
-        base_rent_unit_of_measure="per_unit",
+        base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         lease_type="net",
         upon_expiration="market",
     )
@@ -43,7 +43,7 @@ def sample_property():
         start_date=date(2024, 1, 1),
         end_date=date(2025, 1, 1),
         base_rent_value=10,
-        base_rent_unit_of_measure="per_unit",
+        base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         lease_type="net",
         upon_expiration="market",
     )

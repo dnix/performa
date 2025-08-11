@@ -78,7 +78,7 @@ def create_stepped_fixed_escalations(
     Args:
         start_month: Month when escalations begin (1-indexed from lease start)
         annual_amounts: List of annual dollar amounts (e.g., [1.50, 1.75, 2.00])
-        unit_of_measure: PER_UNIT ($/SF) or CURRENCY (total $)
+        reference: Reference for the escalation (PropertyAttributeKey, UnleveredAggregateLineKey, or None)
         years_per_step: Years each amount applies (default: 1 year per step)
 
     Returns:
@@ -157,7 +157,7 @@ def create_escalations_from_absolute_dates(
 
     Args:
         escalation_schedule: List of (date, rate, type) tuples
-        unit_of_measure: Unit of measure for the escalations
+        reference: Reference for the escalation (PropertyAttributeKey, UnleveredAggregateLineKey, or None)
 
     Returns:
         List of OfficeRentEscalation objects

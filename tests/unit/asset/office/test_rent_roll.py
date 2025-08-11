@@ -9,6 +9,7 @@ import pytest
 
 from performa.asset.office.lease_spec import OfficeLeaseSpec
 from performa.asset.office.rent_roll import OfficeRentRoll, OfficeVacantSuite
+from performa.core.primitives import PropertyAttributeKey
 
 
 def test_office_vacant_suite_validation():
@@ -54,7 +55,7 @@ def test_office_rent_roll_properties():
         start_date=date(2024, 1, 1),
         end_date=date(2025, 1, 1),
         base_rent_value=10,
-        base_rent_unit_of_measure="per_unit",
+        base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         lease_type="net",
         upon_expiration="market",
     )
@@ -67,7 +68,7 @@ def test_office_rent_roll_properties():
         start_date=date(2024, 1, 1),
         end_date=date(2025, 1, 1),
         base_rent_value=10,
-        base_rent_unit_of_measure="per_unit",
+        base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
         lease_type="net",
         upon_expiration="market",
     )
