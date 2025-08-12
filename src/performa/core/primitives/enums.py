@@ -617,3 +617,55 @@ class FeeTypeEnum(str, Enum):
     def is_third_party_fee_type(cls, fee_type: "FeeTypeEnum") -> bool:
         """Check if a fee type is typically paid to third-party providers."""
         return fee_type in cls.get_third_party_fee_types()
+
+
+class TransactionPurpose(str, Enum):
+    """
+    High-level classification of transaction purposes in the ledger.
+    
+    Provides unambiguous categorization of financial flows following 
+    standard real estate accounting principles.
+    
+    Categories:
+        OPERATING: Day-to-day property operations (revenue and expenses)
+        CAPITAL_USE: Capital deployed for acquisition, improvements, or development
+        CAPITAL_SOURCE: Capital raised from sales, refinancing, or equity contributions
+        FINANCING_SERVICE: Debt service payments and financing-related flows
+    """
+    
+    OPERATING = "Operating"
+    """
+    Day-to-day property operations including all revenue and operating expenses.
+    - Revenue: Rent, miscellaneous income, expense recoveries
+    - Expenses: Property taxes, insurance, utilities, maintenance, management
+    - Both positive (income) and negative (expense) amounts
+    """
+    
+    CAPITAL_USE = "Capital Use"
+    """
+    Capital deployed for property acquisition, improvements, or development.
+    - Acquisition costs and fees
+    - Tenant improvements and leasing commissions
+    - Capital expenditures and major renovations
+    - Development costs and construction
+    - Typically negative amounts (cash outflows)
+    """
+    
+    CAPITAL_SOURCE = "Capital Source"
+    """
+    Capital raised from asset sales, refinancing, or equity contributions.
+    - Property sale proceeds
+    - Refinancing proceeds (gross)
+    - Equity contributions from partners
+    - Return of capital to partners
+    - Typically positive amounts (cash inflows)
+    """
+    
+    FINANCING_SERVICE = "Financing Service"
+    """
+    Debt service payments and financing-related obligations.
+    - Principal and interest payments
+    - Loan fees and financing costs
+    - Prepayment penalties
+    - Typically negative amounts (cash outflows)
+    """
