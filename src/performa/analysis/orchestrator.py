@@ -59,12 +59,13 @@ import logging
 import time
 from dataclasses import dataclass, field
 from graphlib import CycleError, TopologicalSorter
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
 import pandas as pd
 
 from performa.core.base import LeaseBase
+from performa.core.ledger import SeriesMetadata
 from performa.core.primitives import (
     CalculationPass,
     ExpenseSubcategoryEnum,
@@ -390,6 +391,71 @@ class CashFlowOrchestrator:
                 logger.debug(f"  First period UCF: ${first_ucf:,.0f}")
 
         logger.info("Analysis ready for consumption via summary_df and detailed_df")
+
+    def get_series_with_metadata(
+        self, 
+        asset_id: UUID, 
+        deal_id: Optional[UUID] = None
+    ) -> List[Tuple[pd.Series, SeriesMetadata]]:
+        """
+        Return (Series, SeriesMetadata) tuples for ledger building.
+        
+        Follows the existing detailed_flows_list pattern from _aggregate_flows().
+        This method extracts the metadata-rich series information that the 
+        orchestrator already tracks internally.
+        
+        Args:
+            asset_id: UUID of the asset these flows belong to
+            deal_id: Optional UUID of the deal (for deal-level analysis)
+            
+        Returns:
+            List of (pd.Series, SeriesMetadata) tuples ready for ledger building
+            
+        Note:
+            This must be called after execute() to ensure resolved_lookups is populated.
+        """
+        
+        if not hasattr(self.context, 'resolved_lookups') or not self.context.resolved_lookups:
+            raise ValueError("Must call execute() before get_series_with_metadata()")
+        
+        pairs = []
+        
+        # Follow the existing pattern from _aggregate_flows()
+        for lookup_key, result in self.context.resolved_lookups.items():
+            if isinstance(lookup_key, UUID):
+                model = self.model_map[lookup_key]
+                
+                # Determine pass number from model's calculation pass
+                pass_num = 1 if model.calculation_pass == CalculationPass.INDEPENDENT_VALUES else 2
+                
+                if isinstance(result, dict):  # Multi-component (e.g., lease)
+                    for component, series in result.items():
+                        if series is not None and not series.empty:
+                            metadata = SeriesMetadata(
+                                category=model.category,
+                                subcategory=model.subcategory,
+                                item_name=f"{model.name} - {component}",
+                                source_id=model.uid,
+                                asset_id=asset_id,
+                                pass_num=pass_num,
+                                deal_id=deal_id
+                            )
+                            pairs.append((series, metadata))
+                            
+                elif isinstance(result, pd.Series):  # Simple series
+                    if result is not None and not result.empty:
+                        metadata = SeriesMetadata(
+                            category=model.category,
+                            subcategory=model.subcategory,
+                            item_name=model.name,
+                            source_id=model.uid,
+                            asset_id=asset_id,
+                            pass_num=pass_num,
+                            deal_id=deal_id
+                        )
+                        pairs.append((result, metadata))
+        
+        return pairs
 
     # --- CRITICAL METHOD 2: _calculate_occupancy_series() ---
     def _calculate_occupancy_series(self) -> pd.Series:

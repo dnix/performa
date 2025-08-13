@@ -49,8 +49,12 @@ class SeriesBatchConverter:
         if series is None or series.empty:
             return []
         
-        # Validate series index
-        if not isinstance(series.index, pd.DatetimeIndex):
+        # Convert index to DatetimeIndex if needed
+        if isinstance(series.index, pd.PeriodIndex):
+            # Convert PeriodIndex to DatetimeIndex
+            series.index = series.index.to_timestamp()
+        elif not isinstance(series.index, pd.DatetimeIndex):
+            # Try to convert other index types to datetime
             try:
                 series.index = pd.to_datetime(series.index)
             except Exception as e:
@@ -152,12 +156,13 @@ class SeriesBatchConverter:
         if metadata is None:
             raise ValueError("Metadata cannot be None")
         
-        # Check for datetime index
-        if not series.empty and not isinstance(series.index, pd.DatetimeIndex):
-            try:
-                pd.to_datetime(series.index)
-            except Exception as e:
-                raise ValueError(f"Series must have datetime-like index: {e}")
+        # Check for datetime-like index (DatetimeIndex or PeriodIndex)
+        if not series.empty:
+            if not isinstance(series.index, (pd.DatetimeIndex, pd.PeriodIndex)):
+                try:
+                    pd.to_datetime(series.index)
+                except Exception as e:
+                    raise ValueError(f"Series must have datetime-like index: {e}")
         
         # Check for numeric values
         if not series.empty and not pd.api.types.is_numeric_dtype(series):

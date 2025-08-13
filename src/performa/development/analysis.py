@@ -81,15 +81,17 @@ class DevelopmentAnalysisScenario(AnalysisScenarioBase):
             )
 
             if stabilized_asset:
-                # Use the existing analysis API to get the correct sub-scenario.
-                # This integrates with the asset analysis engine.
-                asset_scenario = run(
+                # Run analysis for the stabilized asset.
+                # This integrates with the asset analysis engine and generates the ledger.
+                asset_result = run(
                     model=stabilized_asset,
                     timeline=stabilized_timeline,
                     settings=self.settings,
                 )
-                # Append all models (leases, OpEx, etc.) from the stabilized analysis.
-                all_models.extend(asset_scenario._orchestrator.models)
+                # Get all models from the stabilized asset directly
+                # (the run already used these models through the scenario)
+                stabilized_models = asset_result.models
+                all_models.extend(stabilized_models)
 
         return all_models
 
