@@ -20,6 +20,8 @@ from pydantic import Field, computed_field, field_validator
 
 from ..primitives import (
     AnyDrawSchedule,
+    CapitalSubcategoryEnum,
+    CashFlowCategoryEnum,
     CashFlowModel,
     Model,
     PropertyAttributeKey,
@@ -43,8 +45,8 @@ class CapitalItem(CashFlowModel):
     CashFlowModel can handle growth if needed for inflation adjustments.
     """
 
-    category: str = "Capital"
-    subcategory: str = "RENOVATION"  # FIXME: Can be overridden for specific types
+    category: CashFlowCategoryEnum = CashFlowCategoryEnum.CAPITAL
+    subcategory: CapitalSubcategoryEnum = CapitalSubcategoryEnum.HARD_COSTS  # FIXME: should we have default values here at all?
 
     # Optional renovation-specific fields
     work_type: Optional[str] = None  # "Demo", "Construction", "Finishes", etc.

@@ -17,10 +17,10 @@ from .base import (
     BasePace,
     # Expenses
     CapExItemBase,
-    # Losses
-    CollectionLossConfigBase,
     # Cost components
     CommissionTier,
+    # Losses
+    CreditLossConfig,
     CustomSchedulePace,
     DirectLeaseTerms,
     EqualSpreadPace,
@@ -28,12 +28,11 @@ from .base import (
     # Recovery
     ExpensePoolBase,
     FixedQuantityPace,
-    GeneralVacancyLossConfigBase,
     # Leases
     LeaseBase,
     LeaseSpecBase,
     LeasingCommissionBase,
-    LossesBase,
+    Losses,
     # Revenue
     MiscIncomeBase,
     OpExItemBase,
@@ -54,6 +53,7 @@ from .base import (
     SuiteAbsorptionState,
     TenantBase,
     TenantImprovementAllowanceBase,
+    VacancyLossConfig,
     # Rent roll
     VacantSuiteBase,
 )
@@ -68,7 +68,6 @@ from .capital import (
 from .primitives import (
     # Enums
     AssetTypeEnum,
-    CalculationPass,
     CashFlowCategoryEnum,
     # Core models
     CashFlowModel,
@@ -129,9 +128,9 @@ __all__ = [
     "RentEscalationBase",
     "TenantBase",
     # Losses
-    "CollectionLossConfigBase",
-    "GeneralVacancyLossConfigBase",
-    "LossesBase",
+    "CreditLossConfig",
+    "VacancyLossConfig",
+    "Losses",
     # Property
     "Address",
     "PropertyBaseModel",
@@ -159,7 +158,6 @@ __all__ = [
     "ReportingSettings",
     # Enums
     "AssetTypeEnum",
-    "CalculationPass",
     "CashFlowCategoryEnum",
     "ExpenseSubcategoryEnum",
     "FrequencyEnum",

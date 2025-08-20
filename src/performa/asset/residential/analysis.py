@@ -75,6 +75,7 @@ class ResidentialAnalysisScenario(AnalysisScenarioBase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=self.model,
+            ledger_builder=self.ledger_builder,  # Use inherited ledger_builder
             capital_plan_lookup=capital_plan_lookup,
             rollover_profile_lookup=rollover_profile_lookup,
         )

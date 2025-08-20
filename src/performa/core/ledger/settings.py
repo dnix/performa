@@ -8,7 +8,7 @@ This module provides Pydantic models for configuring ledger behavior,
 following existing Performa patterns for settings management.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class LedgerGenerationSettings(BaseModel):
@@ -79,10 +79,10 @@ class LedgerGenerationSettings(BaseModel):
         description="Clear intermediate Series data after successful conversion"
     )
     
-    class Config:
-        """Pydantic configuration."""
-        validate_assignment = True
-        extra = "forbid"  # Prevent typos in field names
+    model_config = ConfigDict(
+        validate_assignment=True,
+        extra="forbid",  # Prevent typos in field names
+    )
         
     @property
     def memory_optimized(self) -> bool:

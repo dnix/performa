@@ -12,9 +12,11 @@ from pydantic import computed_field, field_validator, model_validator
 
 from ..primitives.cash_flow import CashFlowModel, ReferenceKey
 from ..primitives.enums import (
-    CalculationPass,
+    CashFlowCategoryEnum,
     FrequencyEnum,
     LeaseStatusEnum,
+    OrchestrationPass,
+    RevenueSubcategoryEnum,
     UponExpirationEnum,
 )
 from ..primitives.model import Model
@@ -86,8 +88,8 @@ class LeaseBase(CashFlowModel, ABC):
     - Common properties for rent calculations
     """
 
-    category: str = "Revenue"
-    subcategory: str = "Lease"  # Simplified from enum for base class
+    category: CashFlowCategoryEnum = CashFlowCategoryEnum.REVENUE
+    subcategory: RevenueSubcategoryEnum = RevenueSubcategoryEnum.LEASE
     status: LeaseStatusEnum
     area: float
     suite: str
@@ -101,17 +103,17 @@ class LeaseBase(CashFlowModel, ABC):
 
     @computed_field
     @property
-    def calculation_pass(self) -> CalculationPass:
+    def calculation_pass(self) -> OrchestrationPass:
         """
         Determines the calculation phase for this lease based on its dependencies.
 
-        FIXED: Previously all leases were hardcoded as DEPENDENT_VALUES, which caused
+        FIXED: Previously all leases were hardcoded as DEPENDENT_MODELS, which caused
         a critical bug where basic leases were processed in Phase 2 instead of Phase 1.
         This prevented proper EGI calculation for dependent expenses like Property Management.
 
         Now uses smart dependency detection:
-        - INDEPENDENT_VALUES: Basic leases with no dependencies (simple base rent)
-        - DEPENDENT_VALUES: Complex leases with dependencies:
+        - INDEPENDENT_MODELS: Basic leases with no dependencies (simple base rent)
+        - DEPENDENT_MODELS: Complex leases with dependencies:
           * Leases with aggregate references (% rent, etc.)
           * Leases with recovery methods (need expense calculations first)
 
@@ -122,14 +124,14 @@ class LeaseBase(CashFlowModel, ABC):
         """
         # Check for direct aggregate references (% rent, etc.)
         if self.reference is not None:
-            return CalculationPass.DEPENDENT_VALUES
+            return OrchestrationPass.DEPENDENT_MODELS
 
         # Check for recovery method dependencies (office leases)
         if hasattr(self, "recovery_method") and self.recovery_method is not None:
-            return CalculationPass.DEPENDENT_VALUES
+            return OrchestrationPass.DEPENDENT_MODELS
 
         # Simple base rent leases can be calculated independently
-        return CalculationPass.INDEPENDENT_VALUES
+        return OrchestrationPass.INDEPENDENT_MODELS
 
     @abstractmethod
     def compute_cf(self, context: "AnalysisContext") -> Dict[str, pd.Series]:

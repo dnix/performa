@@ -22,14 +22,18 @@ from .draw_schedule import (
 )
 from .enums import (
     AssetTypeEnum,
-    CalculationPass,
+    CalculationPhase,
+    CapExCategoryEnum,
+    CapitalSubcategoryEnum,
     CashFlowCategoryEnum,
     DrawScheduleKindEnum,
+    ExpenseCategoryEnum,
     ExpenseSubcategoryEnum,
     FrequencyEnum,
     LeaseStatusEnum,
     LeaseTypeEnum,
     LeveredAggregateLineKey,
+    OrchestrationPass,
     ProgramUseEnum,
     PropertyAttributeKey,
     RevenueSubcategoryEnum,
@@ -70,7 +74,8 @@ __all__ = [
     "InflationTimingEnum",
     # Enums
     "AssetTypeEnum",
-    "CalculationPass",
+    "CalculationPhase",
+    "OrchestrationPass",
     "CashFlowCategoryEnum",
     "DrawScheduleKindEnum",
     "ExpenseSubcategoryEnum",
@@ -108,4 +113,7 @@ __all__ = [
     "validate_conditional_requirement_decorator",
     "validate_mutual_exclusivity",
     "validate_term_specification",
+    "CapExCategoryEnum",
+    "CapitalSubcategoryEnum",
+    "ExpenseCategoryEnum",
 ]

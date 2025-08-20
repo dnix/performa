@@ -33,6 +33,7 @@ from performa.asset.residential import (
 )
 from performa.asset.residential.lease import ResidentialLease
 from performa.core.capital import CapitalPlan
+from performa.core.ledger import LedgerBuilder
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -135,7 +136,7 @@ def test_small_developer_scale() -> Dict[str, Any]:
         m for m in orchestrator.models if m.__class__.__name__ == "ResidentialLease"
     ]
 
-    summary = scenario.get_cash_flow_summary()
+    summary = scenario.summary_df
     first_month = summary.index[0]
     pgr_cols = [col for col in summary.columns if "POTENTIAL_GROSS_REVENUE" in str(col)]
     actual_pgr = summary.loc[first_month, pgr_cols[0]] if pgr_cols else 0
@@ -249,7 +250,7 @@ def test_regional_investor_scale() -> Dict[str, Any]:
         m for m in orchestrator.models if "ExItem" in m.__class__.__name__
     ]
 
-    summary = scenario.get_cash_flow_summary()
+    summary = scenario.summary_df
     first_month = summary.index[0]
     pgr_cols = [col for col in summary.columns if "POTENTIAL_GROSS_REVENUE" in str(col)]
     actual_pgr = summary.loc[first_month, pgr_cols[0]] if pgr_cols else 0
@@ -412,7 +413,7 @@ def test_institutional_scale() -> Dict[str, Any]:
         if m.__class__.__name__ == "ResidentialMiscIncome"
     ]
 
-    summary = scenario.get_cash_flow_summary()
+    summary = scenario.summary_df
     first_month = summary.index[0]
     pgr_cols = [col for col in summary.columns if "POTENTIAL_GROSS_REVENUE" in str(col)]
     misc_cols = [col for col in summary.columns if "MISCELLANEOUS_INCOME" in str(col)]
@@ -487,11 +488,13 @@ def test_fundamental_sanity() -> bool:
         upon_expiration=UponExpirationEnum.MARKET,
         monthly_rent=2000.0,
     )
-
+    
     context = AnalysisContext(
         timeline=timeline,
         settings=GlobalSettings(),
         property_data=None,
+        ledger_builder=LedgerBuilder(),  # Add required ledger_builder
+        recovery_states={},  # Add required recovery_states
     )
 
     cf_result = lease.compute_cf(context)

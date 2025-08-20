@@ -27,12 +27,12 @@ from performa.asset.office.absorption import (
 from performa.asset.office.absorption import OfficeAbsorptionPlan
 from performa.asset.office.absorption import SpaceFilter as OfficeSpaceFilter
 from performa.asset.office.expense import OfficeExpenses
-from performa.asset.office.losses import OfficeLosses
+from performa.asset.office.loss import OfficeLosses
 from performa.asset.office.misc_income import OfficeMiscIncome
 from performa.asset.residential.absorption import ResidentialAbsorptionPlan
 from performa.asset.residential.blueprint import ResidentialDevelopmentBlueprint
 from performa.asset.residential.expense import ResidentialExpenses
-from performa.asset.residential.losses import ResidentialLosses
+from performa.asset.residential.loss import ResidentialLosses
 from performa.asset.residential.misc_income import ResidentialMiscIncome
 from performa.asset.residential.rent_roll import ResidentialVacantUnit
 from performa.asset.residential.rollover import (

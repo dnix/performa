@@ -29,17 +29,8 @@ def test_unlevered_aggregate_line_key_functionality():
     )
     assert UnleveredAggregateLineKey.UNLEVERED_CASH_FLOW == "Unlevered Cash Flow"
 
-    # Test helper methods work
+    # Test from_value method still works
     noi_key = UnleveredAggregateLineKey.NET_OPERATING_INCOME
-    raw_key = UnleveredAggregateLineKey._RAW_TOTAL_REVENUE
-
-    assert not UnleveredAggregateLineKey.is_internal_key(noi_key)
-    assert UnleveredAggregateLineKey.is_internal_key(raw_key)
-
-    display_keys = UnleveredAggregateLineKey.get_display_keys()
-    assert noi_key in display_keys
-    assert raw_key not in display_keys
-
     assert UnleveredAggregateLineKey.from_value("Net Operating Income") == noi_key
     assert UnleveredAggregateLineKey.from_value("NonExistentKey") is None
 
@@ -50,17 +41,8 @@ def test_levered_aggregate_line_key_functionality():
     assert LeveredAggregateLineKey.TOTAL_DEBT_SERVICE == "Total Debt Service"
     assert LeveredAggregateLineKey.LEVERED_CASH_FLOW == "Levered Cash Flow"
 
-    # Test helper methods work
+    # Test from_value method still works
     debt_key = LeveredAggregateLineKey.TOTAL_DEBT_SERVICE
-    raw_key = LeveredAggregateLineKey._RAW_TOTAL_DEBT_SERVICE
-
-    assert not LeveredAggregateLineKey.is_internal_key(debt_key)
-    assert LeveredAggregateLineKey.is_internal_key(raw_key)
-
-    display_keys = LeveredAggregateLineKey.get_display_keys()
-    assert debt_key in display_keys
-    assert raw_key not in display_keys
-
     assert LeveredAggregateLineKey.from_value("Total Debt Service") == debt_key
     assert LeveredAggregateLineKey.from_value("NonExistentKey") is None
 

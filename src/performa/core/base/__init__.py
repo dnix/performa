@@ -30,9 +30,11 @@ from .expense import CapExItemBase, ExpenseItemBase, OpExItemBase
 from .lease import LeaseBase, LeaseSpecBase
 from .lease_components import RentAbatementBase, RentEscalationBase, TenantBase
 from .loss import (
-    CollectionLossConfigBase,
-    GeneralVacancyLossConfigBase,
-    LossesBase,
+    CreditLossConfig,
+    CreditLossModel,
+    Losses,
+    VacancyLossConfig,
+    VacancyLossModel,
 )
 from .program import ProgramComponentSpec
 from .property import Address, PropertyBaseModel
@@ -69,9 +71,11 @@ __all__ = [
     "RentAbatementBase",
     "RentEscalationBase",
     "TenantBase",
-    "CollectionLossConfigBase",
-    "GeneralVacancyLossConfigBase",
-    "LossesBase",
+    "VacancyLossConfig",
+    "CreditLossConfig", 
+    "Losses",
+    "VacancyLossModel",
+    "CreditLossModel",
     "ProgramComponentSpec",
     "Address",
     "PropertyBaseModel",
@@ -83,4 +87,5 @@ __all__ = [
     "MiscIncomeBase",
     "RolloverLeaseTermsBase",
     "RolloverProfileBase",
+    "CreditLossModel",
 ]

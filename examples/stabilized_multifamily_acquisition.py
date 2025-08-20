@@ -398,7 +398,7 @@ def demonstrate_components():
     scenario.run()
 
     # Get the complete financial statement results
-    summary_df = scenario.get_cash_flow_summary()
+    summary_df = scenario.summary_df
 
     print("✅ Analysis Complete - Full Financial Statement Available")
     print()

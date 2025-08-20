@@ -41,7 +41,7 @@ class LedgerBuilder:
     """
     
     # Configuration
-    settings: Optional[LedgerGenerationSettings] = None
+    settings: Optional[LedgerGenerationSettings] = None  # TODO: should this have a default factory of LedgerGenerationSettings()?
     
     # Internal state
     records: List[TransactionRecord] = field(default_factory=list, init=False)
@@ -120,6 +120,8 @@ class LedgerBuilder:
         Performance target: <10ms per 1000 records
         Memory target: <60% of raw object dtypes
         """
+        logger.debug(f"to_dataframe called with {len(self.series_batch)} series and {len(self.records)} records")
+        
         # Batch convert all Series (vectorized)
         if self.series_batch:
             try:

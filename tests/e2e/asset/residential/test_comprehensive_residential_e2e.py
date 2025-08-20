@@ -16,7 +16,7 @@ import pytest
 from performa.analysis import run
 from performa.asset.residential import (
     ResidentialCapExItem,
-    ResidentialCollectionLoss,
+    ResidentialCreditLoss,
     ResidentialExpenses,
     ResidentialGeneralVacancyLoss,
     ResidentialLosses,
@@ -273,7 +273,7 @@ def test_e2e_institutional_scale_residential():
         ),
         losses=ResidentialLosses(
             general_vacancy=ResidentialGeneralVacancyLoss(rate=0.045),
-            collection_loss=ResidentialCollectionLoss(rate=0.012),
+            credit_loss=ResidentialCreditLoss(rate=0.012),
         ),
         miscellaneous_income=miscellaneous_income,
     )
@@ -310,14 +310,14 @@ def test_e2e_institutional_scale_residential():
     assert analysis_time < 2.0  # Should complete within 2 seconds
 
     # Verify unit mix unrolling worked correctly
-    orchestrator = scenario._orchestrator
     lease_models = [
-        m for m in orchestrator.models if m.__class__.__name__ == "ResidentialLease"
+        m for m in scenario.models if m.__class__.__name__ == "ResidentialLease"
     ]
     assert len(lease_models) == 250  # One lease per unit
 
     print(f"   ✅ Successfully created {len(lease_models)} lease models")
-    print(f"   📋 Total models: {len(orchestrator.models)}")
+    print(f"   📋 Total models: {len(scenario.models)}")
+
 
 
 def test_e2e_performance_stress_test():
@@ -372,7 +372,7 @@ def test_e2e_performance_stress_test():
         expenses=ResidentialExpenses(operating_expenses=operating_expenses),
         losses=ResidentialLosses(
             general_vacancy=ResidentialGeneralVacancyLoss(rate=0.05),
-            collection_loss=ResidentialCollectionLoss(rate=0.01),
+            credit_loss=ResidentialCreditLoss(rate=0.01),
         ),
     )
 
@@ -388,7 +388,7 @@ def test_e2e_performance_stress_test():
     print(f"   📊 Property Size: {property_model.unit_count} units")
     print(f"   ⏱️  Analysis Time: {analysis_time:.3f} seconds")
     print(f"   🚀 Processing Rate: {units_per_second:.0f} units/second")
-    print(f"   📋 Models Created: {len(scenario._orchestrator.models)}")
+    print(f"   📋 Models Created: {len(scenario.models)}")
 
     # Performance assertions
     assert scenario is not None
@@ -400,12 +400,13 @@ def test_e2e_performance_stress_test():
     # Validate correct model creation
     lease_models = [
         m
-        for m in scenario._orchestrator.models
+        for m in scenario.models
         if m.__class__.__name__ == "ResidentialLease"
     ]
     assert len(lease_models) == 500
 
     print(f"   ✅ Performance test PASSED - {units_per_second:.0f} units/sec")
+
 
 
 def test_e2e_value_add_positioning_strategy():
@@ -534,7 +535,7 @@ def test_e2e_value_add_positioning_strategy():
             general_vacancy=ResidentialGeneralVacancyLoss(
                 rate=0.06
             ),  # Higher vacancy for value-add
-            collection_loss=ResidentialCollectionLoss(rate=0.018),
+            credit_loss=ResidentialCreditLoss(rate=0.018),
         ),
     )
 
@@ -564,9 +565,8 @@ def test_e2e_value_add_positioning_strategy():
     assert analysis_time < 1.0
 
     # Validate lease creation
-    orchestrator = scenario._orchestrator
     lease_models = [
-        m for m in orchestrator.models if m.__class__.__name__ == "ResidentialLease"
+        m for m in scenario.models if m.__class__.__name__ == "ResidentialLease"
     ]
     assert len(lease_models) == 120
 
@@ -611,7 +611,7 @@ def test_e2e_test_discovery_validation():
         expenses=ResidentialExpenses(),
         losses=ResidentialLosses(
             general_vacancy=ResidentialGeneralVacancyLoss(rate=0.05),
-            collection_loss=ResidentialCollectionLoss(rate=0.01),
+            credit_loss=ResidentialCreditLoss(rate=0.01),
         ),
     )
 
@@ -623,6 +623,7 @@ def test_e2e_test_discovery_validation():
     print("   ✅ Scenario registry working")
     print("   ✅ ResidentialProperty analysis enabled")
     print("   ✅ Framework integration complete")
+
 
 
 def test_e2e_vacant_units_lease_up_scenario():
@@ -798,7 +799,7 @@ def test_e2e_vacant_units_lease_up_scenario():
             general_vacancy=ResidentialGeneralVacancyLoss(
                 rate=0.04
             ),  # 4% ongoing vacancy
-            collection_loss=ResidentialCollectionLoss(
+            credit_loss=ResidentialCreditLoss(
                 rate=0.015
             ),  # 1.5% collection loss
         ),
@@ -861,9 +862,8 @@ def test_e2e_vacant_units_lease_up_scenario():
     assert analysis_time < 3.0  # Should complete within 3 seconds
 
     # Verify unit mix unrolling
-    orchestrator = scenario._orchestrator
     lease_models = [
-        m for m in orchestrator.models if m.__class__.__name__ == "ResidentialLease"
+        m for m in scenario.models if m.__class__.__name__ == "ResidentialLease"
     ]
 
     # Should have lease models for occupied units (75), vacant units don't become leases immediately
@@ -872,13 +872,13 @@ def test_e2e_vacant_units_lease_up_scenario():
     # Verify expense models (look for both OpEx and CapEx)
     expense_models = [
         m
-        for m in orchestrator.models
+        for m in scenario.models
         if any(x in m.__class__.__name__ for x in ["OpEx", "CapEx", "Expense"])
     ]
 
     # Verify miscellaneous income models
     misc_income_models = [
-        m for m in orchestrator.models if "Income" in m.__class__.__name__
+        m for m in scenario.models if "Income" in m.__class__.__name__
     ]
 
     # Financial metrics validation
@@ -908,8 +908,8 @@ def test_e2e_vacant_units_lease_up_scenario():
     )
 
     # Assert that the analysis handles vacant units properly
-    assert scenario._orchestrator is not None
-    assert len(scenario._orchestrator.models) > 0
+    assert scenario.scenario is not None
+    assert len(scenario.models) > 0
 
     print("\n✅ Vacant Units E2E Test: PASSED")
     print(

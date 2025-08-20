@@ -16,7 +16,7 @@ import pytest
 
 from performa.analysis import run
 from performa.asset.residential import (
-    ResidentialCollectionLoss,
+    ResidentialCreditLoss,
     ResidentialExpenses,
     ResidentialGeneralVacancyLoss,
     ResidentialLosses,
@@ -49,10 +49,10 @@ def test_residential_losses_creation():
     """Test that ResidentialLosses can be created with proper subcomponents"""
     losses = ResidentialLosses(
         general_vacancy=ResidentialGeneralVacancyLoss(rate=0.05),
-        collection_loss=ResidentialCollectionLoss(rate=0.01),
+        credit_loss=ResidentialCreditLoss(rate=0.01),
     )
     assert losses.general_vacancy.rate == 0.05
-    assert losses.collection_loss.rate == 0.01
+    assert losses.credit_loss.rate == 0.01
 
 
 def test_residential_misc_income_creation():
@@ -286,7 +286,7 @@ def test_complete_residential_property_creation():
 
     losses = ResidentialLosses(
         general_vacancy=ResidentialGeneralVacancyLoss(rate=0.05),
-        collection_loss=ResidentialCollectionLoss(rate=0.01),
+        credit_loss=ResidentialCreditLoss(rate=0.01),
     )
 
     # Create the complete property
@@ -479,7 +479,7 @@ def test_property_with_vacant_units():
         expenses=ResidentialExpenses(),
         losses=ResidentialLosses(
             general_vacancy=ResidentialGeneralVacancyLoss(rate=0.05),
-            collection_loss=ResidentialCollectionLoss(rate=0.01),
+            credit_loss=ResidentialCreditLoss(rate=0.01),
         ),
     )
 
@@ -489,6 +489,7 @@ def test_property_with_vacant_units():
     assert property_model.weighted_avg_rent == pytest.approx(
         (40 * 2000 + 10 * 2100) / 50, rel=1e-6
     )
+
 
 
 def test_vacant_units_analysis_integration():
@@ -539,19 +540,19 @@ def test_vacant_units_analysis_integration():
         expenses=ResidentialExpenses(),
         losses=ResidentialLosses(
             general_vacancy=ResidentialGeneralVacancyLoss(rate=0.03),
-            collection_loss=ResidentialCollectionLoss(rate=0.01),
+            credit_loss=ResidentialCreditLoss(rate=0.01),
         ),
     )
 
     # Run analysis
-    scenario = run(model=property_model, timeline=timeline, settings=settings)
+    result = run(model=property_model, timeline=timeline, settings=settings)
 
     # Verify analysis completed successfully
-    assert scenario is not None
+    assert result is not None
     assert property_model.occupancy_rate == 0.8  # 20/25 = 80%
 
     # Verify unit mix unrolling works correctly
-    orchestrator = scenario._orchestrator
+    orchestrator = result.scenario._orchestrator
     lease_models = [
         m for m in orchestrator.models if m.__class__.__name__ == "ResidentialLease"
     ]

@@ -10,9 +10,14 @@ from uuid import UUID
 from performa.analysis import register_scenario
 from performa.analysis.orchestrator import AnalysisContext, CashFlowOrchestrator
 from performa.core.base import LeaseSpecBase
-from performa.core.primitives import CashFlowModel, PropertyAttributeKey
+from performa.core.primitives import (
+    CashFlowModel,
+    PropertyAttributeKey,
+    UnleveredAggregateLineKey,
+)
 from performa.core.primitives.enums import FrequencyEnum
 
+from ...core.base.loss import CreditLossModel, VacancyLossModel
 from ..commercial.analysis import CommercialAnalysisScenarioBase
 from .expense import OfficeCapExItem, OfficeOpExItem
 from .lease import OfficeLease
@@ -115,6 +120,7 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=self.model,
+            ledger_builder=self.ledger_builder,  # Use inherited ledger_builder
             recovery_states=recovery_states,
             rollover_profile_lookup=rollover_profile_lookup,
             recovery_method_lookup=recovery_method_lookup,
@@ -159,10 +165,12 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
                 ):
                     recovery_methods_to_process.append(lease_spec.recovery_method)
 
-        # Collect all recovery methods from absorption plans
+        # Collect recovery methods from absorption plans for base year calculation
+        # NOTE: This extracts recovery methods for pre-calculation. Actual lease model
+        # creation from absorption plans is handled in CommercialAnalysisScenarioBase.prepare_models()
         if hasattr(self.model, "absorption_plans") and self.model.absorption_plans:
             for absorption_plan in self.model.absorption_plans:
-                # Generate lease specs from absorption plan to check their recovery methods
+                # Generate lease specs to extract recovery methods for base year stops
                 try:
                     generated_specs = absorption_plan.generate_lease_specs(
                         available_vacant_suites=self.model.rent_roll.vacant_suites,
@@ -174,9 +182,9 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
                         if hasattr(spec, "recovery_method") and spec.recovery_method:
                             recovery_methods_to_process.append(spec.recovery_method)
                 except Exception as e:
-                    # Log error but continue processing - absorption plans are optional
+                    # Log error but continue - this only affects recovery base year calculations
                     logger.warning(
-                        f"Failed to generate lease specs from absorption plan: {e}"
+                        f"Failed to extract recovery methods from absorption plan '{absorption_plan.name}': {e}"
                     )
 
         # Process all recovery methods to create states
@@ -372,4 +380,75 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
                 for item in self.model.expenses.capital_expenses:
                     if isinstance(item, OfficeCapExItem):
                         models.append(item)
+        return models
+
+    def _create_loss_models(
+        self, context: Optional[AnalysisContext] = None
+    ) -> List[CashFlowModel]:
+        """
+        Create loss models from loss configurations.
+
+        Converts loss configuration objects (OfficeLosses) into active
+        CashFlowModel instances that can generate ledger transactions.
+
+        Args:
+            context: Optional AnalysisContext for enhanced performance
+
+        Returns:
+            List of loss CashFlowModel instances
+        """
+        models = []
+        
+        if self.model.losses:
+            # Create vacancy loss model if configured
+            if (hasattr(self.model.losses, 'general_vacancy') and 
+                self.model.losses.general_vacancy and 
+                self.model.losses.general_vacancy.rate > 0):
+                
+                # Map VacancyLossMethodEnum to reference line string
+                reference_line = self.model.losses.general_vacancy.method.value
+                
+                vacancy_model = VacancyLossModel(
+                    name=f"{self.model.name} - Vacancy Loss",
+                    timeline=self.timeline,
+                    rate=self.model.losses.general_vacancy.rate,
+                    reference_line=reference_line,
+                )
+                models.append(vacancy_model)
+            
+            # Create credit loss model if configured
+            if (hasattr(self.model.losses, 'credit_loss') and 
+                self.model.losses.credit_loss and 
+                self.model.losses.credit_loss.rate > 0):
+                
+                # Map credit loss basis enum to aggregate key (industry standard approach)
+                basis_mapping = {
+                    UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE: {
+                        "line": "Potential Gross Revenue", 
+                        "key": UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE
+                    },
+                    UnleveredAggregateLineKey.GROSS_POTENTIAL_RENT: {
+                        "line": "Gross Potential Rent", 
+                        "key": UnleveredAggregateLineKey.GROSS_POTENTIAL_RENT
+                    },
+                    UnleveredAggregateLineKey.TENANT_REVENUE: {
+                        "line": "Tenant Revenue", 
+                        "key": UnleveredAggregateLineKey.TENANT_REVENUE
+                    }
+                }
+                
+                basis_info = basis_mapping.get(
+                    self.model.losses.credit_loss.basis,
+                    basis_mapping[UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE]  # Default to PGR
+                )
+                
+                credit_model = CreditLossModel(
+                    name=f"{self.model.name} - Credit Loss",
+                    timeline=self.timeline,
+                    rate=self.model.losses.credit_loss.rate,
+                    reference_line=basis_info["line"],
+                    reference=basis_info["key"],
+                )
+                models.append(credit_model)
+        
         return models

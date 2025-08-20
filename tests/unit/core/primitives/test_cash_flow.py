@@ -10,6 +10,7 @@ import pytest
 from pydantic import ValidationError
 
 from performa.analysis import AnalysisContext
+from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
 from performa.core.primitives import (
     CashFlowModel,
     FrequencyEnum,
@@ -35,7 +36,10 @@ def sample_timeline() -> Timeline:
 @pytest.fixture
 def sample_context(sample_timeline: Timeline) -> AnalysisContext:
     return AnalysisContext(
-        timeline=sample_timeline, settings=GlobalSettings(), property_data=None
+        timeline=sample_timeline,
+        settings=GlobalSettings(),
+        property_data=None,
+        ledger_builder=LedgerBuilder(settings=LedgerGenerationSettings())
     )
 
 
@@ -141,13 +145,16 @@ def test_per_unit_residential_calculation_fix(sample_timeline: Timeline):
     # Create residential property context
     property_data = MockResidentialProperty(unit_count=120, net_rentable_area=96000.0)
     context = AnalysisContext(
-        timeline=sample_timeline, settings=GlobalSettings(), property_data=property_data
+        timeline=sample_timeline, 
+        settings=GlobalSettings(), 
+        property_data=property_data,
+        ledger_builder=LedgerBuilder(settings=LedgerGenerationSettings())
     )
 
     # Create per-unit expense (utilities example from multifamily)
     expense = MinimalConcreteCashFlowModel(
         name="Common Area Utilities",
-        category="Operating Expense",
+        category="Expense",
         subcategory="OpEx",
         timeline=sample_timeline,
         value=200.0,  # $200 per dwelling unit
@@ -187,13 +194,16 @@ def test_per_unit_office_calculation_unchanged(sample_timeline: Timeline):
     # Create office property context (no unit_count attribute)
     property_data = MockOfficeProperty(net_rentable_area=1000.0)
     context = AnalysisContext(
-        timeline=sample_timeline, settings=GlobalSettings(), property_data=property_data
+        timeline=sample_timeline, 
+        settings=GlobalSettings(), 
+        property_data=property_data,
+        ledger_builder=LedgerBuilder(settings=LedgerGenerationSettings())
     )
 
     # Create per-square-foot expense (insurance example from office)
     expense = MinimalConcreteCashFlowModel(
         name="Property Insurance",
-        category="Operating Expense",
+        category="Expense",
         subcategory="OpEx",
         timeline=sample_timeline,
         value=1.50,  # $1.50 per square foot
@@ -231,14 +241,17 @@ def test_per_unit_edge_case_zero_unit_count(sample_timeline: Timeline):
     # Create residential property with zero units
     property_data = MockResidentialProperty(unit_count=0, net_rentable_area=50000.0)
     context = AnalysisContext(
-        timeline=sample_timeline, settings=GlobalSettings(), property_data=property_data
+        timeline=sample_timeline, 
+        settings=GlobalSettings(), 
+        property_data=property_data,
+        ledger_builder=LedgerBuilder(settings=LedgerGenerationSettings())
     )
 
     # In the new architecture, be explicit about what we want
     # If we want area-based calculation, request NET_RENTABLE_AREA explicitly
     expense = MinimalConcreteCashFlowModel(
         name="Test Expense",
-        category="Operating Expense",
+        category="Expense",
         subcategory="OpEx",
         timeline=sample_timeline,
         value=100.0,

@@ -59,16 +59,16 @@ import logging
 import time
 from dataclasses import dataclass, field
 from graphlib import CycleError, TopologicalSorter
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Union
 from uuid import UUID
 
 import pandas as pd
 
 from performa.core.base import LeaseBase
-from performa.core.ledger import SeriesMetadata
+from performa.core.ledger import LedgerBuilder, LedgerQueries, SeriesMetadata
 from performa.core.primitives import (
-    CalculationPass,
-    ExpenseSubcategoryEnum,
+    CashFlowCategoryEnum,
+    OrchestrationPass,
     PropertyAttributeKey,
     RevenueSubcategoryEnum,
     UnleveredAggregateLineKey,
@@ -86,6 +86,11 @@ if TYPE_CHECKING:
         GlobalSettings,
         Timeline,
     )
+
+logger = logging.getLogger(__name__)
+
+# Short alias for cleaner code
+AggKeys = UnleveredAggregateLineKey
 
 
 @dataclass
@@ -107,6 +112,9 @@ class AnalysisContext:
     timeline: "Timeline"
     settings: "GlobalSettings"
     property_data: "PropertyBaseModel"
+    
+    # --- Ledger Builder (Required - single source of truth) ---
+    ledger_builder: LedgerBuilder  # Must be explicitly provided
 
     # --- Pre-Calculated Static State (Set by Scenario before run) ---
     recovery_states: Dict[UUID, "RecoveryCalculationState"] = field(
@@ -163,6 +171,16 @@ class AnalysisContext:
     current_lease: Optional["LeaseBase"] = (
         None  # Current lease context for TI/LC calculations
     )
+
+    def __post_init__(self):
+        """Validate required fields after initialization."""
+        # Validate that ledger_builder is provided (critical for Pass-the-Builder pattern)
+        if self.ledger_builder is None:
+            raise ValueError(
+                "AnalysisContext requires a ledger_builder instance. "
+                "This enforces the Pass-the-Builder pattern where a single LedgerBuilder "
+                "is created at the API level and passed through all analysis components."
+            )
 
 
 logger = logging.getLogger(__name__)
@@ -235,13 +253,8 @@ class CashFlowOrchestrator:
         logger.info(f"Timeline periods: {len(self.context.timeline.period_index)}")
 
         # === PHASE 0: DEFENSIVE VALIDATION ===
-        logger.info("Phase 0: Validating dependency complexity for safety...")
-        validation_start = time.time()
-        self._validate_dependency_complexity()
-        validation_time = time.time() - validation_start
-        logger.info(
-            f"Phase 0 completed in {validation_time:.3f}s - All dependency chains within safe limits"
-        )
+        # Dependency validation removed - simplified ledger-based approach
+        validation_time = 0.0
 
         # === PRE-PHASE: CALCULATE DERIVED SYSTEM STATE ===
         logger.info("Pre-Phase: Calculating derived system-wide state...")
@@ -269,7 +282,7 @@ class CashFlowOrchestrator:
         independent_models = [
             m
             for m in self.models
-            if m.calculation_pass == CalculationPass.INDEPENDENT_VALUES
+            if m.calculation_pass == OrchestrationPass.INDEPENDENT_MODELS
         ]
 
         logger.info(f"  Processing {len(independent_models)} independent models:")
@@ -283,27 +296,24 @@ class CashFlowOrchestrator:
             f"Phase 1 completed in {phase1_time:.3f}s - {len(independent_models)} models computed"
         )
 
-        # === INTERMEDIATE PHASE: AGGREGATE FOR DEPENDENT MODELS ===
-        logger.info(
-            "Intermediate Phase: Computing aggregates for dependent model references..."
-        )
+        # === INTERMEDIATE PHASE: MINIMAL AGGREGATION FOR DEPENDENT MODELS ===
+        logger.info("Intermediate Phase: Computing minimal aggregates for dependent models...")
         intermediate_start = time.time()
 
-        # Create intermediate aggregates that dependent models will reference
-        # Example: Total OpEx aggregate needed by admin fee models
-        self._compute_intermediate_aggregates()
+        # For dependent models that reference aggregates, we need to provide ALL aggregates
+        # This ensures dependent models never fail due to missing aggregate references
+        if self.models:  # Only if we have models
+            # Get current ledger and create aggregates for dependent models  
+            current_ledger = self.context.ledger_builder.get_current_ledger()
+            
+            # Always populate aggregates - either from ledger data or as zeros
+            # Use DRY helper method to avoid duplication
+            self._update_aggregates_from_ledger(current_ledger, "intermediate")
+                
 
-        # Count available aggregates for dependent models
-        aggregate_count = sum(
-            1
-            for key in self.context.resolved_lookups.keys()
-            if isinstance(key, str) and not key.startswith("_")
-        )
 
         intermediate_time = time.time() - intermediate_start
-        logger.info(
-            f"Intermediate Phase completed in {intermediate_time:.3f}s - {aggregate_count} aggregates computed"
-        )
+        logger.info(f"Intermediate Phase completed in {intermediate_time:.3f}s")
 
         # === PHASE 2: DEPENDENT VALUES ===
         logger.info(
@@ -315,7 +325,7 @@ class CashFlowOrchestrator:
         dependent_models = [
             m
             for m in self.models
-            if m.calculation_pass == CalculationPass.DEPENDENT_VALUES
+            if m.calculation_pass == OrchestrationPass.DEPENDENT_MODELS
         ]
 
         logger.info(f"  Processing {len(dependent_models)} dependent models:")
@@ -341,8 +351,8 @@ class CashFlowOrchestrator:
         logger.info("Final Phase: Aggregating all results into summary views...")
         final_start = time.time()
 
-        # Create final summary DataFrame with all aggregate lines
-        self._aggregate_flows()
+        # Create final summary DataFrame and update aggregates from complete ledger
+        self._finalize_aggregation()
 
         # Count summary lines for reporting
         summary_lines = (
@@ -392,6 +402,108 @@ class CashFlowOrchestrator:
 
         logger.info("Analysis ready for consumption via summary_df and detailed_df")
 
+    def _to_period_series(self, series: Any) -> pd.Series:
+        """
+        Convert series with date index to PeriodIndex.
+        
+        Args:
+            series: Input series (may be pd.Series or other type)
+            
+        Returns:
+            Series with PeriodIndex matching timeline
+        """
+        # Handle edge case: timeline has no periods
+        if self.context.timeline.period_index.empty:
+            return pd.Series(dtype=float)
+            
+        # Handle case where series is not a Series (defensive)
+        if not isinstance(series, pd.Series):
+            return pd.Series(0.0, index=self.context.timeline.period_index)
+        
+        # Handle empty series
+        if series.empty:
+            return pd.Series(0.0, index=self.context.timeline.period_index)
+        
+        # Create a new series with proper PeriodIndex
+        result = pd.Series(0.0, index=self.context.timeline.period_index)
+        for date_val, amount in series.items():
+            # Convert date to period
+            period = pd.Period(date_val, freq='M')
+            if period in result.index:
+                result[period] = amount
+        return result
+
+    def _update_aggregates_from_ledger(
+            self,
+            ledger: pd.DataFrame,
+            phase_name: Literal["intermediate", "final"] = "final"
+        ) -> None:
+        """
+        DRY method to update aggregates from ledger state.
+        
+        This centralizes all aggregate updates to avoid duplication.
+        Can be called at intermediate or final phases.
+        
+        Args:
+            ledger: Current ledger DataFrame
+            phase_name: Name of phase for logging ("intermediate" or "final")
+        """
+        if ledger.empty:
+            # Populate all aggregates with zeros
+            zero_series = pd.Series(0.0, index=self.context.timeline.period_index)
+            
+            for key in UnleveredAggregateLineKey:
+                # Use copy to avoid shared reference issues
+                self.context.resolved_lookups[key.value] = zero_series.copy()
+                
+            logger.debug(f"Populated {len(UnleveredAggregateLineKey)} zero-valued aggregates for empty ledger ({phase_name} phase)")
+        else:
+            # Create queries once (performance optimization)
+            queries = LedgerQueries(ledger)
+            
+            # Map aggregate keys to query methods (using aliased enum)
+            aggregate_mappings = {
+                AggKeys.GROSS_POTENTIAL_RENT: queries.gpr,
+                AggKeys.POTENTIAL_GROSS_REVENUE: queries.pgr,
+                AggKeys.TENANT_REVENUE: queries.tenant_revenue,
+                AggKeys.GENERAL_VACANCY_LOSS: queries.vacancy_loss,
+                AggKeys.MISCELLANEOUS_INCOME: queries.misc_income,
+                AggKeys.RENTAL_ABATEMENT: queries.rental_abatement,
+                AggKeys.CREDIT_LOSS: queries.credit_loss,
+                AggKeys.EXPENSE_REIMBURSEMENTS: queries.expense_reimbursements,
+                AggKeys.EFFECTIVE_GROSS_INCOME: queries.egi,
+                AggKeys.TOTAL_OPERATING_EXPENSES: queries.opex,
+                AggKeys.NET_OPERATING_INCOME: queries.noi,
+                AggKeys.TOTAL_CAPITAL_EXPENDITURES: queries.capex,
+                AggKeys.TOTAL_TENANT_IMPROVEMENTS: queries.ti,
+                AggKeys.TOTAL_LEASING_COMMISSIONS: queries.lc,
+                AggKeys.UNLEVERED_CASH_FLOW: queries.ucf,
+            }
+            
+            # Special cases that need zero values (not yet tracked in ledger)
+            zero_series = pd.Series(0.0, index=self.context.timeline.period_index)
+            special_cases = {
+                AggKeys.DOWNTIME_VACANCY_LOSS: zero_series,
+                AggKeys.ROLLOVER_VACANCY_LOSS: zero_series,
+            }
+            
+            # Update all aggregates
+            for key, query_method in aggregate_mappings.items():
+                try:
+                    result = query_method()
+                    self.context.resolved_lookups[key.value] = self._to_period_series(result)
+                except Exception as e:
+                    logger.warning(f"Failed to compute {key.value}: {e}. Using zeros.")
+                    self.context.resolved_lookups[key.value] = pd.Series(0.0, index=self.context.timeline.period_index)
+            
+            # Add special cases
+            for key, value in special_cases.items():
+                self.context.resolved_lookups[key.value] = value
+            
+            logger.debug(f"Updated {len(aggregate_mappings) + len(special_cases)} aggregates from ledger ({phase_name} phase)")
+
+
+
     def get_series_with_metadata(
         self, 
         asset_id: UUID, 
@@ -426,7 +538,7 @@ class CashFlowOrchestrator:
                 model = self.model_map[lookup_key]
                 
                 # Determine pass number from model's calculation pass
-                pass_num = 1 if model.calculation_pass == CalculationPass.INDEPENDENT_VALUES else 2
+                pass_num = 1 if model.calculation_pass == OrchestrationPass.INDEPENDENT_MODELS else 2
                 
                 if isinstance(result, dict):  # Multi-component (e.g., lease)
                     for component, series in result.items():
@@ -544,593 +656,233 @@ class CashFlowOrchestrator:
                 result = model.compute_cf(context=self.context)
 
             self.context.resolved_lookups[model.uid] = result
+            
+            # Add to ledger as we compute (new single source of truth)
+            self._add_to_ledger(model, result)
+            
+            # Update aggregates after each model in Phase 2 to ensure dependent models
+            # have access to fresh aggregate data from previously processed models
+            # This is necessary because some dependent models (like credit loss) 
+            # depend on aggregates that include other dependent models (like vacancy loss)
+            if model.calculation_pass == OrchestrationPass.DEPENDENT_MODELS:
+                current_ledger = self.context.ledger_builder.get_current_ledger()
+                self._update_aggregates_from_ledger(current_ledger, "intermediate")
 
-    # --- CRITICAL METHOD 4: _aggregate_flows() ---
-    def _aggregate_flows(self) -> None:
-        """Aggregates all computed cash flows into summary and detailed dataframes."""
-        # This logic is ported directly from the old orchestrator, but now reads
-        # from self.context.resolved_lookups and writes to self.summary_df.
-
-        # 1. Initialize summary lines
+    def _add_to_ledger(self, model: "CashFlowModel", result: Any) -> None:
+        """Add model cash flows to ledger with metadata."""
+        logger.debug(f"_add_to_ledger called for model: {model.name}, result type: {type(result)}")
+        
+        # Get analysis timeline for alignment
         analysis_periods = self.context.timeline.period_index
-        agg_flows: Dict[UnleveredAggregateLineKey, pd.Series] = {
-            key: pd.Series(0.0, index=analysis_periods, name=key.value)
-            for key in UnleveredAggregateLineKey
-            if not key.value.startswith("_")
-        }
-
-        detailed_flows_list = []
-
-        # 2. Iterate through resolved lookups to populate raw aggregates
-        for lookup_key, result in self.context.resolved_lookups.items():
-            # Handle both UUID and string keys in resolved_lookups
-            if isinstance(lookup_key, UUID):
-                model = self.model_map[lookup_key]
-                if isinstance(result, dict):  # E.g., a lease with multiple components
-                    for component, series in result.items():
-                        # Detailed logging
-                        detailed_flows_list.append({
-                            "name": model.name,
-                            "uid": lookup_key,
-                            "category": model.category,
-                            "subcategory": model.subcategory,
-                            "component": component,
-                            "series": series,
-                        })
-                        # Aggregation
-                        target_key = self._get_aggregate_key(
-                            model.category, model.subcategory, component
-                        )
-                        if target_key:
-                            agg_flows[target_key] = agg_flows[target_key].add(
-                                series.reindex(analysis_periods, fill_value=0.0),
-                                fill_value=0.0,
-                            )
-                elif isinstance(result, pd.Series):  # A simple cash flow
-                    detailed_flows_list.append({
-                        "name": model.name,
-                        "uid": lookup_key,
-                        "category": model.category,
-                        "subcategory": model.subcategory,
-                        "component": "value",
-                        "series": result,
-                    })
-                    target_key = self._get_aggregate_key(
-                        model.category, model.subcategory
+        
+        if isinstance(result, dict):  # E.g., a lease with multiple components
+            logger.debug(f"Processing dict result with {len(result)} components: {list(result.keys())}")
+            for component, series in result.items():
+                if isinstance(series, pd.Series) and not series.empty:
+                    # Align series to analysis timeline - only keep periods that overlap
+                    aligned_series = series.reindex(analysis_periods, fill_value=0.0)
+                    
+                    # Skip if no overlap with analysis period
+                    if aligned_series.sum() == 0 and series.sum() != 0:
+                        logger.debug(f"Skipping {component} - no overlap with analysis period")
+                        continue
+                    
+                    logger.debug(f"Adding non-empty series: {component} with {len(aligned_series)} periods")
+                    
+                    # Map component names to appropriate subcategories
+                    component_subcategory = model.subcategory
+                    if component == "recoveries":
+                        component_subcategory = RevenueSubcategoryEnum.RECOVERY
+                    elif component == "abatement":
+                        component_subcategory = RevenueSubcategoryEnum.ABATEMENT
+                    # Add more component mappings as needed
+                    
+                    # Apply sign conventions
+                    series_to_add = aligned_series
+                    if component == "abatement":
+                        # Abatement is a revenue reduction (negative)
+                        series_to_add = -aligned_series
+                    
+                    metadata = SeriesMetadata(
+                        category=model.category,
+                        subcategory=component_subcategory,
+                        item_name=f"{model.name} - {component}",
+                        source_id=model.uid,
+                        asset_id=self.context.property_data.uid,
+                        pass_num=model.calculation_pass.value,  # Use model's actual calculation pass
                     )
-                    if target_key:
-                        agg_flows[target_key] = agg_flows[target_key].add(
-                            result.reindex(analysis_periods, fill_value=0.0),
-                            fill_value=0.0,
-                        )
+                    self.context.ledger_builder.add_series(series_to_add, metadata)
+                    logger.debug(f"Added to ledger: {model.name} - {component} ({len(aligned_series)} periods)")
+                else:
+                    logger.debug(f"Skipping component {component}: empty={series.empty if isinstance(series, pd.Series) else 'not Series'}")
+                    
+        elif isinstance(result, pd.Series):  # A simple cash flow
+            if not result.empty:
+                # Align series to analysis timeline - only keep periods that overlap
+                aligned_result = result.reindex(analysis_periods, fill_value=0.0)
+                
+                # Skip if no overlap with analysis period
+                if aligned_result.sum() == 0 and result.sum() != 0:
+                    logger.debug(f"Skipping {model.name} - no overlap with analysis period")
+                    return
+                    
+                # Apply sign conventions for outflows vs inflows
+                series_to_add = aligned_result
+                
+                # Expenses and Capital are outflows (negative in ledger)
+                if model.category == CashFlowCategoryEnum.EXPENSE:
+                    series_to_add = -aligned_result  # Operating expenses are outflows (negative)
+                elif model.category == CashFlowCategoryEnum.CAPITAL:
+                    series_to_add = -aligned_result  # Capital expenditures are outflows (negative)
+                # Revenue subcategories that are losses (negative in ledger)
+                elif (model.category == CashFlowCategoryEnum.REVENUE and 
+                      hasattr(model, 'subcategory') and
+                      model.subcategory in [RevenueSubcategoryEnum.VACANCY_LOSS, 
+                                           RevenueSubcategoryEnum.CREDIT_LOSS,
+                                           RevenueSubcategoryEnum.ABATEMENT]):
+                    series_to_add = -aligned_result  # Revenue losses are negative (reduce income)
+                # Regular Revenue stays positive (inflows)
+                # Financing handled separately based on direction
+                    
+                metadata = SeriesMetadata(
+                    category=model.category,
+                    subcategory=model.subcategory,
+                    item_name=model.name,
+                    source_id=model.uid,
+                    asset_id=self.context.property_data.uid,
+                    pass_num=model.calculation_pass.value,  # Use model's actual calculation pass
+                )
+                self.context.ledger_builder.add_series(series_to_add, metadata)
+                logger.debug(f"Added to ledger: {model.name} ({len(aligned_result)} periods)")
+        else:
+            logger.debug(f"Skipped adding to ledger: {model.name} (empty or invalid result)")
 
-        # 3. Apply property-level losses
-        self._apply_property_losses(agg_flows)
-
-        # 4. Calculate derived summary lines (NOI, UCF, etc.)
-
-        # Calculate canonical Effective Gross Income (industry standard)
-        agg_flows[UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME] = (
-            agg_flows[UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE]
-            - agg_flows[UnleveredAggregateLineKey.RENTAL_ABATEMENT]
-            - agg_flows[UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS]
-            - agg_flows[UnleveredAggregateLineKey.COLLECTION_LOSS]
-            + agg_flows[UnleveredAggregateLineKey.MISCELLANEOUS_INCOME]
-            + agg_flows[UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS]
-        )
-        agg_flows[UnleveredAggregateLineKey.NET_OPERATING_INCOME] = (
-            agg_flows[UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME]
-            - agg_flows[UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES]
-        )
-        agg_flows[UnleveredAggregateLineKey.UNLEVERED_CASH_FLOW] = (
-            agg_flows[UnleveredAggregateLineKey.NET_OPERATING_INCOME]
-            - agg_flows[UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES]
-            - agg_flows[UnleveredAggregateLineKey.TOTAL_TENANT_IMPROVEMENTS]
-            - agg_flows[UnleveredAggregateLineKey.TOTAL_LEASING_COMMISSIONS]
-        )
-
-        # 5. Store aggregate results in resolved_lookups for cross-reference
-        for key, series in agg_flows.items():
-            self.context.resolved_lookups[key.value] = series
-
-        # 6. Store final DataFrames
-        self.summary_df = pd.DataFrame(agg_flows)
-        # self.detailed_df = ... (logic to create detailed dataframe from detailed_flows_list)
-
-    def _apply_property_losses(
-        self, agg_flows: Dict[UnleveredAggregateLineKey, pd.Series]
-    ) -> None:
-        """Apply property-level vacancy and collection losses."""
-        if (
-            not hasattr(self.context.property_data, "losses")
-            or not self.context.property_data.losses
-        ):
+    def _finalize_aggregation(self) -> None:
+        """
+        Generate final summary_df and update aggregates from complete ledger.
+        
+        This method:
+        1. Queries the complete ledger (after all phases)
+        2. Creates the summary DataFrame for reporting
+        3. Updates resolved_lookups with final aggregate values
+        
+        This is the ONLY place we query the complete ledger for final aggregates.
+        """
+        # Get complete ledger data (includes Phase 1 and Phase 2 results)
+        ledger = self.context.ledger_builder.get_current_ledger()
+        analysis_periods = self.context.timeline.period_index
+        
+        logger.info(f"Finalizing aggregation from ledger with {len(ledger)} transactions")
+        
+        if ledger.empty:
+            logger.warning("Ledger is empty - creating zero-filled summary_df")
+            # Create zero-filled summary with proper structure
+            summary_data = {
+                'Potential Gross Revenue': pd.Series(0.0, index=analysis_periods),
+                'Vacancy Loss': pd.Series(0.0, index=analysis_periods),
+                'Effective Gross Income': pd.Series(0.0, index=analysis_periods),
+                'Operating Expenses': pd.Series(0.0, index=analysis_periods),
+                'Net Operating Income': pd.Series(0.0, index=analysis_periods),
+                'Capital Expenditures': pd.Series(0.0, index=analysis_periods),
+                'Tenant Improvements': pd.Series(0.0, index=analysis_periods),
+                'Leasing Commissions': pd.Series(0.0, index=analysis_periods),
+                'Unlevered Cash Flow': pd.Series(0.0, index=analysis_periods),
+                'Miscellaneous Income': pd.Series(0.0, index=analysis_periods),
+                'Rental Abatement': pd.Series(0.0, index=analysis_periods),
+                'Expense Reimbursements': pd.Series(0.0, index=analysis_periods),
+            }
+            self.summary_df = pd.DataFrame(summary_data, index=analysis_periods)
+            
+            # Create agg_flows dict for empty case too
+            self.agg_flows = {
+                UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE: summary_data['Potential Gross Revenue'],
+                UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS: summary_data['Vacancy Loss'],
+                UnleveredAggregateLineKey.MISCELLANEOUS_INCOME: summary_data['Miscellaneous Income'],
+                UnleveredAggregateLineKey.RENTAL_ABATEMENT: summary_data['Rental Abatement'],
+                UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS: summary_data['Expense Reimbursements'],
+                UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME: summary_data['Effective Gross Income'],
+                UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES: summary_data['Operating Expenses'],
+                UnleveredAggregateLineKey.NET_OPERATING_INCOME: summary_data['Net Operating Income'],
+                UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES: summary_data['Capital Expenditures'],
+                UnleveredAggregateLineKey.TOTAL_TENANT_IMPROVEMENTS: summary_data['Tenant Improvements'],
+                UnleveredAggregateLineKey.TOTAL_LEASING_COMMISSIONS: summary_data['Leasing Commissions'],
+                UnleveredAggregateLineKey.UNLEVERED_CASH_FLOW: summary_data['Unlevered Cash Flow'],
+            }
             return
 
-        losses = self.context.property_data.losses
-
-        # Calculate General Vacancy Loss
-        if losses.general_vacancy and losses.general_vacancy.rate > 0:
-            vacancy_rate = losses.general_vacancy.rate
-
-            # Apply vacancy loss to the appropriate basis
-            if losses.general_vacancy.method.value == "Potential Gross Revenue":
-                basis = agg_flows[UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE]
-            else:  # Effective Gross Revenue method
-                basis = (
-                    agg_flows[UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE]
-                    + agg_flows[UnleveredAggregateLineKey.MISCELLANEOUS_INCOME]
-                    - agg_flows[UnleveredAggregateLineKey.RENTAL_ABATEMENT]
-                )
-
-            vacancy_loss = basis * vacancy_rate
-            agg_flows[UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS] = vacancy_loss
-
-        # Calculate Collection Loss
-        if losses.collection_loss and losses.collection_loss.rate > 0:
-            collection_rate = losses.collection_loss.rate
-
-            # Apply collection loss to the appropriate basis
-            if losses.collection_loss.basis == "pgr":
-                basis = agg_flows[UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE]
-            elif losses.collection_loss.basis == "scheduled_income":
-                basis = (
-                    agg_flows[UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE]
-                    - agg_flows[UnleveredAggregateLineKey.RENTAL_ABATEMENT]
-                )
-            else:  # "egi" - Effective Gross Income
-                basis = (
-                    agg_flows[UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE]
-                    - agg_flows[UnleveredAggregateLineKey.RENTAL_ABATEMENT]
-                    - agg_flows[UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS]
-                    + agg_flows[UnleveredAggregateLineKey.MISCELLANEOUS_INCOME]
-                )
-
-            collection_loss = basis * collection_rate
-            agg_flows[UnleveredAggregateLineKey.COLLECTION_LOSS] = collection_loss
-
-    def _get_aggregate_key(
-        self, category: str, subcategory: Union[str, Any], component: str = "value"
-    ) -> Optional[UnleveredAggregateLineKey]:
-        # Mapping logic from raw categories to summary lines
-        if category == "Revenue":
-            # Handle both enum values and string values for subcategory
-            if (
-                subcategory == RevenueSubcategoryEnum.LEASE
-                or (
-                    hasattr(subcategory, "value")
-                    and subcategory == RevenueSubcategoryEnum.LEASE
-                )
-                or subcategory == "Lease"
-            ):
-                if component == "base_rent":
-                    return UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE
-                if component == "recoveries":
-                    return UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS
-                if component == "abatement":
-                    return UnleveredAggregateLineKey.RENTAL_ABATEMENT
-            elif subcategory == RevenueSubcategoryEnum.MISC or (
-                hasattr(subcategory, "value")
-                and subcategory == RevenueSubcategoryEnum.MISC
-            ):
-                return UnleveredAggregateLineKey.MISCELLANEOUS_INCOME
-        elif category == "Expense" or category == "Operating Expense":
-            # Handle both enum values and string representations
-            if subcategory == ExpenseSubcategoryEnum.OPEX or str(subcategory) == str(
-                ExpenseSubcategoryEnum.OPEX
-            ):
-                return UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES
-            if subcategory == ExpenseSubcategoryEnum.CAPEX or str(subcategory) == str(
-                ExpenseSubcategoryEnum.CAPEX
-            ):
-                return UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES
-            # Handle special leasing costs from lease object
-            if subcategory == "Lease" and component == "ti_allowance":
-                return UnleveredAggregateLineKey.TOTAL_TENANT_IMPROVEMENTS
-            if subcategory == "Lease" and component == "leasing_commission":
-                return UnleveredAggregateLineKey.TOTAL_LEASING_COMMISSIONS
-        return None
-
-    def _compute_intermediate_aggregates(self) -> None:
-        """Compute aggregate values from independent models for use by dependent models."""
-        analysis_periods = self.context.timeline.period_index
-
-        # Initialize aggregate flows for intermediate computation
-        intermediate_agg_flows: Dict[UnleveredAggregateLineKey, pd.Series] = {
-            key: pd.Series(0.0, index=analysis_periods, name=key.value)
-            for key in UnleveredAggregateLineKey
-            if not key.value.startswith("_")
+        # Use elegant LedgerQueries for all aggregation (single query instance)
+        queries = LedgerQueries(ledger)
+        
+        # Build all aggregate series with proper PeriodIndex conversion
+        # This replaces both the old summary_df logic AND the resolved_lookups update
+        pgr_series = self._to_period_series(queries.pgr())
+        vacancy_series = self._to_period_series(queries.vacancy_loss())
+        misc_income_series = self._to_period_series(queries.misc_income())
+        abatement_series = self._to_period_series(queries.rental_abatement())
+        credit_loss_series = self._to_period_series(queries.credit_loss())
+        reimbursements_series = self._to_period_series(queries.expense_reimbursements())
+        egi_series = self._to_period_series(queries.egi())
+        opex_series = self._to_period_series(queries.opex())
+        noi_series = self._to_period_series(queries.noi())
+        capex_series = self._to_period_series(queries.capex())
+        ti_series = self._to_period_series(queries.ti())
+        lc_series = self._to_period_series(queries.lc())
+        ucf_series = self._to_period_series(queries.ucf())
+        
+        # Create summary DataFrame for reporting
+        summary_data = {
+            'Potential Gross Revenue': pgr_series,
+            'Vacancy Loss': vacancy_series,
+            'Miscellaneous Income': misc_income_series,
+            'Rental Abatement': abatement_series,
+            'Expense Reimbursements': reimbursements_series,
+            'Effective Gross Income': egi_series,
+            'Operating Expenses': opex_series,
+            'Net Operating Income': noi_series,
+            'Capital Expenditures': capex_series,
+            'Tenant Improvements': ti_series,
+            'Leasing Commissions': lc_series,
+            'Unlevered Cash Flow': ucf_series,
         }
-
-        # Only process independent models that have already been computed
-        independent_models = [
-            m
-            for m in self.models
-            if m.calculation_pass == CalculationPass.INDEPENDENT_VALUES
-        ]
-
-        for model in independent_models:
-            if model.uid not in self.context.resolved_lookups:
-                continue  # Skip if not computed yet
-
-            result = self.context.resolved_lookups[model.uid]
-
-            if isinstance(result, dict):  # E.g., a lease with multiple components
-                for component, series in result.items():
-                    target_key = self._get_aggregate_key(
-                        model.category, model.subcategory, component
-                    )
-                    if target_key:
-                        intermediate_agg_flows[target_key] = intermediate_agg_flows[
-                            target_key
-                        ].add(
-                            series.reindex(analysis_periods, fill_value=0.0),
-                            fill_value=0.0,
-                        )
-            elif isinstance(result, pd.Series):  # A simple cash flow
-                target_key = self._get_aggregate_key(model.category, model.subcategory)
-                if target_key:
-                    intermediate_agg_flows[target_key] = intermediate_agg_flows[
-                        target_key
-                    ].add(
-                        result.reindex(analysis_periods, fill_value=0.0), fill_value=0.0
-                    )
-
-        # Calculate derived aggregates that dependent models need to reference
-        # Calculate canonical Effective Gross Income for dependent models
-        intermediate_agg_flows[UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME] = (
-            intermediate_agg_flows[UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE]
-            - intermediate_agg_flows[UnleveredAggregateLineKey.RENTAL_ABATEMENT]
-            - intermediate_agg_flows[UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS]
-            - intermediate_agg_flows[UnleveredAggregateLineKey.COLLECTION_LOSS]
-            + intermediate_agg_flows[UnleveredAggregateLineKey.MISCELLANEOUS_INCOME]
-            + intermediate_agg_flows[UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS]
-        )
-
-        # CRITICAL: Calculate other derived aggregates that dependent models need
-        # Net Operating Income = EGI - Total OpEx
-        intermediate_agg_flows[UnleveredAggregateLineKey.NET_OPERATING_INCOME] = (
-            intermediate_agg_flows[UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME]
-            - intermediate_agg_flows[UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES]
-        )
-
-        # Unlevered Cash Flow = NOI - CapEx - TI - LC
-        intermediate_agg_flows[UnleveredAggregateLineKey.UNLEVERED_CASH_FLOW] = (
-            intermediate_agg_flows[UnleveredAggregateLineKey.NET_OPERATING_INCOME]
-            - intermediate_agg_flows[
-                UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES
-            ]
-            - intermediate_agg_flows[
-                UnleveredAggregateLineKey.TOTAL_TENANT_IMPROVEMENTS
-            ]
-            - intermediate_agg_flows[
-                UnleveredAggregateLineKey.TOTAL_LEASING_COMMISSIONS
-            ]
-        )
-
-        # Store intermediate aggregate results in resolved_lookups for dependent models
-        for key, series in intermediate_agg_flows.items():
-            self.context.resolved_lookups[key.value] = series
-
-    def _validate_dependency_complexity(self) -> None:
-        """
-        Validate that dependency chains don't exceed configured complexity limits.
-
-        This defensive validation prevents several issues:
-        1. Circular dependencies that could cause infinite loops
-        2. Overly complex calculation graphs that impact performance
-        3. Hard-to-debug dependency chains in Monte Carlo scenarios
-        4. Architectural problems that should be restructured
-
-        The validation uses configurable limits from CalculationSettings:
-        - max_dependency_depth: Maximum allowed chain length (default=2)
-        - allow_complex_dependencies: Safety flag for 3+ level chains (default=False)
-
-        Examples of dependency chains:
-        - Level 0: Base OpEx (Independent)
-        - Level 1: Admin Fee → Total OpEx (depends on Level 0 aggregate)
-        - Level 2: Mgmt Fee → NOI (depends on Level 1 via Total OpEx)
-
-        Raises:
-            ValueError: If dependency chains exceed configured limits with detailed
-                       guidance on how to resolve the issue.
-
-        Note:
-            Self-referential aggregates (e.g., Admin Fee contributing to the Total OpEx
-            it depends on) are handled correctly and don't count as circular dependencies.
-        """
-        # Extract configuration from calculation settings
-        max_depth = self.context.settings.calculation.max_dependency_depth
-        allow_complex = self.context.settings.calculation.allow_complex_dependencies
-
-        logger.debug(
-            f"Starting dependency validation: max_depth={max_depth}, allow_complex={allow_complex}"
-        )
-
-        # Safety override: Prevent accidental complex dependencies without explicit opt-in
-        if max_depth > 2 and not allow_complex:
-            logger.warning(
-                f"max_dependency_depth={max_depth} but allow_complex_dependencies=False. "
-                f"Enforcing max_depth=2 for safety. Set allow_complex_dependencies=True to override."
-            )
-            max_depth = 2
-
-        # Validate each model with aggregate references (not property attribute references)
-        models_with_references = [
-            m for m in self.models if isinstance(m.reference, UnleveredAggregateLineKey)
-        ]
-        logger.debug(
-            f"Validating {len(models_with_references)} models with aggregate references"
-        )
-
-        for model in models_with_references:
-            # Calculate dependency depth for this model
-            depth = self._calculate_dependency_depth(model, set())
-            logger.debug(f"Model '{model.name}' has dependency depth: {depth}")
-
-            if depth > max_depth:
-                # Generate dependency chain for detailed error reporting
-                chain = self._trace_dependency_chain(model)
-
-                # Provide contextual guidance based on complexity level
-                if depth > 2:
-                    # Complex dependency guidance - architectural suggestions
-                    guidance = (
-                        f"Consider:\n"
-                        f"  1. Set allow_complex_dependencies=True in CalculationSettings if this is intentional\n"
-                        f"  2. Increase max_dependency_depth to {depth} or higher\n"
-                        f"  3. Restructure the model to reduce dependency complexity\n"
-                        f"  4. Move complex calculations to Deal-level (outside Property model)"
-                    )
-                else:
-                    # Simple dependency guidance - just increase limit
-                    guidance = f"Set max_dependency_depth to {depth} or higher in CalculationSettings to allow this dependency chain."
-
-                # Log the violation before raising
-                logger.error(
-                    f"Dependency validation failed for '{model.name}': {depth}-level chain exceeds limit of {max_depth}"
-                )
-
-                raise ValueError(
-                    f"Model '{model.name}' creates a {depth}-level dependency chain: {' → '.join(chain)}. "
-                    f"Maximum allowed depth is {max_depth}.\n{guidance}"
-                )
-
-        # Log successful validation with appropriate level based on complexity
-        if max_depth > 2:
-            logger.info(
-                f"Complex dependency validation passed (max_depth={max_depth}) for {len(models_with_references)} models"
-            )
-        else:
-            logger.debug(
-                f"Dependency complexity validation passed for {len(models_with_references)} models"
-            )
-
-    def _calculate_dependency_depth(self, model: "CashFlowModel", visited: set) -> int:
-        """
-        Recursively calculate the dependency depth of a model.
-
-        This method determines how many levels deep a model's dependencies go by
-        analyzing what aggregates it depends on and what models contribute to those aggregates.
-
-        Algorithm:
-        1. Check for circular dependencies (model already in visited set)
-        2. If no reference, it's independent (depth 0)
-        3. Find models that contribute to the referenced aggregate
-        4. Exclude self to handle valid self-referential aggregates
-        5. Recursively calculate max depth of contributing models
-        6. Return max contributor depth + 1
-
-        Args:
-            model: The CashFlowModel to analyze for dependency depth
-            visited: Set of model UIDs already visited (prevents infinite recursion)
-
-        Returns:
-            The dependency depth:
-            - 0 = Independent (no aggregate references)
-            - 1 = Depends on independent aggregates only
-            - 2 = Depends on aggregates that themselves have dependencies
-            - 3+ = Complex nested dependencies
-
-        Raises:
-            ValueError: If circular dependency detected (should not happen with
-                       proper self-referential exclusion)
-
-        Example:
-            Base OpEx (no reference) → depth 0
-            Admin Fee → Total OpEx (depends on Base OpEx) → depth 1
-            Mgmt Fee → NOI (depends on Total OpEx from Admin Fee) → depth 2
-        """
-        # Circular dependency protection - should never trigger with proper exclusion logic
-        if model.uid in visited:
-            logger.error(
-                f"Circular dependency detected involving model '{model.name}' (UID: {model.uid})"
-            )
-            raise ValueError(
-                f"Circular dependency detected involving model '{model.name}'"
-            )
-
-        # Base case: models without aggregate references are independent
-        if not model.reference:
-            logger.debug(f"Model '{model.name}' is independent (no reference)")
-            return 0
-
-        # PropertyAttributeKey references are direct property lookups, not aggregate dependencies
-        if isinstance(model.reference, PropertyAttributeKey):
-            logger.debug(
-                f"Model '{model.name}' uses direct property attribute '{model.reference.value}' → depth 0"
-            )
-            return 0
-
-        # Find all models that contribute to the aggregate this model depends on
-        contributing_models = self._find_models_contributing_to_aggregate(
-            model.reference
-        )
-
-        # CRITICAL: Exclude the current model to handle valid self-referential aggregates
-        # Example: Admin Fee depends on Total OpEx but also contributes to Total OpEx
-        # This is valid in our 2-phase system and should not be considered circular
-        contributing_models = [m for m in contributing_models if m.uid != model.uid]
-
-        # Handle both AggregateLineKey and other reference types safely
-        reference_display = (
-            model.reference.value
-            if hasattr(model.reference, "value")
-            else str(model.reference)
-        )
-        logger.debug(
-            f"Model '{model.name}' depends on '{reference_display}' with {len(contributing_models)} contributing models"
-        )
-
-        if not contributing_models:
-            # References external aggregate or aggregate from previous phases only
-            logger.debug(
-                f"Model '{model.name}' references external/previous-phase aggregate → depth 1"
-            )
-            return 1
-
-        # Calculate max depth of all contributing models recursively
-        visited_with_current = visited | {model.uid}  # Add current model to visited set
-        max_contributor_depth = 0
-
-        for contributor in contributing_models:
-            contributor_depth = self._calculate_dependency_depth(
-                contributor, visited_with_current
-            )
-            max_contributor_depth = max(max_contributor_depth, contributor_depth)
-            logger.debug(
-                f"  Contributor '{contributor.name}' has depth {contributor_depth}"
-            )
-
-        result_depth = max_contributor_depth + 1
-        logger.debug(f"Model '{model.name}' final calculated depth: {result_depth}")
-        return result_depth
-
-    def _find_models_contributing_to_aggregate(
-        self, aggregate_key: UnleveredAggregateLineKey
-    ) -> List["CashFlowModel"]:
-        """
-        Find all models in the current analysis that contribute to a specific aggregate.
-
-        This method identifies which models feed into a given aggregate line by analyzing
-        their category, subcategory, and output components. It handles both simple cash
-        flow models and complex models like leases that produce multiple components.
-
-        Args:
-            aggregate_key: The AggregateLineKey to analyze (e.g., TOTAL_OPERATING_EXPENSES)
-
-        Returns:
-            List of CashFlowModel instances that contribute to the specified aggregate.
-            Empty list if no models contribute (references external aggregate).
-
-        Examples:
-            TOTAL_OPERATING_EXPENSES ← [Base OpEx, Admin Fee, Property Management]
-            POTENTIAL_GROSS_REVENUE ← [Lease1.base_rent, Lease2.base_rent]
-            EXPENSE_REIMBURSEMENTS ← [Lease1.recoveries, Lease2.recoveries]
-
-        Note:
-            Uses the same aggregation logic as _get_aggregate_key() but in reverse -
-            finding what maps TO an aggregate rather than what an item maps to.
-        """
-        contributing_models = []
-
-        # Handle both AggregateLineKey and other reference types safely
-        aggregate_display = (
-            aggregate_key.value
-            if hasattr(aggregate_key, "value")
-            else str(aggregate_key)
-        )
-        logger.debug(f"Finding contributors to aggregate: {aggregate_display}")
-
-        for model in self.models:
-            # Skip models without proper categorization
-            if not (hasattr(model, "category") and hasattr(model, "subcategory")):
-                continue
-
-            # Check if this model's primary output maps to the target aggregate
-            target_key = self._get_aggregate_key(model.category, model.subcategory)
-
-            if isinstance(model, LeaseBase):
-                # Leases can contribute to multiple aggregates through different components
-                lease_components = [
-                    "base_rent",
-                    "recoveries",
-                    "abatement",
-                    "ti_allowance",
-                    "leasing_commission",
-                ]
-                for component in lease_components:
-                    component_target = self._get_aggregate_key(
-                        model.category, model.subcategory, component
-                    )
-                    if component_target == aggregate_key:
-                        contributing_models.append(model)
-                        logger.debug(
-                            f"  Lease '{model.name}' contributes via component '{component}'"
-                        )
-                        break  # Only add the lease once, even if multiple components match
-                continue
-
-            # Handle simple cash flow models
-            if target_key == aggregate_key:
-                contributing_models.append(model)
-                logger.debug(f"  Model '{model.name}' contributes directly")
-
-        aggregate_display_final = (
-            aggregate_key.value
-            if hasattr(aggregate_key, "value")
-            else str(aggregate_key)
-        )
-        logger.debug(
-            f"Found {len(contributing_models)} contributors to {aggregate_display_final}"
-        )
-        return contributing_models
-
-    def _trace_dependency_chain(self, model: "CashFlowModel") -> List[str]:
-        """
-        Trace and format a dependency chain for clear error reporting.
-
-        This method creates a human-readable representation of a dependency chain
-        to help users understand complex relationships when validation fails.
-
-        Args:
-            model: The CashFlowModel to trace dependencies for
-
-        Returns:
-            List of strings representing the dependency chain from the model
-            down to its deepest dependencies. Format: ["Model Name", "[Aggregate]", "Contributing Model"]
-
-        Example:
-            ["Management Fee", "[Net Operating Income]", "Admin Fee", "[Total Operating Expenses]", "Base OpEx"]
-
-        Note:
-            For simplicity, only traces the first contributor when multiple models
-            contribute to an aggregate. In practice, the full dependency graph
-            may have multiple parallel contributors.
-        """
-        chain = [model.name]
-
-        # Base case: no reference means end of chain
-        if not model.reference:
-            return chain
-
-        # Add the aggregate this model depends on (handle both AggregateLineKey and other types)
-        reference_display = (
-            model.reference.value
-            if hasattr(model.reference, "value")
-            else str(model.reference)
-        )
-        chain.append(f"[{reference_display}]")
-
-        # Find what feeds into that aggregate and trace recursively
-        contributing_models = self._find_models_contributing_to_aggregate(
-            model.reference
-        )
-        if contributing_models:
-            # For simplicity, trace the first contributor
-            # In complex scenarios, multiple models might contribute
-            first_contributor = contributing_models[0]
-            sub_chain = self._trace_dependency_chain(first_contributor)
-            chain.extend(sub_chain)
-
-        return chain
+        
+        self.summary_df = pd.DataFrame(summary_data, index=analysis_periods)
+        self.summary_df = self.summary_df.fillna(0.0)
+        
+        # Update resolved_lookups with final aggregates (using aliased enum)
+        self.context.resolved_lookups[AggKeys.POTENTIAL_GROSS_REVENUE.value] = pgr_series
+        self.context.resolved_lookups[AggKeys.GENERAL_VACANCY_LOSS.value] = vacancy_series
+        self.context.resolved_lookups[AggKeys.MISCELLANEOUS_INCOME.value] = misc_income_series
+        self.context.resolved_lookups[AggKeys.RENTAL_ABATEMENT.value] = abatement_series
+        self.context.resolved_lookups[AggKeys.CREDIT_LOSS.value] = credit_loss_series
+        self.context.resolved_lookups[AggKeys.EXPENSE_REIMBURSEMENTS.value] = reimbursements_series
+        self.context.resolved_lookups[AggKeys.EFFECTIVE_GROSS_INCOME.value] = egi_series
+        self.context.resolved_lookups[AggKeys.TOTAL_OPERATING_EXPENSES.value] = opex_series
+        self.context.resolved_lookups[AggKeys.NET_OPERATING_INCOME.value] = noi_series
+        self.context.resolved_lookups[AggKeys.TOTAL_CAPITAL_EXPENDITURES.value] = capex_series
+        self.context.resolved_lookups[AggKeys.TOTAL_TENANT_IMPROVEMENTS.value] = ti_series
+        self.context.resolved_lookups[AggKeys.TOTAL_LEASING_COMMISSIONS.value] = lc_series
+        self.context.resolved_lookups[AggKeys.UNLEVERED_CASH_FLOW.value] = ucf_series
+        
+        # Add special vacancy types (zeros for now)
+        zero_series = pd.Series(0.0, index=analysis_periods)
+        self.context.resolved_lookups[AggKeys.DOWNTIME_VACANCY_LOSS.value] = zero_series
+        self.context.resolved_lookups[AggKeys.ROLLOVER_VACANCY_LOSS.value] = zero_series
+        
+        # Create agg_flows dict for backward compatibility (if still needed)
+        self.agg_flows = {
+            UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE: pgr_series,
+            UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS: vacancy_series,
+            UnleveredAggregateLineKey.MISCELLANEOUS_INCOME: misc_income_series,
+            UnleveredAggregateLineKey.RENTAL_ABATEMENT: abatement_series,
+            UnleveredAggregateLineKey.CREDIT_LOSS: credit_loss_series,
+            UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS: reimbursements_series,
+            UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME: egi_series,
+            UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES: opex_series,
+            UnleveredAggregateLineKey.NET_OPERATING_INCOME: noi_series,
+            UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES: capex_series,
+            UnleveredAggregateLineKey.TOTAL_TENANT_IMPROVEMENTS: ti_series,
+            UnleveredAggregateLineKey.TOTAL_LEASING_COMMISSIONS: lc_series,
+            UnleveredAggregateLineKey.UNLEVERED_CASH_FLOW: ucf_series,
+        }
+        
+        logger.info(f"Finalized aggregation: {len(self.summary_df.columns)} metrics, {len(self.context.resolved_lookups)} aggregates")

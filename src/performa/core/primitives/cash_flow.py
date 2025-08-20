@@ -10,8 +10,8 @@ import pandas as pd
 from pydantic import Field, computed_field, field_validator
 
 from .enums import (
-    CalculationPass,
     FrequencyEnum,
+    OrchestrationPass,
     PropertyAttributeKey,
     UnleveredAggregateLineKey,
 )
@@ -130,18 +130,18 @@ class CashFlowModel(Model):
 
     @computed_field
     @property
-    def calculation_pass(self) -> CalculationPass:
+    def calculation_pass(self) -> OrchestrationPass:
         """
         Determines the calculation phase for this model based on its dependencies.
 
         This computed property categorizes models into calculation phases for the
         two-phase execution system:
 
-        - INDEPENDENT_VALUES: Models that can be calculated first (Phase 1)
+        - INDEPENDENT_MODELS: Models that can be calculated first (Phase 1)
           - No aggregate references (self.reference is None)
           - Examples: Base rent, base operating expenses, property taxes
 
-        - DEPENDENT_VALUES: Models requiring aggregated results (Phase 2)
+        - DEPENDENT_MODELS: Models requiring aggregated results (Phase 2)
           - Has aggregate reference (self.reference is not None)
           - Examples: Admin fees (% of Total OpEx), management fees (% of NOI)
 
@@ -152,7 +152,7 @@ class CashFlowModel(Model):
         4. Prevention of circular dependency issues
 
         Returns:
-            CalculationPass enum indicating when this model should be executed
+            OrchestrationPass enum indicating when this model should be executed
 
         Note:
             This is a computed field that automatically updates if the reference
@@ -161,18 +161,18 @@ class CashFlowModel(Model):
         Examples:
             # Independent model - calculated in Phase 1
             base_opex = OpExItem(name="Utilities", value=5000, reference=None)
-            assert base_opex.calculation_pass == CalculationPass.INDEPENDENT_VALUES
+            assert base_opex.calculation_pass == OrchestrationPass.INDEPENDENT_MODELS
 
             # Dependent model - calculated in Phase 2 after aggregation
             admin_fee = OpExItem(name="Admin Fee", value=0.05, reference=UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES)
-            assert admin_fee.calculation_pass == CalculationPass.DEPENDENT_VALUES
+            assert admin_fee.calculation_pass == OrchestrationPass.DEPENDENT_MODELS
         """
         if self.reference is not None and isinstance(
             self.reference, UnleveredAggregateLineKey
         ):
             # Models with UnleveredAggregateLineKey references depend on aggregated values
-            return CalculationPass.DEPENDENT_VALUES
-        return CalculationPass.INDEPENDENT_VALUES
+            return OrchestrationPass.DEPENDENT_MODELS
+        return OrchestrationPass.INDEPENDENT_MODELS
 
     def _convert_frequency(
         self, value: Union[float, pd.Series]

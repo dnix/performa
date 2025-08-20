@@ -17,7 +17,7 @@ from typing import Literal
 from pydantic import Field, field_validator, model_validator
 
 from ..asset.residential import (
-    ResidentialCollectionLoss,
+    ResidentialCreditLoss,
     ResidentialExpenses,
     ResidentialGeneralVacancyLoss,
     ResidentialLosses,
@@ -301,12 +301,10 @@ class StabilizedAcquisitionPattern(PatternBase):
         # Create basic losses (vacancy and collection)
         losses = ResidentialLosses(
             general_vacancy=ResidentialGeneralVacancyLoss(
-                vacancy_rate=1.0 - self.occupancy_rate,
-                timeline=timeline,
+                rate=1.0 - self.occupancy_rate,
             ),
-            collection_loss=ResidentialCollectionLoss(
-                collection_loss_rate=0.02,  # 2% collection loss
-                timeline=timeline,
+            credit_loss=ResidentialCreditLoss(
+                rate=0.02,  # 2% collection loss
             ),
         )
 

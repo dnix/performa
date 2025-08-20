@@ -38,7 +38,7 @@ from performa.asset.office.absorption import (
     FixedQuantityPace,
     SpaceFilter,
 )
-from performa.asset.office.losses import OfficeCollectionLoss, OfficeGeneralVacancyLoss
+from performa.asset.office.loss import OfficeCreditLoss, OfficeGeneralVacancyLoss
 from performa.asset.residential import (
     ResidentialAbsorptionPlan,
     ResidentialDevelopmentBlueprint,
@@ -53,8 +53,8 @@ from performa.asset.residential.absorption import (
     ResidentialDirectLeaseTerms,
     ResidentialUnitFilter,
 )
-from performa.asset.residential.losses import (
-    ResidentialCollectionLoss,
+from performa.asset.residential.loss import (
+    ResidentialCreditLoss,
     ResidentialGeneralVacancyLoss,
 )
 from performa.asset.residential.rollover import (
@@ -135,7 +135,7 @@ def stabilized_office_baseline(analysis_timeline) -> OfficeProperty:
 
     losses = OfficeLosses(
         general_vacancy=OfficeGeneralVacancyLoss(rate=0.05),  # Default 5% vacancy
-        collection_loss=OfficeCollectionLoss(rate=0.01),  # Default 1% collection loss
+        credit_loss=OfficeCreditLoss(rate=0.01),  # Default 1% collection loss
     )
 
     return OfficeProperty(
@@ -160,7 +160,7 @@ def office_baseline_cash_flows(
         settings=global_settings,
     )
 
-    cash_flows = scenario.get_cash_flow_summary()
+    cash_flows = scenario.summary_df
 
     # Filter to stabilized operations period (after construction)
     stabilized_start = pd.Period("2025-02", freq="M")
@@ -275,7 +275,7 @@ def stabilized_residential_baseline(analysis_timeline) -> ResidentialProperty:
     expenses = ResidentialExpenses()  # Default expenses
     losses = ResidentialLosses(
         general_vacancy=ResidentialGeneralVacancyLoss(rate=0.05),  # Default 5% vacancy
-        collection_loss=ResidentialCollectionLoss(
+        credit_loss=ResidentialCreditLoss(
             rate=0.01
         ),  # Default 1% collection loss
     )
@@ -302,7 +302,7 @@ def residential_baseline_cash_flows(
         settings=global_settings,
     )
 
-    cash_flows = scenario.get_cash_flow_summary()
+    cash_flows = scenario.summary_df
 
     # Filter to stabilized operations period
     stabilized_start = pd.Period("2025-02", freq="M")
@@ -477,7 +477,7 @@ def test_office_development_matches_baseline(
         settings=global_settings,
     )
 
-    development_cash_flows = development_scenario.get_cash_flow_summary()
+    development_cash_flows = development_scenario.summary_df
 
     # Filter to same stabilized period
     stabilized_start = pd.Period("2025-02", freq="M")
@@ -547,7 +547,7 @@ def test_residential_development_matches_baseline(
         settings=global_settings,
     )
 
-    development_cash_flows = development_scenario.get_cash_flow_summary()
+    development_cash_flows = development_scenario.summary_df
 
     # Filter to same stabilized period
     stabilized_start = pd.Period("2025-02", freq="M")
@@ -582,6 +582,7 @@ def test_residential_development_matches_baseline(
         assert len(development_stabilized) > 0
 
 
+
 def test_mixed_use_polymorphic_pattern(
     mixed_use_development_project, analysis_timeline, global_settings
 ):
@@ -596,7 +597,7 @@ def test_mixed_use_polymorphic_pattern(
         settings=global_settings,
     )
 
-    development_cash_flows = development_scenario.get_cash_flow_summary()
+    development_cash_flows = development_scenario.summary_df
 
     # Validate basic structure
     assert not development_cash_flows.empty
@@ -618,6 +619,7 @@ def test_mixed_use_polymorphic_pattern(
     print("✅ MIXED-USE POLYMORPHIC PATTERN VALIDATED!")
     print("✅ Multiple asset types combined successfully")
     print("✅ No conditionals needed in development orchestrator")
+
 
 
 def test_end_to_end_asset_factory_workflow(
@@ -658,7 +660,7 @@ def test_end_to_end_asset_factory_workflow(
     )
 
     # Step 4: Validate complete cash flow generation
-    cash_flows = development_scenario.get_cash_flow_summary()
+    cash_flows = development_scenario.summary_df
     assert not cash_flows.empty
     assert len(cash_flows) > 0
 

@@ -15,7 +15,14 @@ from performa.asset.office.expense import (
     OfficeExpenses,
     OfficeOpExItem,
 )
+from performa.asset.office.loss import (
+    OfficeCreditLoss,
+    OfficeGeneralVacancyLoss,
+    OfficeLosses,
+)
 from performa.asset.office.property import OfficeProperty
+from performa.asset.office.rent_roll import OfficeRentRoll
+from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -33,14 +40,31 @@ def sample_timeline() -> Timeline:
 
 
 @pytest.fixture
-def sample_context(sample_timeline: Timeline) -> AnalysisContext:
-    property_data = OfficeProperty.model_construct(net_rentable_area=1000.0)
+def sample_context(sample_timeline: Timeline) -> AnalysisContext:    
+    property_data = OfficeProperty(
+        name="Test Property",
+        gross_area=1200.0,
+        net_rentable_area=1000.0,
+        uid="550e8400-e29b-41d4-a716-446655440008",
+        rent_roll=OfficeRentRoll(leases=[], vacant_suites=[]),
+        losses=OfficeLosses(
+            general_vacancy=OfficeGeneralVacancyLoss(
+                vacancy_rate=0.05,
+                applied_to_base_rent=True
+            ),
+            credit_loss=OfficeCreditLoss(
+                loss_rate=0.01,
+                applied_to_base_rent=True
+            )
+        ),
+        expenses=OfficeExpenses()
+    )
+    ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
     return AnalysisContext(
         timeline=sample_timeline,
         settings=GlobalSettings(),
         property_data=property_data,
-        resolved_lookups={},
-        recovery_states={},
+        ledger_builder=ledger_builder,
     )
 
 

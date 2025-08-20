@@ -47,9 +47,9 @@ contracts and common behaviors that asset-specific implementations extend.
 - **PaceStrategy**: Leasing velocity patterns (Fixed, EqualSpread, CustomSchedule)
 
 ### Loss Modeling
-- **LossesBase**: Property-level loss configurations
-- **GeneralVacancyLossConfigBase**: Vacancy allowance calculations
-- **CollectionLossConfigBase**: Collection loss modeling
+- **Losses**: Property-level loss configurations
+- **VacancyLossConfig**: Vacancy allowance calculations
+- **CollectionLossConfig**: Collection loss modeling
 
 ## Architecture Principles
 
@@ -107,4 +107,4 @@ class CustomProperty(PropertyBaseModel):
 ```
 
 These base classes enable consistent behavior and contracts across all
-asset types while providing flexibility for property-specific requirements. 
+asset types while providing flexibility for property-specific requirements.

@@ -27,8 +27,8 @@ from .analysis import ResidentialAnalysisScenario
 from .blueprint import ResidentialDevelopmentBlueprint
 from .expense import ResidentialCapExItem, ResidentialExpenses, ResidentialOpExItem
 from .lease import ResidentialLease
-from .losses import (
-    ResidentialCollectionLoss,
+from .loss import (
+    ResidentialCreditLoss,
     ResidentialGeneralVacancyLoss,
     ResidentialLosses,
 )
@@ -59,7 +59,7 @@ __all__ = [
     "ResidentialCapExItem",
     "ResidentialLosses",
     "ResidentialGeneralVacancyLoss",
-    "ResidentialCollectionLoss",
+    "ResidentialCreditLoss",
     "ResidentialMiscIncome",
     # Rollover and absorption models
     "ResidentialRolloverProfile",

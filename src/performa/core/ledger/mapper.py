@@ -9,7 +9,16 @@ to TransactionPurpose values, following standard real estate accounting
 principles and the existing Performa categorization system.
 """
 
-from performa.core.primitives import TransactionPurpose
+from typing import Union
+
+from performa.core.primitives import (
+    CapExCategoryEnum,
+    CapitalSubcategoryEnum,
+    CashFlowCategoryEnum,
+    ExpenseSubcategoryEnum,
+    RevenueSubcategoryEnum,
+    TransactionPurpose,
+)
 
 
 class FlowPurposeMapper:
@@ -22,9 +31,11 @@ class FlowPurposeMapper:
     """
     
     @staticmethod
-    def determine_purpose(category: str, amount: float) -> TransactionPurpose:
+    def determine_purpose(category: CashFlowCategoryEnum, amount: float) -> TransactionPurpose:
         """
         Determine TransactionPurpose based on category and amount sign.
+        
+        Uses actual enum values instead of brittle string matching.
         
         Args:
             category: Primary transaction category (Revenue, Expense, Capital, etc.)
@@ -36,38 +47,41 @@ class FlowPurposeMapper:
         Rules:
             - Revenue/Expense categories -> OPERATING
             - Capital category -> CAPITAL_USE (outflow) or CAPITAL_SOURCE (inflow)  
-            - Financing category -> FINANCING_SERVICE
-            - TI/LC subcategories -> CAPITAL_USE (regardless of amount sign)
+            - Financing category -> FINANCING_SERVICE (outflow) or CAPITAL_SOURCE (inflow)
         """
-        category_lower = category.lower().strip()
-        
-        # Revenue and expenses are always operating
-        if category_lower in ('revenue', 'expense', 'operating'):
+        # Use enum values for robust classification
+        if category == CashFlowCategoryEnum.REVENUE or category == CashFlowCategoryEnum.EXPENSE:
             return TransactionPurpose.OPERATING
         
-        # Financing flows are debt service
-        if category_lower in ('financing', 'debt'):
-            return TransactionPurpose.FINANCING_SERVICE
+        # Financing flows depend on direction (like Capital)
+        if category == CashFlowCategoryEnum.FINANCING:
+            # Outflows are debt service, inflows are capital sources (loan proceeds)
+            if amount < 0:
+                return TransactionPurpose.FINANCING_SERVICE
+            else:
+                return TransactionPurpose.CAPITAL_SOURCE
         
         # Capital flows depend on direction
-        if category_lower == 'capital':
+        if category == CashFlowCategoryEnum.CAPITAL:
             # Outflows are capital deployment, inflows are capital sources
             if amount < 0:
                 return TransactionPurpose.CAPITAL_USE
             else:
                 return TransactionPurpose.CAPITAL_SOURCE
         
-        # Default to operating for unknown categories
-        return TransactionPurpose.OPERATING
+        # No fallback - force proper enum usage
+        raise ValueError(f"Unknown category: {category} (type: {type(category)}). Use proper CashFlowCategoryEnum values.")
     
     @staticmethod
     def determine_purpose_with_subcategory(
-        category: str, 
-        subcategory: str, 
+        category: CashFlowCategoryEnum, 
+        subcategory: Union[CapitalSubcategoryEnum, CapExCategoryEnum, ExpenseSubcategoryEnum, RevenueSubcategoryEnum], 
         amount: float
     ) -> TransactionPurpose:
         """
         Enhanced purpose determination considering subcategory.
+        
+        Uses actual enum values instead of brittle string patterns.
         
         Args:
             category: Primary transaction category
@@ -78,41 +92,41 @@ class FlowPurposeMapper:
             TransactionPurpose enum value
             
         Special Rules:
-            - TI (Tenant Improvements) -> CAPITAL_USE
-            - LC (Leasing Commissions) -> CAPITAL_USE
-            - Acquisition-related -> CAPITAL_USE
-            - Property sales -> CAPITAL_SOURCE
+            - Capital subcategories -> CAPITAL_USE or CAPITAL_SOURCE based on type
+            - CapEx subcategories -> CAPITAL_USE
+            - Revenue subcategories -> CAPITAL_SOURCE (for sales) or OPERATING
+            - Financing subcategories -> CAPITAL_SOURCE (proceeds) or FINANCING_SERVICE
         """
-        subcategory_lower = subcategory.lower().strip()
+
         
-        # TI and LC are always capital use (Phase 2.5 requirement)
-        # Use word boundaries to avoid false matches (e.g., "utilities" contains "ti")
-        # FIXME: clean this up with enums/categories/subcategories
-        ti_lc_patterns = [
-            ' ti ', 'ti ', ' ti', '^ti$',  # TI as standalone word
-            'tenant improvement', 'tenant_improvement',
-            'leasing commission', 'leasing_commission', 
-            ' lc ', 'lc ', ' lc', '^lc$'   # LC as standalone word
-        ]
-        
-        # Check if any TI/LC pattern matches
-        for pattern in ti_lc_patterns:
-            if pattern.startswith('^') and pattern.endswith('$'):
-                # Exact match
-                if subcategory_lower == pattern[1:-1]:
-                    return TransactionPurpose.CAPITAL_USE
-            elif pattern in subcategory_lower:
+        # Use enum values for robust classification
+        try:
+            # Capital subcategories (acquisition, construction costs)
+            if subcategory in [e.value for e in CapitalSubcategoryEnum]:
                 return TransactionPurpose.CAPITAL_USE
+            
+            # CapEx subcategories (tenant improvements, leasing costs, renovations)
+            if subcategory in [e.value for e in CapExCategoryEnum]:
+                return TransactionPurpose.CAPITAL_USE
+            
+            # Revenue subcategories
+            if subcategory in [e.value for e in RevenueSubcategoryEnum]:
+                if subcategory == RevenueSubcategoryEnum.SALE:
+                    return TransactionPurpose.CAPITAL_SOURCE
+                else:
+                    return TransactionPurpose.OPERATING
+            
+            # Financing subcategories based on common patterns
+            if category == CashFlowCategoryEnum.FINANCING:
+                if amount > 0:  # Positive = proceeds/draws
+                    return TransactionPurpose.CAPITAL_SOURCE
+                else:  # Negative = service payments
+                    return TransactionPurpose.FINANCING_SERVICE
         
-        # Acquisition costs are capital use
-        if any(term in subcategory_lower for term in ['acquisition', 'purchase', 'closing']):
-            return TransactionPurpose.CAPITAL_USE
+        except (ImportError, AttributeError):
+            pass  # Fall through to category-based determination
         
-        # Property sales are capital source
-        if any(term in subcategory_lower for term in ['sale', 'disposition', 'proceeds']):
-            return TransactionPurpose.CAPITAL_SOURCE
-        
-        # Fall back to category-based determination
+        # Fall back to category-based determination  
         return FlowPurposeMapper.determine_purpose(category, amount)
     
     @staticmethod

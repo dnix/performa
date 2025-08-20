@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional, Union
 import pandas as pd
 
 from ..primitives.cash_flow import CashFlowModel
-from ..primitives.enums import RevenueSubcategoryEnum
+from ..primitives.enums import CashFlowCategoryEnum, RevenueSubcategoryEnum
 from ..primitives.growth_rates import PercentageGrowthRate
 from ..primitives.types import FloatBetween0And1
 
@@ -21,7 +21,7 @@ class MiscIncomeBase(CashFlowModel):
     Base class for miscellaneous income items.
     """
 
-    category: str = "Revenue"
+    category: CashFlowCategoryEnum = CashFlowCategoryEnum.REVENUE
     subcategory: RevenueSubcategoryEnum = RevenueSubcategoryEnum.MISC
     variable_ratio: Optional[FloatBetween0And1] = None
     growth_rate: Optional["PercentageGrowthRate"] = None

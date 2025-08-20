@@ -688,8 +688,8 @@ class DealAnalysisResult(ResultModel):
     )
 
     # Analysis Components
-    unlevered_analysis: UnleveredAnalysisResult = Field(
-        None, description="Unlevered asset analysis"
+    asset_analysis: Any = Field(
+        None, description="Ledger-based asset analysis (AssetAnalysisResult)"
     )
     financing_analysis: Optional[FinancingAnalysisResult] = Field(
         None, description="Financing analysis (None for all-equity deals)"

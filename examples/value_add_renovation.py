@@ -103,7 +103,7 @@ import traceback
 from performa.analysis import run
 from performa.asset.residential import (
     ResidentialAbsorptionPlan,
-    ResidentialCollectionLoss,
+    ResidentialCreditLoss,
     ResidentialExpenses,
     ResidentialGeneralVacancyLoss,
     ResidentialLosses,
@@ -271,7 +271,7 @@ def create_rolling_renovation_property() -> ResidentialProperty:
                 name="General Vacancy",
                 rate=0.08,  # 8% vacancy at acquisition (improved to 5% post-renovation)
             ),
-            collection_loss=ResidentialCollectionLoss(
+            credit_loss=ResidentialCreditLoss(
                 name="Collection Loss",
                 rate=0.015,  # 1.5% collection loss (improved to 1% post-renovation)
             ),
@@ -294,7 +294,7 @@ def create_acquisition_expenses() -> ResidentialExpenses:
     # Property management: 6% of EGI (higher rate for older property)
     property_management = ResidentialOpExItem(
         name="Property Management",
-        category="Operating Expense",
+        category="Expense",
         subcategory=ExpenseSubcategoryEnum.OPEX,
         timeline=timeline,
         value=6.0,  # 6% of EGI (higher for older property)
@@ -305,7 +305,7 @@ def create_acquisition_expenses() -> ResidentialExpenses:
     # Insurance: $3.00 per square foot (higher for older property)
     insurance = ResidentialOpExItem(
         name="Property Insurance",
-        category="Operating Expense",
+        category="Expense",
         subcategory=ExpenseSubcategoryEnum.OPEX,
         timeline=timeline,
         value=3.00,  # $3.00 per SF (higher for older property)
@@ -316,7 +316,7 @@ def create_acquisition_expenses() -> ResidentialExpenses:
     # Property taxes: $1,800 per unit annually (based on current assessed value)
     property_taxes = ResidentialOpExItem(
         name="Property Taxes",
-        category="Operating Expense",
+        category="Expense",
         subcategory=ExpenseSubcategoryEnum.OPEX,
         timeline=timeline,
         value=1800.0,  # $1,800 per unit annually
@@ -327,7 +327,7 @@ def create_acquisition_expenses() -> ResidentialExpenses:
     # Utilities: $300 per unit (higher due to older, less efficient systems)
     utilities = ResidentialOpExItem(
         name="Utilities",
-        category="Operating Expense",
+        category="Expense",
         subcategory=ExpenseSubcategoryEnum.OPEX,
         timeline=timeline,
         value=300.0,  # $300 per unit annually
@@ -338,7 +338,7 @@ def create_acquisition_expenses() -> ResidentialExpenses:
     # Maintenance: $600 per unit (higher due to older systems and deferred maintenance)
     maintenance = ResidentialOpExItem(
         name="Maintenance & Repairs",
-        category="Operating Expense",
+        category="Expense",
         subcategory=ExpenseSubcategoryEnum.OPEX,
         timeline=timeline,
         value=600.0,  # $600 per unit annually
@@ -372,7 +372,7 @@ def create_stabilized_expenses() -> ResidentialExpenses:
     # Property management: 5% of EGI (standard for stabilized multifamily)
     property_management = ResidentialOpExItem(
         name="Property Management - Stabilized",
-        category="Operating Expense",
+        category="Expense",
         subcategory=ExpenseSubcategoryEnum.OPEX,
         timeline=timeline,
         value=5.0,  # 5% of EGI (improved efficiency)
@@ -383,7 +383,7 @@ def create_stabilized_expenses() -> ResidentialExpenses:
     # Insurance: $2.50 per square foot (normalized post-renovation)
     insurance = ResidentialOpExItem(
         name="Property Insurance - Stabilized",
-        category="Operating Expense",
+        category="Expense",
         subcategory=ExpenseSubcategoryEnum.OPEX,
         timeline=timeline,
         value=2.50,  # $2.50 per SF (lower due to improvements)
@@ -394,7 +394,7 @@ def create_stabilized_expenses() -> ResidentialExpenses:
     # Property taxes: $2,200 per unit annually (higher due to increased property value)
     property_taxes = ResidentialOpExItem(
         name="Property Taxes - Stabilized",
-        category="Operating Expense",
+        category="Expense",
         subcategory=ExpenseSubcategoryEnum.OPEX,
         timeline=timeline,
         value=2200.0,  # $2,200 per unit annually (higher assessment)
@@ -405,7 +405,7 @@ def create_stabilized_expenses() -> ResidentialExpenses:
     # Utilities: $200 per unit (lower due to efficiency improvements)
     utilities = ResidentialOpExItem(
         name="Utilities - Stabilized",
-        category="Operating Expense",
+        category="Expense",
         subcategory=ExpenseSubcategoryEnum.OPEX,
         timeline=timeline,
         value=200.0,  # $200 per unit annually (improved efficiency)
@@ -416,7 +416,7 @@ def create_stabilized_expenses() -> ResidentialExpenses:
     # Maintenance: $400 per unit (lower due to new systems and appliances)
     maintenance = ResidentialOpExItem(
         name="Maintenance & Repairs - Stabilized",
-        category="Operating Expense",
+        category="Expense",
         subcategory=ExpenseSubcategoryEnum.OPEX,
         timeline=timeline,
         value=400.0,  # $400 per unit annually (lower due to new systems)
@@ -566,7 +566,7 @@ def demonstrate_rolling_renovation_analysis():
 
     scenario = run(model=property_model, timeline=timeline, settings=GlobalSettings())
 
-    summary_df = scenario.get_cash_flow_summary()
+    summary_df = scenario.summary_df
 
     print(
         "✅ Rolling Renovation Analysis Complete - Value-Add Financial Model Available"

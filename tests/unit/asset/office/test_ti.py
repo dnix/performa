@@ -11,6 +11,7 @@ import pytest
 from performa.analysis import AnalysisContext
 from performa.asset.office.property import OfficeProperty
 from performa.asset.office.ti import OfficeTenantImprovement
+from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
 from performa.core.primitives import GlobalSettings, Timeline
 
 
@@ -25,9 +26,8 @@ def sample_context() -> AnalysisContext:
         timeline=timeline,
         settings=GlobalSettings(),
         property_data=property_data,
-        resolved_lookups={},
-        recovery_states={},
-    )
+        ledger_builder=LedgerBuilder(settings=LedgerGenerationSettings()),
+        )
 
 
 def test_ti_compute_cf_upfront(sample_context: AnalysisContext):

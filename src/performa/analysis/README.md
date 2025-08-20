@@ -34,7 +34,7 @@ scenario = run(
 )
 
 # Get results
-summary = scenario.get_cash_flow_summary()
+summary = scenario.summary_df
 ```
 
 The analysis engine automatically selects the appropriate scenario based on model type

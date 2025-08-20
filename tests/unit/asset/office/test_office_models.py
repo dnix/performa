@@ -9,8 +9,8 @@ import pytest
 
 from performa.asset.office.expense import OfficeExpenses
 from performa.asset.office.lease_spec import OfficeLeaseSpec
-from performa.asset.office.losses import (
-    OfficeCollectionLoss,
+from performa.asset.office.loss import (
+    OfficeCreditLoss,
     OfficeGeneralVacancyLoss,
     OfficeLosses,
 )
@@ -110,7 +110,7 @@ def test_office_property_properties():
     rent_roll = OfficeRentRoll(leases=[lease], vacant_suites=[vacant_suite])
     losses = OfficeLosses(
         general_vacancy=OfficeGeneralVacancyLoss(rate=0.05),
-        collection_loss=OfficeCollectionLoss(rate=0.01),
+        credit_loss=OfficeCreditLoss(rate=0.01),
     )
     expenses = OfficeExpenses()
     prop = OfficeProperty(

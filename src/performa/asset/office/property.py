@@ -13,7 +13,7 @@ from ...core.primitives import AssetTypeEnum, Model
 from .absorption import OfficeAbsorptionPlan
 from .expense import OfficeExpenses
 from .lease_spec import OfficeLeaseSpec
-from .losses import OfficeLosses
+from .loss import OfficeLosses
 from .misc_income import OfficeMiscIncome
 from .rent_roll import OfficeRentRoll
 from .tenant import OfficeTenant

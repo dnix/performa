@@ -90,9 +90,11 @@ import numpy as np
 import pandas as pd
 from pyxirr import xirr
 
+from performa.core.ledger import LedgerBuilder, SeriesMetadata
 from performa.deal.results import FeeAccountingDetails
 
 if TYPE_CHECKING:
+    from performa.core.ledger import LedgerBuilder
     from performa.core.primitives import GlobalSettings, Timeline
     from performa.deal.deal import Deal
 
@@ -725,7 +727,9 @@ class PartnershipAnalyzer:
     )
 
     def calculate_partner_distributions(
-        self, levered_cash_flows: pd.Series
+        self,
+        levered_cash_flows: pd.Series,
+        ledger_builder: "LedgerBuilder",  # REQUIRED - must be the populated ledger from asset analysis
     ) -> PartnerDistributionResult:
         """
         Calculate partner distributions through equity waterfall with comprehensive fee handling.
@@ -736,6 +740,7 @@ class PartnershipAnalyzer:
 
         Args:
             levered_cash_flows: The levered cash flow series from cash flow analysis
+            ledger_builder: Optional ledger builder for transaction recording
 
         Returns:
             PartnerDistributionResult containing distribution analysis
@@ -822,7 +827,47 @@ class PartnershipAnalyzer:
                 error_results
             )
 
+        # Add distribution records to ledger (ledger_builder must be provided)
+        if ledger_builder is None:
+            raise ValueError("ledger_builder is required and must contain prior transaction data")
+        self._add_distribution_records_to_ledger(ledger_builder)
+
         return self.partner_distributions
+
+    def _add_distribution_records_to_ledger(self, ledger_builder: LedgerBuilder):
+        """
+        Add partner distribution transactions to the ledger.
+        
+        This method takes the calculated distributions and adds them as 
+        distribution transactions to the ledger for full audit trail.
+        
+        Args:
+            ledger_builder: The ledger builder to add transactions to
+        """
+        
+        if (self.partner_distributions is None or 
+            not hasattr(self.partner_distributions, 'waterfall_details') or
+            self.partner_distributions.waterfall_details is None):
+            return
+        
+        # Add partner distribution transactions  
+        if hasattr(self.partner_distributions.waterfall_details, 'partner_results'):
+            for partner_name, partner_metrics in self.partner_distributions.waterfall_details.partner_results.items():
+                if partner_metrics.cash_flows is not None and partner_metrics.cash_flows.sum() != 0:
+                    metadata = SeriesMetadata(
+                        category="Financing",
+                        subcategory="Distribution",
+                        item_name=f"Distribution to {partner_name}",
+                        source_id=getattr(partner_metrics.partner_info, 'uid', None),
+                        asset_id=self.deal.asset.uid,
+                        deal_id=self.deal.uid,
+                        entity_id=getattr(partner_metrics.partner_info, 'uid', None),
+                        entity_type="GP" if getattr(partner_metrics.partner_info, 'is_gp', False) else "LP",
+                        pass_num=3  # TODO: Check this: Partnership is pass 3
+                    )
+                    # Note: Use negative cash flows since distributions are outflows from project perspective
+                    distribution_flows = -1 * partner_metrics.cash_flows
+                    ledger_builder.add_series(distribution_flows, metadata)
 
     def _calculate_single_entity_distributions(
         self, cash_flows: pd.Series

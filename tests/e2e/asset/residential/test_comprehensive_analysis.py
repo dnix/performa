@@ -24,9 +24,8 @@ import pytest
 
 from performa.analysis import run
 from performa.asset.residential import (
-    ResidentialAnalysisScenario,
     ResidentialCapExItem,
-    ResidentialCollectionLoss,
+    ResidentialCreditLoss,
     ResidentialExpenses,
     ResidentialGeneralVacancyLoss,
     ResidentialLosses,
@@ -51,6 +50,7 @@ from performa.core.primitives.growth_rates import PercentageGrowthRate
 class TestLargeScaleProperties:
     """Test large multifamily properties (200+ units) for scale and performance."""
 
+    
     def test_institutional_scale_property(self):
         """
         Test a realistic institutional-scale multifamily property.
@@ -208,7 +208,7 @@ class TestLargeScaleProperties:
             general_vacancy=ResidentialGeneralVacancyLoss(
                 rate=0.04
             ),  # 4% for well-managed property
-            collection_loss=ResidentialCollectionLoss(
+            credit_loss=ResidentialCreditLoss(
                 rate=0.015
             ),  # 1.5% collection loss
         )
@@ -272,15 +272,15 @@ class TestLargeScaleProperties:
         )
 
         # Run the analysis
-        scenario = run(
+        result = run(
             model=property_model,
             timeline=timeline,
             settings=settings,
         )
 
         # Verify analysis completed
-        assert isinstance(scenario, ResidentialAnalysisScenario)
-        orchestrator = scenario._orchestrator
+        assert result is not None
+        orchestrator = result.scenario._orchestrator
         assert orchestrator is not None
 
         # Verify correct model unrolling
@@ -292,7 +292,7 @@ class TestLargeScaleProperties:
         ), f"Expected 250 lease models, got {len(lease_models)}"
 
         # Verify cash flow generation
-        summary_df = scenario.get_cash_flow_summary()
+        summary_df = result.summary_df
         assert len(summary_df) == 60, "Should have 60 monthly periods"
 
         # Validate financial metrics
@@ -322,6 +322,7 @@ class TestLargeScaleProperties:
         print("   - 60-month projection generated")
         print("   - Complex unit mix with 6 unit types processed")
 
+    
     def test_performance_stress_test(self):
         """
         Stress test with a very large property to validate performance.
@@ -399,7 +400,7 @@ class TestLargeScaleProperties:
 
         losses = ResidentialLosses(
             general_vacancy=ResidentialGeneralVacancyLoss(rate=0.05),
-            collection_loss=ResidentialCollectionLoss(rate=0.01),
+            credit_loss=ResidentialCreditLoss(rate=0.01),
         )
 
         property_model = ResidentialProperty(
@@ -419,7 +420,7 @@ class TestLargeScaleProperties:
         start_time = time.time()
 
         # Run the analysis
-        scenario = run(
+        result = run(
             model=property_model,
             timeline=timeline,
             settings=settings,
@@ -429,8 +430,8 @@ class TestLargeScaleProperties:
         execution_time = end_time - start_time
 
         # Performance validation
-        assert isinstance(scenario, ResidentialAnalysisScenario)
-        orchestrator = scenario._orchestrator
+        assert result is not None
+        orchestrator = result.scenario._orchestrator
 
         lease_models = [
             m for m in orchestrator.models if m.__class__.__name__ == "ResidentialLease"
@@ -440,7 +441,7 @@ class TestLargeScaleProperties:
         ), f"Expected 500 lease models, got {len(lease_models)}"
 
         # Generate summary
-        summary_df = scenario.get_cash_flow_summary()
+        summary_df = result.summary_df
         assert len(summary_df) == 36
 
         print("✅ Performance test completed!")
@@ -460,6 +461,7 @@ class TestLargeScaleProperties:
 class TestComplexScenarios:
     """Test complex real-world scenarios with sophisticated market assumptions."""
 
+    
     def test_value_add_positioning_strategy(self):
         """
         Test a value-add property with mixed unit positioning.
@@ -592,7 +594,7 @@ class TestComplexScenarios:
             general_vacancy=ResidentialGeneralVacancyLoss(
                 rate=0.065
             ),  # Higher during transition
-            collection_loss=ResidentialCollectionLoss(rate=0.02),
+            credit_loss=ResidentialCreditLoss(rate=0.02),
         )
 
         property_model = ResidentialProperty(
@@ -619,8 +621,8 @@ class TestComplexScenarios:
         )
 
         # Validate scenario
-        assert isinstance(scenario, ResidentialAnalysisScenario)
-        orchestrator = scenario._orchestrator
+        assert scenario is not None
+        orchestrator = scenario.scenario._orchestrator
 
         lease_models = [
             m for m in orchestrator.models if m.__class__.__name__ == "ResidentialLease"

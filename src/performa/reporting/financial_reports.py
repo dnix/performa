@@ -14,7 +14,6 @@ from typing import Dict, Optional
 
 import pandas as pd
 
-from ..core.primitives import UnleveredAggregateLineKey
 from .base import BaseReport
 
 
@@ -43,52 +42,26 @@ class ProFormaReport(BaseReport):
             "M": "ME",  # Monthly -> Month End (though M still works)
         }
         pandas_freq = frequency_mapping.get(frequency, frequency)
-        # --- Unlevered aggregates (from asset-level summary) ---
-        ua = getattr(self._results.unlevered_analysis, "cash_flows", None)
-        if ua is None:
-            ua = pd.DataFrame()
-
-        def col(key: UnleveredAggregateLineKey) -> Optional[pd.Series]:
-            return (
-                ua[key.value]
-                if (isinstance(ua, pd.DataFrame) and key.value in ua.columns)
-                else None
-            )
-
-        # Extract core revenue/expense series
-        pgr = self._safe_series(col(UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE))
-        abatement = self._safe_series(col(UnleveredAggregateLineKey.RENTAL_ABATEMENT))
-        vacancy = self._safe_series(col(UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS))
-        collection = self._safe_series(col(UnleveredAggregateLineKey.COLLECTION_LOSS))
-        misc_income = self._safe_series(
-            col(UnleveredAggregateLineKey.MISCELLANEOUS_INCOME)
-        )
-        reimburse = self._safe_series(
-            col(UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS)
-        )
-        opex = self._safe_series(
-            col(UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES)
-        )
-        noi = self._safe_series(col(UnleveredAggregateLineKey.NET_OPERATING_INCOME))
-
-        # Compute EGI if needed
-        egi = self._safe_series(col(UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME))
-        if egi is None and pgr is not None:
-            egi = pgr.copy()
-            if abatement is not None:
-                egi = egi.sub(abatement, fill_value=0.0)
-            if vacancy is not None:
-                egi = egi.sub(vacancy, fill_value=0.0)
-            if collection is not None:
-                egi = egi.sub(collection, fill_value=0.0)
-            if misc_income is not None:
-                egi = egi.add(misc_income, fill_value=0.0)
-            if reimburse is not None:
-                egi = egi.add(reimburse, fill_value=0.0)
-
-        # Compute NOI if needed
-        if noi is None and egi is not None and opex is not None:
-            noi = egi.sub(opex, fill_value=0.0)
+        # --- Asset-level aggregates (from elegant LedgerQueries) ---
+        if (hasattr(self._results, 'asset_analysis') and 
+            self._results.asset_analysis and 
+            hasattr(self._results.asset_analysis, 'get_ledger_queries')):
+            # Use elegant LedgerQueries instead of complex summary_df extraction
+            queries = self._results.asset_analysis.get_ledger_queries()
+            
+            # Direct query-based extraction (replaces complex column mapping)
+            pgr = self._safe_series(queries.pgr())
+            abatement = self._safe_series(queries.rental_abatement())
+            vacancy = self._safe_series(queries.vacancy_loss())
+            collection = self._safe_series(queries.credit_loss())
+            misc_income = self._safe_series(queries.misc_income())
+            reimburse = self._safe_series(queries.expense_reimbursements())
+            egi = self._safe_series(queries.egi())
+            opex = self._safe_series(queries.opex())
+            noi = self._safe_series(queries.noi())
+            
+        else:
+            raise ValueError("asset_analysis with LedgerQueries is required for pro forma reports")
 
         # --- Financing aggregates ---
         fin = getattr(self._results, "financing_analysis", None)
@@ -110,7 +83,7 @@ class ProFormaReport(BaseReport):
             "Potential Gross Revenue": pgr,
             "Rental Abatement": abatement,
             "General Vacancy Loss": vacancy,
-            "Collection Loss": collection,
+            "Credit Loss": collection,
             "Miscellaneous Income": misc_income,
             "Expense Reimbursements": reimburse,
             "Effective Gross Income": egi,

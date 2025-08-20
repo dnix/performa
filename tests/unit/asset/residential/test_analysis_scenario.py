@@ -17,7 +17,7 @@ from performa.analysis import run
 from performa.analysis.orchestrator import AnalysisContext
 from performa.asset.residential import (
     ResidentialAnalysisScenario,
-    ResidentialCollectionLoss,
+    ResidentialCreditLoss,
     ResidentialExpenses,
     ResidentialGeneralVacancyLoss,
     ResidentialLosses,
@@ -28,6 +28,7 @@ from performa.asset.residential import (
     ResidentialRolloverProfile,
     ResidentialUnitSpec,
 )
+from performa.core.ledger import LedgerBuilder
 from performa.core.primitives import (
     CashFlowModel,
     FrequencyEnum,
@@ -109,7 +110,7 @@ def sample_residential_property(analysis_timeline, sample_rollover_profile):
 
     losses = ResidentialLosses(
         general_vacancy=ResidentialGeneralVacancyLoss(rate=0.05),
-        collection_loss=ResidentialCollectionLoss(rate=0.0),  # 0% collection loss
+        credit_loss=ResidentialCreditLoss(rate=0.0),  # 0% collection loss
     )
 
     return ResidentialProperty(
@@ -128,37 +129,40 @@ def test_analysis_scenario_registration(
 ):
     """Test that ResidentialAnalysisScenario is properly registered."""
     # Run analysis - this will automatically select ResidentialAnalysisScenario
-    scenario = run(
+    result = run(
         model=sample_residential_property,
         timeline=analysis_timeline,
         settings=global_settings,
     )
 
     # Verify the correct scenario type was selected
-    assert isinstance(scenario, ResidentialAnalysisScenario)
-    assert scenario.model is sample_residential_property
+    assert isinstance(result.scenario, ResidentialAnalysisScenario)
+    assert result.scenario.model is sample_residential_property
+    # Also verify we have ledger and other new features
+    assert result.ledger_builder is not None
+    assert result.noi is not None
 
 
 def test_unit_mix_unrolling(
     sample_residential_property, analysis_timeline, global_settings
 ):
     """Test that unit mix is correctly unrolled into individual lease instances."""
-    scenario = run(
+    result = run(
         model=sample_residential_property,
         timeline=analysis_timeline,
         settings=global_settings,
     )
 
-    # Access the orchestrator to check the models
-    orchestrator = scenario._orchestrator
-    assert orchestrator is not None
+    # Can access models directly from result now
+    assert result.models is not None
+    assert len(result.models) > 0
 
     # Count different types of models
     lease_models = [
-        m for m in orchestrator.models if m.__class__.__name__ == "ResidentialLease"
+        m for m in result.models if m.__class__.__name__ == "ResidentialLease"
     ]
     expense_models = [
-        m for m in orchestrator.models if "ExItem" in m.__class__.__name__
+        m for m in result.models if "ExItem" in m.__class__.__name__
     ]
 
     # Verify correct number of lease instances (one per unit)
@@ -182,14 +186,14 @@ def test_cash_flow_generation(
     sample_residential_property, analysis_timeline, global_settings
 ):
     """Test that cash flows are generated correctly."""
-    scenario = run(
+    result = run(
         model=sample_residential_property,
         timeline=analysis_timeline,
         settings=global_settings,
     )
 
-    # Get cash flow summary
-    summary_df = scenario.get_cash_flow_summary()
+    # Can access cash flows directly from result now
+    summary_df = result.summary_df
 
     # Basic validation
     assert len(summary_df) == 24, "Should have 24 monthly periods"
@@ -213,16 +217,19 @@ def test_analysis_scenario_properties(
     sample_residential_property, analysis_timeline, global_settings
 ):
     """Test that the analysis scenario has the expected properties and methods."""
+    
     scenario = ResidentialAnalysisScenario(
         model=sample_residential_property,
         timeline=analysis_timeline,
         settings=global_settings,
+        ledger_builder=LedgerBuilder()
     )
 
     context = AnalysisContext(
         timeline=analysis_timeline,
         settings=global_settings,
         property_data=sample_residential_property,
+        ledger_builder=LedgerBuilder(),  # Create new builder, don't use scenario's
         capital_plan_lookup={},
         rollover_profile_lookup={},
     )
@@ -281,7 +288,7 @@ def test_minimal_property_analysis():
     expenses = ResidentialExpenses()  # Empty
     losses = ResidentialLosses(
         general_vacancy=ResidentialGeneralVacancyLoss(rate=0.0),  # No vacancy
-        collection_loss=ResidentialCollectionLoss(rate=0.0),  # No collection loss
+        credit_loss=ResidentialCreditLoss(rate=0.0),  # No collection loss
     )
 
     property_model = ResidentialProperty(
@@ -294,18 +301,21 @@ def test_minimal_property_analysis():
     )
 
     # Run analysis
-    scenario = run(
+    result = run(
         model=property_model,
         timeline=timeline,
         settings=GlobalSettings(),
     )
 
     # Should complete without errors
-    assert isinstance(scenario, ResidentialAnalysisScenario)
+    assert isinstance(result.scenario, ResidentialAnalysisScenario)
+    
+    # Verify ledger was built
+    assert result.ledger_builder is not None
+    assert not result.ledger.empty
 
     # Should unroll to 5 lease instances
-    orchestrator = scenario._orchestrator
     lease_models = [
-        m for m in orchestrator.models if m.__class__.__name__ == "ResidentialLease"
+        m for m in result.models if m.__class__.__name__ == "ResidentialLease"
     ]
     assert len(lease_models) == 5

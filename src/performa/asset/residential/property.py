@@ -11,7 +11,7 @@ from ...core.base import PropertyBaseModel
 from ...core.capital import CapitalPlan
 from ...core.primitives import AssetTypeEnum
 from .expense import ResidentialExpenses
-from .losses import ResidentialLosses
+from .loss import ResidentialLosses
 from .misc_income import ResidentialMiscIncome
 
 # Now we can import ResidentialRentRoll directly

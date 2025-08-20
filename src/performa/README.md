@@ -35,7 +35,7 @@ timeline = Timeline.from_dates('2024-01-01', '2033-12-31')
 scenario = run(property, timeline, GlobalSettings())
 
 # Get results
-cash_flows = scenario.get_cash_flow_summary()
+cash_flows = scenario.summary_df
 ```
 
 ## Module Structure

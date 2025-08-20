@@ -11,12 +11,19 @@ performance and type safety.
 
 from __future__ import annotations
 
+import datetime
 from dataclasses import dataclass, field
-from datetime import date
-from typing import Optional
+from typing import Optional, Union
 from uuid import UUID, uuid4
 
-from performa.core.primitives import TransactionPurpose
+from performa.core.primitives import (
+    CapExCategoryEnum,
+    CapitalSubcategoryEnum,
+    CashFlowCategoryEnum,
+    ExpenseSubcategoryEnum,
+    RevenueSubcategoryEnum,
+    TransactionPurpose,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,11 +51,11 @@ class TransactionRecord:
     """
     
     # Core transaction data
-    date: date
+    date: datetime.date
     amount: float
     flow_purpose: TransactionPurpose
-    category: str
-    subcategory: str
+    category: CashFlowCategoryEnum
+    subcategory: Union[CapitalSubcategoryEnum, CapExCategoryEnum, ExpenseSubcategoryEnum, RevenueSubcategoryEnum]
     item_name: str
     
     # Traceability
@@ -66,8 +73,9 @@ class TransactionRecord:
     
     def __post_init__(self):
         """Validate transaction data."""
-        if self.pass_num not in (1, 2):
-            raise ValueError(f"pass_num must be 1 or 2, got {self.pass_num}")
+        if self.pass_num not in (1, 2, 3, 4, 5, 6):
+            raise ValueError(f"pass_num must be between 1 and 6, got {self.pass_num}")
+            # TODO: should we allow so many passes?
         
         if not self.item_name.strip():
             raise ValueError("item_name cannot be empty")
@@ -94,8 +102,8 @@ class SeriesMetadata:
     """
     
     # Required metadata
-    category: str
-    subcategory: str
+    category: CashFlowCategoryEnum
+    subcategory: Union[CapitalSubcategoryEnum, CapExCategoryEnum, ExpenseSubcategoryEnum, RevenueSubcategoryEnum]
     item_name: str
     source_id: UUID
     asset_id: UUID
@@ -108,8 +116,8 @@ class SeriesMetadata:
     
     def __post_init__(self):
         """Validate metadata."""
-        if self.pass_num not in (1, 2):
-            raise ValueError(f"pass_num must be 1 or 2, got {self.pass_num}")
+        if not (1 <= self.pass_num <= 6):
+            raise ValueError(f"pass_num must be between 1 and 6, got {self.pass_num}")
         
         if not self.item_name.strip():
             raise ValueError("item_name cannot be empty")

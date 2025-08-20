@@ -10,6 +10,7 @@ from performa.analysis import AnalysisContext
 from performa.asset.office.lease import OfficeLease
 from performa.asset.office.lease_spec import OfficeLeaseSpec
 from performa.asset.office.rent_escalation import OfficeRentEscalation
+from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -84,10 +85,12 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -141,10 +144,12 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -208,10 +213,12 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -264,10 +271,12 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -320,10 +329,12 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -387,10 +398,12 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -443,10 +456,12 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -487,10 +502,12 @@ class TestOfficeRentEscalation(unittest.TestCase):
             self.base_lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -532,10 +549,12 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -613,10 +632,12 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -684,10 +705,12 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -781,10 +804,12 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -856,10 +881,12 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -926,10 +953,12 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -974,10 +1003,12 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, short_timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=short_timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)

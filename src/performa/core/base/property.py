@@ -30,7 +30,7 @@ class PropertyBaseModel(Model):
     """
 
     # Identity
-    id: uuid.UUID = Field(default_factory=uuid.uuid4)
+    uid: uuid.UUID = Field(default_factory=uuid.uuid4)
     name: str
     description: Optional[str] = None
     external_id: Optional[str] = None
@@ -43,5 +43,5 @@ class PropertyBaseModel(Model):
     net_rentable_area: PositiveFloat
 
     # Program mix (for mixed-use properties)
-    # FIXME: address this
+    # TODO: address mixed-use properties
     program_components: Optional[List[ProgramComponentSpec]] = None

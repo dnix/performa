@@ -195,3 +195,48 @@ class Timeline(Model):
 
         new_start_date = reference_index[0] + self.start_offset_months
         return Timeline(start_date=new_start_date, duration_months=self.duration_months)
+
+    def clip_to(self, bounds: "Timeline") -> "Timeline":
+        """
+        Clip this timeline to fit within the bounds of another timeline.
+        
+        Uses pandas PeriodIndex.intersection() for efficient period overlap calculation.
+        If this timeline already fits within the bounds, it is returned unchanged.
+        
+        Args:
+            bounds: The timeline defining the clipping boundaries
+            
+        Returns:
+            New Timeline clipped to the bounds, or self if no clipping needed
+            
+        Raises:
+            ValueError: If either timeline is relative (both must be absolute)
+            
+        Example:
+            ```python
+            # 60-month lease starting Jan 2020
+            lease_timeline = Timeline.from_dates('2020-01-01', '2024-12-31')
+            
+            # 24-month analysis period starting Jan 2024  
+            analysis_timeline = Timeline.from_dates('2024-01-01', '2025-12-31')
+            
+            # Clip lease to analysis period (Jan 2024 - Dec 2024)
+            clipped = lease_timeline.clip_to(analysis_timeline)
+            ```
+        """
+        if self.is_relative or bounds.is_relative:
+            raise ValueError("Cannot clip relative timelines. Both timelines must be absolute.")
+        
+        # Use pandas built-in intersection for period overlap
+        intersection = self.period_index.intersection(bounds.period_index)
+        
+        # If no intersection, return empty timeline
+        if len(intersection) == 0:
+            raise ValueError("Timelines do not overlap - cannot clip")
+            
+        # If intersection equals original timeline, no clipping needed
+        if len(intersection) == len(self.period_index):
+            return self
+            
+        # Create new timeline from intersection
+        return Timeline.from_dates(intersection[0], intersection[-1])

@@ -18,7 +18,7 @@ from pydantic import Field, field_validator
 
 from ..asset.residential import (
     ResidentialAbsorptionPlan,
-    ResidentialCollectionLoss,
+    ResidentialCreditLoss,
     ResidentialExpenses,
     ResidentialGeneralVacancyLoss,
     ResidentialLosses,
@@ -120,7 +120,7 @@ class ValueAddAcquisitionPattern(PatternBase):
     stabilized_vacancy_rate: FloatBetween0And1 = Field(
         default=0.05, ge=0, le=0.3, description="Vacancy rate after stabilization"
     )
-    collection_loss_rate: FloatBetween0And1 = Field(
+    credit_loss_rate: FloatBetween0And1 = Field(
         default=0.015, ge=0, le=0.1, description="Collection loss rate"
     )
     operating_expense_ratio: FloatBetween0And1 = Field(
@@ -360,12 +360,10 @@ class ValueAddAcquisitionPattern(PatternBase):
             stabilized_expenses=expenses,  # Use same expense structure
             stabilized_losses=ResidentialLosses(
                 general_vacancy=ResidentialGeneralVacancyLoss(
-                    name="General Vacancy",
                     rate=self.stabilized_vacancy_rate,
                 ),
-                collection_loss=ResidentialCollectionLoss(
-                    name="Collection Loss",
-                    rate=self.collection_loss_rate,
+                credit_loss=ResidentialCreditLoss(
+                    rate=self.credit_loss_rate,
                 ),
             ),
             stabilized_misc_income=[],
@@ -419,12 +417,10 @@ class ValueAddAcquisitionPattern(PatternBase):
         # === Step 7: Create Losses ===
         losses = ResidentialLosses(
             general_vacancy=ResidentialGeneralVacancyLoss(
-                name="General Vacancy",
                 rate=self.initial_vacancy_rate,
             ),
-            collection_loss=ResidentialCollectionLoss(
-                name="Collection Loss",
-                rate=self.collection_loss_rate,
+            credit_loss=ResidentialCreditLoss(
+                rate=self.credit_loss_rate,
             ),
         )
 

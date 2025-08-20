@@ -7,54 +7,83 @@ from enum import Enum
 from typing import List, Optional
 
 
-class CalculationPass(Enum):
+class OrchestrationPass(Enum):
     """
-    Defines the explicit waterfall of calculation passes for the analysis engine.
-    This ensures that prerequisite calculations (like base expenses) are completed
-    before dependent calculations (like recoveries) begin.
+    Defines the orchestration passes for model execution order.
+    Ensures dependencies are resolved before dependent models run.
     """
 
-    INDEPENDENT_VALUES = 1
-    DEPENDENT_VALUES = 2
+    INDEPENDENT_MODELS = 1
+    DEPENDENT_MODELS = 2
+
+
+class CalculationPhase(Enum):
+    """
+    Defines the calculation phases for deal analysis.
+    Each phase calculates specific deal components in sequence.
+    """
+
+    ASSET_ANALYSIS = 1      # Calculate asset-level cash flows
+    ACQUISITION = 2         # Calculate acquisition costs
+    FUNDING_CASCADE = 3     # Calculate funding requirements
+    FINANCING = 4           # Calculate debt and equity flows
+    PARTNERSHIP = 5         # Calculate partner distributions
+    VALUATION = 6           # Calculate exit values and returns
+
 
 
 class CashFlowCategoryEnum(str, Enum):
     """
-    Enum for CashFlow categories.
+    Primary categories for cash flow transactions in real estate development.
 
-    This enum represents the main categories of cash flows in a real estate development project.
-
-    Attributes:
-        BUDGET (str): Represents budget-related cash flows.
-        EXPENSE (str): Represents expense-related cash flows.
-        REVENUE (str): Represents revenue-related cash flows.
-        OTHER (str): Represents any other type of cash flows not covered by the above categories.
+    These categories are used with amount signs to derive TransactionPurpose:
+    - CAPITAL + negative amount → CAPITAL_USE (acquisition, construction costs)
+    - CAPITAL + positive amount → CAPITAL_SOURCE (sale proceeds, equity contributions)
+    - FINANCING + negative amount → FINANCING_SERVICE (debt service, loan fees)
+    - FINANCING + positive amount → CAPITAL_SOURCE (loan proceeds, refinancing)
+    - REVENUE/EXPENSE → OPERATING (day-to-day operations)
+    
+    Note: Loan transactions are dual-nature:
+    - Loan draws/proceeds: FINANCING category + positive amount = CAPITAL_SOURCE
+    - Debt service payments: FINANCING category + negative amount = FINANCING_SERVICE
+    This enables proper funding cascade analysis where loan proceeds fund capital uses.
     """
 
-    BUDGET = "Budget"
+    CAPITAL = "Capital"
     EXPENSE = "Expense"
     REVENUE = "Revenue"
+    FINANCING = "Financing"
     OTHER = "Other"
 
 
-class BudgetSubcategoryEnum(str, Enum):
+class CapitalSubcategoryEnum(str, Enum):
     """
-    Enum for budget subcategories in real estate development projects.
-
-    This enum represents the main subcategories of budget in a real estate development project.
-
+    Subcategories for capital expenditure transactions.
+    
+    These subcategories provide detailed classification of capital outflows
+    for acquisition, construction, and other capital deployment activities.
+    
     Attributes:
-        SALE (str): Represents revenue from property or unit sales.
-        LAND (str): Represents revenue from the sale of land.
-        HARD_COSTS (str): Represents revenue from hard costs.
-        SOFT_COSTS (str): Represents revenue from soft costs.
-        OTHER (str): Represents any other type of revenue not covered by the above categories.
+        PURCHASE_PRICE (str): Property acquisition purchase price
+        CLOSING_COSTS (str): Acquisition closing costs and fees
+        DUE_DILIGENCE (str): Due diligence and inspection costs
+        HARD_COSTS (str): Direct construction costs (materials, labor)
+        SOFT_COSTS (str): Indirect construction costs (permits, professional fees)
+        SITE_WORK (str): Site preparation and infrastructure work
+        OTHER (str): Miscellaneous capital expenditures
     """
 
-    SALE = "Sale"
-    LAND = "Land"
+    # Acquisition subcategories
+    PURCHASE_PRICE = "Purchase Price"
+    CLOSING_COSTS = "Closing Costs"
+    DUE_DILIGENCE = "Due Diligence"
+    
+    # Construction subcategories
     HARD_COSTS = "Hard Costs"
     SOFT_COSTS = "Soft Costs"
+    SITE_WORK = "Site Work"
+    
+    # Other capital uses
     OTHER = "Other"
 
 
@@ -62,8 +91,8 @@ class RevenueSubcategoryEnum(str, Enum):
     """
     Enum for revenue subcategories in real estate development projects.
 
-    This enum represents the primary types of revenue generation in real estate,
-    including one-time sales, ongoing lease arrangements, and other income sources.
+    This enum represents revenue categories including positive revenue sources
+    and negative revenue adjustments (losses/reductions).
 
     Attributes:
         SALE (str): Revenue from property or unit sales.
@@ -71,6 +100,9 @@ class RevenueSubcategoryEnum(str, Enum):
         MISC (str): Miscellaneous income sources like parking, vending, antenna income, etc.
         RECOVERY (str): Expense recoveries from tenants (CAM, taxes, insurance, etc.).
         SECURITY_DEPOSIT (str): Security deposits collected from tenants.
+        VACANCY_LOSS (str): Vacancy loss (revenue reduction from vacant units/space).
+        CREDIT_LOSS (str): Credit loss (revenue reduction from uncollectable rent).
+        ABATEMENT (str): Rent abatement/concessions (revenue reduction from free rent periods).
     """
 
     SALE = "Sale"
@@ -78,6 +110,11 @@ class RevenueSubcategoryEnum(str, Enum):
     MISC = "Miscellaneous"
     RECOVERY = "Recovery"
     SECURITY_DEPOSIT = "Security Deposit"
+
+    # Revenue Adjustments (Contra-Revenue)
+    VACANCY_LOSS = "Vacancy Loss"
+    CREDIT_LOSS = "Credit Loss"
+    ABATEMENT = "Abatement"
 
 
 class ExpenseSubcategoryEnum(str, Enum):
@@ -268,17 +305,18 @@ class CapExCategoryEnum(str, Enum):
     """
     Types of capital expenditures.
 
-    Options:
-        BUILDING: Major building components like structure, roof, facade
-        MECHANICAL: Building systems like HVAC, elevators, electrical
-        TENANT: Tenant improvements and common area renovations
-        SITE: Site improvements like parking, landscaping, hardscape
+    Covers all major categories of capital improvements and renovations
+    in commercial real estate development and operations.
     """
 
     BUILDING = "building"
     MECHANICAL = "mechanical"
     TENANT = "tenant"
     SITE = "site"
+    RENOVATION = "renovation"
+    MAJOR_REPAIRS = "major_repairs"
+    SYSTEM_UPGRADES = "system_upgrades"
+    LEASING_COSTS = "leasing_costs"
 
 
 class UnitOfMeasureEnum(str, Enum):
@@ -401,15 +439,21 @@ class UnleveredAggregateLineKey(str, Enum):
     """
 
     # --- Revenue Side ---
+    GROSS_POTENTIAL_RENT = (
+        "Gross Potential Rent"  # Base rent only at 100% physical occupancy
+    )
     POTENTIAL_GROSS_REVENUE = (
-        "Potential Gross Revenue"  # Sum of potential base rent (often contractual)
+        "Potential Gross Revenue"  # All revenue at 100% occupancy (rent + recoveries + other income)
+    )
+    TENANT_REVENUE = (
+        "Tenant Revenue"  # Rent + recoveries (excludes non-tenant income like parking/antenna)
     )
     RENTAL_ABATEMENT = "Rental Abatement / Concessions"  # Free rent periods
     MISCELLANEOUS_INCOME = "Miscellaneous Income"  # Parking, laundry, fees, etc.
     GENERAL_VACANCY_LOSS = (
         "General Vacancy & Credit Loss"  # Allowance based on market/assumptions
     )
-    COLLECTION_LOSS = "Collection Loss"  # Allowance for uncollectible income
+    CREDIT_LOSS = "Credit Loss"  # Allowance for uncollectible income
     EXPENSE_REIMBURSEMENTS = "Expense Reimbursements"  # Recoveries from tenants
     EFFECTIVE_GROSS_INCOME = "Effective Gross Income"  # PGR + Misc - Abatement - Vacancy + Recoveries (industry standard EGI)
 
@@ -429,17 +473,7 @@ class UnleveredAggregateLineKey(str, Enum):
     # --- Unlevered Cash Flow ---
     UNLEVERED_CASH_FLOW = "Unlevered Cash Flow"  # NOI - TIs - LCs - CapEx
 
-    # --- Raw Aggregates (Less commonly referenced directly, but needed for calculation) ---
-    _RAW_TOTAL_REVENUE = (
-        "_RAW Total Revenue"  # Intermediate sum of all revenue components (rent, misc)
-    )
-    _RAW_TOTAL_RECOVERIES = (
-        "_RAW Total Recoveries"  # Intermediate sum of all recovery components
-    )
-    _RAW_TOTAL_OPEX = "_RAW Total OpEx"  # Intermediate sum used above
-    _RAW_TOTAL_CAPEX = "_RAW Total CapEx"  # Intermediate sum used above
-    _RAW_TOTAL_TI = "_RAW Total TI"  # Intermediate sum used above
-    _RAW_TOTAL_LC = "_RAW Total LC"  # Intermediate sum used above
+
 
     # Vacancy & Loss Specifics
     DOWNTIME_VACANCY_LOSS = "Downtime Vacancy Loss"  # Added for initial vacancy
@@ -455,17 +489,7 @@ class UnleveredAggregateLineKey(str, Enum):
                 return member
         return None
 
-    # Helper to check if a key is intended for internal calculation steps
-    @classmethod
-    def is_internal_key(cls, key: "UnleveredAggregateLineKey") -> bool:
-        """Check if the key is prefixed for internal calculation use."""
-        return key.value.startswith("_RAW")
 
-    # Helper to get display keys (excluding internal ones)
-    @classmethod
-    def get_display_keys(cls) -> List["UnleveredAggregateLineKey"]:
-        """Return a list of keys suitable for display/reporting."""
-        return [k for k in cls if not cls.is_internal_key(k)]
 
 
 class LeveredAggregateLineKey(str, Enum):
@@ -484,10 +508,7 @@ class LeveredAggregateLineKey(str, Enum):
     TOTAL_DEBT_SERVICE = "Total Debt Service"  # Principal + Interest
     LEVERED_CASH_FLOW = "Levered Cash Flow"  # UCF - Debt Service
 
-    # --- Raw Aggregates ---
-    _RAW_TOTAL_DEBT_SERVICE = (
-        "_RAW Total Debt Service"  # Intermediate sum of all debt service
-    )
+
 
     @classmethod
     def from_value(cls, value: str) -> Optional["LeveredAggregateLineKey"]:
@@ -497,17 +518,7 @@ class LeveredAggregateLineKey(str, Enum):
                 return member
         return None
 
-    # Helper to check if a key is intended for internal calculation steps
-    @classmethod
-    def is_internal_key(cls, key: "LeveredAggregateLineKey") -> bool:
-        """Check if the key is prefixed for internal calculation use."""
-        return key.value.startswith("_RAW")
 
-    # Helper to get display keys (excluding internal ones)
-    @classmethod
-    def get_display_keys(cls) -> List["LeveredAggregateLineKey"]:
-        """Return a list of keys suitable for display/reporting."""
-        return [k for k in cls if not cls.is_internal_key(k)]
 
 
 class StartDateAnchorEnum(str, Enum):
@@ -653,12 +664,13 @@ class TransactionPurpose(str, Enum):
     
     CAPITAL_SOURCE = "Capital Source"
     """
-    Capital raised from asset sales, refinancing, or equity contributions.
+    Capital raised from asset sales, refinancing, equity, or debt financing.
     - Property sale proceeds
-    - Refinancing proceeds (gross)
+    - Loan proceeds and refinancing (gross)
     - Equity contributions from partners
     - Return of capital to partners
-    - Typically positive amounts (cash inflows)
+    - Debt draws during construction/development
+    - Typically positive amounts (cash inflows that fund capital uses)
     """
     
     FINANCING_SERVICE = "Financing Service"

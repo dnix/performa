@@ -14,7 +14,7 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from performa.core.capital import CapitalPlan
+from performa.core.capital import CapitalItem, CapitalPlan
 from performa.core.primitives import AssetTypeEnum, Timeline
 from performa.deal import (
     Deal,
@@ -40,7 +40,14 @@ class TestPartnershipIntegrationWithRealDeals:
             gross_area=250_000.0,
             net_rentable_area=225_000.0,
             construction_plan=CapitalPlan(
-                name="Mixed-Use Construction", capital_items=[]
+                name="Mixed-Use Construction", 
+                capital_items=[
+                    CapitalItem(
+                        name="Mixed-Use Construction",
+                        value=50_000_000,  # $50M construction 
+                        timeline=Timeline.from_dates(datetime(2024, 1, 1), datetime(2025, 12, 31)),
+                    )
+                ]
             ),
             blueprints=[],
         )

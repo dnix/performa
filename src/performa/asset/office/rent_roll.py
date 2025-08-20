@@ -15,6 +15,24 @@ from .lease_spec import OfficeLeaseSpec
 class OfficeVacantSuite(VacantSuiteBase):
     """
     Represents a vacant office suite, with support for subdivision.
+    
+    **Absorption Configuration**:
+    - **Non-divisible suites** (`is_divisible=False`): Can only be absorbed whole.
+      The absorption pace quantity must be ≥ suite area for absorption to occur.
+    - **Divisible suites** (`is_divisible=True`): Can be absorbed in chunks based on
+      `subdivision_average_lease_area`. Requires setting subdivision parameters.
+      
+    Example:
+        ```python
+        # Non-divisible: 10,000 SF suite with 5,000 SF absorption pace = no absorption
+        # Divisible: 10,000 SF suite with 5,000 SF pace = two 5,000 SF leases
+        vacant_suite = OfficeVacantSuite(
+            suite="Large Suite", area=10000, use_type="office",
+            is_divisible=True,  # Enable subdivision for absorption
+            subdivision_average_lease_area=5000,
+            subdivision_minimum_lease_area=2500
+        )
+        ```
     """
 
     is_divisible: bool = Field(default=False)

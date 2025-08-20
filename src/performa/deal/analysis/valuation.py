@@ -51,6 +51,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from performa.analysis import AnalysisContext
+from performa.core.ledger import LedgerBuilder
 
 if TYPE_CHECKING:
     from performa.core.primitives import GlobalSettings, Timeline
@@ -234,7 +235,8 @@ class ValuationEngine:
         return self.property_value_series
 
     def extract_noi_series(
-        self, unlevered_analysis: UnleveredAnalysisResult
+        self, 
+        unlevered_analysis: UnleveredAnalysisResult,
     ) -> pd.Series:
         """
         Extract Net Operating Income time series using type-safe enum access.
@@ -276,8 +278,48 @@ class ValuationEngine:
         )
         return self.noi_series
 
+    def _extract_noi_from_ledger(
+            self,
+            ledger_builder: LedgerBuilder
+    ) -> pd.Series:
+        """
+        Extract NOI from ledger transactions.
+        
+        This method queries the ledger for operating transactions and calculates
+        NOI by summing revenue and expense flows.
+        
+        Args:
+            ledger_builder: The ledger builder containing transactions
+            
+        Returns:
+            pd.Series with NOI by period, or None if no data available
+        """
+        try:
+            ledger = ledger_builder.get_current_ledger()
+            
+            if ledger.empty:
+                return None
+            
+            # Query for operating transactions (revenues and expenses)
+            operating_txns = ledger[ledger['flow_purpose'] == 'Operating']
+            
+            if operating_txns.empty:
+                return None
+            
+            # Group by date and sum amounts (revenues positive, expenses negative)
+            noi_series = operating_txns.groupby('date')['amount'].sum()
+            
+            # Reindex to full timeline
+            return noi_series.reindex(self.timeline.period_index, fill_value=0.0)
+            
+        except Exception:
+            # Fall back to None if ledger extraction fails
+            return None
+
     def calculate_disposition_proceeds(
-        self, unlevered_analysis: UnleveredAnalysisResult = None
+        self, 
+        ledger_builder: LedgerBuilder,
+        unlevered_analysis: UnleveredAnalysisResult = None
     ) -> pd.Series:
         """
         Calculate disposition proceeds using polymorphic dispatch across valuation models.
@@ -296,6 +338,8 @@ class ValuationEngine:
         valuation models have access to all necessary data for accurate calculations.
 
         Args:
+            ledger_builder: The analysis ledger builder (Pass-the-Builder pattern).
+                           Must be the same instance used throughout the analysis.
             unlevered_analysis: Results from unlevered asset analysis containing NOI data
                                and other operational metrics (optional)
 
@@ -323,10 +367,12 @@ class ValuationEngine:
             try:
                 # Step 1: Create analysis context for valuation model
                 # This provides the valuation model with all necessary data and configuration
+                # ledger_builder is required parameter (Pass-the-Builder pattern)
                 context = AnalysisContext(
                     timeline=self.timeline,
                     settings=self.settings,
                     property_data=self.deal.asset,
+                    ledger_builder=ledger_builder
                 )
 
                 # Step 2: Populate context with unlevered analysis data

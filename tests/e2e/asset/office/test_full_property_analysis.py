@@ -12,8 +12,8 @@ import pytest
 from performa.analysis import run
 from performa.asset.office.expense import OfficeExpenses, OfficeOpExItem
 from performa.asset.office.lease_spec import OfficeLeaseSpec
-from performa.asset.office.losses import (
-    OfficeCollectionLoss,
+from performa.asset.office.loss import (
+    OfficeCreditLoss,
     OfficeGeneralVacancyLoss,
     OfficeLosses,
 )
@@ -87,9 +87,10 @@ def test_end_to_end_analysis(
     )
     losses = OfficeLosses(
         general_vacancy=OfficeGeneralVacancyLoss(rate=0.05),
-        collection_loss=OfficeCollectionLoss(rate=0.01),
+        credit_loss=OfficeCreditLoss(rate=0.01),
     )
     property_data = OfficeProperty(
+        uid="550e8400-e29b-41d4-a716-446655440021",  # Valid UUID format
         name="Test Office Tower",
         property_type="office",
         gross_area=15000,
@@ -100,10 +101,10 @@ def test_end_to_end_analysis(
     )
 
     # 2. Run the Analysis
-    scenario = run(
+    result = run(
         model=property_data, timeline=analysis_timeline, settings=global_settings
     )
-    result_df = scenario.get_cash_flow_summary()
+    result_df = result.summary_df
 
     # 3. Assertions
     assert isinstance(result_df, pd.DataFrame)

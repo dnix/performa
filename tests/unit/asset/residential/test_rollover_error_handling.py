@@ -38,6 +38,7 @@ from performa.core.primitives import (
 class TestRolloverErrorHandling:
     """Test error handling for rollover scenarios."""
 
+
     def test_missing_target_absorption_plan_id(self):
         """Test REABSORB with missing target_absorption_plan_id."""
 
@@ -83,7 +84,7 @@ class TestRolloverErrorHandling:
             expenses=ResidentialExpenses(operating_expenses=[]),
             losses=ResidentialLosses(
                 general_vacancy={"rate": 0.0, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.0, "basis": "egi"},
+                credit_loss={"rate": 0.0, "basis": "Potential Gross Revenue"},
             ),
             miscellaneous_income=[],
         )
@@ -93,7 +94,7 @@ class TestRolloverErrorHandling:
 
         # Should handle gracefully without crashing
         scenario = run(model=property_model, timeline=timeline, settings=settings)
-        cash_flow_summary = scenario.get_cash_flow_summary()
+        cash_flow_summary = scenario.summary_df
 
         # Should complete analysis (though unit won't transform)
         assert not cash_flow_summary.empty
@@ -110,6 +111,7 @@ class TestRolloverErrorHandling:
         assert (
             month_6_revenue == 0
         ), "Should have no revenue later (unit didn't transform)"
+
 
     def test_nonexistent_target_absorption_plan_id(self):
         """Test REABSORB with target_absorption_plan_id that doesn't exist."""
@@ -141,7 +143,7 @@ class TestRolloverErrorHandling:
             stabilized_expenses=ResidentialExpenses(operating_expenses=[]),
             stabilized_losses=ResidentialLosses(
                 general_vacancy={"rate": 0.0, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.0, "basis": "egi"},
+                credit_loss={"rate": 0.0, "basis": "Potential Gross Revenue"},
             ),
             stabilized_misc_income=[],
         )
@@ -172,7 +174,7 @@ class TestRolloverErrorHandling:
             expenses=ResidentialExpenses(operating_expenses=[]),
             losses=ResidentialLosses(
                 general_vacancy={"rate": 0.0, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.0, "basis": "egi"},
+                credit_loss={"rate": 0.0, "basis": "Potential Gross Revenue"},
             ),
             miscellaneous_income=[],
         )
@@ -182,7 +184,7 @@ class TestRolloverErrorHandling:
 
         # Should handle gracefully without crashing
         scenario = run(model=property_model, timeline=timeline, settings=settings)
-        cash_flow_summary = scenario.get_cash_flow_summary()
+        cash_flow_summary = scenario.summary_df
 
         # Should complete analysis
         assert not cash_flow_summary.empty
@@ -193,6 +195,7 @@ class TestRolloverErrorHandling:
 
         # Should have no revenue from this unit after expiration
         assert month_6_revenue == 0
+
 
     def test_circular_reference_prevention(self):
         """Test that circular references are prevented or handled gracefully."""
@@ -214,7 +217,7 @@ class TestRolloverErrorHandling:
             stabilized_expenses=ResidentialExpenses(operating_expenses=[]),
             stabilized_losses=ResidentialLosses(
                 general_vacancy={"rate": 0.0, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.0, "basis": "egi"},
+                credit_loss={"rate": 0.0, "basis": "Potential Gross Revenue"},
             ),
             stabilized_misc_income=[],
         )
@@ -260,7 +263,7 @@ class TestRolloverErrorHandling:
             expenses=ResidentialExpenses(operating_expenses=[]),
             losses=ResidentialLosses(
                 general_vacancy={"rate": 0.0, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.0, "basis": "egi"},
+                credit_loss={"rate": 0.0, "basis": "Potential Gross Revenue"},
             ),
             miscellaneous_income=[],
         )
@@ -270,7 +273,7 @@ class TestRolloverErrorHandling:
 
         # Should handle gracefully without infinite loops
         scenario = run(model=property_model, timeline=timeline, settings=settings)
-        cash_flow_summary = scenario.get_cash_flow_summary()
+        cash_flow_summary = scenario.summary_df
 
         # Analysis should complete without hanging
         assert not cash_flow_summary.empty

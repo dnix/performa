@@ -3,6 +3,9 @@
 
 import pandas as pd
 
+from performa.analysis.results import AssetAnalysisResult
+from performa.core.ledger import LedgerBuilder
+from performa.core.primitives import Timeline
 from performa.deal.results import (
     DealAnalysisResult,
     LeveredCashFlowResult,
@@ -12,9 +15,21 @@ from performa.deal.results import (
 
 def test_fluent_pro_forma_summary():
     """Test the new fluent reporting interface for pro forma summaries."""
-    # Build a minimal DealAnalysisResult with unlevered cash flow DataFrame
+    # Create periods and timeline
     periods = pd.period_range("2024-01", periods=12, freq="M")
-    df = pd.DataFrame(
+    timeline = Timeline(start_date=periods[0], duration_months=12)
+    
+    # Create a minimal property object
+    class MockProperty:
+        uid = "test-property-id"
+        name = "Test Property"
+        
+    # Create a minimal scenario object  
+    class MockScenario:
+        pass
+    
+    # Create AssetAnalysisResult with ledger (new architecture)
+    summary_df = pd.DataFrame(
         {
             "Potential Gross Revenue": pd.Series(1000.0, index=periods),
             "Rental Abatement": pd.Series(0.0, index=periods),
@@ -27,12 +42,23 @@ def test_fluent_pro_forma_summary():
         },
         index=periods,
     )
-
-    unlev = UnleveredAnalysisResult(cash_flows=df)
+    
+    asset_analysis = AssetAnalysisResult(
+        ledger_builder=LedgerBuilder(),
+        property=MockProperty(),
+        timeline=timeline,
+        scenario=MockScenario(),
+        models=[]
+    )
+    
+    # Create backward compatibility layer
+    unlev = UnleveredAnalysisResult(cash_flows=summary_df)
+    
     levered = LeveredCashFlowResult(levered_cash_flows=pd.Series(600.0, index=periods))
     results = DealAnalysisResult(
         deal_summary={},
-        unlevered_analysis=unlev,
+        asset_analysis=asset_analysis,  # Use new ledger-based asset analysis
+        unlevered_analysis=unlev,  # Still required for backward compatibility
         financing_analysis=None,
         levered_cash_flows=levered,
         partner_distributions={

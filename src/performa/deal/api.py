@@ -7,16 +7,24 @@ Performa Deal Analysis API
 Main entry point for deal-level analysis functionality.
 """
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from ..core.primitives import GlobalSettings, Timeline
-from .deal import Deal
-from .orchestrator import DealCalculator
-from .results import DealAnalysisResult
+from performa.core.primitives import GlobalSettings, Timeline
+from performa.deal.deal import Deal
+from performa.deal.orchestrator import DealCalculator
+from performa.deal.results import DealAnalysisResult
+
+if TYPE_CHECKING:
+    from performa.analysis.results import AssetAnalysisResult
+    from performa.core.ledger import LedgerBuilder
 
 
 def analyze(
-    deal: Deal, timeline: Timeline, settings: Optional[GlobalSettings] = None
+    deal: Deal, 
+    timeline: Timeline, 
+    settings: Optional[GlobalSettings] = None,
+    asset_analysis: Optional["AssetAnalysisResult"] = None,
+    ledger_builder: Optional["LedgerBuilder"] = None
 ) -> DealAnalysisResult:
     """
     Analyze a complete real estate deal with strongly-typed results.
@@ -32,6 +40,12 @@ def analyze(
         deal: Complete Deal specification with asset, financing, and equity structure
         timeline: Analysis timeline for cash flow projections
         settings: Optional analysis settings (defaults to standard settings)
+        asset_analysis: Optional pre-computed asset analysis result to reuse.
+            If provided, its ledger_builder will be used (Pass-the-Builder pattern).
+            If not provided, a new analysis will be run on deal.asset.
+        ledger_builder: Optional LedgerBuilder to use for the analysis.
+            Priority: asset_analysis.ledger_builder > ledger_builder > new LedgerBuilder.
+            This enables maximum flexibility for testing and complex workflows.
 
     Returns:
         DealAnalysisResult containing strongly-typed analysis components:
@@ -77,6 +91,41 @@ def analyze(
     if settings is None:
         settings = GlobalSettings()
 
-    # Create and run the DealCalculator service
-    calculator = DealCalculator(deal, timeline, settings)
-    return calculator.run()
+    # Determine ledger_builder source with validation (Pass-the-Builder pattern)
+    # This supports maximum flexibility while preventing ambiguous cases
+    
+    if asset_analysis is not None and ledger_builder is not None:
+        # CASE: Both asset_analysis and ledger_builder provided
+        # Validate they're the same instance to prevent confusion
+        if asset_analysis.ledger_builder is not ledger_builder:
+            raise ValueError(
+                "Conflicting ledger builders provided. When both asset_analysis and "
+                "ledger_builder are specified, they must be the same instance. "
+                "Use either asset_analysis (to reuse existing analysis) or "
+                "ledger_builder (for custom ledger), but not both with different instances."
+            )
+        # Same instance - use it (explicit validation passed)
+        latest_ledger_builder = asset_analysis.ledger_builder
+        calculator = DealCalculator(deal, timeline, settings, asset_analysis=asset_analysis)
+        
+    elif asset_analysis is not None:
+        # CASE: Only asset_analysis provided - reuse existing analysis
+        # Use the ledger from the pre-computed asset analysis
+        latest_ledger_builder = asset_analysis.ledger_builder
+        calculator = DealCalculator(deal, timeline, settings, asset_analysis=asset_analysis)
+        
+    elif ledger_builder is not None:
+        # CASE: Only ledger_builder provided - use custom ledger
+        # Run fresh asset analysis with the provided ledger
+        latest_ledger_builder = ledger_builder
+        calculator = DealCalculator(deal, timeline, settings)
+        
+    else:
+        # CASE: Neither provided - create fresh analysis
+        # Create new ledger builder for complete fresh analysis
+        from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
+        latest_ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        calculator = DealCalculator(deal, timeline, settings)
+
+    # Run deal analysis with the determined ledger builder
+    return calculator.run(ledger_builder=latest_ledger_builder)

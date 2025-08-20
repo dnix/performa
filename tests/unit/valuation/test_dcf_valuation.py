@@ -5,7 +5,7 @@
 Tests for DCF Valuation module.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from unittest.mock import Mock
 
 import pandas as pd
@@ -421,7 +421,7 @@ class TestDCFContextIntegration:
     """Tests for DCF integration with AnalysisContext."""
 
     def test_compute_cf_with_unlevered_analysis(self):
-        """Test compute_cf with unlevered analysis data."""
+        """Test compute_cf with ledger builder (replaces deprecated unlevered_analysis)."""
         dcf = DCFValuation(
             name="Test",
             discount_rate=0.08,
@@ -429,22 +429,34 @@ class TestDCFContextIntegration:
             hold_period_years=5,
         )
 
-        # Create mock context with unlevered analysis
+        # Create mock context with ledger builder
         mock_context = Mock()
-
-        # Create a timeline for the mock
         timeline = Timeline(start_date=datetime(2024, 1, 1), duration_months=60)
         mock_context.timeline = timeline
 
-        # Create mock unlevered analysis with NOI series
-        mock_unlevered_analysis = Mock()
+        # Create mock ledger with consistent NOI data
 
-        # Create realistic monthly NOI series
-        monthly_noi = [10000] * 60  # $10k per month for 5 years
-        noi_series = pd.Series(monthly_noi, index=timeline.period_index)
-
-        mock_unlevered_analysis.get_series.return_value = noi_series
-        mock_context.unlevered_analysis = mock_unlevered_analysis
+        # Create ledger with 5 years of monthly NOI transactions
+        ledger_data = []
+        for i in range(60):
+            month_date = date(2024 + i // 12, 1 + (i % 12), 1)
+            # Revenue: $12k/month  
+            ledger_data.append({
+                'date': month_date, 'amount': 12000, 'flow_purpose': 'Operating',
+                'category': 'Revenue', 'subcategory': 'Lease', 'item_name': 'Rent',
+                'source_id': 'test', 'asset_id': 'test', 'pass_num': 1
+            })
+            # Expenses: $2k/month (NOI = $10k/month)
+            ledger_data.append({
+                'date': month_date, 'amount': -2000, 'flow_purpose': 'Operating',
+                'category': 'Expense', 'subcategory': 'OpEx', 'item_name': 'Expenses',
+                'source_id': 'test', 'asset_id': 'test', 'pass_num': 1
+            })
+        
+        mock_ledger = pd.DataFrame(ledger_data)
+        mock_ledger_builder = Mock()
+        mock_ledger_builder.get_current_ledger.return_value = mock_ledger
+        mock_context.ledger_builder = mock_ledger_builder
 
         # Run compute_cf
         result = dcf.compute_cf(mock_context)
@@ -458,13 +470,8 @@ class TestDCFContextIntegration:
         non_zero_periods = result[result > 0]
         assert len(non_zero_periods) == 1  # Should have exactly one disposition period
 
-        # Verify mock was called correctly
-        mock_unlevered_analysis.get_series.assert_called_once_with(
-            UnleveredAggregateLineKey.NET_OPERATING_INCOME, timeline
-        )
-
-    def test_compute_cf_with_resolved_lookups_fallback(self):
-        """Test compute_cf fallback to resolved lookups when no unlevered analysis."""
+    def test_compute_cf_with_ledger_builder(self):
+        """Test compute_cf with ledger builder (new single source of truth approach)."""
         dcf = DCFValuation(
             name="Test",
             discount_rate=0.08,
@@ -472,19 +479,37 @@ class TestDCFContextIntegration:
             hold_period_years=3,
         )
 
-        # Create mock context without unlevered analysis
+        # Create mock context with ledger builder
         mock_context = Mock()
         timeline = Timeline(start_date=datetime(2024, 1, 1), duration_months=36)
         mock_context.timeline = timeline
-        mock_context.unlevered_analysis = None
 
-        # Create resolved lookups with NOI data
-        monthly_noi = [8000] * 36  # $8k per month for 3 years
-        noi_lookup = pd.Series(monthly_noi, index=timeline.period_index)
+        # Create mock ledger builder with NOI data
+        from datetime import date
 
-        mock_context.resolved_lookups = {
-            UnleveredAggregateLineKey.NET_OPERATING_INCOME.value: noi_lookup
-        }
+        import pandas as pd
+        
+        # Create ledger with NOI transactions
+        ledger_data = []
+        for i in range(36):
+            month_date = date(2024 + i // 12, 1 + (i % 12), 1)
+            # Revenue transaction
+            ledger_data.append({
+                'date': month_date, 'amount': 10000, 'flow_purpose': 'Operating',
+                'category': 'Revenue', 'subcategory': 'Lease', 'item_name': 'Rent',
+                'source_id': 'test', 'asset_id': 'test', 'pass_num': 1
+            })
+            # Expense transaction  
+            ledger_data.append({
+                'date': month_date, 'amount': -2000, 'flow_purpose': 'Operating',
+                'category': 'Expense', 'subcategory': 'OpEx', 'item_name': 'Expenses',
+                'source_id': 'test', 'asset_id': 'test', 'pass_num': 1
+            })
+        
+        mock_ledger = pd.DataFrame(ledger_data)
+        mock_ledger_builder = Mock()
+        mock_ledger_builder.get_current_ledger.return_value = mock_ledger
+        mock_context.ledger_builder = mock_ledger_builder
 
         # Run compute_cf
         result = dcf.compute_cf(mock_context)
@@ -595,12 +620,32 @@ class TestDCFContextIntegration:
         )  # 5 years
         mock_context.timeline = timeline
 
-        # Create mock unlevered analysis
-        mock_unlevered_analysis = Mock()
-        monthly_noi = [15000] * 60  # $15k per month for 5 years
-        noi_series = pd.Series(monthly_noi, index=timeline.period_index)
-        mock_unlevered_analysis.get_series.return_value = noi_series
-        mock_context.unlevered_analysis = mock_unlevered_analysis
+        # Create mock ledger with NOI data
+        from datetime import date
+
+        import pandas as pd
+        
+        # Create 5 years of ledger data (longer than hold period)
+        ledger_data = []
+        for i in range(60):
+            month_date = date(2024 + i // 12, 1 + (i % 12), 1)
+            # Revenue: $18k/month  
+            ledger_data.append({
+                'date': month_date, 'amount': 18000, 'flow_purpose': 'Operating',
+                'category': 'Revenue', 'subcategory': 'Lease', 'item_name': 'Rent',
+                'source_id': 'test', 'asset_id': 'test', 'pass_num': 1
+            })
+            # Expenses: $3k/month (NOI = $15k/month)
+            ledger_data.append({
+                'date': month_date, 'amount': -3000, 'flow_purpose': 'Operating',
+                'category': 'Expense', 'subcategory': 'OpEx', 'item_name': 'Expenses',
+                'source_id': 'test', 'asset_id': 'test', 'pass_num': 1
+            })
+        
+        mock_ledger = pd.DataFrame(ledger_data)
+        mock_ledger_builder = Mock()
+        mock_ledger_builder.get_current_ledger.return_value = mock_ledger
+        mock_context.ledger_builder = mock_ledger_builder
 
         # Run compute_cf
         result = dcf.compute_cf(mock_context)

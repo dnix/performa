@@ -21,7 +21,7 @@ import pytest
 from performa.analysis import run
 from performa.asset.residential import (
     ResidentialAbsorptionPlan,
-    ResidentialCollectionLoss,
+    ResidentialCreditLoss,
     ResidentialDevelopmentBlueprint,
     ResidentialExpenses,
     ResidentialGeneralVacancyLoss,
@@ -102,7 +102,7 @@ def progressive_development_project():
         operating_expenses=[
             ResidentialOpExItem(
                 name="Property Management",
-                category="Operating Expense",
+                category="Expense",
                 subcategory=ExpenseSubcategoryEnum.OPEX,
                 timeline=timeline,
                 value=50.0,  # $50 per unit
@@ -114,7 +114,7 @@ def progressive_development_project():
 
     losses = ResidentialLosses(
         general_vacancy=ResidentialGeneralVacancyLoss(name="Vacancy", rate=0.03),
-        collection_loss=ResidentialCollectionLoss(name="Collection", rate=0.01),
+        credit_loss=ResidentialCreditLoss(name="Collection", rate=0.01),
     )
 
     # CRITICAL: Progressive absorption plan starting Month 3
@@ -151,6 +151,7 @@ def progressive_development_project():
     )
 
     return DevelopmentProject(
+        uid="550e8400-e29b-41d4-a716-446655440010",  # Valid UUID format
         name="Progressive Absorption Test Project",
         property_type=AssetTypeEnum.MULTIFAMILY,
         gross_area=48000.0,  # 60 units × 800 SF average
@@ -202,6 +203,7 @@ def test_absorption_plan_generates_progressive_specs(progressive_development_pro
     print("✅ Absorption plan generates progressive unit specs correctly")
 
 
+
 def test_development_framework_progressive_revenue(progressive_development_project):
     """
     Test that development framework produces progressive revenue patterns.
@@ -217,7 +219,7 @@ def test_development_framework_progressive_revenue(progressive_development_proje
         settings=GlobalSettings(),
     )
 
-    summary_df = scenario.get_cash_flow_summary()
+    summary_df = scenario.summary_df
     assert not summary_df.empty, "Development analysis should produce cash flow data"
 
     # Extract revenue series
@@ -267,6 +269,7 @@ def test_development_framework_progressive_revenue(progressive_development_proje
     print("✅ Development framework produces correct progressive revenue pattern")
 
 
+
 def test_stabilized_revenue_reaches_expected_level(progressive_development_project):
     """
     Test that once fully absorbed, revenue reaches expected stabilized level.
@@ -281,7 +284,7 @@ def test_stabilized_revenue_reaches_expected_level(progressive_development_proje
         settings=GlobalSettings(),
     )
 
-    summary_df = scenario.get_cash_flow_summary()
+    summary_df = scenario.summary_df
     revenue_series = summary_df.get("Potential Gross Revenue", None)
 
     # Month 9: All 60 units should be online (Month 3-8 absorption = 6 months × 10 units)
@@ -297,6 +300,7 @@ def test_stabilized_revenue_reaches_expected_level(progressive_development_proje
         print(
             f"✅ Stabilized revenue: ${month9_revenue:,.0f} (expected: ${expected_stabilized:,.0f})"
         )
+
 
 
 def test_backward_compatibility_with_stabilized_properties():
@@ -327,10 +331,11 @@ def test_backward_compatibility_with_stabilized_properties():
     # Create minimal required losses for stabilized property
     losses = ResidentialLosses(
         general_vacancy=ResidentialGeneralVacancyLoss(name="Vacancy", rate=0.05),
-        collection_loss=ResidentialCollectionLoss(name="Collection", rate=0.01),
+        credit_loss=ResidentialCreditLoss(name="Collection", rate=0.01),
     )
 
     property_data = ResidentialProperty(
+        uid="550e8400-e29b-41d4-a716-446655440011",  # Valid UUID format
         name="Existing Stabilized Property",
         net_rentable_area=40000.0,
         gross_area=45000.0,
@@ -342,7 +347,7 @@ def test_backward_compatibility_with_stabilized_properties():
     timeline = Timeline(start_date=date(2024, 1, 1), duration_months=6)
     scenario = run(model=property_data, timeline=timeline, settings=GlobalSettings())
 
-    summary_df = scenario.get_cash_flow_summary()
+    summary_df = scenario.summary_df
     assert not summary_df.empty, "Stabilized property analysis should work"
 
     # Should have immediate revenue (all units start at analysis start)
@@ -378,7 +383,7 @@ def test_backward_compatibility_with_stabilized_properties():
 #         settings=GlobalSettings()
 #     )
 #
-#     summary_df = scenario.get_cash_flow_summary()
+#     summary_df = scenario.summary_df
 #
 #     # Check construction expenditures occur in Months 1-2
 #     capex_series = summary_df.get('Total Capital Expenditures', None)

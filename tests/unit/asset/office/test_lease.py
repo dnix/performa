@@ -11,8 +11,8 @@ from performa.analysis import AnalysisContext
 from performa.asset.office.expense import OfficeExpenses
 from performa.asset.office.lease import OfficeLease
 from performa.asset.office.lease_spec import OfficeLeaseSpec
-from performa.asset.office.losses import (
-    OfficeCollectionLoss,
+from performa.asset.office.loss import (
+    OfficeCreditLoss,
     OfficeGeneralVacancyLoss,
     OfficeLosses,
 )
@@ -25,6 +25,7 @@ from performa.asset.office.rollover import (
     OfficeRolloverTenantImprovement,
 )
 from performa.asset.office.ti import OfficeTenantImprovement
+from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -125,17 +126,21 @@ class TestOfficeLease(unittest.TestCase):
         lease = OfficeLease.from_spec(
             spec, self.analysis_start_date, lease_timeline, self.settings
         )
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=lease_timeline,
             settings=self.settings,
             property_data=None,  # Not needed for this simple test
+            ledger_builder=ledger_builder
         )
         cash_flows = lease.compute_cf(context=context)
         # Base rent is $60k/yr -> $5k/mo
         expected_base_rent = pd.Series(5000.0, index=lease_timeline.period_index)
         self.assertTrue(all(cash_flows["base_rent"] == expected_base_rent))
-        self.assertTrue(all(cash_flows["revenue"] == expected_base_rent))
-        self.assertTrue(all(cash_flows["net"] == expected_base_rent))
+        # In the ledger architecture, revenue and net are computed by the ledger system
+        # Test the actual components that are returned
+        self.assertTrue(all(cash_flows["recoveries"] == 0.0))  # No recoveries in basic test
+        self.assertTrue(all(cash_flows["abatement"] == 0.0))   # No abatement in basic test
         self.assertEqual(len(cash_flows["base_rent"]), 12)
 
     def test_project_future_cash_flows_market_rollover(self):
@@ -179,11 +184,12 @@ class TestOfficeLease(unittest.TestCase):
         short_analysis_timeline = Timeline(
             start_date=date(2023, 1, 1), duration_months=36
         )  # Ends Dec 2025
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=short_analysis_timeline,
             settings=self.settings,
             property_data=None,  # Not needed for this test
-            resolved_lookups={},  # Mock resolved lookups
+            ledger_builder=ledger_builder
         )
         future_df = lease.project_future_cash_flows(context=context)
 
@@ -239,11 +245,12 @@ class TestOfficeLease(unittest.TestCase):
         short_analysis_timeline = Timeline(
             start_date=date(2023, 1, 1), duration_months=36
         )
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=short_analysis_timeline,
             settings=self.settings,
             property_data=None,
-            resolved_lookups={},
+            ledger_builder=ledger_builder
         )
         future_df = lease.project_future_cash_flows(context=context)
 
@@ -292,6 +299,7 @@ class TestOfficeLease(unittest.TestCase):
         )
 
         mock_property = OfficeProperty(
+            uid="550e8400-e29b-41d4-a716-446655440030",  # Valid UUID format
             name="Mock Property",
             property_type="office",
             gross_area=lease.area,
@@ -299,15 +307,17 @@ class TestOfficeLease(unittest.TestCase):
             rent_roll=OfficeRentRoll(leases=[spec], vacant_suites=[]),
             losses=OfficeLosses(
                 general_vacancy=OfficeGeneralVacancyLoss(rate=0.0),
-                collection_loss=OfficeCollectionLoss(rate=0.0),
+                credit_loss=OfficeCreditLoss(rate=0.0),
             ),
             expenses=OfficeExpenses(),
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=short_analysis_timeline,
             settings=self.settings,
             property_data=mock_property,
+            ledger_builder=ledger_builder
         )
 
         future_df = lease.project_future_cash_flows(context=context)
@@ -354,8 +364,12 @@ class TestOfficeLease(unittest.TestCase):
         short_analysis_timeline = Timeline(
             start_date=date(2023, 1, 1), duration_months=36
         )
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
-            timeline=short_analysis_timeline, settings=self.settings, property_data=None
+            timeline=short_analysis_timeline, 
+            settings=self.settings, 
+            property_data=None,
+            ledger_builder=ledger_builder
         )
 
         future_df = lease.project_future_cash_flows(context=context)
@@ -454,10 +468,12 @@ class TestOfficeLease(unittest.TestCase):
             payment_timing="signing",
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=Timeline(start_date=date(2023, 12, 1), duration_months=12),
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         # Should raise error when trying to use signing timing without signing_date

@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import logging
+import traceback
 from abc import abstractmethod
 from typing import List, Optional
 
@@ -10,6 +12,8 @@ from performa.analysis import AnalysisScenarioBase
 from performa.analysis.orchestrator import AnalysisContext
 from performa.core.base import LeaseSpecBase
 from performa.core.primitives import CashFlowModel
+
+logger = logging.getLogger(__name__)
 
 
 class CommercialAnalysisScenarioBase(AnalysisScenarioBase):
@@ -106,6 +110,21 @@ class CommercialAnalysisScenarioBase(AnalysisScenarioBase):
         """
         pass
 
+    @abstractmethod
+    def _create_loss_models(
+        self, context: Optional[AnalysisContext] = None
+    ) -> List[CashFlowModel]:
+        """
+        Abstract method for creating loss models.
+
+        Args:
+            context: Optional AnalysisContext for enhanced performance
+
+        Returns:
+            List of loss CashFlowModel instances
+        """
+        pass
+
     def prepare_models(
         self, context: Optional[AnalysisContext] = None
     ) -> List[CashFlowModel]:
@@ -141,7 +160,60 @@ class CommercialAnalysisScenarioBase(AnalysisScenarioBase):
                 ):
                     all_models.append(lease_model.leasing_commission)
 
-            # TODO: Handle vacant suite absorption modeling with context support
+            # Process absorption plans for vacant suites
+            # Generate lease models from absorption plan specs for revenue generation
+            if hasattr(self.model, "absorption_plans") and self.model.absorption_plans:
+                # TODO: REABSORB→Absorption Transformation Support (Office)
+                # ============================================================
+                # Currently, office properties do NOT support the REABSORB→absorption workflow
+                # that residential properties have. When an office lease expires with 
+                # upon_expiration=REABSORB, the space simply disappears - it doesn't become
+                # available to absorption plans.
+                #
+                # To implement (following residential pattern in ResidentialAnalysisScenario):
+                # 1. Track leases with upon_expiration=REABSORB during prepare_models()
+                # 2. Calculate when they expire and how much space becomes available
+                # 3. Convert expired REABSORB space to temporary vacant suites
+                # 4. Pass both static vacant suites AND dynamic REABSORB suites to absorption plans
+                # 5. Optional: Support target_absorption_plan_id for specific plan targeting
+                #
+                # This would enable value-add office scenarios like:
+                # - Tenant departure → renovation → re-lease at higher rates
+                # - Phased building repositioning with rolling lease expirations
+                # - Coordination with capital plans during vacancy periods
+                #
+                # See ResidentialAnalysisScenario._find_transformative_leases() and
+                # _create_post_renovation_lease() for reference implementation.
+                
+                for absorption_plan in self.model.absorption_plans:
+                    try:
+                        # Generate lease specs from absorption plan
+                        # NOTE: Currently only passes static vacant_suites, not REABSORB space
+                        generated_specs = absorption_plan.generate_lease_specs(
+                            available_vacant_suites=self.model.rent_roll.vacant_suites,
+                            analysis_start_date=self.timeline.start_date.to_timestamp().date(),
+                            analysis_end_date=self.timeline.end_date.to_timestamp().date(),
+                            lookup_fn=None,
+                            global_settings=None
+                        )
+                        
+                        logger.info(f"Absorption plan '{absorption_plan.name}' generated {len(generated_specs)} lease specs")
+                        
+                        # Create lease models from specs and add TI/LC models
+                        for spec in generated_specs:
+                            lease_model = self._create_lease_from_spec(spec, context)
+                            all_models.append(lease_model)
+                            
+                            # Add TI/LC models if present
+                            if hasattr(lease_model, "ti_allowance") and lease_model.ti_allowance:
+                                all_models.append(lease_model.ti_allowance)
+                            if hasattr(lease_model, "leasing_commission") and lease_model.leasing_commission:
+                                all_models.append(lease_model.leasing_commission)
+                                
+                    except Exception as e:
+                        logger.error(f"Failed to process absorption plan '{absorption_plan.name}': {e}")
+                        logger.error(traceback.format_exc())
+                        # Continue processing other plans
 
         # 2. Miscellaneous Income
         if hasattr(self.model, "miscellaneous_income"):
@@ -149,5 +221,9 @@ class CommercialAnalysisScenarioBase(AnalysisScenarioBase):
 
         # 3. Expenses
         all_models.extend(self._create_expense_models(context))
+
+        # 4. Losses
+        if hasattr(self.model, "losses") and self.model.losses:
+            all_models.extend(self._create_loss_models(context))
 
         return all_models

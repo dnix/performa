@@ -9,7 +9,7 @@ from typing import Optional
 from pydantic import computed_field
 
 from ..primitives.cash_flow import CashFlowModel
-from ..primitives.enums import ExpenseSubcategoryEnum
+from ..primitives.enums import CashFlowCategoryEnum, ExpenseSubcategoryEnum
 from ..primitives.types import FloatBetween0And1
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,10 @@ logger = logging.getLogger(__name__)
 
 class ExpenseItemBase(CashFlowModel):
     """
-    Base abstract class for all expense items (both OpEx and CapEx).
+    Base abstract class for all cost items (both OpEx and CapEx).
+
+    This class supports both operating expenses (category=EXPENSE) and capital 
+    expenditures (category=CAPITAL) through a flexible category field.
 
     Recovery Design Pattern:
     ========================
@@ -33,7 +36,7 @@ class ExpenseItemBase(CashFlowModel):
         assert opex.is_recoverable == True
 
         # Partially recoverable CapEx (tenant improvement pass-through)
-        capex = ResidentialCapExItem(name="Roof Replacement", value=50000, recoverable_ratio=0.3)
+        capex = ResidentialCapExItem(name="Roof Replacement", value=50000, recoverable_ratio=0.0)
         assert capex.is_recoverable == True
 
         # Non-recoverable expense
@@ -41,7 +44,7 @@ class ExpenseItemBase(CashFlowModel):
         assert expense.is_recoverable == False
     """
 
-    category: str = "Expense"
+    category: CashFlowCategoryEnum = CashFlowCategoryEnum.EXPENSE
     subcategory: ExpenseSubcategoryEnum
     group: Optional[str] = None
     recoverable_ratio: Optional[FloatBetween0And1] = 0.0  # Default: not recoverable
@@ -104,19 +107,16 @@ class CapExItemBase(ExpenseItemBase):
     """
     Base class for capital expenditures.
 
-    Inherits the standard `compute_cf` method from `CashFlowModel` via `ExpenseItemBase`,
-    which automatically handles:
-    - PER_UNIT calculations with smart property type detection
-    - BY_PERCENT calculations with dependency resolution
-    - Growth rate application (industry standard for CapEx like capital reserves)
+    Uses category=CAPITAL to ensure proper accounting treatment:
+    - Excluded from NOI calculations (NOI = Operating Revenue - Operating Expenses)
+    - Included in UCF calculations (UCF = NOI - CapEx)
+    - Mapped to TransactionPurpose.CAPITAL_USE in the ledger
 
     Inherits recovery logic from `ExpenseItemBase` for tenant cost recovery.
     Capital expenses can be recoverable through various mechanisms:
     - Tenant improvements passed through to tenants
     - Major building upgrades recovered via CAM charges
     - Infrastructure improvements with tenant cost allocation
-
-    This follows the same inheritance pattern as `OpExItemBase`.
 
     NOTE: CapEx are assumed to NOT be variable with occupancy.
 
@@ -130,4 +130,5 @@ class CapExItemBase(ExpenseItemBase):
         assert capex.is_recoverable == True
     """
 
+    category: CashFlowCategoryEnum = CashFlowCategoryEnum.CAPITAL
     subcategory: ExpenseSubcategoryEnum = ExpenseSubcategoryEnum.CAPEX

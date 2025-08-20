@@ -66,7 +66,7 @@ class TestLargeScaleRollingRenovation:
             stabilized_expenses=ResidentialExpenses(operating_expenses=[]),
             stabilized_losses=ResidentialLosses(
                 general_vacancy={"rate": 0.05, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.02, "basis": "egi"},
+                credit_loss={"rate": 0.02, "basis": "Potential Gross Revenue"},
             ),
             stabilized_misc_income=[],
         )
@@ -157,7 +157,7 @@ class TestLargeScaleRollingRenovation:
             expenses=expenses,
             losses=ResidentialLosses(
                 general_vacancy={"rate": 0.05, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.02, "basis": "egi"},
+                credit_loss={"rate": 0.02, "basis": "Potential Gross Revenue"},
             ),
             miscellaneous_income=[],
         )
@@ -181,7 +181,7 @@ class TestLargeScaleRollingRenovation:
         creation_time = time.time()
 
         scenario = run(model=property_model, timeline=timeline, settings=settings)
-        cash_flow_summary = scenario.get_cash_flow_summary()
+        cash_flow_summary = scenario.summary_df
 
         analysis_time = time.time()
 
@@ -238,6 +238,7 @@ class TestLargeScaleRollingRenovation:
             0.7 <= revenue_ratio <= 1.1
         ), f"Revenue seems incorrect: {revenue_ratio:.2%} of expected"
 
+
     def test_very_large_scale_stress_test(self):
         """Stress test with 1000+ units (if system can handle it)."""
 
@@ -263,6 +264,7 @@ class TestLargeScaleRollingRenovation:
         except Exception as e:
             pytest.fail(f"Unexpected error with {unit_count} units: {e}")
 
+
     def test_rolling_completion_rate_at_scale(self):
         """Test that rolling renovation completes properly at scale."""
 
@@ -274,7 +276,7 @@ class TestLargeScaleRollingRenovation:
         settings = GlobalSettings()
 
         scenario = run(model=property_model, timeline=timeline, settings=settings)
-        cash_flow_summary = scenario.get_cash_flow_summary()
+        cash_flow_summary = scenario.summary_df
 
         pgr_series = cash_flow_summary["Potential Gross Revenue"]
 
@@ -305,6 +307,7 @@ class TestLargeScaleRollingRenovation:
 class TestScalabilityLimits:
     """Test system limits and edge cases at scale."""
 
+
     def test_many_absorption_plans(self):
         """Test property with many different absorption plans."""
 
@@ -325,7 +328,7 @@ class TestScalabilityLimits:
                 stabilized_expenses=ResidentialExpenses(operating_expenses=[]),
                 stabilized_losses=ResidentialLosses(
                     general_vacancy={"rate": 0.05, "method": "Potential Gross Revenue"},
-                    collection_loss={"rate": 0.02, "basis": "egi"},
+                    credit_loss={"rate": 0.02, "basis": "Potential Gross Revenue"},
                 ),
                 stabilized_misc_income=[],
             )
@@ -379,7 +382,7 @@ class TestScalabilityLimits:
             expenses=ResidentialExpenses(operating_expenses=[]),
             losses=ResidentialLosses(
                 general_vacancy={"rate": 0.05, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.02, "basis": "egi"},
+                credit_loss={"rate": 0.02, "basis": "Potential Gross Revenue"},
             ),
             miscellaneous_income=[],
         )
@@ -389,7 +392,7 @@ class TestScalabilityLimits:
 
         # Should handle multiple plans without issues
         scenario = run(model=property_model, timeline=timeline, settings=settings)
-        cash_flow_summary = scenario.get_cash_flow_summary()
+        cash_flow_summary = scenario.summary_df
 
         assert not cash_flow_summary.empty
         pgr_series = cash_flow_summary["Potential Gross Revenue"]
@@ -406,6 +409,7 @@ class TestScalabilityLimits:
         print(f"   Initial Revenue: ${initial_revenue:,.0f}")
         print(f"   Final Revenue: ${final_revenue:,.0f}")
         print(f"   Growth: {((final_revenue / initial_revenue) - 1):.1%}")
+
 
     def test_memory_efficiency(self):
         """Test memory efficiency by creating and destroying large scenarios."""
@@ -424,7 +428,7 @@ class TestScalabilityLimits:
             settings = GlobalSettings()
 
             scenario = run(model=property_model, timeline=timeline, settings=settings)
-            cash_flow_summary = scenario.get_cash_flow_summary()
+            cash_flow_summary = scenario.summary_df
 
             # Validate it works
             assert not cash_flow_summary.empty
@@ -469,7 +473,7 @@ class TestScalabilityLimits:
             stabilized_expenses=ResidentialExpenses(operating_expenses=[]),
             stabilized_losses=ResidentialLosses(
                 general_vacancy={"rate": 0.05, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.02, "basis": "egi"},
+                credit_loss={"rate": 0.02, "basis": "Potential Gross Revenue"},
             ),
             stabilized_misc_income=[],
         )
@@ -518,7 +522,7 @@ class TestScalabilityLimits:
             expenses=ResidentialExpenses(operating_expenses=[]),
             losses=ResidentialLosses(
                 general_vacancy={"rate": 0.05, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.02, "basis": "egi"},
+                credit_loss={"rate": 0.02, "basis": "Potential Gross Revenue"},
             ),
             miscellaneous_income=[],
         )

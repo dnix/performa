@@ -23,6 +23,7 @@ import pytest
 from pydantic import ValidationError
 
 from performa.analysis import AnalysisContext
+from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
 from performa.core.primitives import (
     CashFlowModel,
     FrequencyEnum,
@@ -51,11 +52,15 @@ def empty_timeline() -> Timeline:
     return Timeline(start_date=date(2024, 1, 1), duration_months=0)
 
 
-@pytest.fixture
+@pytest.fixture  
 def sample_context(sample_timeline: Timeline) -> AnalysisContext:
     """Standard analysis context for testing."""
+    ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
     return AnalysisContext(
-        timeline=sample_timeline, settings=GlobalSettings(), property_data=None
+        timeline=sample_timeline, 
+        settings=GlobalSettings(), 
+        property_data=None,
+        ledger_builder=ledger_builder
     )
 
 
@@ -174,10 +179,12 @@ class TestDispositionCashFlowComputation:
 
     def test_compute_cf_single_period(self, single_period_timeline: Timeline):
         """Test computation with single period timeline."""
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=single_period_timeline,
             settings=GlobalSettings(),
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         disposition = DispositionCashFlow(
@@ -195,8 +202,12 @@ class TestDispositionCashFlowComputation:
 
     def test_compute_cf_empty_timeline(self, empty_timeline: Timeline):
         """Test computation with empty timeline (edge case)."""
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
-            timeline=empty_timeline, settings=GlobalSettings(), property_data=None
+            timeline=empty_timeline, 
+            settings=GlobalSettings(), 
+            property_data=None,
+            ledger_builder=ledger_builder
         )
 
         disposition = DispositionCashFlow(
@@ -274,8 +285,12 @@ class TestDispositionCashFlowIntegration:
         assert cash_flow.iloc[0] == 500000.0
 
         # Test with proper context
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
-            timeline=sample_timeline, settings=GlobalSettings(), property_data=None
+            timeline=sample_timeline, 
+            settings=GlobalSettings(), 
+            property_data=None,
+            ledger_builder=ledger_builder
         )
         cash_flow_with_context = disposition.compute_cf(context)
 

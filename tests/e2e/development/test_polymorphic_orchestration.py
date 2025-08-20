@@ -49,6 +49,7 @@ from performa.asset.residential.rollover import (
 )
 from performa.core.base import FixedQuantityPace as ResidentialFixedQuantityPace
 from performa.core.capital import CapitalItem, CapitalPlan
+from performa.core.ledger import LedgerBuilder
 from performa.core.primitives import (
     AssetTypeEnum,
     GlobalSettings,
@@ -124,7 +125,9 @@ def office_blueprint() -> OfficeDevelopmentBlueprint:
                 floor="1-5",
                 area=50000.0,
                 use_type="office",
-                is_divisible=False,
+                is_divisible=True,  # Allow subdivision for phased leasing
+                subdivision_average_lease_area=20000.0,  # Target ~20k SF leases  
+                subdivision_minimum_lease_area=5000.0,   # Minimum viable size
             )
         ],
         absorption_plan=OfficeAbsorptionPlan.with_typical_assumptions(
@@ -330,7 +333,8 @@ def test_orchestrator_basic_structure(
 
     # Create analysis scenario
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=analysis_timeline, settings=global_settings
+        model=project, timeline=analysis_timeline, settings=global_settings,
+        ledger_builder=LedgerBuilder()
     )
 
     # Validate basic structure
@@ -360,7 +364,8 @@ def test_orchestrator_prepare_models_basic(
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=analysis_timeline, settings=global_settings
+        model=project, timeline=analysis_timeline, settings=global_settings,
+        ledger_builder=LedgerBuilder()
     )
 
     # Execute the simplified orchestrator
@@ -397,7 +402,8 @@ def test_orchestrator_polymorphic_blueprint_processing(
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=analysis_timeline, settings=global_settings
+        model=project, timeline=analysis_timeline, settings=global_settings,
+        ledger_builder=LedgerBuilder()
     )
 
     # Execute polymorphic orchestration
@@ -437,7 +443,8 @@ def test_orchestrator_asset_factory_integration(
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=analysis_timeline, settings=global_settings
+        model=project, timeline=analysis_timeline, settings=global_settings,
+        ledger_builder=LedgerBuilder()
     )
 
     # Test asset factory integration manually
@@ -474,7 +481,8 @@ def test_orchestrator_no_blueprints(
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=analysis_timeline, settings=global_settings
+        model=project, timeline=analysis_timeline, settings=global_settings,
+        ledger_builder=LedgerBuilder()
     )
 
     # Should still work (construction + financing only)
@@ -508,7 +516,8 @@ def test_orchestrator_performance_no_conditionals(
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=analysis_timeline, settings=global_settings
+        model=project, timeline=analysis_timeline, settings=global_settings,
+        ledger_builder=LedgerBuilder()
     )
 
     # Time the polymorphic iteration (simulating the core loop)
@@ -585,6 +594,7 @@ def test_complete_development_lifecycle(
         model=comprehensive_project,
         timeline=analysis_timeline,
         settings=global_settings,
+        ledger_builder=LedgerBuilder()
     )
 
     # Execute full preparation
@@ -625,6 +635,7 @@ def test_complete_development_lifecycle(
     assert residential_asset.name == "Luxury Residential Tower"
 
 
+
 def test_end_to_end_cash_flow_generation(
     comprehensive_project, analysis_timeline, global_settings
 ):
@@ -638,10 +649,10 @@ def test_end_to_end_cash_flow_generation(
 
     # Validate analysis results
     assert analysis_result is not None
-    assert hasattr(analysis_result, "get_cash_flow_summary")
+    assert hasattr(analysis_result, "summary_df")
 
     # Basic cash flow validation
-    cash_flows = analysis_result.get_cash_flow_summary()
+    cash_flows = analysis_result.summary_df
     assert cash_flows is not None
     assert len(cash_flows) > 0  # Should have some periods
 

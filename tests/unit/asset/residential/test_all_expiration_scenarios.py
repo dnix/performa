@@ -65,10 +65,11 @@ class TestAllExpirationScenarios:
             expenses=ResidentialExpenses(operating_expenses=[]),
             losses=ResidentialLosses(
                 general_vacancy={"rate": 0.0, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.0, "basis": "egi"},
+                credit_loss={"rate": 0.0, "basis": "Potential Gross Revenue"},
             ),
             miscellaneous_income=[],
         )
+
 
     def test_market_expiration_scenario(self):
         """Test MARKET expiration with typical settings."""
@@ -92,7 +93,7 @@ class TestAllExpirationScenarios:
         settings = GlobalSettings()
 
         scenario = run(model=property_model, timeline=timeline, settings=settings)
-        cash_flow_summary = scenario.get_cash_flow_summary()
+        cash_flow_summary = scenario.summary_df
 
         pgr_series = cash_flow_summary["Potential Gross Revenue"]
 
@@ -108,6 +109,7 @@ class TestAllExpirationScenarios:
         # Note: With 70% renewal probability, we expect some revenue
         month_5_revenue = pgr_series.iloc[4]
         assert month_5_revenue > 0  # Should have some revenue from renewal/re-lease
+
 
     def test_renew_expiration_scenario(self):
         """Test RENEW expiration (100% renewal)."""
@@ -131,7 +133,7 @@ class TestAllExpirationScenarios:
         settings = GlobalSettings()
 
         scenario = run(model=property_model, timeline=timeline, settings=settings)
-        cash_flow_summary = scenario.get_cash_flow_summary()
+        cash_flow_summary = scenario.summary_df
 
         pgr_series = cash_flow_summary["Potential Gross Revenue"]
 
@@ -143,6 +145,7 @@ class TestAllExpirationScenarios:
         )  # Month 3 (renewal in March at renewal terms)
         assert pgr_series.iloc[3] == 2100.0  # Month 4 (continues renewal)
         assert pgr_series.iloc[4] == 2100.0  # Month 5 (continues renewal)
+
 
     def test_vacate_expiration_scenario(self):
         """Test VACATE expiration (tenant leaves, no re-lease)."""
@@ -166,7 +169,7 @@ class TestAllExpirationScenarios:
         settings = GlobalSettings()
 
         scenario = run(model=property_model, timeline=timeline, settings=settings)
-        cash_flow_summary = scenario.get_cash_flow_summary()
+        cash_flow_summary = scenario.summary_df
 
         pgr_series = cash_flow_summary["Potential Gross Revenue"]
 
@@ -181,6 +184,7 @@ class TestAllExpirationScenarios:
         assert pgr_series.iloc[3] == 2200.0  # Month 4 (Apr 2024) - continues at market
         assert pgr_series.iloc[4] == 2200.0  # Month 5 (May 2024) - continues at market
         assert pgr_series.iloc[5] == 2200.0  # Month 6 (Jun 2024) - continues at market
+
 
     def test_reabsorb_without_target_plan(self):
         """Test REABSORB expiration without target absorption plan (legacy behavior)."""
@@ -205,7 +209,7 @@ class TestAllExpirationScenarios:
         settings = GlobalSettings()
 
         scenario = run(model=property_model, timeline=timeline, settings=settings)
-        cash_flow_summary = scenario.get_cash_flow_summary()
+        cash_flow_summary = scenario.summary_df
 
         pgr_series = cash_flow_summary["Potential Gross Revenue"]
 
@@ -220,6 +224,7 @@ class TestAllExpirationScenarios:
         assert pgr_series.iloc[3] == 0.0  # Month 4 (Apr 2024) - stays vacant
         assert pgr_series.iloc[4] == 0.0  # Month 5 (May 2024) - stays vacant
         assert pgr_series.iloc[5] == 0.0  # Month 6 (Jun 2024) - stays vacant
+
 
     def test_reabsorb_with_target_plan(self):
         """Test REABSORB expiration with target absorption plan (value-add behavior)."""
@@ -239,7 +244,7 @@ class TestAllExpirationScenarios:
             stabilized_expenses=ResidentialExpenses(operating_expenses=[]),
             stabilized_losses=ResidentialLosses(
                 general_vacancy={"rate": 0.0, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.0, "basis": "egi"},
+                credit_loss={"rate": 0.0, "basis": "Potential Gross Revenue"},
             ),
             stabilized_misc_income=[],
         )
@@ -264,7 +269,7 @@ class TestAllExpirationScenarios:
         settings = GlobalSettings()
 
         scenario = run(model=property_model, timeline=timeline, settings=settings)
-        cash_flow_summary = scenario.get_cash_flow_summary()
+        cash_flow_summary = scenario.summary_df
 
         pgr_series = cash_flow_summary["Potential Gross Revenue"]
 
@@ -282,6 +287,7 @@ class TestAllExpirationScenarios:
         assert pgr_series.iloc[4] == 2500.0  # Month 5 (May 2024) - premium lease starts
         assert pgr_series.iloc[5] == 2500.0  # Month 6 (Jun 2024) - continues
         assert pgr_series.iloc[6] == 2500.0  # Month 7 (Jul 2024) - continues
+
 
     def test_mixed_expiration_scenarios_same_property(self):
         """Test property with units having different expiration scenarios."""
@@ -373,7 +379,7 @@ class TestAllExpirationScenarios:
             expenses=ResidentialExpenses(operating_expenses=[]),
             losses=ResidentialLosses(
                 general_vacancy={"rate": 0.0, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.0, "basis": "egi"},
+                credit_loss={"rate": 0.0, "basis": "Potential Gross Revenue"},
             ),
             miscellaneous_income=[],
         )
@@ -382,7 +388,7 @@ class TestAllExpirationScenarios:
         settings = GlobalSettings()
 
         scenario = run(model=property_model, timeline=timeline, settings=settings)
-        cash_flow_summary = scenario.get_cash_flow_summary()
+        cash_flow_summary = scenario.summary_df
 
         pgr_series = cash_flow_summary["Potential Gross Revenue"]
 
@@ -407,6 +413,7 @@ class TestAllExpirationScenarios:
 
 class TestExpirationScenarioEdgeCases:
     """Test edge cases for expiration scenarios."""
+
 
     def test_zero_downtime_market_scenario(self):
         """Test MARKET scenario with zero downtime."""
@@ -451,7 +458,7 @@ class TestExpirationScenarioEdgeCases:
             expenses=ResidentialExpenses(operating_expenses=[]),
             losses=ResidentialLosses(
                 general_vacancy={"rate": 0.0, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.0, "basis": "egi"},
+                credit_loss={"rate": 0.0, "basis": "Potential Gross Revenue"},
             ),
             miscellaneous_income=[],
         )
@@ -460,7 +467,7 @@ class TestExpirationScenarioEdgeCases:
         settings = GlobalSettings()
 
         scenario = run(model=property_model, timeline=timeline, settings=settings)
-        cash_flow_summary = scenario.get_cash_flow_summary()
+        cash_flow_summary = scenario.summary_df
 
         pgr_series = cash_flow_summary["Potential Gross Revenue"]
 
@@ -474,6 +481,7 @@ class TestExpirationScenarioEdgeCases:
                     # With 50% renewal probability, we might have gaps, but not due to downtime
                     # This test mainly ensures the zero downtime logic works
                     pass
+
 
     def test_very_long_downtime_scenario(self):
         """Test scenario with very long downtime period."""
@@ -518,7 +526,7 @@ class TestExpirationScenarioEdgeCases:
             expenses=ResidentialExpenses(operating_expenses=[]),
             losses=ResidentialLosses(
                 general_vacancy={"rate": 0.0, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.0, "basis": "egi"},
+                credit_loss={"rate": 0.0, "basis": "Potential Gross Revenue"},
             ),
             miscellaneous_income=[],
         )
@@ -527,7 +535,7 @@ class TestExpirationScenarioEdgeCases:
         settings = GlobalSettings()
 
         scenario = run(model=property_model, timeline=timeline, settings=settings)
-        cash_flow_summary = scenario.get_cash_flow_summary()
+        cash_flow_summary = scenario.summary_df
 
         pgr_series = cash_flow_summary["Potential Gross Revenue"]
 

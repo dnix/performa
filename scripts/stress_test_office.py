@@ -84,6 +84,7 @@ from performa.asset.office import (
     SpaceFilter,
 )
 from performa.core.base import Address, CommissionTier
+from performa.core.ledger import LedgerBuilder
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -128,11 +129,13 @@ def test_office_fundamental_sanity() -> bool:
         timeline=timeline,
         settings=GlobalSettings(),
     )
-
+    
     context = AnalysisContext(
         timeline=timeline,
         settings=GlobalSettings(),
         property_data=None,
+        ledger_builder=LedgerBuilder(),  # Add required ledger_builder
+        recovery_states={},  # Add required recovery_states
     )
 
     cf_result = lease.compute_cf(context)
@@ -233,7 +236,7 @@ def test_small_office_building() -> Dict[str, Any]:
         m for m in orchestrator.models if m.__class__.__name__ == "OfficeLease"
     ]
 
-    summary = scenario.get_cash_flow_summary()
+    summary = scenario.summary_df
     first_month = summary.index[0]
     pgr_cols = [col for col in summary.columns if "POTENTIAL_GROSS_REVENUE" in str(col)]
     actual_pgr = summary.loc[first_month, pgr_cols[0]] if pgr_cols else 0
@@ -368,7 +371,7 @@ def test_multi_tenant_office() -> Dict[str, Any]:
         m for m in orchestrator.models if "ExItem" in m.__class__.__name__
     ]
 
-    summary = scenario.get_cash_flow_summary()
+    summary = scenario.summary_df
     first_month = summary.index[0]
     pgr_cols = [col for col in summary.columns if "POTENTIAL_GROSS_REVENUE" in str(col)]
     actual_pgr = summary.loc[first_month, pgr_cols[0]] if pgr_cols else 0
@@ -565,7 +568,7 @@ def test_institutional_office_complex() -> Dict[str, Any]:
         m for m in orchestrator.models if m.__class__.__name__ == "OfficeMiscIncome"
     ]
 
-    summary = scenario.get_cash_flow_summary()
+    summary = scenario.summary_df
     first_month = summary.index[0]
     pgr_cols = [col for col in summary.columns if "POTENTIAL_GROSS_REVENUE" in str(col)]
     misc_cols = [col for col in summary.columns if "MISCELLANEOUS_INCOME" in str(col)]

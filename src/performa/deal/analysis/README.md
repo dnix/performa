@@ -22,21 +22,24 @@ The deal analysis workflow follows a systematic multi-pass approach that ensures
 
 ## Services
 
-### AssetAnalyzer
+### Asset Analysis (via performa.analysis.run)
 
-Handles unlevered asset performance analysis including scenario resolution and execution.
+**Note: AssetAnalyzer class has been REMOVED as part of the ledger unification.**
+
+Asset analysis is now performed using the simplified `run()` function:
 
 ```python
-from performa.deal.analysis import AssetAnalyzer
+from performa.analysis import run
 
-analyzer = AssetAnalyzer(deal, timeline, settings)
-results = analyzer.analyze_unlevered_asset()
+# Direct analysis of any asset model
+results = run(model=asset, timeline=timeline, settings=settings)
 ```
 
 **Key Features:**
-- Automatic scenario class resolution based on asset type
-- Integration with existing analysis infrastructure
-- Clean separation from financing and partnership concerns
+- Simplified, direct API
+- Single source of truth via ledger
+- Clean integration with the ledger-based architecture
+- No unnecessary abstraction layers
 
 ### ValuationEngine
 
@@ -118,14 +121,14 @@ distribution_results = analyzer.calculate_partner_distributions(levered_cash_flo
 ## Complete Workflow Example
 
 ```python
+from performa.analysis import run
 from performa.deal.analysis import (
-    AssetAnalyzer, ValuationEngine, DebtAnalyzer, 
+    ValuationEngine, DebtAnalyzer, 
     CashFlowEngine, PartnershipAnalyzer
 )
 
-# 1. Asset Analysis
-asset_analyzer = AssetAnalyzer(deal, timeline, settings)
-unlevered_analysis = asset_analyzer.analyze_unlevered_asset()
+# 1. Asset Analysis (simplified approach)
+unlevered_analysis = run(model=deal.asset, timeline=timeline, settings=settings)
 
 # 2. Valuation Analysis
 valuation_engine = ValuationEngine(deal, timeline, settings)

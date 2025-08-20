@@ -84,20 +84,25 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 import pandas as pd
 
 from performa.analysis import AnalysisContext
-from performa.core.primitives import UnleveredAggregateLineKey
+from performa.core.ledger import SeriesMetadata
+from performa.core.primitives import (
+    CashFlowCategoryEnum,
+    ExpenseSubcategoryEnum,
+    TransactionPurpose,
+    UnleveredAggregateLineKey,
+)
 from performa.deal.results import (
     CashFlowComponents,
     CashFlowSummary,
     FinancingAnalysisResult,
-    FundingCascadeDetails,
     InterestCompoundingDetails,
     InterestReserveDetails,
     LeveredCashFlowResult,
-    # Note: Advanced interest features not included in MVP
     UnleveredAnalysisResult,
 )
 
 if TYPE_CHECKING:
+    from performa.core.ledger import LedgerBuilder
     from performa.core.primitives import GlobalSettings, Timeline
     from performa.deal.deal import Deal
 
@@ -173,13 +178,16 @@ class CashFlowEngine:
 
     # Runtime state (populated during analysis)
     levered_cash_flows: LeveredCashFlowResult = field(
-        init=False, repr=False, default_factory=LeveredCashFlowResult
+        init=False, 
+        repr=False,
+        default_factory=LeveredCashFlowResult
     )
 
     def calculate_levered_cash_flows(
         self,
         unlevered_analysis: UnleveredAnalysisResult,
         financing_analysis: FinancingAnalysisResult,
+        ledger_builder: "LedgerBuilder",
         disposition_proceeds: Optional[pd.Series] = None,
     ) -> LeveredCashFlowResult:
         """
@@ -198,30 +206,41 @@ class CashFlowEngine:
         Args:
             unlevered_analysis: Results from unlevered asset analysis
             financing_analysis: Results from debt analysis
+            ledger_builder: The analysis ledger builder (Pass-the-Builder pattern).
+                Must be the same instance used throughout the analysis.
             disposition_proceeds: Disposition proceeds from valuation analysis (optional)
 
         Returns:
             LeveredCashFlowResult containing all cash flow components and analysis
         """
         # === Step 1: Calculate Period Uses ===
-        uses_breakdown = self._calculate_period_uses()
-        base_uses = uses_breakdown["Total Uses"].copy()
+        # Use ledger-based uses calculation (single source of truth)
+        # ledger_builder contains the asset-level transactions from prior analysis
+        base_uses = self._calculate_ledger_based_uses(ledger_builder)
+        
+        # Note: uses_breakdown is created by DealCalculator during funding cascade orchestration
+        # CashFlowEngine focuses on the funding mechanics, not the categorization
 
         # === Step 2: Initialize Funding Components ===
         funding_components = self._initialize_funding_components()
 
         # === Step 3: Execute Funding Cascade ===
         cascade_results = self._execute_funding_cascade(base_uses, funding_components)
+        
+        # === Step 3.5: Add Funding Sources to Ledger ===
+        self._add_funding_sources_to_ledger(ledger_builder, funding_components)
 
         # === Step 4: Calculate disposition proceeds if not provided ===
         if disposition_proceeds is None:
             disposition_proceeds = self._calculate_disposition_proceeds(
+                ledger_builder,
                 unlevered_analysis
             )
 
         # === Step 5: Assemble Final Results ===
+        # Note: uses_breakdown is created by DealCalculator, CashFlowEngine uses base_uses
         self._assemble_levered_cash_flow_results(
-            uses_breakdown,
+            base_uses,
             cascade_results,
             funding_components,
             unlevered_analysis,
@@ -261,8 +280,8 @@ class CashFlowEngine:
                 )
                 acquisition_cf = self.deal.acquisition.compute_cf(context)
 
-                # Acquisition costs are negative (outflows), make them positive for Uses
-                acquisition_uses = acquisition_cf.abs()
+                # Acquisition costs are positive (costs) - use directly for Uses
+                acquisition_uses = acquisition_cf
                 uses_df["Acquisition Costs"] = acquisition_uses.reindex(
                     self.timeline.period_index, fill_value=0.0
                 )
@@ -319,6 +338,127 @@ class CashFlowEngine:
         )
 
         return uses_df
+
+    def _calculate_ledger_based_uses(self, ledger_builder) -> pd.Series:
+        """
+        Calculate total uses from ledger transactions.
+        
+        This method queries the ledger for all Capital Use and Financing Service
+        transactions to determine total funding needs by period.
+        
+        Args:
+            ledger_builder: The ledger builder containing all transactions
+            
+        Returns:
+            pd.Series with total uses by period
+        """
+        # Get the current ledger
+        ledger = ledger_builder.get_current_ledger()
+        
+        if ledger.empty:
+            raise ValueError("Ledger is empty - CashFlowEngine requires a populated ledger from asset analysis")
+        
+        # Query for all capital uses and financing service transactions
+        uses_filter = ledger['flow_purpose'].isin([
+            TransactionPurpose.CAPITAL_USE.value, 
+            TransactionPurpose.FINANCING_SERVICE.value
+        ])
+        uses_transactions = ledger[uses_filter]
+        
+        logger.debug(f"CashFlowEngine: Ledger has {len(ledger)} total transactions")
+        logger.debug(f"CashFlowEngine: Found {len(uses_transactions)} use transactions")
+        logger.debug(f"CashFlowEngine: Flow purposes in ledger: {ledger['flow_purpose'].unique()}")
+        
+        if uses_transactions.empty:
+            logger.warning("CashFlowEngine: No use transactions found")
+            return pd.Series(0.0, index=self.timeline.period_index, name="Total Uses")
+        
+        # Take absolute value first, then group by date and sum (all amounts are positive uses)
+        uses_transactions = uses_transactions.copy()
+        uses_transactions['amount'] = uses_transactions['amount'].abs()
+        period_uses = uses_transactions.groupby('date')['amount'].sum()
+        
+        # Convert date index to Period index to match timeline
+        if len(period_uses) > 0:
+            # Convert datetime.date or Timestamp index to Period index
+            if hasattr(period_uses.index[0], 'to_period'):
+                # Timestamp index
+                period_uses.index = period_uses.index.to_period('M')
+            else:
+                # datetime.date index - convert to Period
+                period_uses.index = pd.PeriodIndex([pd.Period(date, 'M') for date in period_uses.index])
+        
+        logger.debug(f"CashFlowEngine: Period uses before reindex: {period_uses.sum()}")
+        logger.debug(f"CashFlowEngine: Period uses index type after conversion: {type(period_uses.index[0]) if len(period_uses) > 0 else 'empty'}")
+        
+        # Reindex to full timeline and fill missing with zeros
+        result = period_uses.reindex(self.timeline.period_index, fill_value=0.0)
+        logger.debug(f"CashFlowEngine: Final result sum: {result.sum()}")
+        
+        return result
+
+
+
+
+
+    def _add_funding_sources_to_ledger(self, ledger_builder, funding_components):
+        """
+        Add funding source transactions (equity, debt) to the ledger.
+        
+        This method takes the calculated funding sources from the cascade
+        and adds them as CAPITAL_SOURCE transactions to the ledger.
+        
+        Args:
+            ledger_builder: The ledger builder to add transactions to
+            funding_components: Dict containing funding series from cascade
+        """        
+        # Add equity contributions as Capital Source
+        if 'equity_contributions' in funding_components:
+            equity_series = funding_components['equity_contributions']
+            # Only add if there are non-zero contributions
+            if equity_series.sum() > 0:
+                metadata = SeriesMetadata(
+                    category=CashFlowCategoryEnum.FINANCING,
+                    subcategory=ExpenseSubcategoryEnum.OPEX,  # FIXME: Need proper financing subcategory enum
+                    item_name="Equity Contributions",
+                    source_id=self.deal.uid,  # Deal is the source
+                    asset_id=self.deal.asset.uid,
+                    deal_id=self.deal.uid,
+                    pass_num=2  # Funding is pass 2
+                )
+                ledger_builder.add_series(equity_series, metadata)
+        
+        # Add debt draws as Capital Source  
+        if 'debt_draws' in funding_components:
+            debt_series = funding_components['debt_draws']
+            # Only add if there are non-zero draws
+            if debt_series.sum() > 0:
+                metadata = SeriesMetadata(
+                    category=CashFlowCategoryEnum.FINANCING, 
+                    subcategory=ExpenseSubcategoryEnum.OPEX,  # FIXME: Need proper financing subcategory enum
+                    item_name="Debt Draws",
+                    source_id=self.deal.uid,  # Deal is the source
+                    asset_id=self.deal.asset.uid,
+                    deal_id=self.deal.uid,
+                    pass_num=2  # Funding is pass 2
+                )
+                ledger_builder.add_series(debt_series, metadata)
+        
+        # Add interest expense as Financing Service
+        if 'interest_expense' in funding_components:
+            interest_series = funding_components['interest_expense']
+            # Only add if there are non-zero interest payments
+            if interest_series.sum() > 0:
+                metadata = SeriesMetadata(
+                    category=CashFlowCategoryEnum.FINANCING,
+                    subcategory=ExpenseSubcategoryEnum.OPEX,  # FIXME: Need proper financing subcategory enum
+                    item_name="Interest Expense",
+                    source_id=self.deal.uid,  # Deal is the source
+                    asset_id=self.deal.asset.uid,
+                    deal_id=self.deal.uid,
+                    pass_num=2  # Financing is pass 2
+                )
+                ledger_builder.add_series(interest_series, metadata)
 
     def _initialize_funding_components(self) -> Dict[str, Any]:
         """
@@ -710,7 +850,7 @@ class CashFlowEngine:
 
     def _assemble_levered_cash_flow_results(
         self,
-        uses_breakdown: pd.DataFrame,
+        base_uses: pd.Series,
         cascade_results: Dict[str, Any],
         funding_components: Dict[str, Any],
         unlevered_analysis: UnleveredAnalysisResult,
@@ -721,7 +861,7 @@ class CashFlowEngine:
         Assemble final levered cash flow results with all components.
 
         Args:
-            uses_breakdown: Period-by-period uses breakdown
+            base_uses: Period-by-period total uses (Series)
             cascade_results: Results from funding cascade execution
             funding_components: Funding component tracking
             unlevered_analysis: Unlevered analysis results
@@ -797,7 +937,7 @@ class CashFlowEngine:
 
         # Create detailed funding cascade components
         interest_compounding_details = InterestCompoundingDetails(
-            base_uses=uses_breakdown["Total Uses"],
+            base_uses=base_uses,
             compounded_interest=funding_components["compounded_interest"],
             total_uses_with_interest=funding_components["total_uses"],
             equity_target=cascade_results["equity_target"],
@@ -831,20 +971,15 @@ class CashFlowEngine:
             ),
         )
 
-        funding_cascade_details = FundingCascadeDetails(
-            uses_breakdown=uses_breakdown,
-            equity_target=cascade_results["equity_target"],
-            equity_contributed_cumulative=funding_components["equity_cumulative"],
-            debt_draws_by_tranche=funding_components["debt_draws_by_tranche"],
-            interest_compounding_details=interest_compounding_details,
-            interest_reserve_details=interest_reserve_details,
-        )
+        # NOTE: funding_cascade_details is created by DealCalculator, not CashFlowEngine
+        # CashFlowEngine focuses on cash flow mechanics, DealCalculator handles uses breakdown
+        funding_cascade_details = None
 
         # Populate the levered cash flows model
         self.levered_cash_flows.levered_cash_flows = levered_cash_flows
         self.levered_cash_flows.cash_flow_components = cash_flow_components
         self.levered_cash_flows.cash_flow_summary = cash_flow_summary
-        self.levered_cash_flows.funding_cascade_details = funding_cascade_details
+        # NOTE: funding_cascade_details is set by DealCalculator, not CashFlowEngine
 
     def _extract_unlevered_cash_flows(
         self, unlevered_analysis: UnleveredAnalysisResult
@@ -940,12 +1075,32 @@ class CashFlowEngine:
         loan_payoff = pd.Series(0.0, index=self.timeline.period_index)
 
         if self.deal.financing:
+            # Build combined financing cash flows DataFrame from analysis results
+            financing_cash_flows_data = {}
+            
+            # Add debt service series
+            for facility_name, debt_series in financing_analysis.debt_service.items():
+                if debt_series is not None:
+                    financing_cash_flows_data[f"{facility_name} Interest"] = debt_series
+                    
+            # Add loan proceeds series (as draws)
+            for facility_name, proceeds_series in financing_analysis.loan_proceeds.items():
+                if proceeds_series is not None:
+                    financing_cash_flows_data[f"{facility_name} Draw"] = proceeds_series
+            
+            # Create combined DataFrame
+            if financing_cash_flows_data:
+                financing_cash_flows = pd.DataFrame(financing_cash_flows_data, index=self.timeline.period_index).fillna(0.0)
+            else:
+                financing_cash_flows = pd.DataFrame(index=self.timeline.period_index)
+            
             for facility in self.deal.financing.facilities:
                 try:
                     # Check if facility has outstanding balance calculation
                     if hasattr(facility, "get_outstanding_balance"):
                         for period in self.timeline.period_index:
-                            balance = facility.get_outstanding_balance(period)
+                            period_date = period.to_timestamp().date()
+                            balance = facility.get_outstanding_balance(period_date, financing_cash_flows)
                             if balance > 0:
                                 # Check if this is a refinancing or disposition period
                                 if (
@@ -1036,12 +1191,16 @@ class CashFlowEngine:
         return 0.0
 
     def _calculate_disposition_proceeds(
-        self, unlevered_analysis: UnleveredAnalysisResult = None
+        self, 
+        ledger_builder: "LedgerBuilder",
+        unlevered_analysis: UnleveredAnalysisResult = None
     ) -> pd.Series:
         """
         Calculate disposition proceeds if there's a disposition event.
 
         Args:
+            ledger_builder: The analysis ledger builder (Pass-the-Builder pattern).
+                Must be the same instance used throughout the analysis.
             unlevered_analysis: Results from unlevered asset analysis containing NOI data
 
         Returns:
@@ -1052,10 +1211,12 @@ class CashFlowEngine:
         if self.deal.exit_valuation:
             try:
                 # Calculate disposition proceeds from the disposition model
+                # ledger_builder is required parameter (Pass-the-Builder pattern)
                 context = AnalysisContext(
                     timeline=self.timeline,
                     settings=self.settings,
                     property_data=self.deal.asset,
+                    ledger_builder=ledger_builder
                 )
 
                 # Pass unlevered analysis to the context so valuation models can access NOI

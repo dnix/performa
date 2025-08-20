@@ -330,15 +330,14 @@ class CommercialLeaseBase(LeaseBase, ABC):
             )
             lc_cf = commission_cf.reindex(self.timeline.period_index, fill_value=0.0)
 
+        # Return only base components to avoid duplicate transactions in ledger
+        # The ledger aggregation system will handle totals (revenue, expenses, net)
         result = {
             "base_rent": base_rent_final.fillna(0.0),
             "abatement": abatement_cf.fillna(0.0),
             "recoveries": recoveries_cf.fillna(0.0),
-            "revenue": (base_rent_final + recoveries_cf).fillna(0.0),
             "ti_allowance": ti_cf.fillna(0.0),
             "leasing_commission": lc_cf.fillna(0.0),
-            "expenses": (ti_cf + lc_cf).fillna(0.0),
-            "net": (base_rent_final + recoveries_cf - ti_cf - lc_cf).fillna(0.0),
         }
         return result
 
@@ -365,8 +364,7 @@ class CommercialLeaseBase(LeaseBase, ABC):
             if action in [UponExpirationEnum.MARKET, UponExpirationEnum.VACATE]:
                 downtime_months = profile.downtime_months
 
-            # FIXME: This is a bit of a hack since we don't have a real tenant object on lease yet
-            # It's sufficient for naming purposes.
+            # Placeholder for tenant name
             current_tenant_name = self.name.split(" - ")[0]
 
             next_lease_start_date = (

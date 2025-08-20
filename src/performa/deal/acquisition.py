@@ -17,6 +17,8 @@ import pandas as pd
 from pydantic import Field, model_validator
 
 from ..core.primitives import (
+    CapitalSubcategoryEnum,
+    CashFlowCategoryEnum,
     CashFlowModel,
     FloatBetween0And1,
     FrequencyEnum,
@@ -63,8 +65,8 @@ class AcquisitionTerms(CashFlowModel):
     """
 
     # Override CashFlowModel defaults for acquisition context
-    category: str = "Acquisition"
-    subcategory: str = "Purchase"
+    category: CashFlowCategoryEnum = CashFlowCategoryEnum.CAPITAL
+    subcategory: CapitalSubcategoryEnum = CapitalSubcategoryEnum.PURCHASE_PRICE
     frequency: FrequencyEnum = FrequencyEnum.MONTHLY
 
     # Acquisition-specific fields
@@ -127,5 +129,5 @@ class AcquisitionTerms(CashFlowModel):
         closing_costs_series = base_price_series * self.closing_costs_rate
         total_outflow_series = base_price_series + closing_costs_series
 
-        # Return as negative values to represent cash outflows
-        return total_outflow_series * -1
+        # Return as positive values (costs) - orchestrator will handle outflow sign
+        return total_outflow_series

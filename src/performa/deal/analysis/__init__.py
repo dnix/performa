@@ -23,13 +23,13 @@ Architecture:
 Example:
     ```python
     from performa.deal.analysis import (
-        AssetAnalyzer, DebtAnalyzer, CashFlowEngine,
+        DebtAnalyzer, CashFlowEngine,
         PartnershipAnalyzer, ValuationEngine
     )
 
-    # Independent usage
-    asset_analyzer = AssetAnalyzer(deal, timeline, settings)
-    unlevered_results = asset_analyzer.analyze_unlevered_asset()
+    # For asset analysis, use the new ledger-based API:
+    from performa.analysis import run
+    asset_results = run(model=deal.asset, timeline=timeline, settings=settings)
 
     # Orchestrated usage (see orchestrator.py)
     debt_analyzer = DebtAnalyzer(deal, timeline, settings)
@@ -47,16 +47,15 @@ Design Principles:
     - **Institutional Grade**: Implements real-world financial modeling standards
 """
 
-from .asset import AssetAnalyzer
+# Legacy AssetAnalyzer removed - use performa.analysis.run() instead
 from .cash_flow import CashFlowEngine
 from .debt import DebtAnalyzer
 from .partnership import PartnershipAnalyzer
 from .valuation import ValuationEngine
 
 __all__ = [
-    "AssetAnalyzer",
     "CashFlowEngine",
-    "DebtAnalyzer",
+    "DebtAnalyzer", 
     "PartnershipAnalyzer",
     "ValuationEngine",
 ]

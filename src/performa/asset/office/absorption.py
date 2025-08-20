@@ -82,7 +82,7 @@ from ...core.primitives import (
 )
 from .expense import OfficeExpenses, OfficeOpExItem
 from .lease_spec import OfficeLeaseSpec
-from .losses import OfficeCollectionLoss, OfficeGeneralVacancyLoss, OfficeLosses
+from .loss import OfficeCreditLoss, OfficeGeneralVacancyLoss, OfficeLosses
 from .misc_income import OfficeMiscIncome
 from .rollover import OfficeRolloverProfile
 
@@ -121,6 +121,19 @@ class FixedQuantityPace(BasePace):
     """
     Defines an absorption pace based on leasing a fixed quantity of space
     or a fixed number of units per period.
+
+    **Important**: When using SF units, ensure vacant suites are properly configured:
+    - **Non-divisible suites**: Can only be absorbed if suite area ≤ quantity
+    - **Divisible suites**: Can be absorbed in chunks if configured with subdivision parameters
+    
+    Example:
+        ```python
+        # Absorb 5,000 SF every 6 months
+        pace = FixedQuantityPace(type="FixedQuantity", quantity=5000, unit="SF", frequency_months=6)
+        
+        # This requires divisible suites if suite area > 5,000 SF
+        vacant_suite = OfficeVacantSuite(..., is_divisible=True, subdivision_average_lease_area=5000)
+        ```
 
     Attributes:
         type: The discriminator field for Pydantic.
@@ -728,7 +741,7 @@ class OfficeAbsorptionPlan(
 
         Losses:
         - General Vacancy: 5%
-        - Collection Loss: 1%
+        - Credit Loss: 1%
 
         Miscellaneous Income:
         - Empty list
@@ -837,12 +850,10 @@ class OfficeAbsorptionPlan(
         """Create typical office loss assumptions."""
         return OfficeLosses(
             general_vacancy=OfficeGeneralVacancyLoss(
-                vacancy_rate=0.05,  # 5% office vacancy
-                applied_to_base_rent=True,
+                rate=0.05,  # 5% office vacancy
             ),
-            collection_loss=OfficeCollectionLoss(
-                loss_rate=0.01,  # 1% collection loss
-                applied_to_base_rent=True,
+            credit_loss=OfficeCreditLoss(
+                rate=0.01,  # 1% collection loss
             ),
         )
 
@@ -880,6 +891,9 @@ class OfficeAbsorptionPlan(
         )
         if not target_suites:
             return []
+
+        # Validate configuration compatibility before proceeding
+        self._validate_absorption_configuration(target_suites)
 
         initial_start_date = self._resolve_start_date(analysis_start_date)
         if initial_start_date > analysis_end_date:
@@ -941,6 +955,47 @@ class OfficeAbsorptionPlan(
         if isinstance(self.start_date_anchor, date):
             return self.start_date_anchor
         return analysis_start_date
+
+    def _validate_absorption_configuration(self, target_suites: List[OfficeVacantSuite]) -> None:
+        """
+        Validates that the absorption plan configuration is compatible with target suites.
+        
+        Raises:
+            ValueError: If the configuration will prevent any absorption from occurring.
+        """
+        # Only validate FixedQuantityPace with SF units (the problematic case)
+        if not isinstance(self.pace, FixedQuantityPace) or self.pace.unit != "SF":
+            return
+            
+        # Check if any suites can be absorbed with current configuration
+        absorbable_suites = []
+        configuration_issues = []
+        
+        for suite in target_suites:
+            if suite.is_divisible:
+                # Divisible suites can always be absorbed in chunks
+                absorbable_suites.append(suite)
+            elif suite.area <= self.pace.quantity:
+                # Non-divisible suites can be absorbed if they fit within pace quantity
+                absorbable_suites.append(suite)
+            else:
+                # This suite cannot be absorbed due to configuration
+                configuration_issues.append(
+                    f"Suite '{suite.suite}' ({suite.area:,.0f} SF, non-divisible) > absorption quantity ({self.pace.quantity:,.0f} SF)"
+                )
+        
+        # If no suites can be absorbed, raise detailed error
+        if not absorbable_suites:
+            error_msg = (
+                f"Absorption plan '{self.name}' cannot absorb any target suites due to configuration issues.\n\n"
+                f"Configuration: FixedQuantityPace with {self.pace.quantity:,.0f} SF every {self.pace.frequency_months} months\n\n"
+                f"Issues found:\n" + "\n".join(f"• {issue}" for issue in configuration_issues) + "\n\n"
+                f"Solutions:\n"
+                f"• Make large suites divisible: set is_divisible=True with subdivision parameters\n"
+                f"• Increase absorption quantity to ≥ largest suite area ({max(s.area for s in target_suites):,.0f} SF)\n"
+                f"• Use 'Units' pace instead of 'SF' pace for unit-based absorption"
+            )
+            raise ValueError(error_msg)
 
     def _create_lease_spec(
         self, suite: OfficeVacantSuite, start_date: date, deal_number: int, **kwargs

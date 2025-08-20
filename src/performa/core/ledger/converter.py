@@ -11,6 +11,7 @@ optimized for performance and memory usage.
 
 from __future__ import annotations
 
+import datetime
 import logging
 from typing import List, Tuple
 
@@ -54,11 +55,27 @@ class SeriesBatchConverter:
             # Convert PeriodIndex to DatetimeIndex
             series.index = series.index.to_timestamp()
         elif not isinstance(series.index, pd.DatetimeIndex):
-            # Try to convert other index types to datetime
-            try:
-                series.index = pd.to_datetime(series.index)
-            except Exception as e:
-                raise ValueError(f"Series index must be datetime-like: {e}")
+            # Check if index contains Period objects
+            
+            # Handle mixed datetime-like objects
+            datetime_like_types = (pd.Period, pd.Timestamp, datetime.date, datetime.datetime)
+            if all(isinstance(x, datetime_like_types) for x in series.index):
+                # Convert Period objects to timestamps, leave others as-is
+                converted_index = []
+                for x in series.index:
+                    if isinstance(x, pd.Period):
+                        converted_index.append(x.to_timestamp())
+                    elif isinstance(x, (datetime.date, datetime.datetime)):
+                        converted_index.append(pd.Timestamp(x))
+                    else:  # Already Timestamp
+                        converted_index.append(x)
+                series.index = pd.DatetimeIndex(converted_index)
+            else:
+                # Try standard conversion for other types
+                try:
+                    series.index = pd.to_datetime(series.index)
+                except Exception as e:
+                    raise ValueError(f"Series index must be datetime-like: {e}")
         
         records = []
         
@@ -74,8 +91,16 @@ class SeriesBatchConverter:
                 amount
             )
             
-            # Convert datetime to date
-            transaction_date = dt.date() if hasattr(dt, 'date') else dt
+            # Convert to datetime.date for TransactionRecord
+            if isinstance(dt, pd.Period):
+                transaction_date = dt.to_timestamp().date()
+            elif isinstance(dt, pd.Timestamp):
+                transaction_date = dt.date()
+            elif isinstance(dt, (datetime.date, datetime.datetime)):
+                transaction_date = dt.date() if hasattr(dt, 'date') else dt
+            else:
+                # Fallback - try to convert to date
+                transaction_date = pd.Timestamp(dt).date()
             
             record = TransactionRecord(
                 date=transaction_date,
@@ -159,10 +184,19 @@ class SeriesBatchConverter:
         # Check for datetime-like index (DatetimeIndex or PeriodIndex)
         if not series.empty:
             if not isinstance(series.index, (pd.DatetimeIndex, pd.PeriodIndex)):
+                # Check if index contains datetime-like objects (Period, Timestamp, etc.)
                 try:
+                    # Try converting to datetime - this works for most datetime-like objects
                     pd.to_datetime(series.index)
-                except Exception as e:
-                    raise ValueError(f"Series must have datetime-like index: {e}")
+                except Exception:
+                    # If conversion fails, check if all elements are datetime-like objects
+                   
+                    datetime_like_types = (pd.Period, pd.Timestamp, datetime.date, datetime.datetime)
+                    if all(isinstance(x, datetime_like_types) for x in series.index):
+                        # Index of datetime-like objects is acceptable
+                        pass
+                    else:
+                        raise ValueError(f"Series index must be datetime-like, got {type(series.index)} with elements: {[type(x).__name__ for x in series.index[:3]]}")
         
         # Check for numeric values
         if not series.empty and not pd.api.types.is_numeric_dtype(series):

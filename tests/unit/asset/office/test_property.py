@@ -9,8 +9,8 @@ import pytest
 
 from performa.asset.office.expense import OfficeExpenses
 from performa.asset.office.lease_spec import OfficeLeaseSpec
-from performa.asset.office.losses import (
-    OfficeCollectionLoss,
+from performa.asset.office.loss import (
+    OfficeCreditLoss,
     OfficeGeneralVacancyLoss,
     OfficeLosses,
 )
@@ -58,7 +58,7 @@ def sample_property():
         expenses=OfficeExpenses(),
         losses=OfficeLosses(
             general_vacancy=OfficeGeneralVacancyLoss(),
-            collection_loss=OfficeCollectionLoss(),
+            credit_loss=OfficeCreditLoss(),
         ),
     )
 

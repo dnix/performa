@@ -32,6 +32,7 @@ from performa.asset.residential import (
 from performa.asset.residential.absorption import ResidentialDirectLeaseTerms
 from performa.core.base import Address
 from performa.core.base.absorption import FixedQuantityPace
+from performa.core.ledger import LedgerBuilder
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -53,8 +54,10 @@ class TestValueAddOrchestration:
     def test_find_transformative_leases_business_logic(self):
         """Test that _find_transformative_leases correctly identifies value-add leases."""
         property_model = self._create_minimal_property()
+        
         scenario = ResidentialAnalysisScenario(
-            model=property_model, timeline=self.timeline, settings=self.settings
+            model=property_model, timeline=self.timeline, settings=self.settings,
+            ledger_builder=LedgerBuilder()
         )
 
         # Create transformative lease (REABSORB + target_absorption_plan_id)
@@ -126,13 +129,18 @@ class TestValueAddOrchestration:
     def test_create_post_renovation_lease_error_handling(self):
         """Test _create_post_renovation_lease properly handles missing absorption plans."""
         property_model = self._create_minimal_property()
+        
         scenario = ResidentialAnalysisScenario(
-            model=property_model, timeline=self.timeline, settings=self.settings
+            model=property_model, timeline=self.timeline, settings=self.settings,
+            ledger_builder=LedgerBuilder()
         )
 
         # Create context
         context = AnalysisContext(
-            timeline=self.timeline, settings=self.settings, property_data=property_model
+            timeline=self.timeline,
+            settings=self.settings,
+            property_data=property_model,
+            ledger_builder=LedgerBuilder(),
         )
 
         # Create lease with rollover profile pointing to non-existent plan
@@ -183,7 +191,7 @@ class TestValueAddOrchestration:
             expenses=ResidentialExpenses(),
             losses=ResidentialLosses(
                 general_vacancy={"rate": 0.05, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.02, "basis": "egi"},
+                credit_loss={"rate": 0.02, "basis": "Potential Gross Revenue"},
             ),
             miscellaneous_income=[],
         )
@@ -240,7 +248,7 @@ class TestValueAddOrchestration:
             stabilized_expenses=ResidentialExpenses(),
             stabilized_losses=ResidentialLosses(
                 general_vacancy={"rate": 0.05, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.02, "basis": "egi"},
+                credit_loss={"rate": 0.02, "basis": "Potential Gross Revenue"},
             ),
             stabilized_misc_income=[],
         )

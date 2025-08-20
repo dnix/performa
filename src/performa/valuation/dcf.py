@@ -17,7 +17,8 @@ from uuid import UUID, uuid4
 import pandas as pd
 from pydantic import Field, model_validator
 
-from ..core.primitives import Model, PositiveFloat, UnleveredAggregateLineKey
+from performa.core.ledger import LedgerQueries
+from performa.core.primitives import Model, PositiveFloat
 
 if TYPE_CHECKING:
     from performa.analysis import AnalysisContext
@@ -306,15 +307,18 @@ class DCFValuation(Model):
         disposition_cf = pd.Series(0.0, index=context.timeline.period_index)
 
         try:
-            # Extract NOI series from unlevered analysis
-            if hasattr(context, "unlevered_analysis") and context.unlevered_analysis:
-                # Get NOI series from the analysis
-                noi_series = context.unlevered_analysis.get_series(
-                    UnleveredAggregateLineKey.NET_OPERATING_INCOME, context.timeline
-                )
+            noi_series = None
+            
+            # Extract NOI series from ledger (single source of truth)
+            if hasattr(context, "ledger_builder") and context.ledger_builder:
+                # Get NOI from ledger using LedgerQueries
+                ledger = context.ledger_builder.get_current_ledger()
+                if not ledger.empty:
+                    queries = LedgerQueries(ledger)
+                    noi_series = queries.noi()
 
                 # Use the available NOI data for DCF calculation
-                if not noi_series.empty:
+                if noi_series is not None and not noi_series.empty:
                     # Convert monthly NOI to annual series for DCF calculation
                     annual_periods = []
                     annual_noi = []
@@ -323,7 +327,8 @@ class DCFValuation(Model):
                     for year in range(
                         noi_series.index[0].year, noi_series.index[-1].year + 1
                     ):
-                        year_mask = noi_series.index.year == year
+                        # Create year mask by checking each date's year
+                        year_mask = pd.Series([d.year == year for d in noi_series.index], index=noi_series.index)
                         if year_mask.any():
                             annual_noi.append(noi_series[year_mask].sum())
                             annual_periods.append(year)
@@ -355,35 +360,8 @@ class DCFValuation(Model):
                             disposition_cf[disposition_period] = net_proceeds
 
             else:
-                # Fallback: try to get from resolved lookups
-                noi_lookup = context.resolved_lookups.get(
-                    UnleveredAggregateLineKey.NET_OPERATING_INCOME.value
-                )
-                if noi_lookup is not None and isinstance(noi_lookup, pd.Series):
-                    # Simplified calculation using average NOI
-                    if not noi_lookup.empty:
-                        avg_monthly_noi = noi_lookup.mean()
-                        annual_noi = avg_monthly_noi * 12
-
-                        # Create simplified cash flow series
-                        cash_flows = pd.Series([annual_noi] * self.hold_period_years)
-
-                        dcf_results = self.calculate_present_value(
-                            cash_flows=cash_flows, terminal_noi=annual_noi
-                        )
-
-                        net_proceeds = dcf_results["net_terminal_value"]
-
-                        # Place at end of hold period
-                        hold_period_end = min(
-                            self.hold_period_years * 12,
-                            len(context.timeline.period_index),
-                        )
-                        if hold_period_end > 0:
-                            disposition_period = context.timeline.period_index[
-                                hold_period_end - 1
-                            ]
-                            disposition_cf[disposition_period] = net_proceeds
+                # No ledger_builder available - cannot calculate DCF
+                logger.warning("No ledger_builder available for DCF calculation")
 
         except Exception as e:
             # Log warning but continue with zeros

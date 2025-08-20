@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 
-from performa.asset.office.losses import (
-    OfficeCollectionLoss,
+from performa.asset.office.loss import (
+    OfficeCreditLoss,
     OfficeGeneralVacancyLoss,
     OfficeLosses,
 )
@@ -13,7 +13,7 @@ from performa.asset.office.losses import (
 def test_office_losses_creation():
     losses = OfficeLosses(
         general_vacancy=OfficeGeneralVacancyLoss(rate=0.05),
-        collection_loss=OfficeCollectionLoss(rate=0.01),
+        credit_loss=OfficeCreditLoss(rate=0.01),
     )
     assert losses.general_vacancy.rate == 0.05
-    assert losses.collection_loss.rate == 0.01
+    assert losses.credit_loss.rate == 0.01

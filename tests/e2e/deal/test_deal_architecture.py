@@ -107,10 +107,10 @@ class TestDealCentricArchitectureIntegration:
 
         results = analyze(deal, timeline)
 
-        # Validate 5-pass structure
+        # Validate 5-pass structure (pure ledger-based)
         assert hasattr(
-            results, "unlevered_analysis"
-        )  # Pass 1: Unlevered asset analysis
+            results, "asset_analysis"
+        )  # Pass 1: Ledger-based asset analysis
         assert hasattr(results, "financing_analysis")  # Pass 2: Financing integration
         assert hasattr(results, "levered_cash_flows")  # Pass 3: Levered cash flows
         assert hasattr(
@@ -118,9 +118,9 @@ class TestDealCentricArchitectureIntegration:
         )  # Pass 4: Partner distributions
         assert hasattr(results, "deal_metrics")  # Pass 5: Deal metrics
 
-        # Validate architecture separation
-        unlevered = results.unlevered_analysis
-        assert unlevered is not None  # Asset analysis should complete
+        # Validate architecture separation (pure ledger approach)
+        asset_analysis = results.asset_analysis
+        assert asset_analysis is not None  # Asset analysis should complete
 
         financing = results.financing_analysis
         # For all-equity deals, financing_analysis should be None
@@ -208,12 +208,12 @@ class TestDealCentricArchitectureIntegration:
 
         # Should complete successfully
         assert results is not None
-        assert hasattr(results, "unlevered_analysis")
+        assert hasattr(results, "asset_analysis")
 
-        # Unlevered analysis should have proper structure
-        unlevered = results.unlevered_analysis
-        assert hasattr(unlevered, "scenario")
-        assert hasattr(unlevered, "models")
+        # Asset analysis should have proper ledger-based structure
+        asset_analysis = results.asset_analysis
+        assert hasattr(asset_analysis, "scenario")
+        assert hasattr(asset_analysis, "models")
 
     def test_computed_fields_performance(
         self, purified_development_project, acquisition_terms
@@ -378,7 +378,7 @@ class TestArchitecturalQuality:
                 attr
                 for attr in [
                     "deal_summary",
-                    "unlevered_analysis",
+                    "asset_analysis",
                     "financing_analysis",
                     "levered_cash_flows",
                     "partner_distributions",

@@ -136,5 +136,5 @@ property = ResidentialProperty(
 
 # Run analysis
 scenario = run(property, timeline, settings)
-results = scenario.get_cash_flow_summary()
+results = scenario.summary_df
 ```

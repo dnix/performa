@@ -101,7 +101,7 @@ property = OfficeProperty(
 
 # Run analysis
 scenario = run(property, timeline, settings)
-results = scenario.get_cash_flow_summary()
+results = scenario.summary_df
 ```
 
 The office module supports everything from simple single-tenant net lease

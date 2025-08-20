@@ -18,7 +18,7 @@ from typing import Any, Dict, List
 
 from ..asset.residential import (
     ResidentialAbsorptionPlan,
-    ResidentialCollectionLoss,
+    ResidentialCreditLoss,
     ResidentialExpenses,
     ResidentialGeneralVacancyLoss,
     ResidentialLosses,
@@ -220,11 +220,9 @@ def create_development_deal(
             stabilized_expenses = ResidentialExpenses(operating_expenses=[])
             stabilized_losses = ResidentialLosses(
                 general_vacancy=ResidentialGeneralVacancyLoss(
-                    name="General Vacancy",
                     rate=0.05,  # 5% vacancy for new development
                 ),
-                collection_loss=ResidentialCollectionLoss(
-                    name="Collection Loss",
+                credit_loss=ResidentialCreditLoss(
                     rate=0.01,  # 1% collection loss for new development
                 ),
             )

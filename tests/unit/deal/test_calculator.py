@@ -15,6 +15,7 @@ from decimal import Decimal
 import pandas as pd
 import pytest
 
+from performa.analysis.results import AssetAnalysisResult
 from performa.core.capital import CapitalItem, CapitalPlan
 from performa.core.primitives import AssetTypeEnum, GlobalSettings, Timeline
 from performa.deal import Deal, analyze
@@ -24,7 +25,6 @@ from performa.deal.results import (
     DealMetricsResult,
     LeveredCashFlowResult,
     PartnerDistributionResult,
-    UnleveredAnalysisResult,
 )
 from performa.debt import ConstructionFacility, DebtTranche, FinancingPlan
 from performa.debt.rates import FixedRate, InterestRate
@@ -78,6 +78,7 @@ class TestFundingCascade:  # noqa: PLR0904
         )
 
         return DevelopmentProject(
+            uid="550e8400-e29b-41d4-a716-446655440001",  # Valid UUID format
             name="Test Office Development",
             property_type=AssetTypeEnum.OFFICE,
             gross_area=Decimal(100000.0),
@@ -273,6 +274,7 @@ class TestFundingCascade:  # noqa: PLR0904
         # Create a minimal deal with zero construction costs
 
         minimal_project = DevelopmentProject(
+            uid="550e8400-e29b-41d4-a716-446655440002",  # Valid UUID format
             name="Minimal Project",
             property_type=AssetTypeEnum.OFFICE,
             gross_area=Decimal(1000.0),
@@ -599,6 +601,7 @@ class TestFundingCascade:  # noqa: PLR0904
         )
 
         gapped_project = DevelopmentProject(
+            uid="550e8400-e29b-41d4-a716-446655440003",  # Valid UUID format
             name="Gapped Development",
             property_type=AssetTypeEnum.OFFICE,
             gross_area=Decimal(50000.0),
@@ -1568,12 +1571,36 @@ class TestAnalyzeDeal:
     @pytest.fixture
     def sample_development_project(self):
         """Create a sample development project."""
+        # Create construction plan with known costs (matching the other fixture)
+        construction_items = [
+            CapitalItem(
+                name="Building Construction",
+                value=Decimal("5000000"),
+                timeline=Timeline.from_dates(
+                    datetime(2024, 4, 1), datetime(2025, 10, 31)
+                ),
+            ),
+            CapitalItem(
+                name="Site Work", 
+                value=Decimal("3000000"),
+                timeline=Timeline.from_dates(
+                    datetime(2024, 1, 1), datetime(2024, 6, 30)
+                ),
+            ),
+        ]
+        
+        construction_plan = CapitalPlan(
+            name="Construction Plan", 
+            capital_items=construction_items
+        )
+        
         return DevelopmentProject(
+            uid="550e8400-e29b-41d4-a716-446655440004",  # Valid UUID format
             name="Test Office Development",
             property_type=AssetTypeEnum.OFFICE,
             gross_area=Decimal(100000.0),
             net_rentable_area=Decimal(90000.0),
-            construction_plan=CapitalPlan(name="Construction Plan", capital_items=[]),
+            construction_plan=construction_plan,
             blueprints=[],
         )
 
@@ -1604,7 +1631,7 @@ class TestAnalyzeDeal:
 
         # Should have all expected analysis components
         assert hasattr(results, "deal_summary")
-        assert hasattr(results, "unlevered_analysis")
+        assert hasattr(results, "asset_analysis")
         assert hasattr(results, "financing_analysis")
         assert hasattr(results, "levered_cash_flows")
         assert hasattr(results, "partner_distributions")
@@ -1633,14 +1660,14 @@ class TestAnalyzeDeal:
         """Test unlevered analysis output structure."""
         results = analyze(sample_deal, sample_timeline, sample_settings)
 
-        unlevered_analysis = results.unlevered_analysis
+        asset_analysis = results.asset_analysis
 
-        assert isinstance(unlevered_analysis, UnleveredAnalysisResult)
+        assert isinstance(asset_analysis, AssetAnalysisResult)
 
         # Should contain the scenario and basic structure
-        assert hasattr(unlevered_analysis, "scenario")
-        assert hasattr(unlevered_analysis, "cash_flows")
-        assert hasattr(unlevered_analysis, "models")
+        assert hasattr(asset_analysis, "scenario")
+        assert hasattr(asset_analysis, "summary_df")
+        assert hasattr(asset_analysis, "models")
 
     def test_financing_analysis_no_financing(
         self, sample_deal, sample_timeline, sample_settings
@@ -1806,6 +1833,7 @@ class TestAnalyzeDeal:
             AssetTypeEnum.MIXED_USE,
         ]:
             development_project = DevelopmentProject(
+                uid="550e8400-e29b-41d4-a716-446655440005",  # Valid UUID format
                 name=f"Test {property_type.value} Development",
                 property_type=property_type,
                 gross_area=Decimal(100000.0),
@@ -1899,6 +1927,7 @@ class TestAnalyzeDealEdgeCases:
         )
 
         development_project = DevelopmentProject(
+            uid="550e8400-e29b-41d4-a716-446655440006",  # Valid UUID format
             name="Minimal Development",
             property_type=AssetTypeEnum.OFFICE,
             gross_area=Decimal(1000.0),

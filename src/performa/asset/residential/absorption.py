@@ -48,8 +48,8 @@ from ...core.primitives import (
     Timeline,
 )
 from .expense import ResidentialCapExItem, ResidentialExpenses, ResidentialOpExItem
-from .losses import (
-    ResidentialCollectionLoss,
+from .loss import (
+    ResidentialCreditLoss,
     ResidentialGeneralVacancyLoss,
     ResidentialLosses,
 )
@@ -210,7 +210,7 @@ class ResidentialAbsorptionPlan(
 
         Losses:
         - General Vacancy: 5%
-        - Collection Loss: 1%
+        - Credit Loss: 1%
 
         Miscellaneous Income:
         - Empty list
@@ -316,12 +316,10 @@ class ResidentialAbsorptionPlan(
 
         typical_losses = ResidentialLosses(
             general_vacancy=ResidentialGeneralVacancyLoss(
-                vacancy_rate=0.05,  # 5% residential vacancy
-                applied_to_base_rent=True,
+                rate=0.05,  # 5% residential vacancy
             ),
-            collection_loss=ResidentialCollectionLoss(
-                loss_rate=0.02,  # 2% collection loss
-                applied_to_base_rent=True,
+            credit_loss=ResidentialCreditLoss(
+                rate=0.02,  # 2% collection loss
             ),
         )
 

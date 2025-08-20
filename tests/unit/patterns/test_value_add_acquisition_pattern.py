@@ -56,7 +56,7 @@ def test_value_add_pattern_analyze():
     # TODO: Fix debt service calculation issue in underlying library
     # assert results.deal_metrics.irr is not None
     # assert results.deal_metrics.equity_multiple is not None
-    assert results.unlevered_analysis is not None
+    assert results.asset_analysis is not None
     assert results.financing_analysis is not None
 
 

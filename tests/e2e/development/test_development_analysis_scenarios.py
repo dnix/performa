@@ -33,6 +33,7 @@ from performa.asset.residential.rollover import (
 )
 from performa.core.base import FixedQuantityPace as ResidentialFixedQuantityPace
 from performa.core.capital import CapitalItem, CapitalPlan
+from performa.core.ledger import LedgerBuilder
 from performa.core.primitives import (
     AssetTypeEnum,
     GlobalSettings,
@@ -113,7 +114,8 @@ def test_development_analysis_scenario_instantiation():
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=timeline, settings=global_settings
+        model=project, timeline=timeline, settings=global_settings,
+        ledger_builder=LedgerBuilder()
     )
 
     assert scenario.model == project
@@ -196,7 +198,8 @@ def test_development_analysis_scenario_prepare_models():
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=timeline, settings=global_settings
+        model=project, timeline=timeline, settings=global_settings,
+        ledger_builder=LedgerBuilder()
     )
 
     # Execute the orchestrator
@@ -213,6 +216,7 @@ def test_development_analysis_scenario_prepare_models():
         if hasattr(m, "name") and "Construction" in getattr(m, "name", "")
     ]
     assert len(construction_models) > 0
+
 
 
 def test_development_analysis_scenario_mixed_use():
@@ -244,7 +248,13 @@ def test_development_analysis_scenario_mixed_use():
         name="Office Component",
         vacant_inventory=[
             OfficeVacantSuite(
-                suite="Office Floors", floor="1-15", area=150000.0, use_type="office"
+                suite="Office Floors", 
+                floor="1-15", 
+                area=150000.0, 
+                use_type="office",
+                is_divisible=True,  # Allow subdivision for phased leasing
+                subdivision_average_lease_area=25000.0,  # Target ~25k SF leases
+                subdivision_minimum_lease_area=10000.0,  # Minimum viable size
             )
         ],
         absorption_plan=OfficeAbsorptionPlan.with_typical_assumptions(
@@ -313,7 +323,8 @@ def test_development_analysis_scenario_mixed_use():
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=timeline, settings=global_settings
+        model=project, timeline=timeline, settings=global_settings,
+        ledger_builder=LedgerBuilder()
     )
 
     # Execute polymorphic orchestration
@@ -368,7 +379,8 @@ def test_development_analysis_scenario_empty_blueprints():
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=timeline, settings=global_settings
+        model=project, timeline=timeline, settings=global_settings,
+        ledger_builder=LedgerBuilder()
     )
 
     # Should still work (construction + financing only)
@@ -452,7 +464,8 @@ def test_development_analysis_scenario_with_disposition():
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=timeline, settings=global_settings
+        model=project, timeline=timeline, settings=global_settings,
+        ledger_builder=LedgerBuilder()
     )
 
     # Execute with disposition
@@ -574,6 +587,7 @@ def test_development_analysis_scenario_polymorphic_iteration():
     assert "ResidentialProperty" in asset_types
 
 
+
 def test_development_analysis_end_to_end():
     """Test complete end-to-end development analysis."""
     construction_plan = CapitalPlan(
@@ -653,6 +667,6 @@ def test_development_analysis_end_to_end():
     assert scenario is not None
 
     # Get cash flow summary
-    cash_flows = scenario.get_cash_flow_summary()
+    cash_flows = scenario.summary_df
     assert not cash_flows.empty
     assert len(cash_flows) > 0

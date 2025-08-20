@@ -21,7 +21,7 @@ from .expense import OfficeCapExItem, OfficeExpenses, OfficeOpExItem
 from .lc import OfficeLeasingCommission
 from .lease import OfficeLease
 from .lease_spec import OfficeLeaseSpec
-from .losses import OfficeCollectionLoss, OfficeGeneralVacancyLoss, OfficeLosses
+from .loss import OfficeCreditLoss, OfficeGeneralVacancyLoss, OfficeLosses
 from .misc_income import OfficeMiscIncome
 from .property import OfficeProperty
 from .recovery import ExpensePool, OfficeRecoveryMethod, Recovery
@@ -65,7 +65,7 @@ __all__ = [
     "OfficeRentRoll",
     "OfficeLosses",
     "OfficeGeneralVacancyLoss",
-    "OfficeCollectionLoss",
+    "OfficeCreditLoss",
     "OfficeMiscIncome",
     "OfficeExpenses",
     "OfficeOpExItem",

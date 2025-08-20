@@ -10,6 +10,7 @@ import pytest
 
 from performa.analysis import AnalysisContext
 from performa.core.base.expense import CapExItemBase, OpExItemBase
+from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
 from performa.core.primitives import (
     CashFlowModel,
     ExpenseSubcategoryEnum,
@@ -52,8 +53,12 @@ def sample_timeline() -> Timeline:
 
 @pytest.fixture
 def sample_context(sample_timeline: Timeline) -> AnalysisContext:
+    ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
     return AnalysisContext(
-        timeline=sample_timeline, settings=GlobalSettings(), property_data=None
+        timeline=sample_timeline, 
+        settings=GlobalSettings(), 
+        property_data=None,
+        ledger_builder=ledger_builder
     )
 
 
@@ -90,8 +95,13 @@ def test_per_unit_capex_residential_vs_cashflow_model():
     """
     timeline = Timeline(start_date=date(2024, 1, 1), duration_months=12)
     property_data = MockResidentialProperty(unit_count=120, net_rentable_area=96000.0)
+    property_data.uid = "550e8400-e29b-41d4-a716-446655440099"  # Ensure uid exists with valid UUID
+    ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
     context = AnalysisContext(
-        timeline=timeline, settings=GlobalSettings(), property_data=property_data
+        timeline=timeline, 
+        settings=GlobalSettings(), 
+        property_data=property_data,
+        ledger_builder=ledger_builder
     )
 
     # Create CapEx item
@@ -145,8 +155,13 @@ def test_per_unit_capex_office_vs_cashflow_model():
     """
     timeline = Timeline(start_date=date(2024, 1, 1), duration_months=12)
     property_data = MockOfficeProperty(net_rentable_area=1000.0)
+    property_data.uid = "550e8400-e29b-41d4-a716-446655440099"  # Ensure uid exists with valid UUID
+    ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
     context = AnalysisContext(
-        timeline=timeline, settings=GlobalSettings(), property_data=property_data
+        timeline=timeline, 
+        settings=GlobalSettings(), 
+        property_data=property_data,
+        ledger_builder=ledger_builder
     )
 
     # Create CapEx item
@@ -188,8 +203,13 @@ def test_capex_now_applies_growth_rates():
     """
     timeline = Timeline(start_date=date(2024, 1, 1), duration_months=24)  # 2 years
     property_data = MockResidentialProperty(unit_count=100)
+    property_data.uid = "550e8400-e29b-41d4-a716-446655440099"  # Ensure uid exists with valid UUID
+    ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
     context = AnalysisContext(
-        timeline=timeline, settings=GlobalSettings(), property_data=property_data
+        timeline=timeline, 
+        settings=GlobalSettings(), 
+        property_data=property_data,
+        ledger_builder=ledger_builder
     )
 
     # Create CapEx with growth rate (now properly applied)
@@ -242,8 +262,13 @@ def test_capex_without_growth_rate_stays_flat():
     """
     timeline = Timeline(start_date=date(2024, 1, 1), duration_months=24)
     property_data = MockResidentialProperty(unit_count=100)
+    property_data.uid = "550e8400-e29b-41d4-a716-446655440099"  # Ensure uid exists with valid UUID
+    ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
     context = AnalysisContext(
-        timeline=timeline, settings=GlobalSettings(), property_data=property_data
+        timeline=timeline, 
+        settings=GlobalSettings(), 
+        property_data=property_data,
+        ledger_builder=ledger_builder
     )
 
     # Create CapEx without growth rate

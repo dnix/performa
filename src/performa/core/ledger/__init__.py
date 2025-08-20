@@ -12,8 +12,7 @@ Key Components:
     - TransactionRecord: Immutable transaction representation
     - SeriesMetadata: Type-safe metadata for Series conversion  
     - LedgerBuilder: Progressive ledger construction with ownership pattern
-    - LedgerQuery: Query utilities with Pydantic validation
-    - SeriesBatchConverter: Efficient batch Series conversion
+    - LedgerQueries: Clean query interface for financial metrics
     - FlowPurposeMapper: Business logic for transaction classification
     - LedgerGenerationSettings: Pydantic configuration model
 
@@ -47,27 +46,31 @@ Usage:
 """
 
 # Core data models
-# Builder and conversion
+# Builder and query interface  
 from .builder import LedgerBuilder
-from .converter import SeriesBatchConverter
 
 # Utilities
 from .mapper import FlowPurposeMapper
-from .query import LedgerQuery
+from .queries import LedgerQueries
 from .records import SeriesMetadata, TransactionRecord
 from .settings import LedgerGenerationSettings
+
+# Type alias for clarity in Pass-the-Builder pattern
+AnalysisLedger = LedgerBuilder
 
 __all__ = [
     # Core data models
     "TransactionRecord",
-    "SeriesMetadata", 
+    "SeriesMetadata",
     
-    # Builder and conversion
+    # Builder and query interface
     "LedgerBuilder",
-    "SeriesBatchConverter",
+    "LedgerQueries",
     
     # Utilities
     "FlowPurposeMapper",
-    "LedgerQuery", 
     "LedgerGenerationSettings",
+    
+    # Type aliases
+    "AnalysisLedger",
 ]

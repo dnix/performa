@@ -113,7 +113,7 @@ class TestStabilizedAcquisitionPattern:
         assert results is not None
         assert results.deal_summary is not None
         assert results.deal_summary.deal_name == deal.name
-        assert results.unlevered_analysis is not None
+        assert results.asset_analysis is not None
         assert results.levered_cash_flows is not None
 
     def test_stabilized_acquisition_office_not_implemented(self):

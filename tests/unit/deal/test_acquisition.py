@@ -15,7 +15,14 @@ import pandas as pd
 import pytest
 
 from performa.analysis import AnalysisContext
-from performa.core.primitives import CashFlowModel, GlobalSettings, Timeline
+from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
+from performa.core.primitives import (
+    CapitalSubcategoryEnum,
+    CashFlowCategoryEnum,
+    CashFlowModel,
+    GlobalSettings,
+    Timeline,
+)
 from performa.deal.acquisition import AcquisitionTerms
 
 
@@ -38,8 +45,8 @@ class TestAcquisitionTermsInstantiation:
         assert acquisition.value == 10_000_000
         assert acquisition.acquisition_date == date(2024, 1, 15)
         assert acquisition.closing_costs_rate == 0.025
-        assert acquisition.category == "Acquisition"
-        assert acquisition.subcategory == "Purchase"
+        assert acquisition.category == CashFlowCategoryEnum.CAPITAL
+        assert acquisition.subcategory == CapitalSubcategoryEnum.PURCHASE_PRICE
 
     def test_basic_instantiation_multi_payment(self):
         """Test basic model creation with payment schedule."""
@@ -155,12 +162,14 @@ class TestAcquisitionTermsCashFlowComputation:
         # Create a mock property to avoid complex dependencies
         mock_property = Mock()
         mock_property.net_rentable_area = 100_000
+        mock_property.uid = "550e8400-e29b-41d4-a716-446655440098"
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         return AnalysisContext(
             timeline=timeline,
             settings=GlobalSettings(),
             property_data=mock_property,
-            resolved_lookups={},
+            ledger_builder=ledger_builder
         )
 
     def test_single_payment_cash_flow(self, mock_context):
@@ -184,9 +193,9 @@ class TestAcquisitionTermsCashFlowComputation:
         # Payment should occur in February 2024
         feb_2024 = pd.Period("2024-02", freq="M")
         expected_total = 10_000_000 + (10_000_000 * 0.025)  # Purchase + closing costs
-        expected_outflow = -expected_total  # Negative for outflow
+        expected_cost = expected_total  # Positive for cost (orchestrator handles outflow sign)
 
-        assert cash_flow[feb_2024] == expected_outflow
+        assert cash_flow[feb_2024] == expected_cost
 
         # All other months should be zero
         non_feb_periods = cash_flow[cash_flow.index != feb_2024]
@@ -212,12 +221,12 @@ class TestAcquisitionTermsCashFlowComputation:
         # Check February payment
         feb_2024 = pd.Period("2024-02", freq="M")
         feb_total = 3_000_000 + (3_000_000 * 0.02)
-        assert cash_flow[feb_2024] == -feb_total
+        assert cash_flow[feb_2024] == feb_total
 
         # Check May payment
         may_2024 = pd.Period("2024-05", freq="M")
         may_total = 7_000_000 + (7_000_000 * 0.02)
-        assert cash_flow[may_2024] == -may_total
+        assert cash_flow[may_2024] == may_total
 
         # Check that only these two periods have non-zero values
         non_zero_periods = cash_flow[cash_flow != 0]
@@ -238,7 +247,7 @@ class TestAcquisitionTermsCashFlowComputation:
         cash_flow = acquisition.compute_cf(mock_context)
 
         jan_2024 = pd.Period("2024-01", freq="M")
-        assert cash_flow[jan_2024] == -5_000_000  # Only purchase price
+        assert cash_flow[jan_2024] == 5_000_000  # Only purchase price
 
     def test_high_closing_costs(self, mock_context):
         """Test cash flow computation with high closing costs."""
@@ -256,7 +265,7 @@ class TestAcquisitionTermsCashFlowComputation:
 
         jan_2024 = pd.Period("2024-01", freq="M")
         expected_total = 1_000_000 + (1_000_000 * 0.05)
-        assert cash_flow[jan_2024] == -expected_total
+        assert cash_flow[jan_2024] == expected_total
 
     def test_payment_outside_timeline(self, mock_context):
         """Test behavior when payment date is outside timeline."""
@@ -401,11 +410,14 @@ class TestAcquisitionTermsEdgeCases:
         # Create mock context
         mock_property = Mock()
         mock_property.net_rentable_area = 100_000
+        mock_property.uid = "550e8400-e29b-41d4-a716-446655440098"
+        
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         mock_context = AnalysisContext(
             timeline=timeline,
             settings=GlobalSettings(),
             property_data=mock_property,
-            resolved_lookups={},
+            ledger_builder=ledger_builder
         )
 
         with pytest.raises(

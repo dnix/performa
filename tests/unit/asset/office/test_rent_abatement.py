@@ -12,6 +12,7 @@ from performa.asset.office.property import OfficeProperty
 from performa.asset.office.recovery import ExpensePool, OfficeRecoveryMethod, Recovery
 from performa.asset.office.rent_abatement import OfficeRentAbatement
 from performa.core.base import RecoveryCalculationState
+from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -102,10 +103,12 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -159,10 +162,12 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -218,10 +223,12 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -283,13 +290,19 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        property_data = OfficeProperty.model_construct(net_rentable_area=10000.0)
+        property_data = OfficeProperty.model_construct(
+            net_rentable_area=10000.0, 
+            uid="550e8400-e29b-41d4-a716-446655440001",
+            capital_plans=[],
+            unit_mix=None,
+        )
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=property_data,
-            resolved_lookups={},
-            recovery_states={},
+            # Will be populated below
+            ledger_builder=ledger_builder
         )
 
         # Pre-populate expense cash flows and recovery states
@@ -364,13 +377,19 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        property_data = OfficeProperty.model_construct(net_rentable_area=10000.0)
+        property_data = OfficeProperty.model_construct(
+            net_rentable_area=10000.0,
+            uid="550e8400-e29b-41d4-a716-446655440002",
+            capital_plans=[],
+            unit_mix=None,
+        )
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=property_data,
-            resolved_lookups={},
-            recovery_states={},
+            # Will be populated below
+            ledger_builder=ledger_builder
         )
 
         # Pre-populate expense cash flows and recovery states
@@ -444,13 +463,19 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        property_data = OfficeProperty.model_construct(net_rentable_area=10000.0)
+        property_data = OfficeProperty.model_construct(
+            net_rentable_area=10000.0,
+            uid="550e8400-e29b-41d4-a716-446655440003",
+            capital_plans=[],
+            unit_mix=None,
+        )
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=property_data,
-            resolved_lookups={},
-            recovery_states={},
+            # Will be populated below
+            ledger_builder=ledger_builder
         )
 
         # Pre-populate expense cash flows and recovery states
@@ -527,10 +552,12 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, short_timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=short_timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -574,10 +601,12 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, short_timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=short_timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -618,10 +647,12 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
+            ledger_builder=ledger_builder
         )
 
         cash_flows = lease.compute_cf(context)
@@ -666,13 +697,19 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        property_data = OfficeProperty.model_construct(net_rentable_area=10000.0)
+        property_data = OfficeProperty.model_construct(
+            net_rentable_area=10000.0,
+            uid="550e8400-e29b-41d4-a716-446655440004",
+            capital_plans=[],
+            unit_mix=None,
+        )
+        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=property_data,
-            resolved_lookups={},
-            recovery_states={},
+            # Will be populated below
+            ledger_builder=ledger_builder
         )
 
         # Pre-populate expense cash flows and recovery states
@@ -692,22 +729,23 @@ class TestOfficeRentAbatement(unittest.TestCase):
         normal_revenue = monthly_rent + monthly_recovery
         abated_revenue = normal_revenue * 0.25  # 25% of normal (75% abated)
 
-        # During abatement
+        # During abatement - test base_rent component (revenue is computed by ledger system)
+        abated_base_rent = monthly_rent * 0.25  # 25% of normal base rent (75% abated)
         abated_periods = self.timeline.period_index[:2]
         for period in abated_periods:
             self.assertAlmostEqual(
-                cash_flows["revenue"][period],
-                abated_revenue,
+                cash_flows["base_rent"][period],
+                abated_base_rent,
                 places=2,
-                msg=f"Revenue should be 25% of normal during abatement in {period}",
+                msg=f"Base rent should be 25% of normal during abatement in {period}",
             )
 
-        # After abatement
+        # After abatement - test base_rent component (revenue is computed by ledger system)
         normal_periods = self.timeline.period_index[2:]
         for period in normal_periods:
             self.assertAlmostEqual(
-                cash_flows["revenue"][period],
-                normal_revenue,
+                cash_flows["base_rent"][period],
+                monthly_rent,  # Just base rent, not including recoveries
                 places=2,
                 msg=f"Revenue should be normal after abatement in {period}",
             )

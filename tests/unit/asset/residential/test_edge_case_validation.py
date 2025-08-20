@@ -38,6 +38,7 @@ from performa.core.primitives import (
 class TestZeroDowntimeScenarios:
     """Test zero downtime renovation scenarios (downtime_months=0)."""
 
+
     def test_zero_downtime_immediate_transition(self):
         """Test that zero downtime causes immediate lease transition without gaps."""
 
@@ -56,7 +57,7 @@ class TestZeroDowntimeScenarios:
             stabilized_expenses=ResidentialExpenses(operating_expenses=[]),
             stabilized_losses=ResidentialLosses(
                 general_vacancy={"rate": 0.05, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.02, "basis": "egi"},
+                credit_loss={"rate": 0.02, "basis": "Potential Gross Revenue"},
             ),
             stabilized_misc_income=[],
         )
@@ -103,7 +104,7 @@ class TestZeroDowntimeScenarios:
             expenses=ResidentialExpenses(operating_expenses=[]),
             losses=ResidentialLosses(
                 general_vacancy={"rate": 0.0, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.0, "basis": "egi"},
+                credit_loss={"rate": 0.0, "basis": "Potential Gross Revenue"},
             ),
             miscellaneous_income=[],
         )
@@ -112,7 +113,7 @@ class TestZeroDowntimeScenarios:
         settings = GlobalSettings()
 
         scenario = run(model=property_model, timeline=timeline, settings=settings)
-        cash_flow_summary = scenario.get_cash_flow_summary()
+        cash_flow_summary = scenario.summary_df
 
         pgr_series = cash_flow_summary["Potential Gross Revenue"]
 
@@ -136,6 +137,7 @@ class TestZeroDowntimeScenarios:
 class TestExtendedDowntimeScenarios:
     """Test very long downtime scenarios (>12 months)."""
 
+
     def test_extended_downtime_major_renovation(self):
         """Test that very long downtime periods work correctly for major renovations."""
 
@@ -154,7 +156,7 @@ class TestExtendedDowntimeScenarios:
             stabilized_expenses=ResidentialExpenses(operating_expenses=[]),
             stabilized_losses=ResidentialLosses(
                 general_vacancy={"rate": 0.05, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.02, "basis": "egi"},
+                credit_loss={"rate": 0.02, "basis": "Potential Gross Revenue"},
             ),
             stabilized_misc_income=[],
         )
@@ -201,7 +203,7 @@ class TestExtendedDowntimeScenarios:
             expenses=ResidentialExpenses(operating_expenses=[]),
             losses=ResidentialLosses(
                 general_vacancy={"rate": 0.0, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.0, "basis": "egi"},
+                credit_loss={"rate": 0.0, "basis": "Potential Gross Revenue"},
             ),
             miscellaneous_income=[],
         )
@@ -212,7 +214,7 @@ class TestExtendedDowntimeScenarios:
         settings = GlobalSettings()
 
         scenario = run(model=property_model, timeline=timeline, settings=settings)
-        cash_flow_summary = scenario.get_cash_flow_summary()
+        cash_flow_summary = scenario.summary_df
 
         pgr_series = cash_flow_summary["Potential Gross Revenue"]
 
@@ -243,6 +245,7 @@ class TestExtendedDowntimeScenarios:
 class TestLeaseExpirationBeyondAnalysis:
     """Test lease expirations that occur beyond the analysis period."""
 
+
     def test_lease_expiration_beyond_analysis_period(self):
         """Test that leases expiring beyond analysis period are handled correctly."""
 
@@ -261,7 +264,7 @@ class TestLeaseExpirationBeyondAnalysis:
             stabilized_expenses=ResidentialExpenses(operating_expenses=[]),
             stabilized_losses=ResidentialLosses(
                 general_vacancy={"rate": 0.05, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.02, "basis": "egi"},
+                credit_loss={"rate": 0.02, "basis": "Potential Gross Revenue"},
             ),
             stabilized_misc_income=[],
         )
@@ -309,7 +312,7 @@ class TestLeaseExpirationBeyondAnalysis:
             expenses=ResidentialExpenses(operating_expenses=[]),
             losses=ResidentialLosses(
                 general_vacancy={"rate": 0.0, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.0, "basis": "egi"},
+                credit_loss={"rate": 0.0, "basis": "Potential Gross Revenue"},
             ),
             miscellaneous_income=[],
         )
@@ -320,7 +323,7 @@ class TestLeaseExpirationBeyondAnalysis:
         settings = GlobalSettings()
 
         scenario = run(model=property_model, timeline=timeline, settings=settings)
-        cash_flow_summary = scenario.get_cash_flow_summary()
+        cash_flow_summary = scenario.summary_df
 
         pgr_series = cash_flow_summary["Potential Gross Revenue"]
 
@@ -345,6 +348,7 @@ class TestLeaseExpirationBeyondAnalysis:
 
 class TestCircularReferenceDetection:
     """Test detection and handling of circular references in absorption plans."""
+
 
     def test_circular_reference_prevention_documentation(self):
         """Document the circular reference scenario and expected prevention."""
@@ -381,7 +385,7 @@ class TestCircularReferenceDetection:
             stabilized_expenses=ResidentialExpenses(operating_expenses=[]),
             stabilized_losses=ResidentialLosses(
                 general_vacancy={"rate": 0.05, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.02, "basis": "egi"},
+                credit_loss={"rate": 0.02, "basis": "Potential Gross Revenue"},
             ),
             stabilized_misc_income=[],
         )
@@ -401,7 +405,7 @@ class TestCircularReferenceDetection:
             stabilized_expenses=ResidentialExpenses(operating_expenses=[]),
             stabilized_losses=ResidentialLosses(
                 general_vacancy={"rate": 0.05, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.02, "basis": "egi"},
+                credit_loss={"rate": 0.02, "basis": "Potential Gross Revenue"},
             ),
             stabilized_misc_income=[],
         )
@@ -448,7 +452,7 @@ class TestCircularReferenceDetection:
             expenses=ResidentialExpenses(operating_expenses=[]),
             losses=ResidentialLosses(
                 general_vacancy={"rate": 0.0, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.0, "basis": "egi"},
+                credit_loss={"rate": 0.0, "basis": "Potential Gross Revenue"},
             ),
             miscellaneous_income=[],
         )
@@ -459,7 +463,7 @@ class TestCircularReferenceDetection:
         # This should work without infinite loops because absorption plans
         # create leases with MARKET expiration by default
         scenario = run(model=property_model, timeline=timeline, settings=settings)
-        cash_flow_summary = scenario.get_cash_flow_summary()
+        cash_flow_summary = scenario.summary_df
 
         pgr_series = cash_flow_summary["Potential Gross Revenue"]
 
@@ -484,6 +488,7 @@ class TestCircularReferenceDetection:
 class TestEdgeCaseDocumentation:
     """Documentation and validation of other edge cases."""
 
+
     def test_capital_plan_timing_independence(self):
         """Document that capital plan timing is independent of lease timing."""
 
@@ -505,7 +510,7 @@ class TestEdgeCaseDocumentation:
             stabilized_expenses=ResidentialExpenses(operating_expenses=[]),
             stabilized_losses=ResidentialLosses(
                 general_vacancy={"rate": 0.05, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.02, "basis": "egi"},
+                credit_loss={"rate": 0.02, "basis": "Potential Gross Revenue"},
             ),
             stabilized_misc_income=[],
         )
@@ -564,7 +569,7 @@ class TestEdgeCaseDocumentation:
             expenses=ResidentialExpenses(operating_expenses=[]),
             losses=ResidentialLosses(
                 general_vacancy={"rate": 0.0, "method": "Potential Gross Revenue"},
-                collection_loss={"rate": 0.0, "basis": "egi"},
+                credit_loss={"rate": 0.0, "basis": "Potential Gross Revenue"},
             ),
             miscellaneous_income=[],
         )
@@ -574,7 +579,7 @@ class TestEdgeCaseDocumentation:
 
         # Should work fine - capital spending and lease timing are independent
         scenario = run(model=property_model, timeline=timeline, settings=settings)
-        cash_flow_summary = scenario.get_cash_flow_summary()
+        cash_flow_summary = scenario.summary_df
 
         pgr_series = cash_flow_summary["Potential Gross Revenue"]
 

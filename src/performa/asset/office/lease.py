@@ -92,7 +92,7 @@ class OfficeLease(CommercialLeaseBase):
         Creates an OfficeLease instance from a specification.
         """
         lease_timeline = Timeline(
-            start_date=spec.start_date, duration_months=spec.term_months
+            start_date=spec.start_date, duration_months=spec.computed_term_months
         )
         status = (
             LeaseStatusEnum.CONTRACT

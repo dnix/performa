@@ -16,7 +16,7 @@ from __future__ import annotations
 from datetime import date, datetime
 
 from ..asset.residential import (
-    ResidentialCollectionLoss,
+    ResidentialCreditLoss,
     ResidentialExpenses,
     ResidentialGeneralVacancyLoss,
     ResidentialLosses,
@@ -193,11 +193,9 @@ def create_stabilized_acquisition_deal(
         # Create standard losses for stabilized property
         losses = ResidentialLosses(
             general_vacancy=ResidentialGeneralVacancyLoss(
-                name="General Vacancy",
                 rate=0.05,  # 5% vacancy for stabilized property
             ),
-            collection_loss=ResidentialCollectionLoss(
-                name="Collection Loss",
+            credit_loss=ResidentialCreditLoss(
                 rate=0.01,  # 1% collection loss for stabilized property
             ),
         )

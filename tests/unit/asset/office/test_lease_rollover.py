@@ -10,11 +10,20 @@ import pandas as pd
 import pytest
 
 from performa.analysis import AnalysisContext
+from performa.asset.office.expense import OfficeExpenses
 from performa.asset.office.lease import OfficeLease
+from performa.asset.office.loss import (
+    OfficeCreditLoss,
+    OfficeGeneralVacancyLoss,
+    OfficeLosses,
+)
+from performa.asset.office.property import OfficeProperty
+from performa.asset.office.rent_roll import OfficeRentRoll
 from performa.asset.office.rollover import (
     OfficeRolloverLeaseTerms,
     OfficeRolloverProfile,
 )
+from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -37,9 +46,28 @@ def sample_global_settings() -> GlobalSettings:
 def sample_analysis_context(sample_global_settings: GlobalSettings) -> AnalysisContext:
     """Fixture for a basic AnalysisContext."""
     timeline = Timeline(start_date=date(2024, 1, 1), duration_months=120)
-    # In a real test, property_data would be a mock or a sample OfficeProperty
+    property_data = OfficeProperty(
+        name="Test Property",
+        gross_area=1200.0,
+        net_rentable_area=1000.0,
+        rent_roll=OfficeRentRoll(leases=[], vacant_suites=[]),
+        losses=OfficeLosses(
+            general_vacancy=OfficeGeneralVacancyLoss(
+                vacancy_rate=0.05,
+                applied_to_base_rent=True
+            ),
+            credit_loss=OfficeCreditLoss(
+                loss_rate=0.01,
+                applied_to_base_rent=True
+            )
+        ),
+        expenses=OfficeExpenses()
+    )
     return AnalysisContext(
-        timeline=timeline, settings=sample_global_settings, property_data={}
+        timeline=timeline,
+        settings=sample_global_settings,
+        property_data=property_data,
+        ledger_builder=LedgerBuilder(settings=LedgerGenerationSettings()),
     )
 
 
@@ -219,9 +247,32 @@ def test_rollover_stops_at_analysis_end(sample_global_settings: GlobalSettings):
     """
     # Arrange
     # Analysis timeline is 24 months, from Jan 2024 to Dec 2025
-    analysis_timeline = Timeline(start_date=date(2024, 1, 1), duration_months=24)
+    analysis_timeline = Timeline(start_date=date(2024, 1, 1), duration_months=24)    
+    
+    # Create proper property data with all required fields
+    property_data = OfficeProperty(
+        name="Test Property",
+        gross_area=12000.0,
+        net_rentable_area=10000.0,
+        rent_roll=OfficeRentRoll(leases=[], vacant_suites=[]),
+        losses=OfficeLosses(
+            general_vacancy=OfficeGeneralVacancyLoss(
+                vacancy_rate=0.05,
+                applied_to_base_rent=True
+            ),
+            credit_loss=OfficeCreditLoss(
+                loss_rate=0.01,
+                applied_to_base_rent=True
+            )
+        ),
+        expenses=OfficeExpenses()
+    )
+    
     analysis_context = AnalysisContext(
-        timeline=analysis_timeline, settings=sample_global_settings, property_data={}
+        timeline=analysis_timeline, 
+        settings=sample_global_settings, 
+        property_data=property_data,
+        ledger_builder=LedgerBuilder()
     )
 
     # Lease timeline is 20 months, expires Aug 2025.

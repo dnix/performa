@@ -4,19 +4,19 @@
 from __future__ import annotations
 
 from performa.core.base import (
-    CollectionLossConfigBase,
-    GeneralVacancyLossConfigBase,
-    LossesBase,
+    CreditLossConfig,
+    Losses,
+    VacancyLossConfig,
 )
 from performa.core.primitives import VacancyLossMethodEnum
 
 
 def test_losses_base_instantiation():
-    """Test successful instantiation of LossesBase and its nested models."""
-    losses = LossesBase()
-    assert isinstance(losses.general_vacancy, GeneralVacancyLossConfigBase)
-    assert isinstance(losses.collection_loss, CollectionLossConfigBase)
+    """Test successful instantiation of Losses and its nested models."""
+    losses = Losses()
+    assert isinstance(losses.vacancy, VacancyLossConfig)
+    assert isinstance(losses.collection, CreditLossConfig)
     assert (
-        losses.general_vacancy.method == VacancyLossMethodEnum.POTENTIAL_GROSS_REVENUE
+        losses.vacancy.method == VacancyLossMethodEnum.POTENTIAL_GROSS_REVENUE
     )
-    assert losses.collection_loss.rate == 0.01
+    assert losses.collection.rate == 0.01
