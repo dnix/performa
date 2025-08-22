@@ -125,12 +125,12 @@ class FixedQuantityPace(BasePace):
     **Important**: When using SF units, ensure vacant suites are properly configured:
     - **Non-divisible suites**: Can only be absorbed if suite area ≤ quantity
     - **Divisible suites**: Can be absorbed in chunks if configured with subdivision parameters
-    
+
     Example:
         ```python
         # Absorb 5,000 SF every 6 months
         pace = FixedQuantityPace(type="FixedQuantity", quantity=5000, unit="SF", frequency_months=6)
-        
+
         # This requires divisible suites if suite area > 5,000 SF
         vacant_suite = OfficeVacantSuite(..., is_divisible=True, subdivision_average_lease_area=5000)
         ```
@@ -956,21 +956,23 @@ class OfficeAbsorptionPlan(
             return self.start_date_anchor
         return analysis_start_date
 
-    def _validate_absorption_configuration(self, target_suites: List[OfficeVacantSuite]) -> None:
+    def _validate_absorption_configuration(
+        self, target_suites: List[OfficeVacantSuite]
+    ) -> None:
         """
         Validates that the absorption plan configuration is compatible with target suites.
-        
+
         Raises:
             ValueError: If the configuration will prevent any absorption from occurring.
         """
         # Only validate FixedQuantityPace with SF units (the problematic case)
         if not isinstance(self.pace, FixedQuantityPace) or self.pace.unit != "SF":
             return
-            
+
         # Check if any suites can be absorbed with current configuration
         absorbable_suites = []
         configuration_issues = []
-        
+
         for suite in target_suites:
             if suite.is_divisible:
                 # Divisible suites can always be absorbed in chunks
@@ -983,13 +985,15 @@ class OfficeAbsorptionPlan(
                 configuration_issues.append(
                     f"Suite '{suite.suite}' ({suite.area:,.0f} SF, non-divisible) > absorption quantity ({self.pace.quantity:,.0f} SF)"
                 )
-        
+
         # If no suites can be absorbed, raise detailed error
         if not absorbable_suites:
             error_msg = (
                 f"Absorption plan '{self.name}' cannot absorb any target suites due to configuration issues.\n\n"
                 f"Configuration: FixedQuantityPace with {self.pace.quantity:,.0f} SF every {self.pace.frequency_months} months\n\n"
-                f"Issues found:\n" + "\n".join(f"• {issue}" for issue in configuration_issues) + "\n\n"
+                f"Issues found:\n"
+                + "\n".join(f"• {issue}" for issue in configuration_issues)
+                + "\n\n"
                 f"Solutions:\n"
                 f"• Make large suites divisible: set is_divisible=True with subdivision parameters\n"
                 f"• Increase absorption quantity to ≥ largest suite area ({max(s.area for s in target_suites):,.0f} SF)\n"

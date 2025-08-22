@@ -69,12 +69,8 @@ import pandas as pd
 from pyxirr import xirr
 
 from performa.analysis import run
+from performa.analysis.orchestrator import AnalysisContext
 from performa.core.ledger import SeriesMetadata
-
-if TYPE_CHECKING:
-    from performa.analysis.results import AssetAnalysisResult
-    from performa.core.ledger import LedgerBuilder
-    from performa.deal.deal import Deal
 from performa.core.primitives import (
     CalculationPhase,
     CapitalSubcategoryEnum,
@@ -101,7 +97,135 @@ from performa.deal.results import (
     UnleveredAnalysisResult,
 )
 
+if TYPE_CHECKING:
+    from performa.analysis.results import AssetAnalysisResult
+    from performa.core.ledger import LedgerBuilder
+    from performa.deal.deal import Deal
+
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DealContext:
+    """
+    A mutable container for the complete state of a deal-level analysis run.
+
+    This is the deal-level parallel to AnalysisContext, designed specifically
+    for deal-level models like debt facilities, valuations, fees, and partnerships.
+    Unlike AnalysisContext which focuses on asset-level operations (leases, expenses),
+    DealContext provides deal-centric data and eliminates the semantic mismatch
+    that was causing frozen model mutations and defensive programming.
+
+    ARCHITECTURE - DUAL CONTEXT PATTERN:
+    - AnalysisContext: For asset-level models (leases, expenses, recovery)
+    - DealContext: For deal-level models (debt, valuation, fees, partnership)
+
+    This separation provides:
+    - Clean interfaces without defensive hasattr() checks
+    - No frozen model mutations (object.__setattr__ hacks)
+    - Clear semantic meaning for each model type
+    - Proper data access patterns for each domain
+
+    Key Design Principles:
+    - Single source of truth via ledger_builder (Pass-the-Builder pattern)
+    - Deal-centric data access (full Deal object, not just asset)
+    - Deal-level metrics readily available (property value, NOI, project costs)
+    - Clean separation from asset-specific data (no recovery states, lease contexts)
+
+    Example:
+        ```python
+        # Create context for deal-level analysis
+        context = DealContext(
+            timeline=timeline,
+            settings=settings,
+            ledger_builder=builder,
+            deal=deal,
+            property_value=valuation_series,
+            noi_series=noi_series,
+            project_costs=total_development_cost
+        )
+
+        # Use with deal-level models
+        debt_service = facility.compute_cf(context)  # No more hacks!
+        disposition_value = reversion.calculate(context)
+        ```
+    """
+
+    # --- Configuration (Set at creation) ---
+    timeline: "Timeline"
+    settings: "GlobalSettings"
+    ledger_builder: "LedgerBuilder"
+    deal: "Deal"
+
+    # --- Deal-Level Metrics (Optional - populated as needed) ---
+    property_value: Optional[pd.Series] = None
+    noi_series: Optional[pd.Series] = None
+    project_costs: Optional[float] = None
+
+    def __post_init__(self):
+        """Validate required fields after initialization."""
+        # Validate that ledger_builder is provided (critical for Pass-the-Builder pattern)
+        if self.ledger_builder is None:
+            raise ValueError(
+                "DealContext requires a ledger_builder instance. "
+                "This enforces the Pass-the-Builder pattern where a single LedgerBuilder "
+                "is created at the API level and passed through all deal analysis components."
+            )
+
+        # Validate that deal is provided
+        if self.deal is None:
+            raise ValueError(
+                "DealContext requires a deal instance for deal-level operations."
+            )
+
+    @classmethod
+    def from_analysis_context(
+        cls,
+        analysis_context: AnalysisContext,
+        deal: "Deal",
+        property_value: Optional[pd.Series] = None,
+        noi_series: Optional[pd.Series] = None,
+        project_costs: Optional[float] = None,
+    ) -> "DealContext":
+        """
+        Factory method to create DealContext from existing AnalysisContext.
+
+        This provides a migration path during the transition period and enables
+        creating deal contexts from asset analysis results.
+
+        Args:
+            analysis_context: Existing AnalysisContext from asset analysis
+            deal: Deal object for deal-level operations
+            property_value: Optional property value series for valuations
+            noi_series: Optional NOI series for debt analysis
+            project_costs: Optional total project costs for development deals
+
+        Returns:
+            New DealContext with deal-specific configuration
+
+        Example:
+            ```python
+            # Convert asset context to deal context
+            deal_context = DealContext.from_analysis_context(
+                analysis_context=asset_context,
+                deal=deal,
+                noi_series=noi_from_asset_analysis,
+                property_value=property_value_series
+            )
+
+            # Now use with deal models
+            debt_service = facility.compute_cf(deal_context)
+            ```
+        """
+        return cls(
+            timeline=analysis_context.timeline,
+            settings=analysis_context.settings,
+            ledger_builder=analysis_context.ledger_builder,
+            deal=deal,
+            property_value=property_value,
+            noi_series=noi_series,
+            project_costs=project_costs,
+        )
 
 
 @dataclass
@@ -141,7 +265,9 @@ class DealCalculator:
     deal: Deal
     timeline: Timeline
     settings: GlobalSettings
-    asset_analysis: Optional["AssetAnalysisResult"] = None  # Pre-computed asset analysis to reuse
+    asset_analysis: Optional["AssetAnalysisResult"] = (
+        None  # Pre-computed asset analysis to reuse
+    )
 
     # Typed Result State (populated during analysis)
     deal_summary: DealSummary = field(
@@ -193,48 +319,79 @@ class DealCalculator:
                     model=self.deal.asset,
                     timeline=self.timeline,
                     settings=self.settings,
-                    ledger_builder=ledger_builder
+                    ledger_builder=ledger_builder,
                 )
-            
+
             # Continue with same builder (pass-the-builder pattern)
             # ledger_builder is the same instance used by asset analysis
-            
+
             # Create backward compatibility wrapper using ledger data
             self.unlevered_analysis = UnleveredAnalysisResult(
                 scenario=asset_result.scenario,
                 cash_flows=asset_result.summary_df,  # Use actual cash flow summary
-                models=asset_result.models if hasattr(asset_result, 'models') else []
+                models=asset_result.models if hasattr(asset_result, "models") else [],
+            )
+
+            # === ORCHESTRATION STATE PATTERN ===
+            # Create DealContext for deal-level orchestration (Phase 5 implementation)
+            # This will be progressively populated with results from each phase
+            deal_context = DealContext(
+                timeline=self.timeline,
+                settings=self.settings,
+                ledger_builder=ledger_builder,
+                deal=self.deal,
+                # noi_series, property_value, project_costs will be populated progressively
             )
 
             # === PASS 2: Add Deal Transactions to Ledger ===
             # Add acquisition costs BEFORE funding cascade so they're included in uses
             self._add_acquisition_records(ledger_builder)
-            
-            # === FUNDING CASCADE ORCHESTRATION ===
-            # Query ledger for actual transaction records to calculate funding needs
-            self._orchestrate_funding_cascade(ledger_builder)
 
-            # === PASS 2 (continued): Add Remaining Deal Transactions to Ledger ===
-            self._add_financing_records(ledger_builder)
-            self._add_partnership_records(ledger_builder)
-
-            # === PASS 3: Valuation Analysis ===
+            # === PASS 3: Valuation Analysis (needed for debt analysis) ===
             valuation_engine = ValuationEngine(
                 deal=self.deal, timeline=self.timeline, settings=self.settings
             )
-            
+
             property_value_series = valuation_engine.extract_property_value_series(
                 self.unlevered_analysis
             )
-            noi_series = valuation_engine.extract_noi_series(
-                self.unlevered_analysis
-            )
+            noi_series = valuation_engine.extract_noi_series(self.unlevered_analysis)
             disposition_proceeds = valuation_engine.calculate_disposition_proceeds(
-                ledger_builder,
-                self.unlevered_analysis
+                ledger_builder, self.unlevered_analysis
             )
 
-            # === PASS 4: Debt Analysis ===
+            # === ORCHESTRATION STATE PATTERN ===
+            # Populate DealContext with valuation results (Phase 5 implementation)
+            deal_context.property_value = property_value_series
+            deal_context.noi_series = noi_series
+
+            # Calculate and populate project costs for debt analysis
+            try:
+                current_ledger = ledger_builder.get_current_ledger()
+                if not current_ledger.empty:
+                    # Sum all capital/development costs as project costs
+                    try:
+                        capital_mask = (
+                            current_ledger["category"] == CashFlowCategoryEnum.CAPITAL
+                        )
+                        capital_txns = current_ledger[capital_mask]
+                    except:
+                        # Fallback: String contains match
+                        capital_mask = (
+                            current_ledger["category"]
+                            .astype(str)
+                            .str.contains("CAPITAL", case=False, na=False)
+                        )
+                        capital_txns = current_ledger[capital_mask]
+
+                    deal_context.project_costs = abs(
+                        capital_txns["amount"].sum()
+                    )  # Use absolute value for costs
+            except Exception as e:
+                logger.warning(f"Failed to calculate project costs: {e}")
+                deal_context.project_costs = None
+
+            # === PASS 4: Debt Analysis (BEFORE funding cascade) ===
             debt_analyzer = DebtAnalyzer(
                 deal=self.deal, timeline=self.timeline, settings=self.settings
             )
@@ -242,35 +399,40 @@ class DealCalculator:
                 property_value_series=property_value_series,
                 noi_series=noi_series,
                 unlevered_analysis=self.unlevered_analysis,
+                ledger_builder=ledger_builder,
+                deal_context=deal_context,  # Pass DealContext for proper debt facility processing
             )
 
-            # === PASS 5: Cash Flow Analysis ===
-            # Preserve the funding_cascade_details created during funding cascade orchestration
-            existing_funding_cascade_details = self.levered_cash_flows.funding_cascade_details if self.levered_cash_flows else None
-            
+            # === PASS 4 (continued): Add Remaining Deal Transactions to Ledger ===
+            # NOTE: Financing records are handled by DebtAnalyzer._process_facilities()
+            self._add_partnership_records(ledger_builder)
+
+            # === PASS 5: Create Funding Cascade Summary ===
+            # Create funding cascade details functionally (no mutation)
+            funding_cascade_details = self._create_funding_cascade_summary(
+                ledger_builder
+            )
+
+            # === PASS 6: Cash Flow Analysis ===
+            # CashFlowEngine handles the actual funding cascade mechanics (period-by-period funding)
             cash_flow_engine = CashFlowEngine(
                 deal=self.deal, timeline=self.timeline, settings=self.settings
             )
             self.levered_cash_flows = cash_flow_engine.calculate_levered_cash_flows(
                 unlevered_analysis=self.unlevered_analysis,
                 financing_analysis=self.financing_analysis,
-                ledger_builder=ledger_builder,  # Pass ledger builder for funding cascade
+                ledger_builder=ledger_builder,
                 disposition_proceeds=disposition_proceeds,
+                funding_cascade_details=funding_cascade_details,  # Pass details to engine
             )
-            
-            # Restore the funding_cascade_details (CashFlowEngine doesn't create this)
-            if existing_funding_cascade_details:
-                self.levered_cash_flows.funding_cascade_details = existing_funding_cascade_details
 
             # === PASS 5: Partnership Analysis ===
             partnership_analyzer = PartnershipAnalyzer(
                 deal=self.deal, timeline=self.timeline, settings=self.settings
             )
-            self.partner_distributions = (
-                partnership_analyzer.calculate_partner_distributions(
-                    levered_cash_flows=self.levered_cash_flows.levered_cash_flows,
-                    ledger_builder=ledger_builder  # Pass ledger builder for distribution recording
-                )
+            self.partner_distributions = partnership_analyzer.calculate_partner_distributions(
+                levered_cash_flows=self.levered_cash_flows.levered_cash_flows,
+                ledger_builder=ledger_builder,  # Pass ledger builder for distribution recording
             )
 
             # === PASS 6: Deal Metrics ===
@@ -295,159 +457,201 @@ class DealCalculator:
     # === FUNDING CASCADE ORCHESTRATION ===
     # These methods orchestrate the institutional funding cascade for development deals.
 
-    def _orchestrate_funding_cascade(self, builder: "LedgerBuilder") -> None:
+    def _create_funding_cascade_summary(
+        self, builder: "LedgerBuilder"
+    ) -> Optional["FundingCascadeDetails"]:
         """
-        Orchestrate the complete funding cascade using ledger-based transaction records.
-        
-        This method queries the ledger for actual transaction records to determine:
-        - Total Uses (all outflows/costs from asset analysis)
-        - Funding requirements by period
-        - Equity vs debt funding allocation
-        """     
+        Create a static funding cascade summary from ledger for reporting purposes.
+
+        This method runs AFTER CashFlowEngine has executed the actual funding cascade
+        mechanics. It queries the final ledger state to create a summary report showing:
+        - Total Uses breakdown by category
+        - Funding sources (equity vs debt)
+        - Key metrics for reporting
+
+        Note: The actual funding mechanics (period-by-period funding with interest
+        compounding) are handled by CashFlowEngine._execute_funding_cascade().
+        """
         # Get current ledger with all asset-level transactions
         ledger = builder.get_current_ledger()
-        logger.debug(f"Funding cascade: Processing ledger with {len(ledger)} transactions")
-        
+        logger.debug(
+            f"Funding cascade: Processing ledger with {len(ledger)} transactions"
+        )
+
         if ledger.empty:
-            logger.warning("Funding cascade: Ledger is empty, creating zero funding cascade")
-            self._create_zero_funding_cascade()
-            return
-        
+            logger.warning(
+                "Funding cascade: Ledger is empty, creating zero funding cascade"
+            )
+            return self._create_zero_funding_cascade()
+
         # Calculate total uses from ledger (all negative amounts = outflows/costs)
         uses_by_period = self._calculate_uses_from_ledger(ledger)
         total_uses = uses_by_period.sum()
-        
+
         logger.debug(f"Funding cascade: Total uses calculated as ${total_uses:,.2f}")
-        
+
         if total_uses <= 0:
-            logger.warning("Funding cascade: No uses found, creating zero funding cascade")
-            self._create_zero_funding_cascade()
-            return
-        
+            logger.warning(
+                "Funding cascade: No uses found, creating zero funding cascade"
+            )
+            return self._create_zero_funding_cascade()
+
         # Create uses breakdown DataFrame from actual ledger transactions
         uses_breakdown = self._create_uses_breakdown_from_ledger(ledger)
-        
-        # Create funding cascade details
-        self._create_funding_cascade_details(uses_breakdown, total_uses)
-        
+
+        # Create and return funding cascade details
+        funding_cascade_details = self._create_funding_cascade_details(
+            uses_breakdown, total_uses
+        )
+
         logger.debug("Funding cascade orchestration completed")
+        return funding_cascade_details
 
     def _calculate_uses_from_ledger(self, ledger: pd.DataFrame) -> pd.Series:
         """Calculate period-by-period uses (outflows) from ledger transactions."""
-        
+
         # Filter for capital use transactions (costs/outflows)
         # Use flow_purpose instead of amount sign for correct classification
-        capital_uses = ledger[ledger['flow_purpose'] == TransactionPurpose.CAPITAL_USE.value].copy()
-        
+        capital_uses = ledger[
+            ledger["flow_purpose"] == TransactionPurpose.CAPITAL_USE.value
+        ].copy()
+
         if capital_uses.empty:
             return pd.Series(0.0, index=self.timeline.period_index)
-        
+
         # Capital use amounts are negative (outflows), make them positive for uses calculation
         # Take absolute value first, then group by period and sum (all amounts are positive uses)
-        capital_uses['amount'] = capital_uses['amount'].abs()
-        uses_by_period = capital_uses.groupby('date')['amount'].sum()
-        
+        capital_uses["amount"] = capital_uses["amount"].abs()
+        uses_by_period = capital_uses.groupby("date")["amount"].sum()
+
         # Convert date index to Period index to match timeline
         if len(uses_by_period) > 0:
-            if hasattr(uses_by_period.index[0], 'to_period'):
+            if hasattr(uses_by_period.index[0], "to_period"):
                 # Timestamp index
-                uses_by_period.index = uses_by_period.index.to_period('M')
+                uses_by_period.index = uses_by_period.index.to_period("M")
             else:
                 # datetime.date index - convert to Period
-                uses_by_period.index = pd.PeriodIndex([pd.Period(date, 'M') for date in uses_by_period.index])
-        
+                uses_by_period.index = pd.PeriodIndex([
+                    pd.Period(date, "M") for date in uses_by_period.index
+                ])
+
         # Reindex to full timeline
         uses_series = uses_by_period.reindex(self.timeline.period_index, fill_value=0.0)
-        
+
         return uses_series
 
     def _create_uses_breakdown_from_ledger(self, ledger: pd.DataFrame) -> pd.DataFrame:
         """Create detailed uses breakdown from ledger transactions by category."""
-        
+
         # Initialize breakdown DataFrame
         uses_df = pd.DataFrame(
             0.0,
             index=self.timeline.period_index,
             columns=[
                 "Acquisition Costs",
-                "Construction Costs", 
+                "Construction Costs",
                 "Other Project Costs",
                 "Total Uses",
             ],
         )
-        
+
         if ledger.empty:
             logger.warning("Uses breakdown: Ledger is empty")
             return uses_df
-        
+
         logger.debug(f"Uses breakdown: Ledger has {len(ledger)} transactions")
         logger.debug(f"Flow purposes in ledger: {ledger['flow_purpose'].unique()}")
-        
+
         # Filter for capital use transactions
-        capital_uses = ledger[ledger['flow_purpose'] == TransactionPurpose.CAPITAL_USE.value].copy()
-        
+        capital_uses = ledger[
+            ledger["flow_purpose"] == TransactionPurpose.CAPITAL_USE.value
+        ].copy()
+
         if capital_uses.empty:
             logger.warning("Uses breakdown: No CAPITAL_USE transactions found")
-            logger.debug(f"Available transactions by flow_purpose: {ledger['flow_purpose'].value_counts()}")
+            logger.debug(
+                f"Available transactions by flow_purpose: {ledger['flow_purpose'].value_counts()}"
+            )
             return uses_df
-        
-        logger.debug(f"Uses breakdown: Found {len(capital_uses)} CAPITAL_USE transactions")
-        
+
+        logger.debug(
+            f"Uses breakdown: Found {len(capital_uses)} CAPITAL_USE transactions"
+        )
+
         # Group by date and subcategory to break down uses
         for _, transaction in capital_uses.iterrows():
-            date = transaction['date']
-            amount = abs(transaction['amount'])  # Ensure positive
-            subcategory = transaction.get('subcategory', '')
-            
-            logger.debug(f"Processing transaction: date={date}, amount={amount}, subcategory='{subcategory}'")
-            
+            date = transaction["date"]
+            amount = abs(transaction["amount"])  # Ensure positive
+            subcategory = transaction.get("subcategory", "")
+
+            logger.debug(
+                f"Processing transaction: date={date}, amount={amount}, subcategory='{subcategory}'"
+            )
+
             # Convert date to period for indexing
-            if hasattr(date, 'to_period'):
-                period = date.to_period('M')
-            elif hasattr(date, 'date'):
-                period = pd.Period(date.date(), freq='M')
+            if hasattr(date, "to_period"):
+                period = date.to_period("M")
+            elif hasattr(date, "date"):
+                period = pd.Period(date.date(), freq="M")
             else:
-                period = pd.Period(date, freq='M')
-            
+                period = pd.Period(date, freq="M")
+
             # Skip if period not in timeline
             if period not in uses_df.index:
                 logger.warning(f"Period {period} not in timeline, skipping")
                 continue
-                
+
             # Categorize by subcategory
             # Handle both enum string representation and enum value
-            if (subcategory == CapitalSubcategoryEnum.PURCHASE_PRICE.value or 
-                subcategory == str(CapitalSubcategoryEnum.PURCHASE_PRICE)):
-                logger.debug(f"Categorizing as Acquisition Costs: {amount} in period {period}")
+            if (
+                subcategory == CapitalSubcategoryEnum.PURCHASE_PRICE.value
+                or subcategory == str(CapitalSubcategoryEnum.PURCHASE_PRICE)
+            ):
+                logger.debug(
+                    f"Categorizing as Acquisition Costs: {amount} in period {period}"
+                )
                 old_val = uses_df.loc[period, "Acquisition Costs"]
                 uses_df.loc[period, "Acquisition Costs"] += amount
                 new_val = uses_df.loc[period, "Acquisition Costs"]
                 logger.debug(f"Acquisition Costs updated: {old_val} -> {new_val}")
-            elif (subcategory == CapitalSubcategoryEnum.CLOSING_COSTS.value or 
-                  subcategory == str(CapitalSubcategoryEnum.CLOSING_COSTS)):
-                logger.debug(f"Categorizing closing costs as Acquisition Costs: {amount} in period {period}")
+            elif (
+                subcategory == CapitalSubcategoryEnum.CLOSING_COSTS.value
+                or subcategory == str(CapitalSubcategoryEnum.CLOSING_COSTS)
+            ):
+                logger.debug(
+                    f"Categorizing closing costs as Acquisition Costs: {amount} in period {period}"
+                )
                 old_val = uses_df.loc[period, "Acquisition Costs"]
                 uses_df.loc[period, "Acquisition Costs"] += amount
                 new_val = uses_df.loc[period, "Acquisition Costs"]
                 logger.debug(f"Acquisition Costs updated: {old_val} -> {new_val}")
-            elif subcategory in [CapitalSubcategoryEnum.HARD_COSTS.value, CapitalSubcategoryEnum.SOFT_COSTS.value, CapitalSubcategoryEnum.SITE_WORK.value]:
+            elif subcategory in [
+                CapitalSubcategoryEnum.HARD_COSTS.value,
+                CapitalSubcategoryEnum.SOFT_COSTS.value,
+                CapitalSubcategoryEnum.SITE_WORK.value,
+            ]:
                 logger.debug(f"Categorizing as Construction Costs: {amount}")
                 uses_df.loc[period, "Construction Costs"] += amount
             else:
-                logger.debug(f"Categorizing as Other Project Costs: {amount} (subcategory: {subcategory})")
+                logger.debug(
+                    f"Categorizing as Other Project Costs: {amount} (subcategory: {subcategory})"
+                )
                 uses_df.loc[period, "Other Project Costs"] += amount
-            
+
             # Add to total uses
             uses_df.loc[period, "Total Uses"] += amount
-        
+
         logger.debug(f"Final uses_df summary:")
         logger.debug(f"  Acquisition Costs total: {uses_df['Acquisition Costs'].sum()}")
         logger.debug(f"  Total Uses total: {uses_df['Total Uses'].sum()}")
-        
+
         return uses_df
 
-    def _create_funding_cascade_details(self, uses_breakdown: pd.DataFrame, total_uses: float) -> None:
+    def _create_funding_cascade_details(
+        self, uses_breakdown: pd.DataFrame, total_uses: float
+    ) -> "FundingCascadeDetails":
         """Create funding cascade details based on calculated uses."""
+
         # For all-equity deals, equity funds 100% of uses
         if not self.deal.financing:
             equity_target = total_uses
@@ -457,18 +661,22 @@ class DealCalculator:
             ltc_ratio = 0.0
             if self.deal.financing.facilities:
                 for facility in self.deal.financing.facilities:
-                    if hasattr(facility, 'max_ltc'):
+                    if hasattr(facility, "max_ltc"):
                         ltc_ratio = max(ltc_ratio, float(facility.max_ltc))
-            
+                    elif hasattr(facility, "tranches") and facility.tranches:
+                        # For construction facilities with tranches, use max LTC threshold
+                        for tranche in facility.tranches:
+                            ltc_ratio = max(ltc_ratio, float(tranche.ltc_threshold))
+
             equity_target = total_uses * (1 - ltc_ratio)
-        
+
         # Calculate equity contributions by period (proportional to uses)
         total_uses_by_period = uses_breakdown["Total Uses"]
         if total_uses > 0:
             equity_contributions = total_uses_by_period * (equity_target / total_uses)
         else:
             equity_contributions = pd.Series(0.0, index=self.timeline.period_index)
-        
+
         # Create interest compounding details (placeholder for now)
         # FIXME: placeholder!
         interest_details = InterestCompoundingDetails(
@@ -481,26 +689,27 @@ class DealCalculator:
             funding_gap=0.0,
             total_project_cost=total_uses,
         )
-        
-        # Create funding cascade details
-        self.levered_cash_flows.funding_cascade_details = FundingCascadeDetails(
+
+        # Create and return funding cascade details
+        return FundingCascadeDetails(
             uses_breakdown=uses_breakdown,
             equity_target=equity_target,
             equity_contributed_cumulative=equity_contributions.cumsum(),
             interest_compounding_details=interest_details,
         )
 
-    def _create_zero_funding_cascade(self) -> None:
+    def _create_zero_funding_cascade(self) -> "FundingCascadeDetails":
         """Create zero funding cascade for deals with no uses."""
+
         zero_series = pd.Series(0.0, index=self.timeline.period_index)
-        
+
         uses_breakdown = pd.DataFrame({
             "Acquisition Costs": zero_series,
             "Construction Costs": zero_series,
             "Other Project Costs": zero_series,
-            "Total Uses": zero_series
+            "Total Uses": zero_series,
         })
-        
+
         interest_details = InterestCompoundingDetails(
             base_uses=zero_series,
             compounded_interest=zero_series,
@@ -511,14 +720,13 @@ class DealCalculator:
             funding_gap=0.0,
             total_project_cost=0.0,
         )
-        
-        self.levered_cash_flows.funding_cascade_details = FundingCascadeDetails(
+
+        return FundingCascadeDetails(
             uses_breakdown=uses_breakdown,
             equity_target=0.0,
             equity_contributed_cumulative=zero_series,
             interest_compounding_details=interest_details,
         )
-
 
     def _populate_deal_summary(self) -> None:
         """Initialize deal summary with basic deal characteristics."""
@@ -613,7 +821,7 @@ class DealCalculator:
         if not self.deal.acquisition:
             logger.debug("No acquisition terms to add to ledger")
             return
-            
+
         try:
             acquisition_date = self.deal.acquisition.acquisition_date
             purchase_price = self.deal.acquisition.value
@@ -621,46 +829,42 @@ class DealCalculator:
         except AttributeError as e:
             logger.error(f"Failed to access acquisition attributes: {e}")
             return
-        
+
         # Purchase price (negative amount representing outflow/use)
         purchase_price_series = pd.Series(
-            [-purchase_price], 
-            index=[acquisition_date],
-            name="Purchase Price"
+            [-purchase_price], index=[acquisition_date], name="Purchase Price"
         )
-        
+
         metadata = SeriesMetadata(
             category=CashFlowCategoryEnum.CAPITAL,
             subcategory=CapitalSubcategoryEnum.PURCHASE_PRICE,
             item_name="Property Acquisition",
             source_id=str(self.deal.uid),
             asset_id=self.deal.asset.uid,
-            pass_num=CalculationPhase.ACQUISITION.value  # Acquisition phase
+            pass_num=CalculationPhase.ACQUISITION.value,  # Acquisition phase
         )
         builder.add_series(purchase_price_series, metadata)
         logger.debug(f"Added acquisition purchase price: ${purchase_price:,.0f}")
-        
+
         # Closing costs (negative amount representing outflow/use)
         closing_costs = purchase_price * closing_costs_rate
         closing_costs_series = pd.Series(
-            [-1 * closing_costs], 
-            index=[acquisition_date],
-            name="Closing Costs"
+            [-1 * closing_costs], index=[acquisition_date], name="Closing Costs"
         )
-        
+
         metadata = SeriesMetadata(
             category=CashFlowCategoryEnum.CAPITAL,
             subcategory=CapitalSubcategoryEnum.CLOSING_COSTS,
             item_name="Acquisition Closing Costs",
             source_id=str(self.deal.uid),
             asset_id=self.deal.asset.uid,
-            pass_num=CalculationPhase.ACQUISITION.value  # Acquisition phase
+            pass_num=CalculationPhase.ACQUISITION.value,  # Acquisition phase
         )
         builder.add_series(closing_costs_series, metadata)
         logger.debug(f"Added acquisition closing costs: ${closing_costs:,.0f}")
-        
+
         # Add deal fees if they exist
-        if hasattr(self.deal, 'deal_fees') and self.deal.deal_fees:
+        if hasattr(self.deal, "deal_fees") and self.deal.deal_fees:
             logger.debug(f"Adding {len(self.deal.deal_fees)} deal fees")
             for fee in self.deal.deal_fees:
                 try:
@@ -669,8 +873,8 @@ class DealCalculator:
                         category="Capital",
                         subcategory="Fees",
                         item_name=f"Fee - {getattr(fee, 'name', 'Unknown')}",
-                        source_id=str(getattr(fee, 'uid', fee)),
-                        asset_id=self.deal.asset.uid
+                        source_id=str(getattr(fee, "uid", fee)),
+                        asset_id=self.deal.asset.uid,
                     )
                     builder.add_series(fee_cf, metadata)
                     logger.debug(f"Added deal fee: {getattr(fee, 'name', 'Unknown')}")
@@ -679,75 +883,43 @@ class DealCalculator:
         else:
             logger.debug("No deal fees to add")
 
-    def _add_financing_records(self, builder: "LedgerBuilder") -> None:
-        """Add financing transactions to ledger."""        
-        if not self.deal.financing:
-            logger.debug("No financing to add to ledger")
-            return
-            
-        # Add loan proceeds (positive - cash inflow)
-        try:
-            # Get LTV ratio from the primary facility
-            primary_facility = self.deal.financing.primary_facility
-            if not hasattr(primary_facility, 'ltv_ratio'):
-                logger.debug(f"Primary facility {primary_facility.name} does not have ltv_ratio attribute")
-                return
-                
-            loan_amount = self.deal.acquisition.value * primary_facility.ltv_ratio
-            acquisition_date = self.deal.acquisition.acquisition_date
-        except AttributeError as e:
-            logger.error(f"Failed to access financing attributes: {e}")
-            return
-        
-        loan_proceeds_series = pd.Series(
-            [loan_amount], 
-            index=[acquisition_date],
-            name="Loan Proceeds"
-        )
-        
-        metadata = SeriesMetadata(
-            category=CashFlowCategoryEnum.FINANCING,
-            subcategory="Loan Proceeds",  # TODO: Need FinancingSubcategoryEnum 
-            item_name="Construction/Acquisition Loan",
-            source_id=str(self.deal.uid),
-            asset_id=self.deal.asset.uid,
-            pass_num=CalculationPhase.FINANCING.value  # Financing phase
-        )
-        builder.add_series(loan_proceeds_series, metadata)
-        logger.debug(f"Added loan proceeds: ${loan_amount:,.0f} (LTV: {primary_facility.ltv_ratio:.1%})")
-
     def _add_partnership_records(self, builder: "LedgerBuilder") -> None:
-        """Add partnership transactions to ledger."""        
+        """Add partnership transactions to ledger."""
         if not self.deal.equity_partners:
             logger.debug("No partnership to add to ledger")
             return
-            
+
         # Calculate required equity (purchase price + closing costs - loan proceeds)
         try:
-            total_cost = self.deal.acquisition.value * (1 + self.deal.acquisition.closing_costs_rate)
-            loan_amount = self.deal.acquisition.value * self.deal.financing.ltv_ratio if self.deal.financing else 0
+            total_cost = self.deal.acquisition.value * (
+                1 + self.deal.acquisition.closing_costs_rate
+            )
+            loan_amount = (
+                self.deal.acquisition.value * self.deal.financing.ltv_ratio
+                if self.deal.financing
+                else 0
+            )
             required_equity = total_cost - loan_amount
             acquisition_date = self.deal.acquisition.acquisition_date
         except AttributeError as e:
             logger.error(f"Failed to access partnership attributes: {e}")
             return
-        
+
         equity_contribution_series = pd.Series(
-            [required_equity], 
+            [required_equity],
             index=[acquisition_date],
-            name="Partner Capital Contributions"
+            name="Partner Capital Contributions",
         )
-        
+
         metadata = SeriesMetadata(
             category=CashFlowCategoryEnum.FINANCING,  # Partnership contributions are financing
             subcategory="Capital Contribution",  # TODO: Need FinancingSubcategoryEnum
             item_name="Initial Equity Investment",
             source_id=str(self.deal.uid),
             asset_id=self.deal.asset.uid,
-            pass_num=CalculationPhase.PARTNERSHIP.value  # Partnership phase
+            pass_num=CalculationPhase.PARTNERSHIP.value,  # Partnership phase
         )
         builder.add_series(equity_contribution_series, metadata)
         logger.debug(f"Added equity contribution: ${required_equity:,.0f}")
         # TODO: Add partnership flows after they're calculated
         pass
-

@@ -25,7 +25,7 @@ from ..core.primitives import (
 )
 
 if TYPE_CHECKING:
-    from ..analysis import AnalysisContext
+    from .orchestrator import DealContext
 
 
 class AcquisitionTerms(CashFlowModel):
@@ -102,10 +102,13 @@ class AcquisitionTerms(CashFlowModel):
             )
         return self
 
-    def compute_cf(self, context: "AnalysisContext") -> pd.Series:
+    def compute_cf(self, context: "DealContext") -> pd.Series:
         """
         Calculates the acquisition costs as negative cash flows. This specialized
         implementation handles event-based outflows following the same pattern as CapExItemBase.
+
+        Args:
+            context: Deal context (not used by this model, but maintains consistent interface)
 
         Returns:
             pd.Series: Negative cash flows representing acquisition outflows

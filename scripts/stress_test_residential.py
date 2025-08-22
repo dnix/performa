@@ -488,7 +488,7 @@ def test_fundamental_sanity() -> bool:
         upon_expiration=UponExpirationEnum.MARKET,
         monthly_rent=2000.0,
     )
-    
+
     context = AnalysisContext(
         timeline=timeline,
         settings=GlobalSettings(),

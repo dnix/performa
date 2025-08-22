@@ -17,10 +17,12 @@ from uuid import UUID, uuid4
 import pandas as pd
 from pydantic import Field, model_validator
 
-from ..core.primitives import Model, PositiveFloat, UnleveredAggregateLineKey
+from ..core.primitives import Model, PositiveFloat
 
 if TYPE_CHECKING:
-    from performa.analysis import AnalysisContext
+    from performa.deal.orchestrator import DealContext
+
+logger = logging.getLogger(__name__)
 
 
 class DirectCapValuation(Model):
@@ -268,7 +270,7 @@ class DirectCapValuation(Model):
 
         return value_results
 
-    def compute_cf(self, context: "AnalysisContext") -> pd.Series:
+    def compute_cf(self, context: "DealContext") -> pd.Series:
         """
         Compute disposition cash flow series for direct cap valuation.
 
@@ -276,7 +278,7 @@ class DirectCapValuation(Model):
         first-year NOI and places the proceeds at the appropriate time.
 
         Args:
-            context: Analysis context containing timeline, settings, and analysis results
+            context: Deal context containing timeline, settings, deal data, and NOI series
 
         Returns:
             pd.Series containing disposition proceeds aligned with timeline
@@ -285,51 +287,26 @@ class DirectCapValuation(Model):
         disposition_cf = pd.Series(0.0, index=context.timeline.period_index)
 
         try:
-            # Extract NOI series from unlevered analysis
-            if hasattr(context, "unlevered_analysis") and context.unlevered_analysis:
-                # Get NOI series from the analysis
-                noi_series = context.unlevered_analysis.get_series(
-                    UnleveredAggregateLineKey.NET_OPERATING_INCOME, context.timeline
-                )
-
+            # Get NOI series from deal context (populated from asset analysis phase)
+            if context.noi_series is not None and not context.noi_series.empty:
                 # Use first year's NOI for direct cap calculation
-                if not noi_series.empty:
-                    # Get first 12 months of NOI and sum for first year
-                    first_year_periods = min(12, len(noi_series))
-                    first_year_noi = noi_series.iloc[:first_year_periods].sum()
+                first_year_periods = min(12, len(context.noi_series))
+                first_year_noi = context.noi_series.iloc[:first_year_periods].sum()
 
-                    # Calculate property value using direct cap
-                    value_results = self.calculate_value(first_year_noi)
-                    property_value = value_results["property_value"]
+                # Calculate property value using direct cap
+                value_results = self.calculate_value(first_year_noi)
+                property_value = value_results["property_value"]
 
-                    # Place disposition proceeds at the end of the analysis period
-                    if not context.timeline.period_index.empty:
-                        disposition_period = context.timeline.period_index[-1]
-                        disposition_cf[disposition_period] = property_value
-
+                # Place disposition proceeds at the end of the analysis period
+                if not context.timeline.period_index.empty:
+                    disposition_period = context.timeline.period_index[-1]
+                    disposition_cf[disposition_period] = property_value
             else:
-                # Fallback: try to get from resolved lookups
-                noi_lookup = context.resolved_lookups.get(
-                    UnleveredAggregateLineKey.NET_OPERATING_INCOME.value
-                )
-                if noi_lookup is not None and isinstance(noi_lookup, pd.Series):
-                    # Use first year's NOI
-                    if not noi_lookup.empty:
-                        first_year_periods = min(12, len(noi_lookup))
-                        first_year_noi = noi_lookup.iloc[:first_year_periods].sum()
-
-                        # Calculate property value using direct cap
-                        value_results = self.calculate_value(first_year_noi)
-                        property_value = value_results["property_value"]
-
-                        # Place disposition proceeds at the end of the analysis period
-                        if not context.timeline.period_index.empty:
-                            disposition_period = context.timeline.period_index[-1]
-                            disposition_cf[disposition_period] = property_value
+                # No NOI available - direct cap cannot be calculated
+                logger.warning("No NOI series available for direct cap calculation")
 
         except Exception as e:
             # Log warning but continue with zeros
-            logger = logging.getLogger(__name__)
             logger.warning(f"Could not calculate direct cap disposition proceeds: {e}")
 
         return disposition_cf

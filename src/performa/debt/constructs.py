@@ -267,9 +267,11 @@ This debt construct architecture provides sophisticated financing structures whi
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, Optional
 
-from .construction import ConstructionFacility, DebtTranche
+from .construction import ConstructionFacility
+
+# NOTE: DebtTranche removed in Phase 1 - will be restored in Phase 2
 from .permanent import PermanentFacility
 from .plan import FinancingPlan
 
@@ -277,35 +279,68 @@ from .plan import FinancingPlan
 def create_construction_to_permanent_plan(
     construction_terms: Dict,
     permanent_terms: Dict,
+    project_value: Optional[float] = None,
 ) -> FinancingPlan:
     """
     Creates a standard two-facility financing plan for development deals.
 
+    Phase 1 Implementation: Supports both explicit loan amounts and calculated amounts from ratios.
+    Phase 2: Will restore complex multi-tranche functionality.
+
     Args:
         construction_terms: Parameters to instantiate a `ConstructionFacility`.
-                            Must include a 'tranches' key with a list of tranche dicts.
+                            Phase 1: Either 'loan_amount' OR 'ltc_threshold' + project_value
         permanent_terms: Parameters to instantiate a `PermanentFacility`.
+                         Either 'loan_amount' OR 'ltv_ratio' + project_value
+        project_value: Total project value for calculating loan amounts from ratios.
+                       Required if using ltc_threshold or ltv_ratio.
 
     Returns:
         FinancingPlan: A plan containing both the construction and permanent facilities.
 
     Raises:
         KeyError: If required keys are missing in construction or permanent terms.
+        ValueError: If project_value is needed but not provided.
     """
-    # --- Build ConstructionFacility ---
-    tranche_dicts: List[Dict] = construction_terms.get("tranches", [])
-    if not tranche_dicts:
-        raise KeyError("construction_terms must include a non-empty 'tranches' list")
+    # --- Process Construction Terms ---
+    construction_params = construction_terms.copy()
 
-    tranches: List[DebtTranche] = []
-    for t in tranche_dicts:
-        tranches.append(DebtTranche(**t))
+    # Convert ltc_threshold to explicit loan_amount if needed
+    if (
+        "ltc_threshold" in construction_params
+        and "loan_amount" not in construction_params
+    ):
+        if project_value is None:
+            raise ValueError("project_value required when using ltc_threshold")
+        construction_params["loan_amount"] = project_value * construction_params.pop(
+            "ltc_threshold"
+        )
 
-    const_kwargs = {k: v for k, v in construction_terms.items() if k != "tranches"}
-    construction_facility = ConstructionFacility(tranches=tranches, **const_kwargs)
+    # --- Process Permanent Terms ---
+    permanent_params = permanent_terms.copy()
 
-    # --- Build PermanentFacility ---
-    permanent_facility = PermanentFacility(**permanent_terms)
+    # Enable auto-sizing if ltv_ratio provided without explicit loan_amount
+    if "ltv_ratio" in permanent_params and "loan_amount" not in permanent_params:
+        permanent_params["sizing_method"] = "auto"
+        # Keep ltv_ratio for the facility's auto-sizing logic
+
+    # Convert years to months for Phase 1 compatibility
+    if "loan_term_years" in permanent_params:
+        permanent_params["loan_term_months"] = (
+            permanent_params.pop("loan_term_years") * 12
+        )
+    if "amortization_years" in permanent_params:
+        permanent_params["amortization_months"] = (
+            permanent_params.pop("amortization_years") * 12
+        )
+    if "loan_term_years" in construction_params:
+        construction_params["loan_term_months"] = (
+            construction_params.pop("loan_term_years") * 12
+        )
+
+    # --- Build Facilities ---
+    construction_facility = ConstructionFacility(**construction_params)
+    permanent_facility = PermanentFacility(**permanent_params)
 
     # --- Assemble FinancingPlan ---
     plan = FinancingPlan(

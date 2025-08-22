@@ -55,7 +55,7 @@ from .valuation import ValuationEngine
 
 __all__ = [
     "CashFlowEngine",
-    "DebtAnalyzer", 
+    "DebtAnalyzer",
     "PartnershipAnalyzer",
     "ValuationEngine",
 ]

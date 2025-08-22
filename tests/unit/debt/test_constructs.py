@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
+from pydantic import ValidationError
 
 from performa.debt import (
     ConstructionFacility,
@@ -61,5 +62,7 @@ def test_create_construction_to_permanent_plan_requires_tranches():
         "ltv_ratio": 0.65,
         "dscr_hurdle": 1.25,
     }
-    with pytest.raises(KeyError):
+    # Should raise ValidationError for incomplete construction parameters
+    # (either tranches or full single-facility parameters including loan_amount required)
+    with pytest.raises(ValidationError):
         create_construction_to_permanent_plan(construction_terms, permanent_terms)

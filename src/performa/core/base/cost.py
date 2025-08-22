@@ -105,8 +105,12 @@ class TenantImprovementAllowanceBase(CashFlowModel):
     """
 
     area: Optional[PositiveFloat] = None  # Optional - can get from lease context
-    category: CashFlowCategoryEnum = CashFlowCategoryEnum.CAPITAL  # FIXED: TI are capital costs, not operating expenses  
-    subcategory: CapExCategoryEnum = CapExCategoryEnum.LEASING_COSTS  # Updated to use enum
+    category: CashFlowCategoryEnum = (
+        CashFlowCategoryEnum.CAPITAL
+    )  # FIXED: TI are capital costs, not operating expenses
+    subcategory: CapExCategoryEnum = (
+        CapExCategoryEnum.LEASING_COSTS
+    )  # Updated to use enum
     payment_method: Literal["upfront", "amortized"] = "upfront"
     payment_timing: Literal["signing", "commencement"] = (
         "commencement"  # When the TI is paid

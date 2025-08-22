@@ -84,10 +84,11 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 import pandas as pd
 
 from performa.analysis import AnalysisContext
-from performa.core.ledger import SeriesMetadata
+from performa.core.ledger import LedgerQueries, SeriesMetadata
 from performa.core.primitives import (
     CashFlowCategoryEnum,
     ExpenseSubcategoryEnum,
+    FinancingSubcategoryEnum,
     TransactionPurpose,
     UnleveredAggregateLineKey,
 )
@@ -95,6 +96,7 @@ from performa.deal.results import (
     CashFlowComponents,
     CashFlowSummary,
     FinancingAnalysisResult,
+    FundingCascadeDetails,
     InterestCompoundingDetails,
     InterestReserveDetails,
     LeveredCashFlowResult,
@@ -178,9 +180,7 @@ class CashFlowEngine:
 
     # Runtime state (populated during analysis)
     levered_cash_flows: LeveredCashFlowResult = field(
-        init=False, 
-        repr=False,
-        default_factory=LeveredCashFlowResult
+        init=False, repr=False, default_factory=LeveredCashFlowResult
     )
 
     def calculate_levered_cash_flows(
@@ -189,6 +189,7 @@ class CashFlowEngine:
         financing_analysis: FinancingAnalysisResult,
         ledger_builder: "LedgerBuilder",
         disposition_proceeds: Optional[pd.Series] = None,
+        funding_cascade_details: Optional["FundingCascadeDetails"] = None,
     ) -> LeveredCashFlowResult:
         """
         Calculate levered cash flows through institutional-grade funding cascade.
@@ -217,7 +218,7 @@ class CashFlowEngine:
         # Use ledger-based uses calculation (single source of truth)
         # ledger_builder contains the asset-level transactions from prior analysis
         base_uses = self._calculate_ledger_based_uses(ledger_builder)
-        
+
         # Note: uses_breakdown is created by DealCalculator during funding cascade orchestration
         # CashFlowEngine focuses on the funding mechanics, not the categorization
 
@@ -225,30 +226,30 @@ class CashFlowEngine:
         funding_components = self._initialize_funding_components()
 
         # === Step 3: Execute Funding Cascade ===
-        cascade_results = self._execute_funding_cascade(base_uses, funding_components)
-        
+        cascade_results = self._execute_funding_cascade(
+            base_uses, funding_components, ledger_builder
+        )
+
         # === Step 3.5: Add Funding Sources to Ledger ===
         self._add_funding_sources_to_ledger(ledger_builder, funding_components)
 
         # === Step 4: Calculate disposition proceeds if not provided ===
         if disposition_proceeds is None:
             disposition_proceeds = self._calculate_disposition_proceeds(
-                ledger_builder,
-                unlevered_analysis
+                ledger_builder, unlevered_analysis
             )
 
         # === Step 5: Assemble Final Results ===
         # Note: uses_breakdown is created by DealCalculator, CashFlowEngine uses base_uses
-        self._assemble_levered_cash_flow_results(
+        return self._assemble_levered_cash_flow_results(
             base_uses,
             cascade_results,
             funding_components,
             unlevered_analysis,
             financing_analysis,
             disposition_proceeds,
+            funding_cascade_details,
         )
-
-        return self.levered_cash_flows
 
     def _calculate_period_uses(self) -> pd.DataFrame:
         """
@@ -342,79 +343,84 @@ class CashFlowEngine:
     def _calculate_ledger_based_uses(self, ledger_builder) -> pd.Series:
         """
         Calculate total uses from ledger transactions.
-        
+
         This method queries the ledger for all Capital Use and Financing Service
         transactions to determine total funding needs by period.
-        
+
         Args:
             ledger_builder: The ledger builder containing all transactions
-            
+
         Returns:
             pd.Series with total uses by period
         """
         # Get the current ledger
         ledger = ledger_builder.get_current_ledger()
-        
+
         if ledger.empty:
-            raise ValueError("Ledger is empty - CashFlowEngine requires a populated ledger from asset analysis")
-        
+            raise ValueError(
+                "Ledger is empty - CashFlowEngine requires a populated ledger from asset analysis"
+            )
+
         # Query for all capital uses and financing service transactions
-        uses_filter = ledger['flow_purpose'].isin([
-            TransactionPurpose.CAPITAL_USE.value, 
-            TransactionPurpose.FINANCING_SERVICE.value
+        uses_filter = ledger["flow_purpose"].isin([
+            TransactionPurpose.CAPITAL_USE.value,
+            TransactionPurpose.FINANCING_SERVICE.value,
         ])
         uses_transactions = ledger[uses_filter]
-        
+
         logger.debug(f"CashFlowEngine: Ledger has {len(ledger)} total transactions")
         logger.debug(f"CashFlowEngine: Found {len(uses_transactions)} use transactions")
-        logger.debug(f"CashFlowEngine: Flow purposes in ledger: {ledger['flow_purpose'].unique()}")
-        
+        logger.debug(
+            f"CashFlowEngine: Flow purposes in ledger: {ledger['flow_purpose'].unique()}"
+        )
+
         if uses_transactions.empty:
             logger.warning("CashFlowEngine: No use transactions found")
             return pd.Series(0.0, index=self.timeline.period_index, name="Total Uses")
-        
+
         # Take absolute value first, then group by date and sum (all amounts are positive uses)
         uses_transactions = uses_transactions.copy()
-        uses_transactions['amount'] = uses_transactions['amount'].abs()
-        period_uses = uses_transactions.groupby('date')['amount'].sum()
-        
+        uses_transactions["amount"] = uses_transactions["amount"].abs()
+        period_uses = uses_transactions.groupby("date")["amount"].sum()
+
         # Convert date index to Period index to match timeline
         if len(period_uses) > 0:
             # Convert datetime.date or Timestamp index to Period index
-            if hasattr(period_uses.index[0], 'to_period'):
+            if hasattr(period_uses.index[0], "to_period"):
                 # Timestamp index
-                period_uses.index = period_uses.index.to_period('M')
+                period_uses.index = period_uses.index.to_period("M")
             else:
                 # datetime.date index - convert to Period
-                period_uses.index = pd.PeriodIndex([pd.Period(date, 'M') for date in period_uses.index])
-        
+                period_uses.index = pd.PeriodIndex([
+                    pd.Period(date, "M") for date in period_uses.index
+                ])
+
         logger.debug(f"CashFlowEngine: Period uses before reindex: {period_uses.sum()}")
-        logger.debug(f"CashFlowEngine: Period uses index type after conversion: {type(period_uses.index[0]) if len(period_uses) > 0 else 'empty'}")
-        
+        logger.debug(
+            f"CashFlowEngine: Period uses index type after conversion: {type(period_uses.index[0]) if len(period_uses) > 0 else 'empty'}"
+        )
+
         # Reindex to full timeline and fill missing with zeros
         result = period_uses.reindex(self.timeline.period_index, fill_value=0.0)
         logger.debug(f"CashFlowEngine: Final result sum: {result.sum()}")
-        
+
         return result
-
-
-
-
 
     def _add_funding_sources_to_ledger(self, ledger_builder, funding_components):
         """
-        Add funding source transactions (equity, debt) to the ledger.
-        
-        This method takes the calculated funding sources from the cascade
-        and adds them as CAPITAL_SOURCE transactions to the ledger.
-        
+        Add funding source transactions (equity only) to the ledger.
+
+        This method adds equity contributions to the ledger. Debt flows are NOT added here
+        because they are already written by debt facilities via their compute_cf method.
+        This avoids duplicate ledger entries and maintains single source of truth.
+
         Args:
             ledger_builder: The ledger builder to add transactions to
             funding_components: Dict containing funding series from cascade
-        """        
+        """
         # Add equity contributions as Capital Source
-        if 'equity_contributions' in funding_components:
-            equity_series = funding_components['equity_contributions']
+        if "equity_contributions" in funding_components:
+            equity_series = funding_components["equity_contributions"]
             # Only add if there are non-zero contributions
             if equity_series.sum() > 0:
                 metadata = SeriesMetadata(
@@ -424,41 +430,15 @@ class CashFlowEngine:
                     source_id=self.deal.uid,  # Deal is the source
                     asset_id=self.deal.asset.uid,
                     deal_id=self.deal.uid,
-                    pass_num=2  # Funding is pass 2
+                    pass_num=2,  # Funding is pass 2
                 )
                 ledger_builder.add_series(equity_series, metadata)
-        
-        # Add debt draws as Capital Source  
-        if 'debt_draws' in funding_components:
-            debt_series = funding_components['debt_draws']
-            # Only add if there are non-zero draws
-            if debt_series.sum() > 0:
-                metadata = SeriesMetadata(
-                    category=CashFlowCategoryEnum.FINANCING, 
-                    subcategory=ExpenseSubcategoryEnum.OPEX,  # FIXME: Need proper financing subcategory enum
-                    item_name="Debt Draws",
-                    source_id=self.deal.uid,  # Deal is the source
-                    asset_id=self.deal.asset.uid,
-                    deal_id=self.deal.uid,
-                    pass_num=2  # Funding is pass 2
-                )
-                ledger_builder.add_series(debt_series, metadata)
-        
-        # Add interest expense as Financing Service
-        if 'interest_expense' in funding_components:
-            interest_series = funding_components['interest_expense']
-            # Only add if there are non-zero interest payments
-            if interest_series.sum() > 0:
-                metadata = SeriesMetadata(
-                    category=CashFlowCategoryEnum.FINANCING,
-                    subcategory=ExpenseSubcategoryEnum.OPEX,  # FIXME: Need proper financing subcategory enum
-                    item_name="Interest Expense",
-                    source_id=self.deal.uid,  # Deal is the source
-                    asset_id=self.deal.asset.uid,
-                    deal_id=self.deal.uid,
-                    pass_num=2  # Financing is pass 2
-                )
-                ledger_builder.add_series(interest_series, metadata)
+
+        # NOTE: Debt draws are NOT added here because they are already written by debt facilities
+        # via their compute_cf method. This avoids duplicate ledger entries.
+
+        # NOTE: Interest expense is also NOT added here because debt service (which includes
+        # interest) is already written by debt facilities via their compute_cf method.
 
     def _initialize_funding_components(self) -> Dict[str, Any]:
         """
@@ -492,7 +472,10 @@ class CashFlowEngine:
         return debt_draws_by_tranche
 
     def _execute_funding_cascade(
-        self, base_uses: pd.Series, funding_components: Dict[str, Any]
+        self,
+        base_uses: pd.Series,
+        funding_components: Dict[str, Any],
+        ledger_builder: "LedgerBuilder",
     ) -> Dict[str, Any]:
         """
         Execute institutional-grade funding cascade with proper iterative logic.
@@ -630,6 +613,7 @@ class CashFlowEngine:
                     i,
                     funding_components,
                     working_uses,
+                    ledger_builder,
                 )
 
                 # Update funding components
@@ -686,7 +670,8 @@ class CashFlowEngine:
             if hasattr(facility, "kind") and facility.kind == "construction":
                 if facility.tranches:
                     first_tranche_ltc = facility.tranches[0].ltc_threshold
-                    return total_project_cost * (1 - first_tranche_ltc)
+                    equity_target = total_project_cost * (1 - first_tranche_ltc)
+                    return equity_target
 
         # Fallback: 25% equity
         return total_project_cost * 0.25
@@ -700,9 +685,14 @@ class CashFlowEngine:
         period_idx: int,
         funding_components: Dict[str, Any],
         working_uses: pd.Series,
+        ledger_builder: "LedgerBuilder",
     ) -> tuple[float, float]:
         """
-        Fund period uses with equity-first, then multi-tranche debt funding logic.
+        Fund period uses with equity-first, then ledger-based debt funding logic.
+
+        This method implements the equity-first funding priority, then queries the
+        ledger for available debt funding capacity instead of calculating complex
+        multi-tranche logic in parallel. This maintains single source of truth.
 
         Args:
             period_uses: Total uses for this period
@@ -712,6 +702,7 @@ class CashFlowEngine:
             period_idx: Current period index
             funding_components: Funding components for tranche tracking
             working_uses: Working uses series for cumulative calculations
+            ledger_builder: Ledger builder containing debt facility transactions
 
         Returns:
             Tuple of (period_equity, period_debt)
@@ -726,98 +717,97 @@ class CashFlowEngine:
             period_equity = remaining_equity_capacity
             period_debt_needed = period_uses - period_equity
 
-            # Get actual debt funding using multi-tranche logic
-            period_debt = self._calculate_multi_tranche_debt(
-                period_debt_needed, period_idx, funding_components, working_uses
+            # Get actual debt funding by querying ledger (replaces multi-tranche logic)
+            period_debt = self._get_available_debt_funding(
+                period_debt_needed, period_idx, ledger_builder
             )
 
             return period_equity, period_debt
 
-    def _calculate_multi_tranche_debt(
+    def _get_available_debt_funding(
         self,
         debt_needed: float,
         period_idx: int,
-        funding_components: Dict[str, Any],
-        working_uses: pd.Series,
+        ledger_builder: "LedgerBuilder",
     ) -> float:
         """
-        Calculate debt funding using multi-tranche logic with sequential LTC thresholds.
+        Query ledger for available debt funding capacity.
+
+        This method handles the case where debt facilities write total loan proceeds
+        at origination but the funding cascade needs to distribute that capacity
+        across periods based on actual funding needs.
 
         Args:
-            debt_needed: Amount of debt funding needed
+            debt_needed: Amount of debt funding needed this period
             period_idx: Current period index
-            funding_components: Funding components for tranche tracking
-            working_uses: Working uses series for cumulative calculations
+            ledger_builder: Ledger builder containing debt facility transactions
 
         Returns:
-            Total debt funding available for this period
+            Available debt funding for this period (up to debt_needed)
         """
         if not self.deal.financing:
             return 0.0
 
-        # Get construction facilities
-        construction_facilities = [
-            facility
-            for facility in self.deal.financing.facilities
-            if hasattr(facility, "kind") and facility.kind == "construction"
-        ]
-
-        if not construction_facilities:
-            return 0.0
-
-        # Use first construction facility (FIXME: support multiple facilities)
-        construction_facility = construction_facilities[0]
-
-        # Calculate cumulative state for facility draw calculation
-        cumulative_costs = working_uses.iloc[: period_idx + 1].sum()
-        cumulative_draws_by_tranche = {
-            tranche.name: funding_components["debt_draws_by_tranche"][tranche.name]
-            .iloc[: period_idx + 1]
-            .sum()
-            for tranche in construction_facility.tranches
-        }
-
-        # Calculate period draws using facility's tranche logic
         try:
-            period_draws = construction_facility.calculate_period_draws(
-                funding_needed=debt_needed,
-                total_project_cost=cumulative_costs,
-                cumulative_costs_to_date=cumulative_costs,
-                cumulative_draws_by_tranche=cumulative_draws_by_tranche,
+            # Get current ledger DataFrame from builder and create queries interface
+            current_ledger = ledger_builder.get_current_ledger()
+            queries = LedgerQueries(current_ledger)
+
+            # Query ledger directly for financing transactions (bypass LedgerQueries due to enum serialization issues)
+            financing_txns = current_ledger[
+                current_ledger["category"] == CashFlowCategoryEnum.FINANCING
+            ]
+
+            # Get loan proceeds transactions using enum for reliable matching
+            loan_proc_txns = financing_txns[
+                financing_txns["subcategory"] == FinancingSubcategoryEnum.LOAN_PROCEEDS
+            ]
+            loan_proceeds = (
+                loan_proc_txns["amount"]
+                if not loan_proc_txns.empty
+                else pd.Series([], dtype=float)
             )
 
-            # Update tranche tracking and calculate total
-            total_debt_draw = 0.0
-            for tranche_name, tranche_draw in period_draws.items():
-                if tranche_draw > 0:
-                    funding_components["debt_draws_by_tranche"][tranche_name].iloc[
-                        period_idx
-                    ] = tranche_draw
-                    total_debt_draw += tranche_draw
+            # Get debt service transactions up to current period
+            debt_svc_txns = financing_txns[
+                financing_txns["subcategory"] == FinancingSubcategoryEnum.DEBT_SERVICE
+            ]
+            # Filter by date if we have date info
+            if not debt_svc_txns.empty and "date" in debt_svc_txns.columns:
+                period_date = (
+                    self.timeline.period_index[period_idx].to_timestamp().date()
+                )
+                debt_svc_txns = debt_svc_txns[debt_svc_txns["date"] <= period_date]
+            debt_service = (
+                debt_svc_txns["amount"]
+                if not debt_svc_txns.empty
+                else pd.Series([], dtype=float)
+            )
 
-            return total_debt_draw
+            # Calculate total loan capacity and what's been used so far
+            total_loan_capacity = (
+                loan_proceeds.sum() if not loan_proceeds.empty else 0.0
+            )
+            total_debt_service_paid = (
+                abs(debt_service.sum()) if not debt_service.empty else 0.0
+            )
+
+            # Available capacity is total loan capacity minus debt service already paid
+            available_capacity = max(0.0, total_loan_capacity - total_debt_service_paid)
+
+            # Return the minimum of what's needed and what's available
+            available_funding = min(debt_needed, available_capacity)
+
+            logger.debug(
+                f"Debt funding query - Period {period_idx}: needed=${debt_needed:,.0f}, "
+                f"available=${available_capacity:,.0f}, providing=${available_funding:,.0f}"
+            )
+
+            return available_funding
 
         except Exception as e:
-            # Fallback to simple debt calculation if facility method fails
-            logger.warning(f"Multi-tranche debt calculation failed: {e}")
-
-            # Simple fallback: use first tranche to fund up to its LTC threshold
-            if construction_facility.tranches:
-                first_tranche = construction_facility.tranches[0]
-                tranche_capacity = cumulative_costs * first_tranche.ltc_threshold
-                already_drawn = sum(cumulative_draws_by_tranche.values())
-                available_capacity = max(0, tranche_capacity - already_drawn)
-
-                debt_draw = min(debt_needed, available_capacity)
-
-                # Update first tranche tracking
-                if debt_draw > 0:
-                    funding_components["debt_draws_by_tranche"][
-                        first_tranche.name
-                    ].iloc[period_idx] = debt_draw
-
-                return debt_draw
-
+            logger.warning(f"Failed to query ledger for debt funding: {e}")
+            # Fallback to no debt funding if query fails
             return 0.0
 
     # Note: Interest calculation is now integrated into _execute_funding_cascade
@@ -856,7 +846,8 @@ class CashFlowEngine:
         unlevered_analysis: UnleveredAnalysisResult,
         financing_analysis: FinancingAnalysisResult,
         disposition_proceeds: pd.Series,
-    ) -> None:
+        funding_cascade_details: Optional["FundingCascadeDetails"] = None,
+    ) -> "LeveredCashFlowResult":
         """
         Assemble final levered cash flow results with all components.
 
@@ -936,8 +927,15 @@ class CashFlowEngine:
         )
 
         # Create detailed funding cascade components
+        # Ensure mathematical consistency: total_uses = base_uses + compounded_interest
+        # The funding cascade modifies working_uses during execution, so we need to ensure
+        # the base_uses we report matches what was actually used in the calculation
+        actual_base_uses = (
+            funding_components["total_uses"] - funding_components["compounded_interest"]
+        )
+
         interest_compounding_details = InterestCompoundingDetails(
-            base_uses=base_uses,
+            base_uses=actual_base_uses,
             compounded_interest=funding_components["compounded_interest"],
             total_uses_with_interest=funding_components["total_uses"],
             equity_target=cascade_results["equity_target"],
@@ -971,15 +969,20 @@ class CashFlowEngine:
             ),
         )
 
-        # NOTE: funding_cascade_details is created by DealCalculator, not CashFlowEngine
-        # CashFlowEngine focuses on cash flow mechanics, DealCalculator handles uses breakdown
-        funding_cascade_details = None
+        # Update funding cascade details with tranche data from actual cascade execution
+        if funding_cascade_details is not None:
+            # Update with actual tranche tracking data from funding cascade execution
+            funding_cascade_details.debt_draws_by_tranche = funding_components[
+                "debt_draws_by_tranche"
+            ]
 
-        # Populate the levered cash flows model
-        self.levered_cash_flows.levered_cash_flows = levered_cash_flows
-        self.levered_cash_flows.cash_flow_components = cash_flow_components
-        self.levered_cash_flows.cash_flow_summary = cash_flow_summary
-        # NOTE: funding_cascade_details is set by DealCalculator, not CashFlowEngine
+        # Create and return the complete LeveredCashFlowResult
+        return LeveredCashFlowResult(
+            levered_cash_flows=levered_cash_flows,
+            cash_flow_components=cash_flow_components,
+            cash_flow_summary=cash_flow_summary,
+            funding_cascade_details=funding_cascade_details,
+        )
 
     def _extract_unlevered_cash_flows(
         self, unlevered_analysis: UnleveredAnalysisResult
@@ -1033,30 +1036,33 @@ class CashFlowEngine:
         self, financing_analysis: FinancingAnalysisResult
     ) -> pd.Series:
         """
-        Calculate debt service time series from financing facilities.
+        Calculate debt service time series from financing analysis results.
 
         Args:
-            financing_analysis: Results from financing analysis
+            financing_analysis: Results from financing analysis (already computed by DebtAnalyzer)
 
         Returns:
             Total debt service series aligned with timeline
         """
         total_debt_service = pd.Series(0.0, index=self.timeline.period_index)
 
-        if self.deal.financing:
-            for facility in self.deal.financing.facilities:
-                try:
-                    facility_debt_service = facility.calculate_debt_service(
-                        self.timeline
-                    )
-                    total_debt_service += facility_debt_service.reindex(
-                        self.timeline.period_index, fill_value=0.0
-                    )
-                except Exception as e:
-                    # Log warning but continue - some facilities may not have debt service
-                    logger.warning(
-                        f"Could not calculate debt service for {facility.name}: {e}"
-                    )
+        # Use debt service data already computed by DebtAnalyzer
+        if financing_analysis.has_financing and financing_analysis.debt_service:
+            for (
+                facility_name,
+                debt_service_series,
+            ) in financing_analysis.debt_service.items():
+                if debt_service_series is not None:
+                    try:
+                        # Ensure proper alignment with timeline
+                        aligned_debt_service = debt_service_series.reindex(
+                            self.timeline.period_index, fill_value=0.0
+                        )
+                        total_debt_service += aligned_debt_service
+                    except Exception as e:
+                        logger.warning(
+                            f"Could not process debt service for {facility_name}: {e}"
+                        )
 
         return total_debt_service
 
@@ -1077,30 +1083,37 @@ class CashFlowEngine:
         if self.deal.financing:
             # Build combined financing cash flows DataFrame from analysis results
             financing_cash_flows_data = {}
-            
+
             # Add debt service series
             for facility_name, debt_series in financing_analysis.debt_service.items():
                 if debt_series is not None:
                     financing_cash_flows_data[f"{facility_name} Interest"] = debt_series
-                    
+
             # Add loan proceeds series (as draws)
-            for facility_name, proceeds_series in financing_analysis.loan_proceeds.items():
+            for (
+                facility_name,
+                proceeds_series,
+            ) in financing_analysis.loan_proceeds.items():
                 if proceeds_series is not None:
                     financing_cash_flows_data[f"{facility_name} Draw"] = proceeds_series
-            
+
             # Create combined DataFrame
             if financing_cash_flows_data:
-                financing_cash_flows = pd.DataFrame(financing_cash_flows_data, index=self.timeline.period_index).fillna(0.0)
+                financing_cash_flows = pd.DataFrame(
+                    financing_cash_flows_data, index=self.timeline.period_index
+                ).fillna(0.0)
             else:
                 financing_cash_flows = pd.DataFrame(index=self.timeline.period_index)
-            
+
             for facility in self.deal.financing.facilities:
                 try:
                     # Check if facility has outstanding balance calculation
                     if hasattr(facility, "get_outstanding_balance"):
                         for period in self.timeline.period_index:
                             period_date = period.to_timestamp().date()
-                            balance = facility.get_outstanding_balance(period_date, financing_cash_flows)
+                            balance = facility.get_outstanding_balance(
+                                period_date, financing_cash_flows
+                            )
                             if balance > 0:
                                 # Check if this is a refinancing or disposition period
                                 if (
@@ -1191,9 +1204,9 @@ class CashFlowEngine:
         return 0.0
 
     def _calculate_disposition_proceeds(
-        self, 
+        self,
         ledger_builder: "LedgerBuilder",
-        unlevered_analysis: UnleveredAnalysisResult = None
+        unlevered_analysis: UnleveredAnalysisResult = None,
     ) -> pd.Series:
         """
         Calculate disposition proceeds if there's a disposition event.
@@ -1216,7 +1229,7 @@ class CashFlowEngine:
                     timeline=self.timeline,
                     settings=self.settings,
                     property_data=self.deal.asset,
-                    ledger_builder=ledger_builder
+                    ledger_builder=ledger_builder,
                 )
 
                 # Pass unlevered analysis to the context so valuation models can access NOI

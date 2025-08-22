@@ -23,13 +23,12 @@ class CalculationPhase(Enum):
     Each phase calculates specific deal components in sequence.
     """
 
-    ASSET_ANALYSIS = 1      # Calculate asset-level cash flows
-    ACQUISITION = 2         # Calculate acquisition costs
-    FUNDING_CASCADE = 3     # Calculate funding requirements
-    FINANCING = 4           # Calculate debt and equity flows
-    PARTNERSHIP = 5         # Calculate partner distributions
-    VALUATION = 6           # Calculate exit values and returns
-
+    ASSET_ANALYSIS = 1  # Calculate asset-level cash flows
+    ACQUISITION = 2  # Calculate acquisition costs
+    FUNDING_CASCADE = 3  # Calculate funding requirements
+    FINANCING = 4  # Calculate debt and equity flows
+    PARTNERSHIP = 5  # Calculate partner distributions
+    VALUATION = 6  # Calculate exit values and returns
 
 
 class CashFlowCategoryEnum(str, Enum):
@@ -42,7 +41,8 @@ class CashFlowCategoryEnum(str, Enum):
     - FINANCING + negative amount → FINANCING_SERVICE (debt service, loan fees)
     - FINANCING + positive amount → CAPITAL_SOURCE (loan proceeds, refinancing)
     - REVENUE/EXPENSE → OPERATING (day-to-day operations)
-    
+    - VALUATION → VALUATION (asset appraisals, mark-to-market, non-cash records)
+
     Note: Loan transactions are dual-nature:
     - Loan draws/proceeds: FINANCING category + positive amount = CAPITAL_SOURCE
     - Debt service payments: FINANCING category + negative amount = FINANCING_SERVICE
@@ -53,16 +53,17 @@ class CashFlowCategoryEnum(str, Enum):
     EXPENSE = "Expense"
     REVENUE = "Revenue"
     FINANCING = "Financing"
+    VALUATION = "Valuation"
     OTHER = "Other"
 
 
 class CapitalSubcategoryEnum(str, Enum):
     """
     Subcategories for capital expenditure transactions.
-    
+
     These subcategories provide detailed classification of capital outflows
     for acquisition, construction, and other capital deployment activities.
-    
+
     Attributes:
         PURCHASE_PRICE (str): Property acquisition purchase price
         CLOSING_COSTS (str): Acquisition closing costs and fees
@@ -77,12 +78,12 @@ class CapitalSubcategoryEnum(str, Enum):
     PURCHASE_PRICE = "Purchase Price"
     CLOSING_COSTS = "Closing Costs"
     DUE_DILIGENCE = "Due Diligence"
-    
+
     # Construction subcategories
     HARD_COSTS = "Hard Costs"
     SOFT_COSTS = "Soft Costs"
     SITE_WORK = "Site Work"
-    
+
     # Other capital uses
     OTHER = "Other"
 
@@ -128,6 +129,84 @@ class ExpenseSubcategoryEnum(str, Enum):
 
     OPEX = "OpEx"
     CAPEX = "CapEx"
+
+
+class ValuationSubcategoryEnum(str, Enum):
+    """
+    Subcategories for valuation transactions in the ledger.
+
+    Enables detailed classification of asset valuation methods and sources
+    for proper tracking, analysis, and audit trails.
+
+    Valuation Method Subcategories:
+        ASSET_VALUATION: Direct asset appraisals and valuations
+        COMPARABLE_SALES: Market-based comparable sales analysis
+        DCF_VALUATION: Discounted cash flow valuations
+        DIRECT_CAP_VALUATION: Direct capitalization method valuations
+        COST_APPROACH: Cost approach valuations
+        BROKER_OPINION: Broker price opinions and estimates
+    """
+
+    ASSET_VALUATION = "Asset Valuation"
+    COMPARABLE_SALES = "Comparable Sales"
+    DCF_VALUATION = "DCF Valuation"
+    DIRECT_CAP_VALUATION = "Direct Cap Valuation"
+    COST_APPROACH = "Cost Approach"
+    BROKER_OPINION = "Broker Opinion"
+
+
+class FinancingSubcategoryEnum(str, Enum):
+    """
+    Subcategories for financing transactions in the ledger.
+
+    Enables detailed classification of debt and equity flows for proper
+    tracking, reporting, and analysis. All debt facilities should use
+    these subcategories when writing to the ledger.
+
+    Debt Flow Subcategories:
+        LOAN_PROCEEDS: Initial loan funding (positive inflow)
+        DEBT_SERVICE: Combined principal and interest payments (negative outflow)
+        PRINCIPAL_PAYMENT: Principal-only portion of debt service
+        INTEREST_PAYMENT: Interest-only portion of debt service
+        INTEREST_RESERVE: Interest reserve funding or draws
+        PREPAYMENT: Early loan payoff (negative outflow)
+        REFINANCING_PROCEEDS: New loan proceeds from refinancing (positive inflow)
+        REFINANCING_PAYOFF: Payoff of existing loan during refinancing (negative outflow)
+
+    Equity Flow Subcategories:
+        EQUITY_CONTRIBUTION: Partner capital contributions (positive inflow)
+        EQUITY_DISTRIBUTION: Distributions to equity partners (negative outflow)
+        PREFERRED_RETURN: Preferred return payments (negative outflow)
+        PROMOTE: Carried interest/promote payments (negative outflow)
+
+    Fee Flow Subcategories:
+        ORIGINATION_FEE: Loan origination fees (negative outflow)
+        EXIT_FEE: Loan exit fees (negative outflow)
+        PREPAYMENT_PENALTY: Early repayment penalties (negative outflow)
+    """
+
+    # Core debt flows
+    LOAN_PROCEEDS = "Loan Proceeds"
+    DEBT_SERVICE = "Debt Service"
+    PRINCIPAL_PAYMENT = "Principal Payment"
+    INTEREST_PAYMENT = "Interest Payment"
+    INTEREST_RESERVE = "Interest Reserve"
+    PREPAYMENT = "Prepayment"
+
+    # Refinancing flows
+    REFINANCING_PROCEEDS = "Refinancing Proceeds"
+    REFINANCING_PAYOFF = "Refinancing Payoff"
+
+    # Equity flows
+    EQUITY_CONTRIBUTION = "Equity Contribution"
+    EQUITY_DISTRIBUTION = "Equity Distribution"
+    PREFERRED_RETURN = "Preferred Return"
+    PROMOTE = "Promote"
+
+    # Fee flows
+    ORIGINATION_FEE = "Origination Fee"
+    EXIT_FEE = "Exit Fee"
+    PREPAYMENT_PENALTY = "Prepayment Penalty"
 
 
 class AssetTypeEnum(str, Enum):
@@ -442,12 +521,8 @@ class UnleveredAggregateLineKey(str, Enum):
     GROSS_POTENTIAL_RENT = (
         "Gross Potential Rent"  # Base rent only at 100% physical occupancy
     )
-    POTENTIAL_GROSS_REVENUE = (
-        "Potential Gross Revenue"  # All revenue at 100% occupancy (rent + recoveries + other income)
-    )
-    TENANT_REVENUE = (
-        "Tenant Revenue"  # Rent + recoveries (excludes non-tenant income like parking/antenna)
-    )
+    POTENTIAL_GROSS_REVENUE = "Potential Gross Revenue"  # All revenue at 100% occupancy (rent + recoveries + other income)
+    TENANT_REVENUE = "Tenant Revenue"  # Rent + recoveries (excludes non-tenant income like parking/antenna)
     RENTAL_ABATEMENT = "Rental Abatement / Concessions"  # Free rent periods
     MISCELLANEOUS_INCOME = "Miscellaneous Income"  # Parking, laundry, fees, etc.
     GENERAL_VACANCY_LOSS = (
@@ -473,8 +548,6 @@ class UnleveredAggregateLineKey(str, Enum):
     # --- Unlevered Cash Flow ---
     UNLEVERED_CASH_FLOW = "Unlevered Cash Flow"  # NOI - TIs - LCs - CapEx
 
-
-
     # Vacancy & Loss Specifics
     DOWNTIME_VACANCY_LOSS = "Downtime Vacancy Loss"  # Added for initial vacancy
     ROLLOVER_VACANCY_LOSS = (
@@ -488,8 +561,6 @@ class UnleveredAggregateLineKey(str, Enum):
             if member.value == value:
                 return member
         return None
-
-
 
 
 class LeveredAggregateLineKey(str, Enum):
@@ -508,8 +579,6 @@ class LeveredAggregateLineKey(str, Enum):
     TOTAL_DEBT_SERVICE = "Total Debt Service"  # Principal + Interest
     LEVERED_CASH_FLOW = "Levered Cash Flow"  # UCF - Debt Service
 
-
-
     @classmethod
     def from_value(cls, value: str) -> Optional["LeveredAggregateLineKey"]:
         """Look up enum member by its string value."""
@@ -517,8 +586,6 @@ class LeveredAggregateLineKey(str, Enum):
             if member.value == value:
                 return member
         return None
-
-
 
 
 class StartDateAnchorEnum(str, Enum):
@@ -633,17 +700,17 @@ class FeeTypeEnum(str, Enum):
 class TransactionPurpose(str, Enum):
     """
     High-level classification of transaction purposes in the ledger.
-    
-    Provides unambiguous categorization of financial flows following 
+
+    Provides unambiguous categorization of financial flows following
     standard real estate accounting principles.
-    
+
     Categories:
         OPERATING: Day-to-day property operations (revenue and expenses)
         CAPITAL_USE: Capital deployed for acquisition, improvements, or development
         CAPITAL_SOURCE: Capital raised from sales, refinancing, or equity contributions
         FINANCING_SERVICE: Debt service payments and financing-related flows
     """
-    
+
     OPERATING = "Operating"
     """
     Day-to-day property operations including all revenue and operating expenses.
@@ -651,7 +718,7 @@ class TransactionPurpose(str, Enum):
     - Expenses: Property taxes, insurance, utilities, maintenance, management
     - Both positive (income) and negative (expense) amounts
     """
-    
+
     CAPITAL_USE = "Capital Use"
     """
     Capital deployed for property acquisition, improvements, or development.
@@ -661,7 +728,7 @@ class TransactionPurpose(str, Enum):
     - Development costs and construction
     - Typically negative amounts (cash outflows)
     """
-    
+
     CAPITAL_SOURCE = "Capital Source"
     """
     Capital raised from asset sales, refinancing, equity, or debt financing.
@@ -672,7 +739,7 @@ class TransactionPurpose(str, Enum):
     - Debt draws during construction/development
     - Typically positive amounts (cash inflows that fund capital uses)
     """
-    
+
     FINANCING_SERVICE = "Financing Service"
     """
     Debt service payments and financing-related obligations.
@@ -680,4 +747,14 @@ class TransactionPurpose(str, Enum):
     - Loan fees and financing costs
     - Prepayment penalties
     - Typically negative amounts (cash outflows)
+    """
+
+    VALUATION = "Valuation"
+    """
+    Asset valuation and appraisal records for ledger-based analytics.
+    - Property appraisals and market valuations
+    - DCF-based valuations
+    - Comparable sales valuations
+    - Internal mark-to-market adjustments
+    - Zero cash flow impact (non-transactional)
     """

@@ -285,9 +285,15 @@ def create_development_deal(
     )
 
     # Step 4: Build the FinancingPlan
+    # Calculate total project value for Phase 1 explicit loan amounts
+    land_value = land_acquisition_terms["value"]
+    construction_cost = sum(item.value for item in capital_items)
+    total_project_value = land_value + construction_cost
+
     financing_plan = create_construction_to_permanent_plan(
         construction_terms=financing_plan_spec["construction_terms"],
         permanent_terms=financing_plan_spec["permanent_terms"],
+        project_value=total_project_value,  # Phase 1: Enable ratio-to-amount conversion
     )
 
     # Step 5: Build the PartnershipStructure

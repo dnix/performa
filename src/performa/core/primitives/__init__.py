@@ -29,6 +29,7 @@ from .enums import (
     DrawScheduleKindEnum,
     ExpenseCategoryEnum,
     ExpenseSubcategoryEnum,
+    FinancingSubcategoryEnum,
     FrequencyEnum,
     LeaseStatusEnum,
     LeaseTypeEnum,
@@ -42,6 +43,7 @@ from .enums import (
     UnleveredAggregateLineKey,
     UponExpirationEnum,
     VacancyLossMethodEnum,
+    ValuationSubcategoryEnum,
 )
 from .growth_rates import FixedGrowthRate, GrowthRates, PercentageGrowthRate
 from .model import Model
@@ -79,6 +81,7 @@ __all__ = [
     "CashFlowCategoryEnum",
     "DrawScheduleKindEnum",
     "ExpenseSubcategoryEnum",
+    "FinancingSubcategoryEnum",
     "FrequencyEnum",
     "LeaseStatusEnum",
     "LeaseTypeEnum",
@@ -91,6 +94,10 @@ __all__ = [
     "VacancyLossMethodEnum",
     "UnleveredAggregateLineKey",
     "LeveredAggregateLineKey",
+    "CapExCategoryEnum",
+    "CapitalSubcategoryEnum",
+    "ExpenseCategoryEnum",
+    "ValuationSubcategoryEnum",
     # Growth rates
     "GrowthRates",
     "PercentageGrowthRate",
@@ -113,7 +120,4 @@ __all__ = [
     "validate_conditional_requirement_decorator",
     "validate_mutual_exclusivity",
     "validate_term_specification",
-    "CapExCategoryEnum",
-    "CapitalSubcategoryEnum",
-    "ExpenseCategoryEnum",
 ]

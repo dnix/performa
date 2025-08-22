@@ -12,7 +12,7 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from performa.core.primitives import Timeline, UnleveredAggregateLineKey
+from performa.core.primitives import Timeline
 from performa.valuation import DCFValuation
 
 
@@ -421,7 +421,7 @@ class TestDCFContextIntegration:
     """Tests for DCF integration with AnalysisContext."""
 
     def test_compute_cf_with_unlevered_analysis(self):
-        """Test compute_cf with ledger builder (replaces deprecated unlevered_analysis)."""
+        """Test compute_cf with NOI series (clean architecture approach)."""
         dcf = DCFValuation(
             name="Test",
             discount_rate=0.08,
@@ -429,34 +429,15 @@ class TestDCFContextIntegration:
             hold_period_years=5,
         )
 
-        # Create mock context with ledger builder
+        # Create mock context with NOI series directly (clean architecture)
         mock_context = Mock()
         timeline = Timeline(start_date=datetime(2024, 1, 1), duration_months=60)
         mock_context.timeline = timeline
 
-        # Create mock ledger with consistent NOI data
-
-        # Create ledger with 5 years of monthly NOI transactions
-        ledger_data = []
-        for i in range(60):
-            month_date = date(2024 + i // 12, 1 + (i % 12), 1)
-            # Revenue: $12k/month  
-            ledger_data.append({
-                'date': month_date, 'amount': 12000, 'flow_purpose': 'Operating',
-                'category': 'Revenue', 'subcategory': 'Lease', 'item_name': 'Rent',
-                'source_id': 'test', 'asset_id': 'test', 'pass_num': 1
-            })
-            # Expenses: $2k/month (NOI = $10k/month)
-            ledger_data.append({
-                'date': month_date, 'amount': -2000, 'flow_purpose': 'Operating',
-                'category': 'Expense', 'subcategory': 'OpEx', 'item_name': 'Expenses',
-                'source_id': 'test', 'asset_id': 'test', 'pass_num': 1
-            })
-        
-        mock_ledger = pd.DataFrame(ledger_data)
-        mock_ledger_builder = Mock()
-        mock_ledger_builder.get_current_ledger.return_value = mock_ledger
-        mock_context.ledger_builder = mock_ledger_builder
+        # Create NOI series directly (clean architecture approach)  
+        # NOI = $10k/month for 5 years
+        noi_values = [10000.0] * 60
+        mock_context.noi_series = pd.Series(noi_values, index=timeline.period_index)
 
         # Run compute_cf
         result = dcf.compute_cf(mock_context)
@@ -483,11 +464,6 @@ class TestDCFContextIntegration:
         mock_context = Mock()
         timeline = Timeline(start_date=datetime(2024, 1, 1), duration_months=36)
         mock_context.timeline = timeline
-
-        # Create mock ledger builder with NOI data
-        from datetime import date
-
-        import pandas as pd
         
         # Create ledger with NOI transactions
         ledger_data = []
@@ -510,6 +486,14 @@ class TestDCFContextIntegration:
         mock_ledger_builder = Mock()
         mock_ledger_builder.get_current_ledger.return_value = mock_ledger
         mock_context.ledger_builder = mock_ledger_builder
+        
+        # Set NOI series directly (clean architecture - no fallback needed)
+        # NOI = Revenue ($10,000) - Expenses ($2,000) = $8,000 per month
+        mock_context.noi_series = pd.Series(
+            [8000.0] * 36, 
+            index=timeline.period_index,
+            name="Net Operating Income"
+        )
 
         # Run compute_cf
         result = dcf.compute_cf(mock_context)
@@ -524,7 +508,7 @@ class TestDCFContextIntegration:
         assert len(non_zero_periods) == 1
 
     def test_compute_cf_with_empty_noi_series(self):
-        """Test compute_cf with empty NOI series."""
+        """Test compute_cf with empty NOI series - should fail fast."""
         dcf = DCFValuation(
             name="Test",
             discount_rate=0.08,
@@ -536,23 +520,16 @@ class TestDCFContextIntegration:
         mock_context = Mock()
         timeline = Timeline(start_date=datetime(2024, 1, 1), duration_months=60)
         mock_context.timeline = timeline
+        
+        # Set empty NOI series (should trigger fail-fast)
+        mock_context.noi_series = pd.Series([], dtype=float)
 
-        mock_unlevered_analysis = Mock()
-        mock_unlevered_analysis.get_series.return_value = pd.Series(
-            [], dtype=float
-        )  # Empty series
-        mock_context.unlevered_analysis = mock_unlevered_analysis
-
-        # Run compute_cf
-        result = dcf.compute_cf(mock_context)
-
-        # Should return all zeros when no NOI data
-        assert isinstance(result, pd.Series)
-        assert len(result) == len(timeline.period_index)
-        assert result.sum() == 0.0  # No disposition proceeds
+        # Should raise exception for missing NOI data (fail-fast behavior)
+        with pytest.raises(RuntimeError, match="DCF valuation failed"):
+            dcf.compute_cf(mock_context)
 
     def test_compute_cf_with_no_analysis_data(self):
-        """Test compute_cf with no analysis data available."""
+        """Test compute_cf fails fast when no NOI data is provided (no fallback drivel)."""
         dcf = DCFValuation(
             name="Test",
             discount_rate=0.08,
@@ -560,25 +537,23 @@ class TestDCFContextIntegration:
             hold_period_years=5,
         )
 
-        # Create mock context with no unlevered analysis and no resolved lookups
+        # Create mock context with no NOI series - should fail fast
         mock_context = Mock()
         timeline = Timeline(start_date=datetime(2024, 1, 1), duration_months=60)
         mock_context.timeline = timeline
-        mock_context.unlevered_analysis = None
-        mock_context.resolved_lookups = {
-            UnleveredAggregateLineKey.NET_OPERATING_INCOME.value: None
-        }
+        mock_context.noi_series = None  # Missing required NOI data
 
-        # Run compute_cf
-        result = dcf.compute_cf(mock_context)
-
-        # Should return all zeros when no data available
-        assert isinstance(result, pd.Series)
-        assert len(result) == len(timeline.period_index)
-        assert result.sum() == 0.0
+        # Should raise clear error (fail fast, no fallback)
+        with pytest.raises(RuntimeError, match="DCF valuation failed: NOI series required"):
+            dcf.compute_cf(mock_context)
+            
+        # Also test with empty NOI series
+        mock_context.noi_series = pd.Series([], dtype=float)
+        with pytest.raises(RuntimeError, match="DCF valuation failed: NOI series required"):
+            dcf.compute_cf(mock_context)
 
     def test_compute_cf_with_exception_handling(self):
-        """Test compute_cf handles exceptions gracefully."""
+        """Test compute_cf fails fast with clear errors (no graceful fallback)."""
         dcf = DCFValuation(
             name="Test",
             discount_rate=0.08,
@@ -586,23 +561,19 @@ class TestDCFContextIntegration:
             hold_period_years=5,
         )
 
-        # Create mock context that raises exception
+        # Create mock context with invalid data that will cause internal errors
         mock_context = Mock()
         timeline = Timeline(start_date=datetime(2024, 1, 1), duration_months=60)
         mock_context.timeline = timeline
+        
+        # Test with NOI series that has invalid data (e.g., corrupted index)
+        import numpy as np
+        invalid_noi = pd.Series([100_000] * 12, index=[np.nan] * 12)  # NaN index will cause errors
+        mock_context.noi_series = invalid_noi
 
-        # Mock unlevered analysis that raises exception
-        mock_unlevered_analysis = Mock()
-        mock_unlevered_analysis.get_series.side_effect = Exception("Test exception")
-        mock_context.unlevered_analysis = mock_unlevered_analysis
-
-        # Run compute_cf - should not raise exception
-        result = dcf.compute_cf(mock_context)
-
-        # Should return all zeros when exception occurs
-        assert isinstance(result, pd.Series)
-        assert len(result) == len(timeline.period_index)
-        assert result.sum() == 0.0
+        # Should fail fast with clear error message (no silent fallback)
+        with pytest.raises(RuntimeError, match="DCF valuation failed"):
+            dcf.compute_cf(mock_context)
 
     def test_compute_cf_with_short_hold_period(self):
         """Test compute_cf with hold period shorter than timeline."""
@@ -610,84 +581,73 @@ class TestDCFContextIntegration:
             name="Test",
             discount_rate=0.08,
             terminal_cap_rate=0.065,
-            hold_period_years=2,  # Short period
+            hold_period_years=2,  # Short hold period
         )
 
-        # Create mock context with longer timeline
+        # Create mock context with longer timeline (5 years) but 2-year hold
         mock_context = Mock()
         timeline = Timeline(
             start_date=datetime(2024, 1, 1), duration_months=60
-        )  # 5 years
+        )  # 5 years total
         mock_context.timeline = timeline
-
-        # Create mock ledger with NOI data
-        from datetime import date
-
-        import pandas as pd
         
-        # Create 5 years of ledger data (longer than hold period)
-        ledger_data = []
-        for i in range(60):
-            month_date = date(2024 + i // 12, 1 + (i % 12), 1)
-            # Revenue: $18k/month  
-            ledger_data.append({
-                'date': month_date, 'amount': 18000, 'flow_purpose': 'Operating',
-                'category': 'Revenue', 'subcategory': 'Lease', 'item_name': 'Rent',
-                'source_id': 'test', 'asset_id': 'test', 'pass_num': 1
-            })
-            # Expenses: $3k/month (NOI = $15k/month)
-            ledger_data.append({
-                'date': month_date, 'amount': -3000, 'flow_purpose': 'Operating',
-                'category': 'Expense', 'subcategory': 'OpEx', 'item_name': 'Expenses',
-                'source_id': 'test', 'asset_id': 'test', 'pass_num': 1
-            })
-        
-        mock_ledger = pd.DataFrame(ledger_data)
-        mock_ledger_builder = Mock()
-        mock_ledger_builder.get_current_ledger.return_value = mock_ledger
-        mock_context.ledger_builder = mock_ledger_builder
+        # Create NOI series for full timeline (NOI = $15k/month)
+        noi_values = [15_000] * 60  # 5 years of constant NOI
+        noi_series = pd.Series(noi_values, index=timeline.period_index)
+        mock_context.noi_series = noi_series
 
         # Run compute_cf
         result = dcf.compute_cf(mock_context)
 
         # Verify results
         assert isinstance(result, pd.Series)
-        assert result.sum() > 0
+        assert result.sum() > 0, "Should have positive disposition proceeds"
 
         # Disposition should occur at end of 2-year hold period (month 24), not at end of timeline
         non_zero_periods = result[result > 0]
-        assert len(non_zero_periods) == 1
+        assert len(non_zero_periods) == 1, "Should have exactly one disposition period"
+        
         disposition_period = non_zero_periods.index[0]
-        # Should be at or before month 24 (2 years * 12 months)
-        position = timeline.period_index.get_loc(disposition_period)
-        assert position < 24  # Should be within the hold period
+        # Should be at month 23 (0-indexed, so 24th month)
+        expected_month = 2 * 12 - 1  # 2 years * 12 months - 1 for 0-indexing
+        actual_month = timeline.period_index.get_loc(disposition_period)
+        assert actual_month == expected_month, \
+            f"Disposition should be at month {expected_month}, but found at month {actual_month}"
 
     def test_compute_cf_edge_case_zero_hold_period_end(self):
-        """Test compute_cf when hold_period_end calculation results in zero."""
+        """Test compute_cf when timeline is shorter than hold period."""
         dcf = DCFValuation(
             name="Test",
             discount_rate=0.08,
             terminal_cap_rate=0.065,
-            hold_period_years=1,
+            hold_period_years=1,  # 1 year hold period
         )
 
         # Create mock context with very short timeline (shorter than hold period)
         mock_context = Mock()
         timeline = Timeline(
             start_date=datetime(2024, 1, 1), duration_months=6
-        )  # Only 6 months
+        )  # Only 6 months (shorter than 1 year hold)
         mock_context.timeline = timeline
 
-        # Create mock unlevered analysis
-        mock_unlevered_analysis = Mock()
-        monthly_noi = [5000] * 6
+        # Create NOI series directly for the new architecture
+        monthly_noi = [5_000] * 6  # $5k/month for 6 months
         noi_series = pd.Series(monthly_noi, index=timeline.period_index)
-        mock_unlevered_analysis.get_series.return_value = noi_series
-        mock_context.unlevered_analysis = mock_unlevered_analysis
+        mock_context.noi_series = noi_series
 
         # Run compute_cf
         result = dcf.compute_cf(mock_context)
 
-        # Should still work and place disposition at end of available timeline
+        # Should work and place disposition at end of available timeline
         assert isinstance(result, pd.Series)
         assert len(result) == len(timeline.period_index)
+        assert result.sum() > 0, "Should have positive disposition proceeds"
+        
+        # Disposition should be at the last available period (month 5, 0-indexed)
+        non_zero_periods = result[result > 0]
+        assert len(non_zero_periods) == 1, "Should have exactly one disposition period"
+        
+        disposition_period = non_zero_periods.index[0]
+        last_period = timeline.period_index[-1]
+        assert disposition_period == last_period, \
+            "Disposition should be at the last available period when timeline < hold period"

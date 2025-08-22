@@ -129,7 +129,7 @@ def test_office_fundamental_sanity() -> bool:
         timeline=timeline,
         settings=GlobalSettings(),
     )
-    
+
     context = AnalysisContext(
         timeline=timeline,
         settings=GlobalSettings(),

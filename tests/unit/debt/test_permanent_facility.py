@@ -10,6 +10,7 @@ Tests the enhanced PermanentFacility functionality including the "Sizing Trifect
 
 import pandas as pd
 import pytest
+from pydantic import ValidationError
 
 from performa.core.primitives import Timeline
 from performa.debt.permanent import PermanentFacility
@@ -294,12 +295,12 @@ class TestPermanentFacilityValidation:
         assert facility.ltv_ratio == 0.75
 
         # Invalid LTV should fail
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             PermanentFacility(
                 name="Test Loan",
                 interest_rate=InterestRate(details=FixedRate(rate=0.06)),
                 loan_term_years=10,
-                ltv_ratio=0.85,  # Too high
+                ltv_ratio=0.86,  # Too high (exceeds max of 0.85)
                 dscr_hurdle=1.25,
                 sizing_method="manual",
                 loan_amount=5_000_000,

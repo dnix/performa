@@ -20,7 +20,7 @@ from .distribution_calculator import (
 )
 from .entities import Entity, Partner, ThirdParty
 from .fees import DealFee
-from .orchestrator import DealCalculator
+from .orchestrator import DealCalculator, DealContext
 from .partnership import (
     CarryPromote,
     PartnershipStructure,
@@ -39,6 +39,7 @@ __all__ = [
     "analyze",
     "DealAnalysisResult",
     "DealCalculator",
+    "DealContext",
     # Partnership structures
     "Entity",
     "Partner",

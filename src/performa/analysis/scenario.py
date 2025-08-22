@@ -33,7 +33,7 @@ class AnalysisScenarioBase(Model, ABC):
         # 2. CREATE CONTEXT: Create the mutable state packet with builder
         # The scenario can populate pre-calculated state here
         recovery_states = getattr(self, "_recovery_states", {})
-        
+
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,

@@ -829,7 +829,9 @@ class PartnershipAnalyzer:
 
         # Add distribution records to ledger (ledger_builder must be provided)
         if ledger_builder is None:
-            raise ValueError("ledger_builder is required and must contain prior transaction data")
+            raise ValueError(
+                "ledger_builder is required and must contain prior transaction data"
+            )
         self._add_distribution_records_to_ledger(ledger_builder)
 
         return self.partner_distributions
@@ -837,33 +839,43 @@ class PartnershipAnalyzer:
     def _add_distribution_records_to_ledger(self, ledger_builder: LedgerBuilder):
         """
         Add partner distribution transactions to the ledger.
-        
-        This method takes the calculated distributions and adds them as 
+
+        This method takes the calculated distributions and adds them as
         distribution transactions to the ledger for full audit trail.
-        
+
         Args:
             ledger_builder: The ledger builder to add transactions to
         """
-        
-        if (self.partner_distributions is None or 
-            not hasattr(self.partner_distributions, 'waterfall_details') or
-            self.partner_distributions.waterfall_details is None):
+
+        if (
+            self.partner_distributions is None
+            or not hasattr(self.partner_distributions, "waterfall_details")
+            or self.partner_distributions.waterfall_details is None
+        ):
             return
-        
-        # Add partner distribution transactions  
-        if hasattr(self.partner_distributions.waterfall_details, 'partner_results'):
-            for partner_name, partner_metrics in self.partner_distributions.waterfall_details.partner_results.items():
-                if partner_metrics.cash_flows is not None and partner_metrics.cash_flows.sum() != 0:
+
+        # Add partner distribution transactions
+        if hasattr(self.partner_distributions.waterfall_details, "partner_results"):
+            for (
+                partner_name,
+                partner_metrics,
+            ) in self.partner_distributions.waterfall_details.partner_results.items():
+                if (
+                    partner_metrics.cash_flows is not None
+                    and partner_metrics.cash_flows.sum() != 0
+                ):
                     metadata = SeriesMetadata(
                         category="Financing",
                         subcategory="Distribution",
                         item_name=f"Distribution to {partner_name}",
-                        source_id=getattr(partner_metrics.partner_info, 'uid', None),
+                        source_id=getattr(partner_metrics.partner_info, "uid", None),
                         asset_id=self.deal.asset.uid,
                         deal_id=self.deal.uid,
-                        entity_id=getattr(partner_metrics.partner_info, 'uid', None),
-                        entity_type="GP" if getattr(partner_metrics.partner_info, 'is_gp', False) else "LP",
-                        pass_num=3  # TODO: Check this: Partnership is pass 3
+                        entity_id=getattr(partner_metrics.partner_info, "uid", None),
+                        entity_type="GP"
+                        if getattr(partner_metrics.partner_info, "is_gp", False)
+                        else "LP",
+                        pass_num=3,  # TODO: Check this: Partnership is pass 3
                     )
                     # Note: Use negative cash flows since distributions are outflows from project perspective
                     distribution_flows = -1 * partner_metrics.cash_flows

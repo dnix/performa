@@ -10,7 +10,7 @@ that serves as the single source of truth for all financial calculations.
 
 Key Components:
     - TransactionRecord: Immutable transaction representation
-    - SeriesMetadata: Type-safe metadata for Series conversion  
+    - SeriesMetadata: Type-safe metadata for Series conversion
     - LedgerBuilder: Progressive ledger construction with ownership pattern
     - LedgerQueries: Clean query interface for financial metrics
     - FlowPurposeMapper: Business logic for transaction classification
@@ -25,28 +25,28 @@ Architecture:
 Usage:
     ```python
     from performa.core.ledger import LedgerBuilder, SeriesMetadata
-    
+
     # Create builder
     builder = LedgerBuilder()
-    
+
     # Add series with metadata
     metadata = SeriesMetadata(
         category="Revenue",
-        subcategory="Rent", 
+        subcategory="Rent",
         item_name="Base Rent",
         source_id=model.uid,
         asset_id=property.uid,
         pass_num=1
     )
     builder.add_series(cash_flow_series, metadata)
-    
+
     # Get ledger (builder owns it)
     ledger = builder.get_current_ledger()
     ```
 """
 
 # Core data models
-# Builder and query interface  
+# Builder and query interface
 from .builder import LedgerBuilder
 
 # Utilities
@@ -62,15 +62,12 @@ __all__ = [
     # Core data models
     "TransactionRecord",
     "SeriesMetadata",
-    
     # Builder and query interface
     "LedgerBuilder",
     "LedgerQueries",
-    
     # Utilities
     "FlowPurposeMapper",
     "LedgerGenerationSettings",
-    
     # Type aliases
     "AnalysisLedger",
 ]

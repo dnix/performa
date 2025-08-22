@@ -8,8 +8,6 @@ These classes provide the foundation for translating Performa's internal
 models into familiar real estate industry formats and terminology.
 """
 
-
-
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Dict, List
 

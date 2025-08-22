@@ -22,16 +22,14 @@ OfficeGeneralVacancyLoss = VacancyLossConfig
 class OfficeLosses(Model):
     """
     Office-specific container for property-level loss configurations.
-    
+
     Maintains backward compatibility with existing field names while
     using the new clean loss configuration classes internally.
     """
-    
+
     general_vacancy: Optional[VacancyLossConfig] = Field(
-        default=None,
-        description="General vacancy loss configuration"
+        default=None, description="General vacancy loss configuration"
     )
     credit_loss: Optional[CreditLossConfig] = Field(
-        default=None,
-        description="Credit loss configuration"
+        default=None, description="Credit loss configuration"
     )

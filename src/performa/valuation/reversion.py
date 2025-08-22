@@ -10,17 +10,16 @@ office, residential, development projects, existing assets, etc.
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Dict, Literal, Optional
 from uuid import UUID, uuid4
 
 import pandas as pd
 from pydantic import Field, model_validator
 
-from ..core.primitives import Model, PositiveFloat, UnleveredAggregateLineKey
+from ..core.primitives import Model, PositiveFloat
 
 if TYPE_CHECKING:
-    from performa.analysis import AnalysisContext
+    from performa.deal.orchestrator import DealContext
 
 
 class ReversionValuation(Model):
@@ -198,7 +197,7 @@ class ReversionValuation(Model):
             else 0.0,
         }
 
-    def compute_cf(self, context: "AnalysisContext") -> pd.Series:
+    def compute_cf(self, context: "DealContext") -> pd.Series:
         """
         Compute disposition cash flow series for reversion valuation.
 
@@ -206,7 +205,7 @@ class ReversionValuation(Model):
         appropriate time in the analysis timeline, typically at the end of the hold period.
 
         Args:
-            context: Analysis context containing timeline, settings, and analysis results
+            context: Deal context containing timeline, settings, deal data, and NOI series
 
         Returns:
             pd.Series containing disposition proceeds aligned with timeline
@@ -215,31 +214,15 @@ class ReversionValuation(Model):
         disposition_cf = pd.Series(0.0, index=context.timeline.period_index)
 
         try:
-            # Extract stabilized NOI from unlevered analysis
-            if hasattr(context, "unlevered_analysis") and context.unlevered_analysis:
-                # Get NOI series from the analysis
-                noi_series = context.unlevered_analysis.get_series(
-                    UnleveredAggregateLineKey.NET_OPERATING_INCOME, context.timeline
+            # Get stabilized NOI from deal context (required - no fallbacks)
+            if context.noi_series is None or context.noi_series.empty:
+                raise ValueError(
+                    "NOI series required for reversion valuation but not provided in DealContext"
                 )
 
-                # Use the last period's NOI as stabilized NOI (annualized)
-                if not noi_series.empty:
-                    stabilized_monthly_noi = noi_series.iloc[-1]  # Last period NOI
-                    stabilized_annual_noi = stabilized_monthly_noi * 12  # Annualize
-                else:
-                    stabilized_annual_noi = 0.0
-            else:
-                # Fallback: try to get from resolved lookups
-                noi_lookup = context.resolved_lookups.get(
-                    UnleveredAggregateLineKey.NET_OPERATING_INCOME.value
-                )
-                if noi_lookup is not None and isinstance(noi_lookup, pd.Series):
-                    stabilized_monthly_noi = (
-                        noi_lookup.iloc[-1] if not noi_lookup.empty else 0.0
-                    )
-                    stabilized_annual_noi = stabilized_monthly_noi * 12
-                else:
-                    stabilized_annual_noi = 0.0
+            # Use the last period's NOI as stabilized NOI (annualized)
+            stabilized_monthly_noi = context.noi_series.iloc[-1]  # Last period NOI
+            stabilized_annual_noi = stabilized_monthly_noi * 12  # Annualize
 
             # Calculate net disposition proceeds using our existing logic
             if stabilized_annual_noi > 0:
@@ -252,9 +235,8 @@ class ReversionValuation(Model):
                     disposition_cf[disposition_period] = net_proceeds
 
         except Exception as e:
-            # Log warning but continue with zeros
-            logger = logging.getLogger(__name__)
-            logger.warning(f"Could not calculate reversion disposition proceeds: {e}")
+            # Fail fast instead of silently returning zeros
+            raise RuntimeError(f"Reversion valuation failed: {e}") from e
 
         return disposition_cf
 

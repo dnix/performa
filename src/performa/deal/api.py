@@ -9,6 +9,7 @@ Main entry point for deal-level analysis functionality.
 
 from typing import TYPE_CHECKING, Optional
 
+from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
 from performa.core.primitives import GlobalSettings, Timeline
 from performa.deal.deal import Deal
 from performa.deal.orchestrator import DealCalculator
@@ -20,11 +21,11 @@ if TYPE_CHECKING:
 
 
 def analyze(
-    deal: Deal, 
-    timeline: Timeline, 
+    deal: Deal,
+    timeline: Timeline,
     settings: Optional[GlobalSettings] = None,
     asset_analysis: Optional["AssetAnalysisResult"] = None,
-    ledger_builder: Optional["LedgerBuilder"] = None
+    ledger_builder: Optional["LedgerBuilder"] = None,
 ) -> DealAnalysisResult:
     """
     Analyze a complete real estate deal with strongly-typed results.
@@ -93,7 +94,7 @@ def analyze(
 
     # Determine ledger_builder source with validation (Pass-the-Builder pattern)
     # This supports maximum flexibility while preventing ambiguous cases
-    
+
     if asset_analysis is not None and ledger_builder is not None:
         # CASE: Both asset_analysis and ledger_builder provided
         # Validate they're the same instance to prevent confusion
@@ -106,24 +107,27 @@ def analyze(
             )
         # Same instance - use it (explicit validation passed)
         latest_ledger_builder = asset_analysis.ledger_builder
-        calculator = DealCalculator(deal, timeline, settings, asset_analysis=asset_analysis)
-        
+        calculator = DealCalculator(
+            deal, timeline, settings, asset_analysis=asset_analysis
+        )
+
     elif asset_analysis is not None:
         # CASE: Only asset_analysis provided - reuse existing analysis
         # Use the ledger from the pre-computed asset analysis
         latest_ledger_builder = asset_analysis.ledger_builder
-        calculator = DealCalculator(deal, timeline, settings, asset_analysis=asset_analysis)
-        
+        calculator = DealCalculator(
+            deal, timeline, settings, asset_analysis=asset_analysis
+        )
+
     elif ledger_builder is not None:
         # CASE: Only ledger_builder provided - use custom ledger
         # Run fresh asset analysis with the provided ledger
         latest_ledger_builder = ledger_builder
         calculator = DealCalculator(deal, timeline, settings)
-        
+
     else:
         # CASE: Neither provided - create fresh analysis
         # Create new ledger builder for complete fresh analysis
-        from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
         latest_ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
         calculator = DealCalculator(deal, timeline, settings)
 

@@ -112,7 +112,7 @@ class AnalysisContext:
     timeline: "Timeline"
     settings: "GlobalSettings"
     property_data: "PropertyBaseModel"
-    
+
     # --- Ledger Builder (Required - single source of truth) ---
     ledger_builder: LedgerBuilder  # Must be explicitly provided
 
@@ -297,20 +297,20 @@ class CashFlowOrchestrator:
         )
 
         # === INTERMEDIATE PHASE: MINIMAL AGGREGATION FOR DEPENDENT MODELS ===
-        logger.info("Intermediate Phase: Computing minimal aggregates for dependent models...")
+        logger.info(
+            "Intermediate Phase: Computing minimal aggregates for dependent models..."
+        )
         intermediate_start = time.time()
 
         # For dependent models that reference aggregates, we need to provide ALL aggregates
         # This ensures dependent models never fail due to missing aggregate references
         if self.models:  # Only if we have models
-            # Get current ledger and create aggregates for dependent models  
+            # Get current ledger and create aggregates for dependent models
             current_ledger = self.context.ledger_builder.get_current_ledger()
-            
+
             # Always populate aggregates - either from ledger data or as zeros
             # Use DRY helper method to avoid duplication
             self._update_aggregates_from_ledger(current_ledger, "intermediate")
-                
-
 
         intermediate_time = time.time() - intermediate_start
         logger.info(f"Intermediate Phase completed in {intermediate_time:.3f}s")
@@ -405,45 +405,45 @@ class CashFlowOrchestrator:
     def _to_period_series(self, series: Any) -> pd.Series:
         """
         Convert series with date index to PeriodIndex.
-        
+
         Args:
             series: Input series (may be pd.Series or other type)
-            
+
         Returns:
             Series with PeriodIndex matching timeline
         """
         # Handle edge case: timeline has no periods
         if self.context.timeline.period_index.empty:
             return pd.Series(dtype=float)
-            
+
         # Handle case where series is not a Series (defensive)
         if not isinstance(series, pd.Series):
             return pd.Series(0.0, index=self.context.timeline.period_index)
-        
+
         # Handle empty series
         if series.empty:
             return pd.Series(0.0, index=self.context.timeline.period_index)
-        
+
         # Create a new series with proper PeriodIndex
         result = pd.Series(0.0, index=self.context.timeline.period_index)
         for date_val, amount in series.items():
             # Convert date to period
-            period = pd.Period(date_val, freq='M')
+            period = pd.Period(date_val, freq="M")
             if period in result.index:
                 result[period] = amount
         return result
 
     def _update_aggregates_from_ledger(
-            self,
-            ledger: pd.DataFrame,
-            phase_name: Literal["intermediate", "final"] = "final"
-        ) -> None:
+        self,
+        ledger: pd.DataFrame,
+        phase_name: Literal["intermediate", "final"] = "final",
+    ) -> None:
         """
         DRY method to update aggregates from ledger state.
-        
+
         This centralizes all aggregate updates to avoid duplication.
         Can be called at intermediate or final phases.
-        
+
         Args:
             ledger: Current ledger DataFrame
             phase_name: Name of phase for logging ("intermediate" or "final")
@@ -451,16 +451,18 @@ class CashFlowOrchestrator:
         if ledger.empty:
             # Populate all aggregates with zeros
             zero_series = pd.Series(0.0, index=self.context.timeline.period_index)
-            
+
             for key in UnleveredAggregateLineKey:
                 # Use copy to avoid shared reference issues
                 self.context.resolved_lookups[key.value] = zero_series.copy()
-                
-            logger.debug(f"Populated {len(UnleveredAggregateLineKey)} zero-valued aggregates for empty ledger ({phase_name} phase)")
+
+            logger.debug(
+                f"Populated {len(UnleveredAggregateLineKey)} zero-valued aggregates for empty ledger ({phase_name} phase)"
+            )
         else:
             # Create queries once (performance optimization)
             queries = LedgerQueries(ledger)
-            
+
             # Map aggregate keys to query methods (using aliased enum)
             aggregate_mappings = {
                 AggKeys.GROSS_POTENTIAL_RENT: queries.gpr,
@@ -479,67 +481,76 @@ class CashFlowOrchestrator:
                 AggKeys.TOTAL_LEASING_COMMISSIONS: queries.lc,
                 AggKeys.UNLEVERED_CASH_FLOW: queries.ucf,
             }
-            
+
             # Special cases that need zero values (not yet tracked in ledger)
             zero_series = pd.Series(0.0, index=self.context.timeline.period_index)
             special_cases = {
                 AggKeys.DOWNTIME_VACANCY_LOSS: zero_series,
                 AggKeys.ROLLOVER_VACANCY_LOSS: zero_series,
             }
-            
+
             # Update all aggregates
             for key, query_method in aggregate_mappings.items():
                 try:
                     result = query_method()
-                    self.context.resolved_lookups[key.value] = self._to_period_series(result)
+                    self.context.resolved_lookups[key.value] = self._to_period_series(
+                        result
+                    )
                 except Exception as e:
                     logger.warning(f"Failed to compute {key.value}: {e}. Using zeros.")
-                    self.context.resolved_lookups[key.value] = pd.Series(0.0, index=self.context.timeline.period_index)
-            
+                    self.context.resolved_lookups[key.value] = pd.Series(
+                        0.0, index=self.context.timeline.period_index
+                    )
+
             # Add special cases
             for key, value in special_cases.items():
                 self.context.resolved_lookups[key.value] = value
-            
-            logger.debug(f"Updated {len(aggregate_mappings) + len(special_cases)} aggregates from ledger ({phase_name} phase)")
 
-
+            logger.debug(
+                f"Updated {len(aggregate_mappings) + len(special_cases)} aggregates from ledger ({phase_name} phase)"
+            )
 
     def get_series_with_metadata(
-        self, 
-        asset_id: UUID, 
-        deal_id: Optional[UUID] = None
+        self, asset_id: UUID, deal_id: Optional[UUID] = None
     ) -> List[Tuple[pd.Series, SeriesMetadata]]:
         """
         Return (Series, SeriesMetadata) tuples for ledger building.
-        
+
         Follows the existing detailed_flows_list pattern from _aggregate_flows().
-        This method extracts the metadata-rich series information that the 
+        This method extracts the metadata-rich series information that the
         orchestrator already tracks internally.
-        
+
         Args:
             asset_id: UUID of the asset these flows belong to
             deal_id: Optional UUID of the deal (for deal-level analysis)
-            
+
         Returns:
             List of (pd.Series, SeriesMetadata) tuples ready for ledger building
-            
+
         Note:
             This must be called after execute() to ensure resolved_lookups is populated.
         """
-        
-        if not hasattr(self.context, 'resolved_lookups') or not self.context.resolved_lookups:
+
+        if (
+            not hasattr(self.context, "resolved_lookups")
+            or not self.context.resolved_lookups
+        ):
             raise ValueError("Must call execute() before get_series_with_metadata()")
-        
+
         pairs = []
-        
+
         # Follow the existing pattern from _aggregate_flows()
         for lookup_key, result in self.context.resolved_lookups.items():
             if isinstance(lookup_key, UUID):
                 model = self.model_map[lookup_key]
-                
+
                 # Determine pass number from model's calculation pass
-                pass_num = 1 if model.calculation_pass == OrchestrationPass.INDEPENDENT_MODELS else 2
-                
+                pass_num = (
+                    1
+                    if model.calculation_pass == OrchestrationPass.INDEPENDENT_MODELS
+                    else 2
+                )
+
                 if isinstance(result, dict):  # Multi-component (e.g., lease)
                     for component, series in result.items():
                         if series is not None and not series.empty:
@@ -550,10 +561,10 @@ class CashFlowOrchestrator:
                                 source_id=model.uid,
                                 asset_id=asset_id,
                                 pass_num=pass_num,
-                                deal_id=deal_id
+                                deal_id=deal_id,
                             )
                             pairs.append((series, metadata))
-                            
+
                 elif isinstance(result, pd.Series):  # Simple series
                     if result is not None and not result.empty:
                         metadata = SeriesMetadata(
@@ -563,10 +574,10 @@ class CashFlowOrchestrator:
                             source_id=model.uid,
                             asset_id=asset_id,
                             pass_num=pass_num,
-                            deal_id=deal_id
+                            deal_id=deal_id,
                         )
                         pairs.append((result, metadata))
-        
+
         return pairs
 
     # --- CRITICAL METHOD 2: _calculate_occupancy_series() ---
@@ -656,13 +667,13 @@ class CashFlowOrchestrator:
                 result = model.compute_cf(context=self.context)
 
             self.context.resolved_lookups[model.uid] = result
-            
+
             # Add to ledger as we compute (new single source of truth)
             self._add_to_ledger(model, result)
-            
+
             # Update aggregates after each model in Phase 2 to ensure dependent models
             # have access to fresh aggregate data from previously processed models
-            # This is necessary because some dependent models (like credit loss) 
+            # This is necessary because some dependent models (like credit loss)
             # depend on aggregates that include other dependent models (like vacancy loss)
             if model.calculation_pass == OrchestrationPass.DEPENDENT_MODELS:
                 current_ledger = self.context.ledger_builder.get_current_ledger()
@@ -670,25 +681,33 @@ class CashFlowOrchestrator:
 
     def _add_to_ledger(self, model: "CashFlowModel", result: Any) -> None:
         """Add model cash flows to ledger with metadata."""
-        logger.debug(f"_add_to_ledger called for model: {model.name}, result type: {type(result)}")
-        
+        logger.debug(
+            f"_add_to_ledger called for model: {model.name}, result type: {type(result)}"
+        )
+
         # Get analysis timeline for alignment
         analysis_periods = self.context.timeline.period_index
-        
+
         if isinstance(result, dict):  # E.g., a lease with multiple components
-            logger.debug(f"Processing dict result with {len(result)} components: {list(result.keys())}")
+            logger.debug(
+                f"Processing dict result with {len(result)} components: {list(result.keys())}"
+            )
             for component, series in result.items():
                 if isinstance(series, pd.Series) and not series.empty:
                     # Align series to analysis timeline - only keep periods that overlap
                     aligned_series = series.reindex(analysis_periods, fill_value=0.0)
-                    
+
                     # Skip if no overlap with analysis period
                     if aligned_series.sum() == 0 and series.sum() != 0:
-                        logger.debug(f"Skipping {component} - no overlap with analysis period")
+                        logger.debug(
+                            f"Skipping {component} - no overlap with analysis period"
+                        )
                         continue
-                    
-                    logger.debug(f"Adding non-empty series: {component} with {len(aligned_series)} periods")
-                    
+
+                    logger.debug(
+                        f"Adding non-empty series: {component} with {len(aligned_series)} periods"
+                    )
+
                     # Map component names to appropriate subcategories
                     component_subcategory = model.subcategory
                     if component == "recoveries":
@@ -696,13 +715,13 @@ class CashFlowOrchestrator:
                     elif component == "abatement":
                         component_subcategory = RevenueSubcategoryEnum.ABATEMENT
                     # Add more component mappings as needed
-                    
+
                     # Apply sign conventions
                     series_to_add = aligned_series
                     if component == "abatement":
                         # Abatement is a revenue reduction (negative)
                         series_to_add = -aligned_series
-                    
+
                     metadata = SeriesMetadata(
                         category=model.category,
                         subcategory=component_subcategory,
@@ -712,38 +731,55 @@ class CashFlowOrchestrator:
                         pass_num=model.calculation_pass.value,  # Use model's actual calculation pass
                     )
                     self.context.ledger_builder.add_series(series_to_add, metadata)
-                    logger.debug(f"Added to ledger: {model.name} - {component} ({len(aligned_series)} periods)")
+                    logger.debug(
+                        f"Added to ledger: {model.name} - {component} ({len(aligned_series)} periods)"
+                    )
                 else:
-                    logger.debug(f"Skipping component {component}: empty={series.empty if isinstance(series, pd.Series) else 'not Series'}")
-                    
+                    logger.debug(
+                        f"Skipping component {component}: empty={series.empty if isinstance(series, pd.Series) else 'not Series'}"
+                    )
+
         elif isinstance(result, pd.Series):  # A simple cash flow
             if not result.empty:
                 # Align series to analysis timeline - only keep periods that overlap
                 aligned_result = result.reindex(analysis_periods, fill_value=0.0)
-                
+
                 # Skip if no overlap with analysis period
                 if aligned_result.sum() == 0 and result.sum() != 0:
-                    logger.debug(f"Skipping {model.name} - no overlap with analysis period")
+                    logger.debug(
+                        f"Skipping {model.name} - no overlap with analysis period"
+                    )
                     return
-                    
+
                 # Apply sign conventions for outflows vs inflows
                 series_to_add = aligned_result
-                
+
                 # Expenses and Capital are outflows (negative in ledger)
                 if model.category == CashFlowCategoryEnum.EXPENSE:
-                    series_to_add = -aligned_result  # Operating expenses are outflows (negative)
+                    series_to_add = (
+                        -aligned_result
+                    )  # Operating expenses are outflows (negative)
                 elif model.category == CashFlowCategoryEnum.CAPITAL:
-                    series_to_add = -aligned_result  # Capital expenditures are outflows (negative)
+                    series_to_add = (
+                        -aligned_result
+                    )  # Capital expenditures are outflows (negative)
                 # Revenue subcategories that are losses (negative in ledger)
-                elif (model.category == CashFlowCategoryEnum.REVENUE and 
-                      hasattr(model, 'subcategory') and
-                      model.subcategory in [RevenueSubcategoryEnum.VACANCY_LOSS, 
-                                           RevenueSubcategoryEnum.CREDIT_LOSS,
-                                           RevenueSubcategoryEnum.ABATEMENT]):
-                    series_to_add = -aligned_result  # Revenue losses are negative (reduce income)
+                elif (
+                    model.category == CashFlowCategoryEnum.REVENUE
+                    and hasattr(model, "subcategory")
+                    and model.subcategory
+                    in [
+                        RevenueSubcategoryEnum.VACANCY_LOSS,
+                        RevenueSubcategoryEnum.CREDIT_LOSS,
+                        RevenueSubcategoryEnum.ABATEMENT,
+                    ]
+                ):
+                    series_to_add = (
+                        -aligned_result
+                    )  # Revenue losses are negative (reduce income)
                 # Regular Revenue stays positive (inflows)
                 # Financing handled separately based on direction
-                    
+
                 metadata = SeriesMetadata(
                     category=model.category,
                     subcategory=model.subcategory,
@@ -753,66 +789,96 @@ class CashFlowOrchestrator:
                     pass_num=model.calculation_pass.value,  # Use model's actual calculation pass
                 )
                 self.context.ledger_builder.add_series(series_to_add, metadata)
-                logger.debug(f"Added to ledger: {model.name} ({len(aligned_result)} periods)")
+                logger.debug(
+                    f"Added to ledger: {model.name} ({len(aligned_result)} periods)"
+                )
         else:
-            logger.debug(f"Skipped adding to ledger: {model.name} (empty or invalid result)")
+            logger.debug(
+                f"Skipped adding to ledger: {model.name} (empty or invalid result)"
+            )
 
     def _finalize_aggregation(self) -> None:
         """
         Generate final summary_df and update aggregates from complete ledger.
-        
+
         This method:
         1. Queries the complete ledger (after all phases)
         2. Creates the summary DataFrame for reporting
         3. Updates resolved_lookups with final aggregate values
-        
+
         This is the ONLY place we query the complete ledger for final aggregates.
         """
         # Get complete ledger data (includes Phase 1 and Phase 2 results)
         ledger = self.context.ledger_builder.get_current_ledger()
         analysis_periods = self.context.timeline.period_index
-        
-        logger.info(f"Finalizing aggregation from ledger with {len(ledger)} transactions")
-        
+
+        logger.info(
+            f"Finalizing aggregation from ledger with {len(ledger)} transactions"
+        )
+
         if ledger.empty:
             logger.warning("Ledger is empty - creating zero-filled summary_df")
             # Create zero-filled summary with proper structure
             summary_data = {
-                'Potential Gross Revenue': pd.Series(0.0, index=analysis_periods),
-                'Vacancy Loss': pd.Series(0.0, index=analysis_periods),
-                'Effective Gross Income': pd.Series(0.0, index=analysis_periods),
-                'Operating Expenses': pd.Series(0.0, index=analysis_periods),
-                'Net Operating Income': pd.Series(0.0, index=analysis_periods),
-                'Capital Expenditures': pd.Series(0.0, index=analysis_periods),
-                'Tenant Improvements': pd.Series(0.0, index=analysis_periods),
-                'Leasing Commissions': pd.Series(0.0, index=analysis_periods),
-                'Unlevered Cash Flow': pd.Series(0.0, index=analysis_periods),
-                'Miscellaneous Income': pd.Series(0.0, index=analysis_periods),
-                'Rental Abatement': pd.Series(0.0, index=analysis_periods),
-                'Expense Reimbursements': pd.Series(0.0, index=analysis_periods),
+                "Potential Gross Revenue": pd.Series(0.0, index=analysis_periods),
+                "Vacancy Loss": pd.Series(0.0, index=analysis_periods),
+                "Effective Gross Income": pd.Series(0.0, index=analysis_periods),
+                "Operating Expenses": pd.Series(0.0, index=analysis_periods),
+                "Net Operating Income": pd.Series(0.0, index=analysis_periods),
+                "Capital Expenditures": pd.Series(0.0, index=analysis_periods),
+                "Tenant Improvements": pd.Series(0.0, index=analysis_periods),
+                "Leasing Commissions": pd.Series(0.0, index=analysis_periods),
+                "Unlevered Cash Flow": pd.Series(0.0, index=analysis_periods),
+                "Miscellaneous Income": pd.Series(0.0, index=analysis_periods),
+                "Rental Abatement": pd.Series(0.0, index=analysis_periods),
+                "Expense Reimbursements": pd.Series(0.0, index=analysis_periods),
             }
             self.summary_df = pd.DataFrame(summary_data, index=analysis_periods)
-            
+
             # Create agg_flows dict for empty case too
             self.agg_flows = {
-                UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE: summary_data['Potential Gross Revenue'],
-                UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS: summary_data['Vacancy Loss'],
-                UnleveredAggregateLineKey.MISCELLANEOUS_INCOME: summary_data['Miscellaneous Income'],
-                UnleveredAggregateLineKey.RENTAL_ABATEMENT: summary_data['Rental Abatement'],
-                UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS: summary_data['Expense Reimbursements'],
-                UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME: summary_data['Effective Gross Income'],
-                UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES: summary_data['Operating Expenses'],
-                UnleveredAggregateLineKey.NET_OPERATING_INCOME: summary_data['Net Operating Income'],
-                UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES: summary_data['Capital Expenditures'],
-                UnleveredAggregateLineKey.TOTAL_TENANT_IMPROVEMENTS: summary_data['Tenant Improvements'],
-                UnleveredAggregateLineKey.TOTAL_LEASING_COMMISSIONS: summary_data['Leasing Commissions'],
-                UnleveredAggregateLineKey.UNLEVERED_CASH_FLOW: summary_data['Unlevered Cash Flow'],
+                UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE: summary_data[
+                    "Potential Gross Revenue"
+                ],
+                UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS: summary_data[
+                    "Vacancy Loss"
+                ],
+                UnleveredAggregateLineKey.MISCELLANEOUS_INCOME: summary_data[
+                    "Miscellaneous Income"
+                ],
+                UnleveredAggregateLineKey.RENTAL_ABATEMENT: summary_data[
+                    "Rental Abatement"
+                ],
+                UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS: summary_data[
+                    "Expense Reimbursements"
+                ],
+                UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME: summary_data[
+                    "Effective Gross Income"
+                ],
+                UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES: summary_data[
+                    "Operating Expenses"
+                ],
+                UnleveredAggregateLineKey.NET_OPERATING_INCOME: summary_data[
+                    "Net Operating Income"
+                ],
+                UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES: summary_data[
+                    "Capital Expenditures"
+                ],
+                UnleveredAggregateLineKey.TOTAL_TENANT_IMPROVEMENTS: summary_data[
+                    "Tenant Improvements"
+                ],
+                UnleveredAggregateLineKey.TOTAL_LEASING_COMMISSIONS: summary_data[
+                    "Leasing Commissions"
+                ],
+                UnleveredAggregateLineKey.UNLEVERED_CASH_FLOW: summary_data[
+                    "Unlevered Cash Flow"
+                ],
             }
             return
 
         # Use elegant LedgerQueries for all aggregation (single query instance)
         queries = LedgerQueries(ledger)
-        
+
         # Build all aggregate series with proper PeriodIndex conversion
         # This replaces both the old summary_df logic AND the resolved_lookups update
         pgr_series = self._to_period_series(queries.pgr())
@@ -828,46 +894,62 @@ class CashFlowOrchestrator:
         ti_series = self._to_period_series(queries.ti())
         lc_series = self._to_period_series(queries.lc())
         ucf_series = self._to_period_series(queries.ucf())
-        
+
         # Create summary DataFrame for reporting
         summary_data = {
-            'Potential Gross Revenue': pgr_series,
-            'Vacancy Loss': vacancy_series,
-            'Miscellaneous Income': misc_income_series,
-            'Rental Abatement': abatement_series,
-            'Expense Reimbursements': reimbursements_series,
-            'Effective Gross Income': egi_series,
-            'Operating Expenses': opex_series,
-            'Net Operating Income': noi_series,
-            'Capital Expenditures': capex_series,
-            'Tenant Improvements': ti_series,
-            'Leasing Commissions': lc_series,
-            'Unlevered Cash Flow': ucf_series,
+            "Potential Gross Revenue": pgr_series,
+            "Vacancy Loss": vacancy_series,
+            "Miscellaneous Income": misc_income_series,
+            "Rental Abatement": abatement_series,
+            "Expense Reimbursements": reimbursements_series,
+            "Effective Gross Income": egi_series,
+            "Operating Expenses": opex_series,
+            "Net Operating Income": noi_series,
+            "Capital Expenditures": capex_series,
+            "Tenant Improvements": ti_series,
+            "Leasing Commissions": lc_series,
+            "Unlevered Cash Flow": ucf_series,
         }
-        
+
         self.summary_df = pd.DataFrame(summary_data, index=analysis_periods)
         self.summary_df = self.summary_df.fillna(0.0)
-        
+
         # Update resolved_lookups with final aggregates (using aliased enum)
-        self.context.resolved_lookups[AggKeys.POTENTIAL_GROSS_REVENUE.value] = pgr_series
-        self.context.resolved_lookups[AggKeys.GENERAL_VACANCY_LOSS.value] = vacancy_series
-        self.context.resolved_lookups[AggKeys.MISCELLANEOUS_INCOME.value] = misc_income_series
+        self.context.resolved_lookups[AggKeys.POTENTIAL_GROSS_REVENUE.value] = (
+            pgr_series
+        )
+        self.context.resolved_lookups[AggKeys.GENERAL_VACANCY_LOSS.value] = (
+            vacancy_series
+        )
+        self.context.resolved_lookups[AggKeys.MISCELLANEOUS_INCOME.value] = (
+            misc_income_series
+        )
         self.context.resolved_lookups[AggKeys.RENTAL_ABATEMENT.value] = abatement_series
         self.context.resolved_lookups[AggKeys.CREDIT_LOSS.value] = credit_loss_series
-        self.context.resolved_lookups[AggKeys.EXPENSE_REIMBURSEMENTS.value] = reimbursements_series
+        self.context.resolved_lookups[AggKeys.EXPENSE_REIMBURSEMENTS.value] = (
+            reimbursements_series
+        )
         self.context.resolved_lookups[AggKeys.EFFECTIVE_GROSS_INCOME.value] = egi_series
-        self.context.resolved_lookups[AggKeys.TOTAL_OPERATING_EXPENSES.value] = opex_series
+        self.context.resolved_lookups[AggKeys.TOTAL_OPERATING_EXPENSES.value] = (
+            opex_series
+        )
         self.context.resolved_lookups[AggKeys.NET_OPERATING_INCOME.value] = noi_series
-        self.context.resolved_lookups[AggKeys.TOTAL_CAPITAL_EXPENDITURES.value] = capex_series
-        self.context.resolved_lookups[AggKeys.TOTAL_TENANT_IMPROVEMENTS.value] = ti_series
-        self.context.resolved_lookups[AggKeys.TOTAL_LEASING_COMMISSIONS.value] = lc_series
+        self.context.resolved_lookups[AggKeys.TOTAL_CAPITAL_EXPENDITURES.value] = (
+            capex_series
+        )
+        self.context.resolved_lookups[AggKeys.TOTAL_TENANT_IMPROVEMENTS.value] = (
+            ti_series
+        )
+        self.context.resolved_lookups[AggKeys.TOTAL_LEASING_COMMISSIONS.value] = (
+            lc_series
+        )
         self.context.resolved_lookups[AggKeys.UNLEVERED_CASH_FLOW.value] = ucf_series
-        
+
         # Add special vacancy types (zeros for now)
         zero_series = pd.Series(0.0, index=analysis_periods)
         self.context.resolved_lookups[AggKeys.DOWNTIME_VACANCY_LOSS.value] = zero_series
         self.context.resolved_lookups[AggKeys.ROLLOVER_VACANCY_LOSS.value] = zero_series
-        
+
         # Create agg_flows dict for backward compatibility (if still needed)
         self.agg_flows = {
             UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE: pgr_series,
@@ -884,5 +966,7 @@ class CashFlowOrchestrator:
             UnleveredAggregateLineKey.TOTAL_LEASING_COMMISSIONS: lc_series,
             UnleveredAggregateLineKey.UNLEVERED_CASH_FLOW: ucf_series,
         }
-        
-        logger.info(f"Finalized aggregation: {len(self.summary_df.columns)} metrics, {len(self.context.resolved_lookups)} aggregates")
+
+        logger.info(
+            f"Finalized aggregation: {len(self.summary_df.columns)} metrics, {len(self.context.resolved_lookups)} aggregates"
+        )

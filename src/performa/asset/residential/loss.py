@@ -23,20 +23,17 @@ ResidentialGeneralVacancyLoss = VacancyLossConfig
 class ResidentialLosses(Model):
     """
     Residential-specific container for property-level loss configurations.
-    
+
     Maintains backward compatibility with existing field names while
     using the new clean loss configuration classes internally.
     """
-    
+
     uid: UUID = Field(
-        default_factory=uuid4, 
-        description="Unique identifier for this losses container"
+        default_factory=uuid4, description="Unique identifier for this losses container"
     )
     general_vacancy: Optional[VacancyLossConfig] = Field(
-        default=None,
-        description="General vacancy loss configuration"
+        default=None, description="General vacancy loss configuration"
     )
     credit_loss: Optional[CreditLossConfig] = Field(
-        default=None,
-        description="Credit loss configuration"
+        default=None, description="Credit loss configuration"
     )

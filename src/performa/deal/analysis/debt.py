@@ -66,11 +66,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 
+from performa.analysis.orchestrator import AnalysisContext
 from performa.core.primitives import Timeline, UnleveredAggregateLineKey
 from performa.deal.results import (
     DSCRSummary,
@@ -80,8 +81,13 @@ from performa.deal.results import (
 )
 
 if TYPE_CHECKING:
+    from performa.core.ledger import LedgerBuilder
     from performa.core.primitives import GlobalSettings, Timeline
     from performa.deal.deal import Deal
+    from performa.deal.orchestrator import DealContext
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -150,12 +156,14 @@ class DebtAnalyzer:
         property_value_series: pd.Series,
         noi_series: pd.Series,
         unlevered_analysis: UnleveredAnalysisResult,
+        ledger_builder: "LedgerBuilder",
+        deal_context: Optional["DealContext"] = None,
     ) -> FinancingAnalysisResult:
         """
         Analyze the complete financing structure including facilities, refinancing, covenants, and DSCR.
 
         This method orchestrates the complete debt analysis workflow including:
-        1. Facility processing and debt service calculation
+        1. Facility processing through compute_cf method (writes to ledger)
         2. Refinancing transaction processing
         3. Covenant monitoring setup
         4. DSCR analysis and covenant monitoring
@@ -164,6 +172,7 @@ class DebtAnalyzer:
             property_value_series: Property value time series for refinancing analysis
             noi_series: NOI time series for covenant monitoring
             unlevered_analysis: Results from unlevered asset analysis for DSCR calculation
+            ledger_builder: LedgerBuilder for debt facility processing
 
         Returns:
             FinancingAnalysisResult containing all debt analysis results
@@ -177,7 +186,7 @@ class DebtAnalyzer:
         self.financing_analysis.financing_plan = self.deal.financing.name
 
         # Step 1: Process each facility in the financing plan
-        self._process_facilities()
+        self._process_facilities(ledger_builder, deal_context)
 
         # Step 2: Handle refinancing transactions if the plan supports them
         if self.deal.financing.has_refinancing:
@@ -188,13 +197,34 @@ class DebtAnalyzer:
 
         return self.financing_analysis
 
-    def _process_facilities(self) -> None:
+    def _process_facilities(
+        self,
+        ledger_builder: "LedgerBuilder",
+        deal_context: Optional["DealContext"] = None,
+    ) -> None:
         """
-        Process each facility in the financing plan to calculate debt service and loan proceeds.
+        Process each facility through their compute_cf method for ledger integration.
 
-        This method handles both construction and permanent facilities with enhanced features
-        including floating rates and institutional covenants.
+        This method processes both construction and permanent facilities using the new
+        compute_cf approach that writes all transactions to the ledger while maintaining
+        backward compatibility by populating the FinancingAnalysisResult.
+
+        Args:
+            ledger_builder: LedgerBuilder instance for facility processing
+            deal_context: DealContext for proper debt facility processing (replaces AnalysisContext)
         """
+        # Use DealContext if provided, otherwise create fallback AnalysisContext
+        if deal_context is not None:
+            context = deal_context
+        else:
+            # Fallback for backward compatibility (should be rare with new architecture)
+            context = AnalysisContext(
+                timeline=self.timeline,
+                settings=self.settings,
+                property_data=self.deal.asset,
+                ledger_builder=ledger_builder,
+            )
+
         for facility in self.deal.financing.facilities:
             facility_name = getattr(facility, "name", "Unnamed Facility")
             facility_type = type(facility).__name__
@@ -207,24 +237,71 @@ class DebtAnalyzer:
             )
             self.financing_analysis.facilities.append(facility_info)
 
-            # Calculate facility-specific cash flows with enhanced features
-            if hasattr(facility, "calculate_debt_service"):
+            # NEW APPROACH: Use compute_cf method (writes to ledger)
+            if hasattr(facility, "compute_cf"):
                 try:
-                    # Enhanced debt service calculation for permanent facilities
-                    if hasattr(facility, "kind") and facility.kind == "permanent":
-                        debt_service = self._calculate_enhanced_debt_service(facility)
-                    else:
-                        debt_service = facility.calculate_debt_service(self.timeline)
+                    # Call facility's compute_cf method - this writes all transactions to ledger
+                    debt_service = facility.compute_cf(context)
+                    # Store for backward compatibility
                     self.financing_analysis.debt_service[facility_name] = debt_service
-                except Exception:
-                    self.financing_analysis.debt_service[facility_name] = None
 
-            if hasattr(facility, "calculate_loan_proceeds"):
-                try:
-                    loan_proceeds = facility.calculate_loan_proceeds(self.timeline)
-                    self.financing_analysis.loan_proceeds[facility_name] = loan_proceeds
-                except Exception:
+                    # For loan proceeds, try to get from facility's calculate_loan_proceeds method
+                    if hasattr(facility, "calculate_loan_proceeds"):
+                        try:
+                            loan_proceeds = facility.calculate_loan_proceeds(
+                                self.timeline
+                            )
+                            self.financing_analysis.loan_proceeds[facility_name] = (
+                                loan_proceeds
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                f"Error calculating loan proceeds for '{facility_name}': {e}"
+                            )
+                            self.financing_analysis.loan_proceeds[facility_name] = None
+                    else:
+                        # TODO: Extract loan proceeds from ledger after compute_cf enhancement
+                        self.financing_analysis.loan_proceeds[facility_name] = None
+
+                except Exception as e:
+                    logger.error(
+                        f"Error processing facility '{facility_name}' with compute_cf: {e}"
+                    )
+                    self.financing_analysis.debt_service[facility_name] = None
                     self.financing_analysis.loan_proceeds[facility_name] = None
+                    continue
+            else:
+                # FALLBACK: Use old methods for facilities not yet upgraded
+                logger.warning(
+                    f"Facility '{facility_name}' using fallback methods (no compute_cf)"
+                )
+
+                # Old debt service calculation
+                if hasattr(facility, "calculate_debt_service"):
+                    try:
+                        if hasattr(facility, "kind") and facility.kind == "permanent":
+                            debt_service = self._calculate_enhanced_debt_service(
+                                facility
+                            )
+                        else:
+                            debt_service = facility.calculate_debt_service(
+                                self.timeline
+                            )
+                        self.financing_analysis.debt_service[facility_name] = (
+                            debt_service
+                        )
+                    except Exception:
+                        self.financing_analysis.debt_service[facility_name] = None
+
+                # Old loan proceeds calculation
+                if hasattr(facility, "calculate_loan_proceeds"):
+                    try:
+                        loan_proceeds = facility.calculate_loan_proceeds(self.timeline)
+                        self.financing_analysis.loan_proceeds[facility_name] = (
+                            loan_proceeds
+                        )
+                    except Exception:
+                        self.financing_analysis.loan_proceeds[facility_name] = None
 
     def _calculate_enhanced_debt_service(self, permanent_facility) -> pd.Series:
         """

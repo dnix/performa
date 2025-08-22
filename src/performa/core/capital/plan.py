@@ -46,7 +46,9 @@ class CapitalItem(CashFlowModel):
     """
 
     category: CashFlowCategoryEnum = CashFlowCategoryEnum.CAPITAL
-    subcategory: CapitalSubcategoryEnum = CapitalSubcategoryEnum.HARD_COSTS  # FIXME: should we have default values here at all?
+    subcategory: CapitalSubcategoryEnum = (
+        CapitalSubcategoryEnum.HARD_COSTS
+    )  # FIXME: should we have default values here at all?
 
     # Optional renovation-specific fields
     work_type: Optional[str] = None  # "Demo", "Construction", "Finishes", etc.

@@ -72,7 +72,7 @@ __all__ = [
     "RentEscalationBase",
     "TenantBase",
     "VacancyLossConfig",
-    "CreditLossConfig", 
+    "CreditLossConfig",
     "Losses",
     "VacancyLossModel",
     "CreditLossModel",

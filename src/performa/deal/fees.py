@@ -17,11 +17,14 @@ reference metric handling (% of TDC, % of GAV, etc.). This would require:
 """
 
 from datetime import date
-from typing import Dict, Optional, Union
+from typing import TYPE_CHECKING, Dict, Optional, Union
 from uuid import UUID, uuid4
 
 import pandas as pd
 from pydantic import Field, field_validator
+
+if TYPE_CHECKING:
+    from .orchestrator import DealContext
 
 from ..core.primitives.draw_schedule import (
     AnyDrawSchedule,
@@ -324,19 +327,39 @@ class DealFee(Model):
             return sum(self.value.values())
         return self.value
 
-    def compute_cf(self, timeline: Optional[Timeline] = None) -> pd.Series:
+    def compute_cf(
+        self,
+        context: Optional["DealContext"] = None,
+        timeline: Optional[Timeline] = None,
+    ) -> pd.Series:
         """
         Compute fee cash flows as a pandas Series.
 
+        Supports both simple timeline-based calculations and sophisticated deal-level
+        metric calculations when DealContext is provided (e.g., % of TDC, % of GAV).
+
         Args:
-            timeline: Timeline to use (defaults to self.timeline)
+            context: Deal context for accessing deal-level metrics (optional)
+            timeline: Timeline to use (defaults to self.timeline or context.timeline)
 
         Returns:
             Series with fee cash flows for each period
-        """
-        # Use provided timeline or fall back to self.timeline
-        effective_timeline = timeline or self.timeline
 
+        Note:
+            When context is provided, future enhancements could support sophisticated
+            reference-based fee calculations (% of Total Development Cost, % of GAV, etc.)
+            as outlined in the module TODO.
+        """
+        # Determine effective timeline - priority: timeline param, context.timeline, self.timeline
+        effective_timeline = timeline
+        if effective_timeline is None and context is not None:
+            effective_timeline = context.timeline
+        if effective_timeline is None:
+            effective_timeline = self.timeline
+
+        # For now, use the same calculation logic regardless of context
+        # Future enhancement: Add sophisticated deal-level metric calculations here
+        # when context is provided (% of project_costs, % of property_value, etc.)
         return self.draw_schedule.apply_to_amount(
             amount=self.calculate_total_fee(),
             periods=effective_timeline.duration_months,

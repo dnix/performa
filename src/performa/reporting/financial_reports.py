@@ -43,12 +43,14 @@ class ProFormaReport(BaseReport):
         }
         pandas_freq = frequency_mapping.get(frequency, frequency)
         # --- Asset-level aggregates (from elegant LedgerQueries) ---
-        if (hasattr(self._results, 'asset_analysis') and 
-            self._results.asset_analysis and 
-            hasattr(self._results.asset_analysis, 'get_ledger_queries')):
+        if (
+            hasattr(self._results, "asset_analysis")
+            and self._results.asset_analysis
+            and hasattr(self._results.asset_analysis, "get_ledger_queries")
+        ):
             # Use elegant LedgerQueries instead of complex summary_df extraction
             queries = self._results.asset_analysis.get_ledger_queries()
-            
+
             # Direct query-based extraction (replaces complex column mapping)
             pgr = self._safe_series(queries.pgr())
             abatement = self._safe_series(queries.rental_abatement())
@@ -59,9 +61,11 @@ class ProFormaReport(BaseReport):
             egi = self._safe_series(queries.egi())
             opex = self._safe_series(queries.opex())
             noi = self._safe_series(queries.noi())
-            
+
         else:
-            raise ValueError("asset_analysis with LedgerQueries is required for pro forma reports")
+            raise ValueError(
+                "asset_analysis with LedgerQueries is required for pro forma reports"
+            )
 
         # --- Financing aggregates ---
         fin = getattr(self._results, "financing_analysis", None)

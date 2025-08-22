@@ -166,7 +166,7 @@ class CommercialAnalysisScenarioBase(AnalysisScenarioBase):
                 # TODO: REABSORB→Absorption Transformation Support (Office)
                 # ============================================================
                 # Currently, office properties do NOT support the REABSORB→absorption workflow
-                # that residential properties have. When an office lease expires with 
+                # that residential properties have. When an office lease expires with
                 # upon_expiration=REABSORB, the space simply disappears - it doesn't become
                 # available to absorption plans.
                 #
@@ -184,7 +184,7 @@ class CommercialAnalysisScenarioBase(AnalysisScenarioBase):
                 #
                 # See ResidentialAnalysisScenario._find_transformative_leases() and
                 # _create_post_renovation_lease() for reference implementation.
-                
+
                 for absorption_plan in self.model.absorption_plans:
                     try:
                         # Generate lease specs from absorption plan
@@ -194,24 +194,34 @@ class CommercialAnalysisScenarioBase(AnalysisScenarioBase):
                             analysis_start_date=self.timeline.start_date.to_timestamp().date(),
                             analysis_end_date=self.timeline.end_date.to_timestamp().date(),
                             lookup_fn=None,
-                            global_settings=None
+                            global_settings=None,
                         )
-                        
-                        logger.info(f"Absorption plan '{absorption_plan.name}' generated {len(generated_specs)} lease specs")
-                        
+
+                        logger.info(
+                            f"Absorption plan '{absorption_plan.name}' generated {len(generated_specs)} lease specs"
+                        )
+
                         # Create lease models from specs and add TI/LC models
                         for spec in generated_specs:
                             lease_model = self._create_lease_from_spec(spec, context)
                             all_models.append(lease_model)
-                            
+
                             # Add TI/LC models if present
-                            if hasattr(lease_model, "ti_allowance") and lease_model.ti_allowance:
+                            if (
+                                hasattr(lease_model, "ti_allowance")
+                                and lease_model.ti_allowance
+                            ):
                                 all_models.append(lease_model.ti_allowance)
-                            if hasattr(lease_model, "leasing_commission") and lease_model.leasing_commission:
+                            if (
+                                hasattr(lease_model, "leasing_commission")
+                                and lease_model.leasing_commission
+                            ):
                                 all_models.append(lease_model.leasing_commission)
-                                
+
                     except Exception as e:
-                        logger.error(f"Failed to process absorption plan '{absorption_plan.name}': {e}")
+                        logger.error(
+                            f"Failed to process absorption plan '{absorption_plan.name}': {e}"
+                        )
                         logger.error(traceback.format_exc())
                         # Continue processing other plans
 

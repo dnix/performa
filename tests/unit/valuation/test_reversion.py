@@ -451,8 +451,12 @@ class TestCashFlowComputation:
             name="Test Sale", cap_rate=0.065, transaction_costs_rate=0.025
         )
 
-        # Set up context with unlevered analysis
-        mock_analysis_context.unlevered_analysis = sample_unlevered_analysis
+        # Extract NOI series from unlevered analysis and set on context 
+        # (this is what the clean architecture expects)
+        noi_series = sample_unlevered_analysis.cash_flows[
+            UnleveredAggregateLineKey.NET_OPERATING_INCOME.value
+        ]
+        mock_analysis_context.noi_series = noi_series
 
         # Execute cash flow computation
         cf_series = reversion.compute_cf(mock_analysis_context)
@@ -471,149 +475,62 @@ class TestCashFlowComputation:
 
         assert abs(cf_series.iloc[-1] - expected_net_proceeds) < 10000.0
 
-    def test_compute_cf_with_resolved_lookups_fallback(
-        self, mock_analysis_context, sample_timeline
+    def test_compute_cf_fails_fast_without_noi_series(
+        self, mock_analysis_context
     ):
-        """Test compute_cf fallback to resolved lookups when unlevered analysis unavailable."""
+        """Test compute_cf fails fast when NOI series not provided."""
         reversion = ReversionValuation(name="Test", cap_rate=0.065)
 
-        # Set up context without unlevered_analysis, but with resolved lookups
-        mock_analysis_context.unlevered_analysis = None
+        # Set up context WITHOUT noi_series (should fail fast)
+        mock_analysis_context.noi_series = None
 
-        # Create NOI series in resolved lookups
-        noi_series = pd.Series([75000.0] * 24, index=sample_timeline.period_index)
-        mock_analysis_context.resolved_lookups = {
-            UnleveredAggregateLineKey.NET_OPERATING_INCOME.value: noi_series
-        }
+        # Should fail fast with clear error message
+        with pytest.raises(RuntimeError, match="Reversion valuation failed"):
+            reversion.compute_cf(mock_analysis_context)
 
-        cf_series = reversion.compute_cf(mock_analysis_context)
-
-        assert isinstance(cf_series, pd.Series)
-        assert cf_series.iloc[-1] > 0  # Should have disposition proceeds
-
-        # Verify calculation using fallback data
-        expected_annual_noi = 75000.0 * 12  # Last period NOI annualized
-        expected_net_proceeds = (expected_annual_noi / 0.065) * 0.975
-
-        assert abs(cf_series.iloc[-1] - expected_net_proceeds) < 10000.0
-
-    def test_compute_cf_with_empty_noi_data(self, mock_analysis_context):
-        """Test compute_cf when NOI data is empty."""
+    def test_compute_cf_with_empty_noi_series(self, mock_analysis_context):
+        """Test compute_cf fails fast when NOI series is empty."""
         reversion = ReversionValuation(name="Test", cap_rate=0.065)
 
-        # Set up context with empty NOI data
-        empty_analysis = UnleveredAnalysisResult()
-        empty_analysis.cash_flows = pd.DataFrame()
-        mock_analysis_context.unlevered_analysis = empty_analysis
+        # Set up context with empty NOI series (should fail fast)
+        mock_analysis_context.noi_series = pd.Series(dtype=float)  # Empty series
 
-        cf_series = reversion.compute_cf(mock_analysis_context)
-
-        assert isinstance(cf_series, pd.Series)
-        assert (cf_series == 0.0).all()  # Should be all zeros
+        # Should fail fast with clear error message
+        with pytest.raises(RuntimeError, match="Reversion valuation failed"):
+            reversion.compute_cf(mock_analysis_context)
 
     def test_compute_cf_with_zero_noi(self, mock_analysis_context, sample_timeline):
-        """Test compute_cf when NOI is zero."""
+        """Test compute_cf when NOI is zero (should produce zero proceeds)."""
         reversion = ReversionValuation(name="Test", cap_rate=0.065)
 
-        # Create analysis with zero NOI
+        # Create NOI series with zero values
         zero_noi_series = pd.Series([0.0] * 24, index=sample_timeline.period_index)
-        zero_cash_flows = pd.DataFrame(
-            {UnleveredAggregateLineKey.NET_OPERATING_INCOME.value: zero_noi_series},
-            index=sample_timeline.period_index,
-        )
-
-        zero_analysis = UnleveredAnalysisResult()
-        zero_analysis.cash_flows = zero_cash_flows
-        mock_analysis_context.unlevered_analysis = zero_analysis
+        mock_analysis_context.noi_series = zero_noi_series
 
         cf_series = reversion.compute_cf(mock_analysis_context)
 
         assert isinstance(cf_series, pd.Series)
         assert (cf_series == 0.0).all()  # Should be all zeros since NOI is zero
 
-    def test_compute_cf_error_handling(self, mock_analysis_context):
-        """Test compute_cf error handling when analysis fails."""
-        reversion = ReversionValuation(name="Test", cap_rate=0.065)
-
-        # Create context that will cause an error
-        mock_analysis_context.unlevered_analysis = None
-        mock_analysis_context.resolved_lookups = (
-            None  # This should cause an AttributeError
-        )
-
-        # Should handle the error gracefully and return zeros
-        cf_series = reversion.compute_cf(mock_analysis_context)
-
-        assert isinstance(cf_series, pd.Series)
-        assert (cf_series == 0.0).all()  # Should fall back to zeros
-
     def test_compute_cf_with_empty_noi_series_in_unlevered_analysis(
         self, mock_analysis_context, sample_timeline
     ):
-        """Test compute_cf when unlevered analysis has empty NOI series (covers line 228)."""
+        """Test compute_cf fails fast when NOI series is empty (no fallback drivel)."""
         reversion = ReversionValuation(name="Test", cap_rate=0.065)
 
-        # Create a mock unlevered analysis that returns an empty NOI series
-        mock_unlevered_analysis = Mock()
-        mock_unlevered_analysis.get_series.return_value = pd.Series(
-            dtype=float
-        )  # Empty series
+        # Mock context with empty NOI series - should fail fast
+        mock_analysis_context.noi_series = pd.Series(dtype=float)  # Empty series
 
-        mock_analysis_context.unlevered_analysis = mock_unlevered_analysis
+        # Should raise clear error (fail fast, no fallback behavior)
+        with pytest.raises(RuntimeError, match="Reversion valuation failed: NOI series required"):
+            reversion.compute_cf(mock_analysis_context)
+            
+        # Also test with None NOI series
+        mock_analysis_context.noi_series = None
+        with pytest.raises(RuntimeError, match="Reversion valuation failed: NOI series required"):
+            reversion.compute_cf(mock_analysis_context)
 
-        cf_series = reversion.compute_cf(mock_analysis_context)
 
-        assert isinstance(cf_series, pd.Series)
-        assert (cf_series == 0.0).all()  # Should be all zeros due to empty NOI series
-
-        # Verify get_series was called correctly
-        mock_unlevered_analysis.get_series.assert_called_once_with(
-            UnleveredAggregateLineKey.NET_OPERATING_INCOME,
-            mock_analysis_context.timeline,
-        )
-
-    def test_compute_cf_with_empty_resolved_lookups_fallback(
-        self, mock_analysis_context, sample_timeline
-    ):
-        """Test compute_cf fallback when resolved lookups has empty NOI series (covers line 236)."""
-        reversion = ReversionValuation(name="Test", cap_rate=0.065)
-
-        # Set up context without unlevered_analysis to trigger fallback
-        mock_analysis_context.unlevered_analysis = None
-
-        # Create empty NOI series in resolved lookups to trigger line 236
-        empty_noi_series = pd.Series(dtype=float)  # Empty series
-        mock_analysis_context.resolved_lookups = {
-            UnleveredAggregateLineKey.NET_OPERATING_INCOME.value: empty_noi_series
-        }
-
-        cf_series = reversion.compute_cf(mock_analysis_context)
-
-        assert isinstance(cf_series, pd.Series)
-        assert (
-            cf_series == 0.0
-        ).all()  # Should be all zeros due to empty fallback NOI series
-
-    def test_compute_cf_with_invalid_resolved_lookups_fallback(
-        self, mock_analysis_context, sample_timeline
-    ):
-        """Test compute_cf fallback when resolved lookups contains invalid NOI data (covers line 236)."""
-        reversion = ReversionValuation(name="Test", cap_rate=0.065)
-
-        # Set up context without unlevered_analysis to trigger fallback
-        mock_analysis_context.unlevered_analysis = None
-
-        # Create resolved lookups with invalid NOI data (not a Series) to trigger line 236
-        mock_analysis_context.resolved_lookups = {
-            UnleveredAggregateLineKey.NET_OPERATING_INCOME.value: "invalid_data"  # Not a Series
-        }
-
-        cf_series = reversion.compute_cf(mock_analysis_context)
-
-        assert isinstance(cf_series, pd.Series)
-        assert (
-            cf_series == 0.0
-        ).all()  # Should be all zeros due to invalid fallback data
 
 
 class TestFactoryMethods:
@@ -751,18 +668,10 @@ class TestIntegrationScenarios:
         lease_up_noi = [0.0] * 18 + [40000.0] * 3 + [60000.0] * 3  # Gradual lease-up
         noi_series = pd.Series(lease_up_noi, index=sample_timeline.period_index)
 
-        development_cash_flows = pd.DataFrame(
-            {UnleveredAggregateLineKey.NET_OPERATING_INCOME.value: lease_up_noi},
-            index=sample_timeline.period_index,
-        )
-
-        development_analysis = UnleveredAnalysisResult()
-        development_analysis.cash_flows = development_cash_flows
-
-        # Create context
+        # Create context with NOI series for new architecture
         context = Mock()
         context.timeline = sample_timeline
-        context.unlevered_analysis = development_analysis
+        context.noi_series = noi_series  # Provide NOI directly for new architecture
 
         cf_series = reversion.compute_cf(context)
 

@@ -10,6 +10,7 @@ office, residential, development projects, existing assets, etc.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Dict, List, Literal, Optional
 from uuid import UUID, uuid4
 
@@ -20,10 +21,8 @@ from scipy import stats as scipy_stats
 from ..core.primitives import Model, PositiveFloat
 
 if TYPE_CHECKING:
-    from performa.analysis import AnalysisContext
+    from performa.deal.orchestrator import DealContext
 
-# Log warning but continue with zeros
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -343,7 +342,7 @@ class SalesCompValuation(Model):
             else 0.0,
         }
 
-    def compute_cf(self, context: "AnalysisContext") -> pd.Series:
+    def compute_cf(self, context: "DealContext") -> pd.Series:
         """
         Compute disposition cash flow series for sales comparison valuation.
 
@@ -351,7 +350,7 @@ class SalesCompValuation(Model):
         and places the proceeds at the appropriate time.
 
         Args:
-            context: Analysis context containing timeline, settings, and analysis results
+            context: Deal context containing timeline, settings, deal data, and asset information
 
         Returns:
             pd.Series containing disposition proceeds aligned with timeline
@@ -361,17 +360,18 @@ class SalesCompValuation(Model):
 
         try:
             # For sales comparison, we need the subject property area
-            # Try to get this from the property data in the context
+            # Get this from the asset in the deal context
             subject_area = 0.0
 
-            if hasattr(context, "property_data") and context.property_data:
-                # Try to get net rentable area from property data
-                if hasattr(context.property_data, "net_rentable_area"):
-                    subject_area = context.property_data.net_rentable_area
-                elif hasattr(context.property_data, "gross_area"):
-                    subject_area = context.property_data.gross_area
-                elif hasattr(context.property_data, "area"):
-                    subject_area = context.property_data.area
+            if context.deal and context.deal.asset:
+                # Try to get net rentable area from asset data
+                asset = context.deal.asset
+                if hasattr(asset, "net_rentable_area"):
+                    subject_area = asset.net_rentable_area
+                elif hasattr(asset, "gross_area"):
+                    subject_area = asset.gross_area
+                elif hasattr(asset, "area"):
+                    subject_area = asset.area
 
             # Calculate property value using sales comparison
             if subject_area > 0:
@@ -383,7 +383,7 @@ class SalesCompValuation(Model):
                     disposition_period = context.timeline.period_index[-1]
                     disposition_cf[disposition_period] = property_value
             elif self.comparables:
-                # Calculate mean value from comparables
+                # Calculate mean value from comparables as fallback
                 mean_price = sum(comp.sale_price for comp in self.comparables) / len(
                     self.comparables
                 )
@@ -392,6 +392,11 @@ class SalesCompValuation(Model):
                 if not context.timeline.period_index.empty:
                     disposition_period = context.timeline.period_index[-1]
                     disposition_cf[disposition_period] = mean_price
+            else:
+                # No area data and no comparables - sales comp cannot be calculated
+                logger.warning(
+                    "No property area or comparables available for sales comp calculation"
+                )
 
         except Exception as e:
             logger.warning(f"Could not calculate sales comp disposition proceeds: {e}")

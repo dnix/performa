@@ -19,7 +19,7 @@ class ExpenseItemBase(CashFlowModel):
     """
     Base abstract class for all cost items (both OpEx and CapEx).
 
-    This class supports both operating expenses (category=EXPENSE) and capital 
+    This class supports both operating expenses (category=EXPENSE) and capital
     expenditures (category=CAPITAL) through a flexible category field.
 
     Recovery Design Pattern:

@@ -228,16 +228,18 @@ def create_stabilized_acquisition_deal(
             "Office property support will be added in future release"
         )
 
-    # Step 3: Build the FinancingPlan
+    # Step 3: Build the FinancingPlan (Phase 1: Explicit loan amount)
+    # Calculate explicit loan amount from purchase price and LTV ratio
+    loan_amount = purchase_price * financing_terms["ltv_ratio"]
+
     permanent_facility = PermanentFacility(
         name=f"{property_name} Permanent Loan",
-        ltv_ratio=financing_terms["ltv_ratio"],
+        loan_amount=loan_amount,  # Phase 1: Explicit amount (no auto-sizing)
         interest_rate=financing_terms["interest_rate"],
-        loan_term_years=financing_terms["loan_term_years"],
-        amortization_years=financing_terms.get(
-            "amortization_years", 30
-        ),  # Default 30-year amortization
-        dscr_hurdle=financing_terms.get("dscr_hurdle", 1.25),  # Default 1.25x DSCR
+        loan_term_months=financing_terms["loan_term_years"] * 12,  # Convert to months
+        amortization_months=financing_terms.get("amortization_years", 30)
+        * 12,  # Convert to months
+        # Note: Phase 2 will add dscr_hurdle and auto-sizing capabilities
     )
 
     financing_plan = FinancingPlan(

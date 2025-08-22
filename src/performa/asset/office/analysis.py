@@ -398,16 +398,17 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
             List of loss CashFlowModel instances
         """
         models = []
-        
+
         if self.model.losses:
             # Create vacancy loss model if configured
-            if (hasattr(self.model.losses, 'general_vacancy') and 
-                self.model.losses.general_vacancy and 
-                self.model.losses.general_vacancy.rate > 0):
-                
+            if (
+                hasattr(self.model.losses, "general_vacancy")
+                and self.model.losses.general_vacancy
+                and self.model.losses.general_vacancy.rate > 0
+            ):
                 # Map VacancyLossMethodEnum to reference line string
                 reference_line = self.model.losses.general_vacancy.method.value
-                
+
                 vacancy_model = VacancyLossModel(
                     name=f"{self.model.name} - Vacancy Loss",
                     timeline=self.timeline,
@@ -415,33 +416,36 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
                     reference_line=reference_line,
                 )
                 models.append(vacancy_model)
-            
+
             # Create credit loss model if configured
-            if (hasattr(self.model.losses, 'credit_loss') and 
-                self.model.losses.credit_loss and 
-                self.model.losses.credit_loss.rate > 0):
-                
+            if (
+                hasattr(self.model.losses, "credit_loss")
+                and self.model.losses.credit_loss
+                and self.model.losses.credit_loss.rate > 0
+            ):
                 # Map credit loss basis enum to aggregate key (industry standard approach)
                 basis_mapping = {
                     UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE: {
-                        "line": "Potential Gross Revenue", 
-                        "key": UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE
+                        "line": "Potential Gross Revenue",
+                        "key": UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE,
                     },
                     UnleveredAggregateLineKey.GROSS_POTENTIAL_RENT: {
-                        "line": "Gross Potential Rent", 
-                        "key": UnleveredAggregateLineKey.GROSS_POTENTIAL_RENT
+                        "line": "Gross Potential Rent",
+                        "key": UnleveredAggregateLineKey.GROSS_POTENTIAL_RENT,
                     },
                     UnleveredAggregateLineKey.TENANT_REVENUE: {
-                        "line": "Tenant Revenue", 
-                        "key": UnleveredAggregateLineKey.TENANT_REVENUE
-                    }
+                        "line": "Tenant Revenue",
+                        "key": UnleveredAggregateLineKey.TENANT_REVENUE,
+                    },
                 }
-                
+
                 basis_info = basis_mapping.get(
                     self.model.losses.credit_loss.basis,
-                    basis_mapping[UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE]  # Default to PGR
+                    basis_mapping[
+                        UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE
+                    ],  # Default to PGR
                 )
-                
+
                 credit_model = CreditLossModel(
                     name=f"{self.model.name} - Credit Loss",
                     timeline=self.timeline,
@@ -450,5 +454,5 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
                     reference=basis_info["key"],
                 )
                 models.append(credit_model)
-        
+
         return models

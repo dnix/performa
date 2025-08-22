@@ -408,6 +408,150 @@ class ExampleModel(Model):
         return self
 ```
 
+### Three-Tier Architecture: Primitives, Constructs, and Patterns
+
+Performa follows a three-tier architectural approach that provides flexibility for different use cases, from detailed custom modeling to high-level deal creation:
+
+#### Tier 1: Primitives (Core Building Blocks)
+
+**Location**: `src/performa/core/primitives/`
+
+Primitives are the foundational building blocks of the library - immutable, type-safe models that handle basic real estate concepts:
+
+```python
+from performa.core.primitives import Timeline, CashFlow, Model
+from datetime import date
+
+# Core temporal modeling
+timeline = Timeline.from_dates('2024-01-01', '2029-12-31')
+
+# Financial data structures
+cash_flow = CashFlow(values=[100, 200, 300], timeline=timeline)
+
+# Base model with validation
+class CustomModel(Model):
+    name: str
+    value: float = Field(gt=0)
+```
+
+**Key Primitives**:
+- `Timeline` - Temporal indexing and date management
+- `CashFlow` - Financial series with time-based operations
+- `Model` - Base Pydantic model with immutability (`frozen=True`)
+- `DrawSchedule` - Cost distribution over time
+- `GrowthRate` - Escalation and appreciation modeling
+- Type constraints (`PositiveFloat`, `FloatBetween0And1`, etc.)
+
+**When to use**: Building custom models, extending the library, or when you need maximum control over every component.
+
+#### Tier 2: Constructs (Reusable Components)
+
+**Location**: `src/performa/deal/constructs.py`, `src/performa/debt/constructs.py`
+
+Constructs combine primitives into higher-level, reusable components that handle common real estate workflows:
+
+```python
+from performa.deal.constructs import create_simple_partnership
+from performa.debt.constructs import create_construction_to_permanent_plan
+
+# Create a standard GP/LP partnership
+partnership = create_simple_partnership(
+    gp_name="Sponsor LLC",
+    lp_name="Investor Fund",
+    gp_share=0.20,
+    lp_share=0.80,
+    distribution_method="waterfall"
+)
+
+# Create a construction-to-permanent financing structure
+financing = create_construction_to_permanent_plan(
+    construction_terms={
+        "ltc_threshold": 0.75,
+        "interest_rate": 0.075,
+        "term_months": 24
+    },
+    permanent_terms={
+        "loan_amount": 5_000_000,
+        "interest_rate": 0.055,
+        "loan_term_years": 10
+    }
+)
+```
+
+**Key Constructs**:
+- `create_simple_partnership()` - Standard GP/LP structures
+- `create_construction_to_permanent_plan()` - Combined loan facilities
+- `create_debt_facility()` - Custom debt structures
+- Asset-specific builders for complex property models
+
+**When to use**: Building custom deals with standard components, or when you need more control than patterns provide but don't want to build everything from scratch.
+
+#### Tier 3: Patterns (Complete Deal Archetypes)
+
+**Location**: `src/performa/patterns/`
+
+Patterns are the highest abstraction level - complete, parameter-driven deal creation for common investment strategies:
+
+```python
+from performa.patterns import ValueAddAcquisitionPattern
+from datetime import date
+
+# Create a complete value-add deal with a few parameters
+pattern = ValueAddAcquisitionPattern(
+    property_name="Riverside Apartments",
+    acquisition_date=date(2024, 1, 1),
+    acquisition_price=8_000_000,
+    renovation_budget=1_200_000,
+    current_avg_rent=1400,
+    target_avg_rent=1750,
+    hold_period_years=5,
+    ltv_ratio=0.70
+)
+
+# One-line deal creation and analysis
+results = pattern.analyze()
+print(f"IRR: {results.deal_metrics.irr:.2%}")
+print(f"Equity Multiple: {results.deal_metrics.equity_multiple:.2f}x")
+```
+
+**Available Patterns**:
+- `ValueAddAcquisitionPattern` - Acquire, renovate, stabilize, sell
+- `StabilizedAcquisitionPattern` - Buy-and-hold stabilized properties  
+- `DevelopmentPattern` - Ground-up development projects
+
+**When to use**: Rapid deal analysis, sensitivity studies, or when working with standard investment strategies. Perfect for underwriting, presentations, and high-level feasibility analysis.
+
+#### Choosing the Right Tier
+
+| Use Case | Recommended Tier | Example |
+|----------|------------------|---------|
+| Custom property types not yet supported | **Primitives** | Specialized industrial, hospitality, or mixed-use |
+| Standard deals with custom components | **Constructs** | Acquisition with exotic financing or partnership terms |
+| Common investment strategies | **Patterns** | Standard multifamily value-add or office acquisition |
+| Rapid underwriting and sensitivity analysis | **Patterns** | Investment committee presentations, deal screening |
+| Library extension and new features | **Primitives + Constructs** | Adding new asset classes or financing types |
+
+#### Integration Between Tiers
+
+All tiers are designed to work together seamlessly:
+
+```python
+# Start with a Pattern for speed
+pattern = ValueAddAcquisitionPattern(...)
+base_deal = pattern.create()
+
+# Customize with Constructs if needed
+from performa.debt.constructs import create_mezzanine_facility
+mezz_debt = create_mezzanine_facility(...)
+base_deal = base_deal.copy(update={"additional_financing": mezz_debt})
+
+# Fine-tune with Primitives for maximum control
+custom_timeline = Timeline(start_date=date(2024, 6, 1), duration_months=72)
+results = analyze(base_deal, custom_timeline)
+```
+
+This tiered approach ensures that Performa scales from rapid prototyping to detailed institutional modeling while maintaining consistency and type safety throughout.
+
 ## Getting Help
 
 - **GitHub Issues**: Report bugs and request features

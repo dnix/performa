@@ -235,7 +235,7 @@ class ValuationEngine:
         return self.property_value_series
 
     def extract_noi_series(
-        self, 
+        self,
         unlevered_analysis: UnleveredAnalysisResult,
     ) -> pd.Series:
         """
@@ -278,48 +278,45 @@ class ValuationEngine:
         )
         return self.noi_series
 
-    def _extract_noi_from_ledger(
-            self,
-            ledger_builder: LedgerBuilder
-    ) -> pd.Series:
+    def _extract_noi_from_ledger(self, ledger_builder: LedgerBuilder) -> pd.Series:
         """
         Extract NOI from ledger transactions.
-        
+
         This method queries the ledger for operating transactions and calculates
         NOI by summing revenue and expense flows.
-        
+
         Args:
             ledger_builder: The ledger builder containing transactions
-            
+
         Returns:
             pd.Series with NOI by period, or None if no data available
         """
         try:
             ledger = ledger_builder.get_current_ledger()
-            
+
             if ledger.empty:
                 return None
-            
+
             # Query for operating transactions (revenues and expenses)
-            operating_txns = ledger[ledger['flow_purpose'] == 'Operating']
-            
+            operating_txns = ledger[ledger["flow_purpose"] == "Operating"]
+
             if operating_txns.empty:
                 return None
-            
+
             # Group by date and sum amounts (revenues positive, expenses negative)
-            noi_series = operating_txns.groupby('date')['amount'].sum()
-            
+            noi_series = operating_txns.groupby("date")["amount"].sum()
+
             # Reindex to full timeline
             return noi_series.reindex(self.timeline.period_index, fill_value=0.0)
-            
+
         except Exception:
             # Fall back to None if ledger extraction fails
             return None
 
     def calculate_disposition_proceeds(
-        self, 
+        self,
         ledger_builder: LedgerBuilder,
-        unlevered_analysis: UnleveredAnalysisResult = None
+        unlevered_analysis: UnleveredAnalysisResult = None,
     ) -> pd.Series:
         """
         Calculate disposition proceeds using polymorphic dispatch across valuation models.
@@ -372,7 +369,7 @@ class ValuationEngine:
                     timeline=self.timeline,
                     settings=self.settings,
                     property_data=self.deal.asset,
-                    ledger_builder=ledger_builder
+                    ledger_builder=ledger_builder,
                 )
 
                 # Step 2: Populate context with unlevered analysis data

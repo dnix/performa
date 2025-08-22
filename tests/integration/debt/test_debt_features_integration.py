@@ -20,7 +20,8 @@ import numpy as np
 import pandas as pd
 
 from performa.core.primitives import Timeline
-from performa.debt.construction import ConstructionFacility, DebtTranche
+from performa.debt import DebtTranche
+from performa.debt.construction import ConstructionFacility
 from performa.debt.permanent import PermanentFacility
 from performa.debt.plan import FinancingPlan
 from performa.debt.rates import FixedRate, FloatingRate, InterestRate, RateIndexEnum

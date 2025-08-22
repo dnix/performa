@@ -17,11 +17,12 @@ from uuid import UUID, uuid4
 import pandas as pd
 from pydantic import Field, model_validator
 
-from performa.core.ledger import LedgerQueries
 from performa.core.primitives import Model, PositiveFloat
 
 if TYPE_CHECKING:
-    from performa.analysis import AnalysisContext
+    from performa.deal.orchestrator import DealContext
+
+logger = logging.getLogger(__name__)
 
 
 class DCFValuation(Model):
@@ -290,7 +291,7 @@ class DCFValuation(Model):
 
         return pd.DataFrame(results)
 
-    def compute_cf(self, context: "AnalysisContext") -> pd.Series:
+    def compute_cf(self, context: "DealContext") -> pd.Series:
         """
         Compute disposition cash flow series for DCF valuation.
 
@@ -298,7 +299,7 @@ class DCFValuation(Model):
         places the terminal value at the appropriate time in the analysis timeline.
 
         Args:
-            context: Analysis context containing timeline, settings, and analysis results
+            context: Deal context containing timeline, settings, deal data, and NOI series
 
         Returns:
             pd.Series containing disposition proceeds aligned with timeline
@@ -307,66 +308,57 @@ class DCFValuation(Model):
         disposition_cf = pd.Series(0.0, index=context.timeline.period_index)
 
         try:
-            noi_series = None
-            
-            # Extract NOI series from ledger (single source of truth)
-            if hasattr(context, "ledger_builder") and context.ledger_builder:
-                # Get NOI from ledger using LedgerQueries
-                ledger = context.ledger_builder.get_current_ledger()
-                if not ledger.empty:
-                    queries = LedgerQueries(ledger)
-                    noi_series = queries.noi()
+            # Get NOI series from deal context (required - no fallbacks)
+            if context.noi_series is None or context.noi_series.empty:
+                raise ValueError(
+                    "NOI series required for DCF valuation but not provided in DealContext"
+                )
 
-                # Use the available NOI data for DCF calculation
-                if noi_series is not None and not noi_series.empty:
-                    # Convert monthly NOI to annual series for DCF calculation
-                    annual_periods = []
-                    annual_noi = []
+            noi_series = context.noi_series
 
-                    # Group by year and sum monthly NOI
-                    for year in range(
-                        noi_series.index[0].year, noi_series.index[-1].year + 1
-                    ):
-                        # Create year mask by checking each date's year
-                        year_mask = pd.Series([d.year == year for d in noi_series.index], index=noi_series.index)
-                        if year_mask.any():
-                            annual_noi.append(noi_series[year_mask].sum())
-                            annual_periods.append(year)
+            # Convert monthly NOI to annual series for DCF calculation
+            annual_periods = []
+            annual_noi = []
 
-                    if annual_noi:
-                        annual_noi_series = pd.Series(annual_noi, index=annual_periods)
+            # Group by year and sum monthly NOI
+            for year in range(noi_series.index[0].year, noi_series.index[-1].year + 1):
+                # Create year mask by checking each date's year
+                year_mask = pd.Series(
+                    [d.year == year for d in noi_series.index], index=noi_series.index
+                )
+                if year_mask.any():
+                    annual_noi.append(noi_series[year_mask].sum())
+                    annual_periods.append(year)
 
-                        # Use the last year's NOI as terminal NOI
-                        terminal_noi = annual_noi[-1] if annual_noi else 0.0
+                if annual_noi:
+                    annual_noi_series = pd.Series(annual_noi, index=annual_periods)
 
-                        # Calculate DCF present value
-                        dcf_results = self.calculate_present_value(
-                            cash_flows=annual_noi_series[: self.hold_period_years],
-                            terminal_noi=terminal_noi,
-                        )
+                    # Use the last year's NOI as terminal NOI
+                    terminal_noi = annual_noi[-1] if annual_noi else 0.0
 
-                        # Get the net terminal value (already accounts for transaction costs)
-                        net_proceeds = dcf_results["net_terminal_value"]
+                    # Calculate DCF present value
+                    dcf_results = self.calculate_present_value(
+                        cash_flows=annual_noi_series[: self.hold_period_years],
+                        terminal_noi=terminal_noi,
+                    )
 
-                        # Place disposition proceeds at the end of the hold period
-                        hold_period_end = min(
-                            self.hold_period_years * 12,
-                            len(context.timeline.period_index),
-                        )
-                        if hold_period_end > 0:
-                            disposition_period = context.timeline.period_index[
-                                hold_period_end - 1
-                            ]
-                            disposition_cf[disposition_period] = net_proceeds
+                    # Get the net terminal value (already accounts for transaction costs)
+                    net_proceeds = dcf_results["net_terminal_value"]
 
-            else:
-                # No ledger_builder available - cannot calculate DCF
-                logger.warning("No ledger_builder available for DCF calculation")
+                    # Place disposition proceeds at the end of the hold period
+                    hold_period_end = min(
+                        self.hold_period_years * 12,
+                        len(context.timeline.period_index),
+                    )
+                    if hold_period_end > 0:
+                        disposition_period = context.timeline.period_index[
+                            hold_period_end - 1
+                        ]
+                        disposition_cf[disposition_period] = net_proceeds
 
         except Exception as e:
-            # Log warning but continue with zeros
-            logger = logging.getLogger(__name__)
-            logger.warning(f"Could not calculate DCF disposition proceeds: {e}")
+            # Fail fast instead of silently returning zeros
+            raise RuntimeError(f"DCF valuation failed: {e}") from e
 
         return disposition_cf
 

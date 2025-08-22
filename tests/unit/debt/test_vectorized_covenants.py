@@ -150,7 +150,7 @@ class TestVectorizedCovenantMonitoring:
         assert results["Debt_Yield"].isna().sum() == 0  # Should not have NaN
 
     def test_vectorized_breach_detection(self):
-        """Test that vectorized breach detection works correctly."""
+        """Test vectorized breach detection with corrected covenant calculations."""
         timeline = Timeline.from_dates("2024-01-01", "2024-12-31")
 
         facility = PermanentFacility(
@@ -165,13 +165,18 @@ class TestVectorizedCovenantMonitoring:
             ongoing_debt_yield_min=0.10,  # High debt yield requirement
         )
 
-        # Create data that will trigger breaches
+        # Create data using corrected covenant math that will ACTUALLY trigger breaches
+        # $1M loan at 5% for 10 years: annual debt service ≈ $129,505
+        # For DSCR breach (< 1.50): need annual NOI < $194,258
         property_values = pd.Series(
             [1_200_000] * 12, index=timeline.period_index
-        )  # Low value = high LTV
+        )  # Low value = high LTV ($1M / $1.2M = 0.83 > 0.70)
+        
+        # Use monthly NOI that will cause actual DSCR breach for $1M loan
+        # Need DSCR < 1.50, so use NOI that gives DSCR ≈ 1.40  
         noi_values = pd.Series(
-            [80_000] * 12, index=timeline.period_index
-        )  # Low NOI = low DSCR & debt yield
+            [8_000] * 12, index=timeline.period_index  # $8k monthly = $96k annual (will cause DSCR breach)
+        )
 
         results = facility.calculate_covenant_monitoring(
             timeline=timeline,
@@ -183,13 +188,14 @@ class TestVectorizedCovenantMonitoring:
         # Should detect LTV breaches (outstanding balance / low property value > 0.70)
         assert results["LTV_Breach"].any(), "Should detect LTV breaches"
 
-        # Should detect DSCR breaches (low NOI / debt service < 1.50)
-        assert results["DSCR_Breach"].any(), "Should detect DSCR breaches"
+        # Should detect DSCR breaches with corrected calculations  
+        # Note: For permanent loan with constant NOI/debt service, DSCR is constant across periods
+        assert results["DSCR_Breach"].any(), "Should detect DSCR breaches with corrected math"
 
-        # Should detect debt yield breaches (low NOI / outstanding balance < 0.10)
+        # Should detect debt yield breaches ($96k annual NOI / $1M loan = 0.096 < 0.10 min - breach!)
         assert results["Debt_Yield_Breach"].any(), "Should detect debt yield breaches"
 
-        # Overall status should show breaches
+        # Overall status should show breaches in original scenario
         assert (
             results["Covenant_Status"] == "BREACH"
         ).any(), "Should show breach status"
