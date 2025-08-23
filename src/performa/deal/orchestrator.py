@@ -75,6 +75,7 @@ from performa.core.primitives import (
     CalculationPhase,
     CapitalSubcategoryEnum,
     CashFlowCategoryEnum,
+    FinancingSubcategoryEnum,
     GlobalSettings,
     Timeline,
     TransactionPurpose,
@@ -333,6 +334,31 @@ class DealCalculator:
             )
 
             # === ORCHESTRATION STATE PATTERN ===
+            # Calculate initial project costs from deal structure for financing sizing
+            initial_project_costs = 0.0
+            
+            # Add acquisition costs if available
+            if self.deal.acquisition:
+                # Get acquisition value (can be scalar or Series)
+                if isinstance(self.deal.acquisition.value, (int, float)):
+                    acquisition_value = self.deal.acquisition.value
+                elif hasattr(self.deal.acquisition.value, 'sum'):
+                    acquisition_value = self.deal.acquisition.value.sum()
+                else:
+                    acquisition_value = 0.0
+                
+                initial_project_costs += acquisition_value
+                # Add closing costs (percentage of acquisition value)
+                if acquisition_value > 0 and self.deal.acquisition.closing_costs_rate:
+                    initial_project_costs += acquisition_value * self.deal.acquisition.closing_costs_rate
+            
+            # Add renovation/development costs if available
+            if hasattr(self.deal.asset, 'renovation_budget'):
+                initial_project_costs += self.deal.asset.renovation_budget or 0.0
+            elif hasattr(self.deal.asset, 'construction_plan'):
+                if hasattr(self.deal.asset.construction_plan, 'total_cost'):
+                    initial_project_costs += self.deal.asset.construction_plan.total_cost or 0.0
+            
             # Create DealContext for deal-level orchestration (Phase 5 implementation)
             # This will be progressively populated with results from each phase
             deal_context = DealContext(
@@ -340,7 +366,9 @@ class DealCalculator:
                 settings=self.settings,
                 ledger_builder=ledger_builder,
                 deal=self.deal,
-                # noi_series, property_value, project_costs will be populated progressively
+                # Pass initial project costs for construction financing sizing
+                project_costs=initial_project_costs if initial_project_costs > 0 else None,
+                # noi_series, property_value will be populated progressively
             )
 
             # === PASS 2: Add Deal Transactions to Ledger ===
@@ -870,8 +898,8 @@ class DealCalculator:
                 try:
                     fee_cf = fee.compute_cf(self.timeline)
                     metadata = SeriesMetadata(
-                        category="Capital",
-                        subcategory="Fees",
+                        category=CashFlowCategoryEnum.CAPITAL,
+                        subcategory=CapitalSubcategoryEnum.OTHER,  # Use proper enum for fees
                         item_name=f"Fee - {getattr(fee, 'name', 'Unknown')}",
                         source_id=str(getattr(fee, "uid", fee)),
                         asset_id=self.deal.asset.uid,
@@ -913,7 +941,7 @@ class DealCalculator:
 
         metadata = SeriesMetadata(
             category=CashFlowCategoryEnum.FINANCING,  # Partnership contributions are financing
-            subcategory="Capital Contribution",  # TODO: Need FinancingSubcategoryEnum
+            subcategory=FinancingSubcategoryEnum.EQUITY_CONTRIBUTION,  # Use proper enum
             item_name="Initial Equity Investment",
             source_id=str(self.deal.uid),
             asset_id=self.deal.asset.uid,

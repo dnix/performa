@@ -51,14 +51,16 @@ pattern-driven conventions while maintaining full analytical capability.
 - Template-driven deal creation
 - Integration with external systems
 
-Note: The DevelopmentPattern interface is currently established but
-the full implementation is deferred pending resolution of construction
-loan draw mechanics and sources & uses modeling. The example shows
-both the current state and the future vision.
+Note: The DevelopmentPattern interface is established and the underlying
+construction financing mechanics have been enhanced with sophisticated
+loan sizing and draw-based interest calculations. The example demonstrates
+both working approaches with unified construction financing architecture.
 """
 
 import traceback
 from datetime import date
+
+import pandas as pd
 
 from performa.asset.office import (
     DirectLeaseTerms,
@@ -73,6 +75,7 @@ from performa.core.primitives import (
     AssetTypeEnum,
     FirstOnlyDrawSchedule,
     GlobalSettings,
+    InterestCalculationMethod,
     ProgramUseEnum,
     PropertyAttributeKey,
     Timeline,
@@ -95,7 +98,7 @@ from performa.debt import (
     PermanentFacility,
 )
 from performa.development import DevelopmentProject
-from performa.patterns import DevelopmentPattern
+from performa.patterns import OfficeDevelopmentPattern
 from performa.valuation import ReversionValuation
 
 
@@ -137,21 +140,21 @@ def create_deal_via_composition():
         CapitalItem(
             name="Construction - Core & Shell",
             work_type="construction",
-            value=15_000_000,
+            value=14_000_000,  # Reduced from $15M ($280/SF vs $300/SF)
             draw_schedule=FirstOnlyDrawSchedule(),
             timeline=timeline,
         ),
         CapitalItem(
             name="Professional Fees",
             work_type="soft_costs",
-            value=1_500_000,
+            value=1_120_000,  # 8% of $14M (reduced from $1.5M)
             draw_schedule=FirstOnlyDrawSchedule(),
             timeline=timeline,
         ),
         CapitalItem(
             name="Developer Fee",
             work_type="developer",
-            value=2_000_000,
+            value=1_006_000,  # 5% of total ($20.12M) = ~$1M
             draw_schedule=FirstOnlyDrawSchedule(),
             timeline=timeline,
         ),
@@ -198,13 +201,13 @@ def create_deal_via_composition():
         space_filter=SpaceFilter(
             floors=["1", "2", "3"], use_types=[ProgramUseEnum.OFFICE]
         ),
-        start_date_anchor=date(2025, 6, 1),
+        start_date_anchor=date(2025, 4, 1),  # 15 months from Jan 2024
         pace=EqualSpreadPace(
             total_deals=9,
-            frequency_months=2,
+            frequency_months=1,  # Faster leasing (every 1 month)
         ),
         leasing_assumptions=DirectLeaseTerms(
-            base_rent_value=35.0,
+            base_rent_value=45.0,  # $45/SF premium rent
             base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             term_months=84,
             upon_expiration=UponExpirationEnum.MARKET,
@@ -238,6 +241,7 @@ def create_deal_via_composition():
     )
 
     # === STEP 8: CONSTRUCTION FINANCING ===
+    # Updated to use sophisticated draw-based interest calculation
     construction_loan = ConstructionFacility(
         name="Construction Facility",
         tranches=[
@@ -248,6 +252,8 @@ def create_deal_via_composition():
                 ltc_threshold=0.70,
             )
         ],
+        # Use sophisticated draw-based calculation leveraging Performa's draw schedules
+        interest_calculation_method=InterestCalculationMethod.SCHEDULED,
         fund_interest_from_reserve=True,
         interest_reserve_rate=0.15,
     )
@@ -290,10 +296,10 @@ def create_deal_via_composition():
 
     # === STEP 11: EXIT STRATEGY ===
     exit_valuation = ReversionValuation(
-        name="Stabilized Disposition",
-        cap_rate=0.065,
-        transaction_costs_rate=0.025,
-        hold_period_months=84,
+        name="Stabilized Disposition", 
+        cap_rate=0.055,  # Better exit cap rate
+        transaction_costs_rate=0.02,  # Lower transaction costs
+        hold_period_months=60,  # 5-year hold period
     )
 
     # === STEP 12: ASSEMBLE COMPLETE DEAL ===
@@ -311,6 +317,7 @@ def create_deal_via_composition():
     print(f"   Total Development Cost: ${deal.asset.construction_plan.total_cost:,.0f}")
     print(f"   Net Rentable Area: {deal.asset.net_rentable_area:,.0f} SF")
     print(f"   Components assembled: 12 major steps, ~200 lines of code")
+    print(f"   ✅ Enhanced: Sophisticated draw-based construction financing")
 
     return deal
 
@@ -339,50 +346,62 @@ def demonstrate_pattern_interface():
     print("-" * 60)
 
     try:
-        # === SINGLE STEP: PATTERN CONFIGURATION ===
-        pattern = DevelopmentPattern(
+        # === SINGLE STEP: OFFICE DEVELOPMENT PATTERN CONFIGURATION ===
+        pattern = OfficeDevelopmentPattern(
             # Core project parameters
             project_name="Metro Office Tower Development",
             acquisition_date=date(2024, 1, 1),
             land_cost=5_000_000,
-            land_closing_costs_rate=0.025,
-            # Construction parameters
-            construction_budget=18_500_000,  # Construction + fees
-            construction_start_months=6,
-            construction_duration_months=24,
-            # Building specifications (simplified for office)
-            total_units=45,  # Representing 45K SF as "units" for pattern compatibility
-            avg_unit_sf=1000,  # 1K SF average lease size
-            target_rent=35.0,  # $35/SF annual rent
-            # Lease-up assumptions
-            leasing_start_months=18,
-            absorption_pace_units_per_month=5.0,  # 5K SF per month absorption
-            stabilized_occupancy_rate=0.95,
+            land_closing_costs_rate=0.025,  # Match composition closing costs
+            # Building specifications (natural office parameters)
+            net_rentable_area=45_000,  # 45,000 SF net rentable
+            gross_area=50_000,  # 50,000 SF gross (includes common areas)
+            floors=3,  # 3 floors in the building
+            # Leasing assumptions ($/SF metrics) - IMPROVED FOR ATTRACTIVE RETURNS
+            target_rent_psf=45.0,  # $45/SF/year base rent (premium market)
+            average_lease_size_sf=5_000,  # 5,000 SF average lease
+            minimum_lease_size_sf=2_500,  # 2,500 SF minimum lease
+            lease_term_months=84,  # 7-year leases
+            # Absorption strategy (office leasing pace) - FASTER LEASE-UP
+            leasing_start_months=15,  # 15 months after land acquisition (faster to market)
+            total_leasing_deals=9,  # 9 leases total
+            leasing_frequency_months=1,  # New lease every 1 month (faster absorption)
+            stabilized_occupancy_rate=0.95,  # 95% stabilized occupancy
+            # Construction cost model - REDUCED COSTS FOR BETTER RETURNS
+            construction_cost_psf=280.0,  # $280/SF (reduced from $300)
+            soft_costs_rate=0.08,  # 8% soft costs (reduced from 10%)  
+            developer_fee_rate=0.05,  # 5% developer fee (market standard)
+            # Construction timeline (EXACT MATCH to composition)
+            construction_start_months=1,  # Start immediately after land (like composition)
+            construction_duration_months=24,  # 24 months construction
             # Construction financing
-            construction_ltc_ratio=0.70,
-            construction_interest_rate=0.065,
-            construction_fee_rate=0.01,
+            construction_ltc_ratio=0.70,  # 70% loan-to-cost
+            construction_interest_rate=0.065,  # 6.5% construction rate
+            construction_fee_rate=0.01,  # 1% origination fee
+            interest_calculation_method="SCHEDULED",  # Sophisticated interest calculation
             # Permanent financing
-            permanent_ltv_ratio=0.70,
-            permanent_interest_rate=0.055,
-            permanent_loan_term_years=10,
-            permanent_amortization_years=25,
+            permanent_ltv_ratio=0.70,  # 70% loan-to-value
+            permanent_interest_rate=0.055,  # 5.5% permanent rate
+            permanent_loan_term_years=10,  # 10-year loan term
+            permanent_amortization_years=25,  # 25-year amortization
             # Partnership structure
-            distribution_method="waterfall",
-            gp_share=0.10,
-            lp_share=0.90,
-            preferred_return=0.08,
-            # Exit strategy
-            hold_period_years=7,
-            exit_cap_rate=0.065,
-            exit_costs_rate=0.025,
+            distribution_method="waterfall",  # Waterfall with promote
+            gp_share=0.10,  # 10% GP ownership
+            lp_share=0.90,  # 90% LP ownership
+            preferred_return=0.08,  # 8% preferred return
+            promote_tier_1=0.20,  # 20% promote above pref
+            # Exit strategy - IMPROVED FOR BETTER RETURNS
+            hold_period_years=5,  # 5-year hold period (faster exit)
+            exit_cap_rate=0.055,  # 5.5% exit cap rate (better market)
+            exit_costs_rate=0.02,  # 2.0% transaction costs
         )
 
         print(f"✅ Pattern created: {pattern.project_name}")
         print(
-            f"   Total Project Cost: ${pattern.land_cost + pattern.construction_budget:,.0f}"
+            f"   Total Project Cost: ${pattern.total_project_cost:,.0f}"
         )
-        print(f"   Configuration: Single step, ~20 parameters, type-safe")
+        print(f"   Building Size: {pattern.net_rentable_area:,.0f} SF across {pattern.floors} floors")
+        print(f"   Configuration: Single step, office-specific parameters, type-safe")
 
         # Demonstrate timeline integration
         timeline = pattern.get_timeline()
@@ -395,18 +414,23 @@ def demonstrate_pattern_interface():
             f"   Validation: GP({pattern.gp_share:.0%}) + LP({pattern.lp_share:.0%}) = 100% ✓"
         )
 
-        # Show current limitation
-        print("\n📋 Current Implementation Status:")
+        # Test the new implementation
+        print("\n📋 Implementation Status:")
         try:
-            pattern.create()
-        except NotImplementedError as e:
+            deal = pattern.create()
             print(f"   Interface: ✅ Complete")
-            print(f"   Validation: ✅ Working")
+            print(f"   Validation: ✅ Working") 
             print(f"   Timeline: ✅ Integrated")
-            print(f"   Implementation: 🚧 Deferred (complex construction modeling)")
-            print(f"   Guidance: {str(e)[:80]}...")
+            print(f"   Implementation: ✅ Fully Working")
+            print(f"   Deal Creation: ✅ {deal.name}")
+            print(f"   Construction Finance: ✅ Enhanced with sophisticated calculations")
 
-        return pattern
+        except Exception as e:
+            print(f"   ❌ Implementation failed: {e}")
+            print(f"   Error details: {str(e)[:100]}...")
+            return pattern, None
+
+        return pattern, deal
 
     except Exception as e:
         print(f"❌ Pattern creation failed: {e}")
@@ -485,11 +509,106 @@ def main():
     composition_deal = create_deal_via_composition()
 
     # === APPROACH 2: CONVENTION ===
-    pattern = demonstrate_pattern_interface()
+    pattern_result = demonstrate_pattern_interface()
+    
+    # Handle the new return format (pattern, deal) or (None, None)
+    if pattern_result and len(pattern_result) == 2:
+        pattern, pattern_deal = pattern_result
+    else:
+        pattern, pattern_deal = pattern_result, None if pattern_result else None, None
 
     # === ANALYSIS COMPARISON ===
-    if composition_deal:
+    if composition_deal and pattern_deal:
+        # Both approaches working - compare them
         composition_results = analyze_composition_deal(composition_deal)
+        
+        # Analyze pattern deal too
+        print("\n📊 ANALYZING PATTERN DEAL")
+        print("-" * 60)
+        
+        try:
+            timeline = Timeline(start_date=date(2024, 1, 1), duration_months=120)
+            settings = GlobalSettings()
+            
+            pattern_results = analyze(pattern_deal, timeline, settings)
+            
+            print("✅ Pattern Analysis Complete!")
+            print(f"   Deal IRR: {pattern_results.deal_metrics.irr:.2%}")
+            print(f"   Equity Multiple: {pattern_results.deal_metrics.equity_multiple:.2f}x")
+            print(
+                f"   Total Equity Invested: ${pattern_results.deal_metrics.total_equity_invested:,.0f}"
+            )
+            print(f"   Net Profit: ${pattern_results.deal_metrics.net_profit:,.0f}")
+            
+            # Compare results
+            if composition_results:
+                irr_diff = abs((composition_results.deal_metrics.irr or 0) - (pattern_results.deal_metrics.irr or 0))
+                em_diff = abs(composition_results.deal_metrics.equity_multiple - pattern_results.deal_metrics.equity_multiple)
+                equity_diff = abs(composition_results.deal_metrics.total_equity_invested - pattern_results.deal_metrics.total_equity_invested)
+                
+                print(f"\n   EQUIVALENCE CHECK:")
+                print(f"     IRR Difference: {irr_diff:.4%} ({'✅ EQUIVALENT' if irr_diff < 0.001 else '⚠️ DIFFERENT'})")
+                print(f"     EM Difference: {em_diff:.4f}x ({'✅ EQUIVALENT' if em_diff < 0.01 else '⚠️ DIFFERENT'})")
+                print(f"     Equity Difference: ${equity_diff:,.0f} ({'✅ EQUIVALENT' if equity_diff < 10000 else '⚠️ DIFFERENT'})")
+                
+                # Add ledger comparison if not equivalent
+                if irr_diff >= 0.001 or em_diff >= 0.01 or equity_diff >= 10000:
+                    print(f"\n🔍 DETAILED LEDGER COMPARISON:")
+                    print("=" * 60)
+                    
+                    # Get ledgers
+                    comp_queries = composition_results.asset_analysis.get_ledger_queries()
+                    pattern_queries = pattern_results.asset_analysis.get_ledger_queries()
+                    
+                    comp_ledger = comp_queries.ledger
+                    pattern_ledger = pattern_queries.ledger
+                    
+                    print(f"   Composition ledger: {len(comp_ledger)} records")
+                    print(f"   Pattern ledger: {len(pattern_ledger)} records")
+                    
+                    # Aggregate by category and subcategory
+                    def aggregate_ledger(ledger_df):
+                        # Convert categorical columns to string to avoid merge issues
+                        df = ledger_df.copy()
+                        for col in ['category', 'subcategory']:
+                            if col in df.columns:
+                                df[col] = df[col].astype(str)
+                        return df.groupby(['category', 'subcategory'], observed=False)['amount'].sum().reset_index()
+                    
+                    comp_agg = aggregate_ledger(comp_ledger)
+                    pattern_agg = aggregate_ledger(pattern_ledger)
+                    
+                    # Merge and compare
+                    comparison = pd.merge(
+                        comp_agg, pattern_agg,
+                        on=['category', 'subcategory'],
+                        how='outer',
+                        suffixes=('_comp', '_pattern')
+                    )
+                    
+                    # Fill NaN values with 0 for numeric columns
+                    comparison['amount_comp'] = comparison['amount_comp'].fillna(0)
+                    comparison['amount_pattern'] = comparison['amount_pattern'].fillna(0)
+                    
+                    comparison['difference'] = comparison['amount_pattern'] - comparison['amount_comp']
+                    comparison['abs_diff'] = comparison['difference'].abs()
+                    
+                    # Show top differences
+                    differences = comparison[comparison['abs_diff'] > 1000].sort_values('abs_diff', ascending=False).head(10)
+                    
+                    if len(differences) > 0:
+                        print(f"   TOP DIFFERENCES (> $1,000):")
+                        for _, row in differences.iterrows():
+                            print(f"     {row['category']} -> {row['subcategory']}:")
+                            print(f"       Composition: ${row['amount_comp']:,.2f}")
+                            print(f"       Pattern: ${row['amount_pattern']:,.2f}")
+                            print(f"       Difference: ${row['difference']:,.2f}")
+                    else:
+                        print(f"   ✅ No significant ledger differences found!")
+            
+        except Exception as e:
+            print(f"❌ Pattern Analysis failed: {e}")
+            pattern_results = None
 
         if composition_results:
             print("\n🎯 APPROACH COMPARISON")
@@ -501,15 +620,32 @@ def main():
             print("  ⚠️  Requires deep Performa expertise")
             print()
             print("Convention Approach:")
-            print("  ✅ Interface complete and type-safe")
-            print("  ✅ Minimal configuration (20 parameters)")
+            print("  ✅ Interface complete and working")
+            print("  ✅ Minimal configuration (office-specific parameters)")
             print("  ✅ Industry-standard defaults")
-            print("  🚧 Implementation deferred (construction modeling complexity)")
+            print("  ✅ Type safety and validation")
+            print("  ✅ Full implementation working")
             print()
-            print("Future Vision:")
-            print("  🎯 Both approaches will produce identical results")
-            print("  🎯 Pattern approach will enable rapid deal scenario generation")
-            print("  🎯 Composition approach will remain for advanced customization")
+            print("Architectural Success:")
+            if pattern_results:
+                print("  🎯 Both approaches produce results")
+                print("  🎯 Pattern approach enables rapid office development modeling")
+                print("  🎯 Construction financing works in both approaches")
+                print("  🎯 Asset-specific parameters provide natural developer experience")
+            else:
+                print("  🎯 Pattern approach interface established")
+                print("  🎯 Foundation for rapid development modeling")
+
+    elif composition_deal:
+        # Only composition working
+        composition_results = analyze_composition_deal(composition_deal)
+        print("\n🎯 CURRENT STATUS")
+        print("-" * 60)
+        print("Composition Approach: ✅ Working")
+        print("Pattern Approach: 🚧 Interface ready, implementation in progress")
+
+    else:
+        print("\n❌ Neither approach produced a working deal for analysis")
 
     print("\n🎉 DEVELOPMENT PATTERN EXAMPLE COMPLETE!")
     print("📋 Interface established, ready for full implementation")

@@ -17,6 +17,7 @@ from typing import List, Optional, Tuple
 
 import pandas as pd
 
+from ..primitives.enums import enum_to_string
 from .converter import SeriesBatchConverter
 from .records import SeriesMetadata, TransactionRecord
 from .settings import LedgerGenerationSettings
@@ -156,11 +157,11 @@ class LedgerBuilder:
         if self.settings.use_categorical_dtypes:
             df = self._apply_categorical_dtypes(df)
 
-        if (
-            self.settings.enable_smart_indexing
-            and len(df) > self.settings.large_ledger_threshold
-        ):
-            df = self._apply_smart_indexing(df)
+        # if (
+        #     self.settings.enable_smart_indexing
+        #     and len(df) > self.settings.large_ledger_threshold
+        # ):
+        #     df = self._apply_smart_indexing(df)
 
         logger.info(
             f"Built ledger with {len(df)} transactions from {len(self.records)} records"
@@ -193,13 +194,14 @@ class LedgerBuilder:
         # Use list comprehension for speed
         data = []
         for record in records:
+            # Convert all enum values to strings for pandas compatibility
             row = {
                 "transaction_id": record.transaction_id,
                 "date": record.date,
                 "amount": record.amount,
-                "flow_purpose": record.flow_purpose.value,
-                "category": record.category,
-                "subcategory": record.subcategory,
+                "flow_purpose": enum_to_string(record.flow_purpose),
+                "category": enum_to_string(record.category),
+                "subcategory": enum_to_string(record.subcategory),
                 "item_name": record.item_name,
                 "source_id": record.source_id,
                 "asset_id": record.asset_id,
@@ -230,8 +232,13 @@ class LedgerBuilder:
 
     def _apply_smart_indexing(self, df: pd.DataFrame) -> pd.DataFrame:
         """Apply date indexing for large ledgers."""
-        if "date" in df.columns:
-            df = df.set_index("date", drop=False)
+        # DISABLED: Smart indexing causes pandas groupby ambiguity issues.
+        # All downstream operations expect groupby("date") which requires a column.
+        # The performance benefits of date indexing are theoretical while the 
+        # pandas ambiguity issues are real and affect all users.
+        # 
+        # Future enhancement: Could add date indexing only for specific query
+        # patterns that benefit from it, but would need to handle groupby carefully.
         return df
 
     def _validate_batch(

@@ -17,6 +17,15 @@ from uuid import UUID
 
 import pandas as pd
 
+from performa.core.primitives.enums import (
+    CashFlowCategoryEnum,
+    ExpenseSubcategoryEnum,
+    FinancingSubcategoryEnum,
+    RevenueSubcategoryEnum,
+    TransactionPurpose,
+    ValuationSubcategoryEnum,
+)
+
 
 class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
     """
@@ -32,16 +41,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
 
     def __init__(self, ledger: pd.DataFrame):
         """Initialize with ledger DataFrame."""
-        # Defensive check: ensure 'date' is not both index and column
-        if (
-            "date" in ledger.columns
-            and ledger.index.names
-            and "date" in ledger.index.names
-        ):
-            # Reset index to resolve ambiguity, keeping 'date' as column only
-            ledger = ledger.reset_index(drop=True)
-
-        # Store ledger
+        # Store ledger directly - we expect date as a column, not index
         self.ledger = ledger
 
         # Validate schema (basic check)
@@ -65,9 +65,13 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of potential gross revenue by period
         """
         revenue = self.ledger[
-            (self.ledger["flow_purpose"] == "Operating")
-            & (self.ledger["category"] == "Revenue")
-            & (self.ledger["subcategory"].isin(["Lease", "Miscellaneous", "Recovery"]))
+            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING)
+            & (self.ledger["category"] == CashFlowCategoryEnum.REVENUE)
+            & (self.ledger["subcategory"].isin([
+                RevenueSubcategoryEnum.LEASE, 
+                RevenueSubcategoryEnum.MISC, 
+                RevenueSubcategoryEnum.RECOVERY
+            ]))
         ]
         if revenue.empty:
             return pd.Series(dtype=float, name="Potential Gross Revenue")
@@ -84,9 +88,9 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of gross potential rent by period
         """
         lease_revenue = self.ledger[
-            (self.ledger["flow_purpose"] == "Operating")
-            & (self.ledger["category"] == "Revenue")
-            & (self.ledger["subcategory"] == "Lease")
+            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING)
+            & (self.ledger["category"] == CashFlowCategoryEnum.REVENUE)
+            & (self.ledger["subcategory"] == RevenueSubcategoryEnum.LEASE)
         ]
         if lease_revenue.empty:
             return pd.Series(dtype=float, name="Gross Potential Rent")
@@ -120,8 +124,8 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of vacancy losses (absolute values) by period
         """
         vacancy = self.ledger[
-            (self.ledger["flow_purpose"] == "Operating")
-            & (self.ledger["subcategory"] == "Vacancy Loss")
+            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING)
+            & (self.ledger["subcategory"] == RevenueSubcategoryEnum.VACANCY_LOSS)
         ]
         if vacancy.empty:
             return pd.Series(dtype=float, name="Vacancy Loss")
@@ -140,16 +144,16 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of effective gross income by period
         """
         egi_components = self.ledger[
-            (self.ledger["flow_purpose"] == "Operating")
-            & (self.ledger["category"] == "Revenue")
+            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING)
+            & (self.ledger["category"] == CashFlowCategoryEnum.REVENUE)
             & (
                 self.ledger["subcategory"].isin([
-                    "Lease",  # Stored as positive (+)
-                    "Miscellaneous",  # Stored as positive (+)
-                    "Recovery",  # Stored as positive (+)
-                    "Vacancy Loss",  # Stored as negative (-)
-                    "Credit Loss",  # Stored as negative (-)
-                    "Abatement",  # Stored as negative (-)
+                    RevenueSubcategoryEnum.LEASE,  # Stored as positive (+)
+                    RevenueSubcategoryEnum.MISC,  # Stored as positive (+)
+                    RevenueSubcategoryEnum.RECOVERY,  # Stored as positive (+)
+                    RevenueSubcategoryEnum.VACANCY_LOSS,  # Stored as negative (-)
+                    RevenueSubcategoryEnum.CREDIT_LOSS,  # Stored as negative (-)
+                    RevenueSubcategoryEnum.ABATEMENT,  # Stored as negative (-)
                 ])
             )
         ]
@@ -165,9 +169,9 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of operating expenses (absolute values) by period
         """
         expenses = self.ledger[
-            (self.ledger["flow_purpose"] == "Operating")
-            & (self.ledger["category"] == "Expense")
-            & (self.ledger["subcategory"] == "OpEx")
+            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING)
+            & (self.ledger["category"] == CashFlowCategoryEnum.EXPENSE)
+            & (self.ledger["subcategory"] == ExpenseSubcategoryEnum.OPEX)
         ]
         if expenses.empty:
             return pd.Series(dtype=float, name="Operating Expenses")
@@ -182,7 +186,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         Returns:
             Time series of net operating income by period
         """
-        operating_flows = self.ledger[self.ledger["flow_purpose"] == "Operating"]
+        operating_flows = self.ledger[self.ledger["flow_purpose"] == TransactionPurpose.OPERATING]
         if operating_flows.empty:
             return pd.Series(dtype=float, name="Net Operating Income")
         # Sum all operating flows: +Revenue -Expense (expenses stored as negative)
@@ -199,10 +203,10 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         """
         # Get all capital transactions
         capital_txns = self.ledger[
-            (self.ledger["category"] == "Capital")
+            (self.ledger["category"] == CashFlowCategoryEnum.CAPITAL)
             | (
-                (self.ledger["category"] == "Expense")
-                & (self.ledger["subcategory"] == "CapEx")
+                (self.ledger["category"] == CashFlowCategoryEnum.EXPENSE)
+                & (self.ledger["subcategory"] == ExpenseSubcategoryEnum.CAPEX)
             )
         ]
 
@@ -312,7 +316,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of total uses (absolute values) by period
         """
         uses = self.ledger[
-            self.ledger["flow_purpose"].isin(["Capital Use", "Financing Service"])
+            self.ledger["flow_purpose"].isin([TransactionPurpose.CAPITAL_USE, TransactionPurpose.FINANCING_SERVICE])
         ]
         if uses.empty:
             return pd.Series(dtype=float, name="Total Uses")
@@ -327,7 +331,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         Returns:
             Time series of total sources by period
         """
-        sources = self.ledger[self.ledger["flow_purpose"] == "Capital Source"]
+        sources = self.ledger[self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE]
         if sources.empty:
             return pd.Series(dtype=float, name="Total Sources")
         return sources.groupby("date")["amount"].sum()
@@ -340,7 +344,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             DataFrame with uses broken down by subcategory and period
         """
         uses = self.ledger[
-            self.ledger["flow_purpose"].isin(["Capital Use", "Financing Service"])
+            self.ledger["flow_purpose"].isin([TransactionPurpose.CAPITAL_USE, TransactionPurpose.FINANCING_SERVICE])
         ]
         if uses.empty:
             return pd.DataFrame()
@@ -362,7 +366,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         Returns:
             DataFrame with sources broken down by subcategory and period
         """
-        sources = self.ledger[self.ledger["flow_purpose"] == "Capital Source"]
+        sources = self.ledger[self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE]
         if sources.empty:
             return pd.DataFrame()
 
@@ -385,8 +389,8 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of debt draws by period
         """
         debt = self.ledger[
-            (self.ledger["subcategory"] == "Debt")
-            & (self.ledger["flow_purpose"] == "Capital Source")
+            (self.ledger["subcategory"] == FinancingSubcategoryEnum.LOAN_PROCEEDS)
+            & (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE)
         ]
         if debt.empty:
             return pd.Series(dtype=float, name="Debt Draws")
@@ -400,8 +404,8 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of debt service payments (absolute values) by period
         """
         service = self.ledger[
-            (self.ledger["subcategory"] == "DebtService")
-            & (self.ledger["flow_purpose"] == "Financing Service")
+            (self.ledger["subcategory"] == FinancingSubcategoryEnum.DEBT_SERVICE)
+            & (self.ledger["flow_purpose"] == TransactionPurpose.FINANCING_SERVICE)
         ]
         if service.empty:
             return pd.Series(dtype=float, name="Debt Service")
@@ -417,8 +421,8 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of equity contributions by period
         """
         equity = self.ledger[
-            (self.ledger["subcategory"] == "Equity")
-            & (self.ledger["flow_purpose"] == "Capital Source")
+            (self.ledger["subcategory"] == FinancingSubcategoryEnum.EQUITY_CONTRIBUTION)
+            & (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE)
         ]
         if equity.empty:
             return pd.Series(dtype=float, name="Equity Contributions")
@@ -450,7 +454,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         """
         gp_txns = self.ledger[
             (self.ledger["entity_type"] == "GP")
-            & (self.ledger["flow_purpose"] == "Capital Source")
+            & (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE)
         ]
         if gp_txns.empty:
             return pd.Series(dtype=float, name="GP Distributions")
@@ -465,7 +469,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         """
         lp_txns = self.ledger[
             (self.ledger["entity_type"] == "LP")
-            & (self.ledger["flow_purpose"] == "Capital Source")
+            & (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE)
         ]
         if lp_txns.empty:
             return pd.Series(dtype=float, name="LP Distributions")
@@ -479,8 +483,8 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of rental abatement amounts by period
         """
         abatement_txns = self.ledger[
-            (self.ledger["flow_purpose"] == "Operating")
-            & (self.ledger["subcategory"] == "Abatement")
+            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING)
+            & (self.ledger["subcategory"] == RevenueSubcategoryEnum.ABATEMENT)
         ]
         if abatement_txns.empty:
             return pd.Series(dtype=float, name="Rental Abatement")
@@ -496,8 +500,8 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of credit loss amounts by period
         """
         credit_txns = self.ledger[
-            (self.ledger["flow_purpose"] == "Operating")
-            & (self.ledger["subcategory"] == "Credit Loss")
+            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING)
+            & (self.ledger["subcategory"] == RevenueSubcategoryEnum.CREDIT_LOSS)
         ]
         if credit_txns.empty:
             return pd.Series(dtype=float, name="Credit Loss")
@@ -513,9 +517,9 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of miscellaneous income amounts by period
         """
         misc_txns = self.ledger[
-            (self.ledger["flow_purpose"] == "Operating")
+            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING)
             & (
-                self.ledger["subcategory"] == "Miscellaneous"
+                self.ledger["subcategory"] == RevenueSubcategoryEnum.MISC
             )  # Fixed: use correct enum value
         ]
         if misc_txns.empty:
@@ -530,9 +534,9 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of expense reimbursement amounts by period
         """
         reimburse_txns = self.ledger[
-            (self.ledger["flow_purpose"] == "Operating")
+            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING)
             & (
-                self.ledger["subcategory"] == "Recovery"
+                self.ledger["subcategory"] == RevenueSubcategoryEnum.RECOVERY
             )  # Updated to match RevenueSubcategoryEnum.RECOVERY
         ]
         if reimburse_txns.empty:
@@ -559,8 +563,8 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             current_value = queries.asset_value()  # e.g., 12_000_000.0
         """
         valuation_txns = self.ledger[
-            (self.ledger["category"] == "Valuation")
-            & (self.ledger["subcategory"] == "Asset Valuation")
+            (self.ledger["category"] == CashFlowCategoryEnum.VALUATION)
+            & (self.ledger["subcategory"] == ValuationSubcategoryEnum.ASSET_VALUATION)
         ]
 
         if valuation_txns.empty:
@@ -612,3 +616,51 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             return pd.Series(dtype=float, name=f"{subcategory} Flows")
 
         return financing_txns.groupby("date")["amount"].sum()
+
+    # === Capital Flow Queries ===
+    
+    def capital_uses_by_category(self, as_of_date: pd.Period = None) -> pd.Series:
+        """
+        Get capital uses broken down by subcategory.
+        
+        Raw data extraction for use by reporting modules.
+        
+        Args:
+            as_of_date: Optional date filter
+            
+        Returns:
+            Series with subcategory as index and absolute amounts as values
+        """
+        ledger_to_use = self.ledger.copy()
+        
+        if as_of_date is not None:
+            ledger_to_use = ledger_to_use[ledger_to_use["date"] <= as_of_date]
+            
+        uses = ledger_to_use[ledger_to_use["flow_purpose"] == TransactionPurpose.CAPITAL_USE]
+        if uses.empty:
+            return pd.Series(dtype=float, name="Capital Uses")
+            
+        return uses.groupby("subcategory")["amount"].sum().abs()
+        
+    def capital_sources_by_category(self, as_of_date: pd.Period = None) -> pd.Series:
+        """
+        Get capital sources broken down by subcategory.
+        
+        Raw data extraction for use by reporting modules.
+        
+        Args:
+            as_of_date: Optional date filter
+            
+        Returns:
+            Series with subcategory as index and amounts as values
+        """
+        ledger_to_use = self.ledger.copy()
+        
+        if as_of_date is not None:
+            ledger_to_use = ledger_to_use[ledger_to_use["date"] <= as_of_date]
+            
+        sources = ledger_to_use[ledger_to_use["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE]
+        if sources.empty:
+            return pd.Series(dtype=float, name="Capital Sources")
+            
+        return sources.groupby("subcategory")["amount"].sum()

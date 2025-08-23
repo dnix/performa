@@ -32,8 +32,8 @@ financing and partnership structures:
 - Equity Structure: 90% LP / 10% GP with 8% preferred return + 20% promote
 
 **Key Modeling Components**:
-- **Construction Facility**: Senior tranche at 70% LTC, 6.5% rate, 15% interest reserve
-- **Permanent Facility**: $18M, 5.5% rate, 10-year term, 25-year amortization
+- **Construction Facility**: Senior tranche at 70% LTC, 6.5% rate, sophisticated draw-based interest calculation
+- **Permanent Facility**: $18M, 5.5% rate, 10-year term, 25-year amortization  
 - **Absorption Plan**: 9 leases over 18 months, $35/SF rent, 7-year terms
 - **Exit Strategy**: 6.5% reversion cap rate, 2.5% transaction costs
 
@@ -58,7 +58,8 @@ The model executes the standard institutional analysis sequence:
 The example demonstrates Performa's capabilities:
 
 - **Asset Factory Pattern**: Absorption plans defining leasing strategy and stabilized assumptions
-- **Polymorphic Valuation**: ReversionValuation with cap rate methodology
+- **Sophisticated Construction Finance**: Automated loan sizing with draw-based interest calculations
+- **Polymorphic Valuation**: ReversionValuation with cap rate methodology  
 - **Multi-Facility Financing**: Construction-to-permanent transition modeling
 - **Institutional Waterfall**: Binary search precision for IRR-based promote tiers
 - **Comprehensive Reporting**: Sources & uses, draw requests, leasing status, development summary
@@ -93,6 +94,7 @@ from performa.core.primitives import (
     AssetTypeEnum,
     FirstOnlyDrawSchedule,
     GlobalSettings,
+    InterestCalculationMethod,
     ProgramUseEnum,
     PropertyAttributeKey,
     Timeline,
@@ -248,7 +250,7 @@ def create_sample_development_deal():
 
     # 2. Financing Plan - Construction-to-Permanent financing
 
-    # Construction loan with senior tranche
+    # Construction loan with senior tranche using sophisticated interest calculation
     construction_loan = ConstructionFacility(
         name="Construction Facility",
         tranches=[
@@ -263,6 +265,8 @@ def create_sample_development_deal():
                 ltc_threshold=0.70,  # 70% LTC
             )
         ],
+        # Use sophisticated draw-based calculation (leverages Performa's draw schedule capabilities)
+        interest_calculation_method=InterestCalculationMethod.SCHEDULED,
         fund_interest_from_reserve=True,
         interest_reserve_rate=0.15,  # 15% interest reserve
     )

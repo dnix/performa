@@ -697,6 +697,27 @@ class FeeTypeEnum(str, Enum):
         return fee_type in cls.get_third_party_fee_types()
 
 
+class InterestCalculationMethod(str, Enum):
+    """
+    Method for calculating construction interest and debt sizing.
+    
+    Provides a complexity dial for construction financing to match 
+    project sophistication needs while maintaining industry alignment.
+    
+    Methods:
+        NONE: No interest calculation - draws only
+        SIMPLE: Quick percentage-based reserve estimate (industry: 8-12%)
+        SCHEDULED: Sophisticated draw-based calculation using actual schedules (industry standard)
+        ITERATIVE: Full multi-pass iteration for maximum precision (future enhancement)
+    """
+    
+    NONE = "none"
+    SIMPLE = "simple"
+    
+    SCHEDULED = "scheduled"
+    ITERATIVE = "iterative"
+
+
 class TransactionPurpose(str, Enum):
     """
     High-level classification of transaction purposes in the ledger.
@@ -758,3 +779,31 @@ class TransactionPurpose(str, Enum):
     - Internal mark-to-market adjustments
     - Zero cash flow impact (non-transactional)
     """
+
+
+# =============================================================================
+# ENUM UTILITIES FOR PANDAS COMPATIBILITY
+# =============================================================================
+
+def enum_to_string(value) -> str:
+    """
+    Convert enum values to their string representation for pandas storage.
+    
+    This ensures consistent string-based operations in DataFrames while
+    maintaining the semantic meaning of enum values.
+    
+    Args:
+        value: Any value, but primarily expected to be enum instances
+        
+    Returns:
+        String representation of the enum value, or str(value) for non-enums
+        
+    Examples:
+        >>> enum_to_string(CashFlowCategoryEnum.EXPENSE)
+        'Expense'
+        >>> enum_to_string("already_string")  
+        'already_string'
+    """
+    if isinstance(value, Enum):
+        return value.value  # Get the actual string value (e.g., "Expense")
+    return str(value)

@@ -65,6 +65,7 @@ Institutional Standards:
 from __future__ import annotations
 
 import logging
+import traceback
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -73,6 +74,10 @@ import pandas as pd
 
 from performa.analysis.orchestrator import AnalysisContext
 from performa.core.primitives import Timeline, UnleveredAggregateLineKey
+from performa.core.primitives.enums import (
+    CashFlowCategoryEnum,
+    FinancingSubcategoryEnum,
+)
 from performa.deal.results import (
     DSCRSummary,
     FacilityInfo,
@@ -245,22 +250,48 @@ class DebtAnalyzer:
                     # Store for backward compatibility
                     self.financing_analysis.debt_service[facility_name] = debt_service
 
-                    # For loan proceeds, try to get from facility's calculate_loan_proceeds method
-                    if hasattr(facility, "calculate_loan_proceeds"):
-                        try:
-                            loan_proceeds = facility.calculate_loan_proceeds(
-                                self.timeline
+                    # Extract loan proceeds from ledger after compute_cf execution
+                    try:
+                        current_ledger = ledger_builder.get_current_ledger()
+                        logger.info(f"DEBUG: Ledger size after compute_cf: {len(current_ledger)}")
+                        
+                        if not current_ledger.empty:
+                            # Debug: Show all financing entries
+                            financing_entries = current_ledger[current_ledger['category'] == CashFlowCategoryEnum.FINANCING]
+                            logger.info(f"DEBUG: Found {len(financing_entries)} financing entries")
+                            
+                            if not financing_entries.empty:
+                                logger.info(f"DEBUG: Financing entries:")
+                                for idx, row in financing_entries.iterrows():
+                                    logger.info(f"  - {row['item_name']}: ${row['amount']:,.0f} ({row['category']}/{row.get('subcategory', 'N/A')})")
+                            
+                            # Filter for actual loan proceeds (by subcategory enum, not just positive amount)
+                            financing_mask = (
+                                (current_ledger['category'] == CashFlowCategoryEnum.FINANCING) &
+                                (current_ledger['subcategory'] == FinancingSubcategoryEnum.LOAN_PROCEEDS) &  # Only actual loan proceeds
+                                (current_ledger['item_name'].str.contains(facility_name, case=False, na=False))
                             )
-                            self.financing_analysis.loan_proceeds[facility_name] = (
-                                loan_proceeds
-                            )
-                        except Exception as e:
-                            logger.warning(
-                                f"Error calculating loan proceeds for '{facility_name}': {e}"
-                            )
+                            facility_proceeds = current_ledger[financing_mask]
+                            logger.info(f"DEBUG: Found {len(facility_proceeds)} facility proceeds for '{facility_name}'")
+                            
+                            if not facility_proceeds.empty:
+                                # Group by date and sum to get loan proceeds by period
+                                proceeds_by_period = facility_proceeds.groupby('date')['amount'].sum()
+                                # Reindex to match timeline
+                                loan_proceeds = proceeds_by_period.reindex(
+                                    self.timeline.period_index, fill_value=0.0
+                                )
+                                self.financing_analysis.loan_proceeds[facility_name] = loan_proceeds
+                                logger.info(f"✅ Extracted ${loan_proceeds.sum():,.0f} loan proceeds for '{facility_name}' from ledger")
+                            else:
+                                logger.warning(f"❌ No loan proceeds found in ledger for '{facility_name}'")
+                                self.financing_analysis.loan_proceeds[facility_name] = None
+                        else:
+                            logger.warning("❌ Ledger is empty - cannot extract loan proceeds")
                             self.financing_analysis.loan_proceeds[facility_name] = None
-                    else:
-                        # TODO: Extract loan proceeds from ledger after compute_cf enhancement
+                    except Exception as e:
+                        logger.warning(f"❌ Error extracting loan proceeds from ledger for '{facility_name}': {e}")
+                        logger.warning(f"Traceback: {traceback.format_exc()}")
                         self.financing_analysis.loan_proceeds[facility_name] = None
 
                 except Exception as e:

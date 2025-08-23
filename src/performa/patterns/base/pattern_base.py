@@ -16,11 +16,11 @@ from typing import Optional, Tuple
 
 from pydantic import Field
 
-from ..core.primitives import GlobalSettings, Model, Timeline
-from ..core.primitives.types import PositiveInt
-from ..deal import Deal
-from ..deal.api import analyze as run_analysis
-from ..deal.results import DealAnalysisResult
+from ...core.primitives import GlobalSettings, Model, Timeline
+from ...core.primitives.types import PositiveInt
+from ...deal import Deal
+from ...deal.api import analyze as run_analysis
+from ...deal.results import DealAnalysisResult
 
 
 class PatternBase(Model, ABC):

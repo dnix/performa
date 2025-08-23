@@ -19,7 +19,7 @@ from typing import Any, Dict, List
 from performa.analysis import run
 from performa.analysis.orchestrator import AnalysisContext
 from performa.asset.residential import (
-    ResidentialCollectionLoss,
+    ResidentialCreditLoss,
     ResidentialExpenses,
     ResidentialGeneralVacancyLoss,
     ResidentialLosses,
@@ -122,7 +122,7 @@ def test_small_developer_scale() -> Dict[str, Any]:
         expenses=ResidentialExpenses(),
         losses=ResidentialLosses(
             general_vacancy=ResidentialGeneralVacancyLoss(rate=0.05),
-            collection_loss=ResidentialCollectionLoss(rate=0.01),
+            collection_loss=ResidentialCreditLoss(rate=0.01),
         ),
     )
 
@@ -233,7 +233,7 @@ def test_regional_investor_scale() -> Dict[str, Any]:
         expenses=expenses,
         losses=ResidentialLosses(
             general_vacancy=ResidentialGeneralVacancyLoss(rate=0.04),
-            collection_loss=ResidentialCollectionLoss(rate=0.015),
+            collection_loss=ResidentialCreditLoss(rate=0.015),
         ),
     )
 
@@ -390,7 +390,7 @@ def test_institutional_scale() -> Dict[str, Any]:
         expenses=expenses,
         losses=ResidentialLosses(
             general_vacancy=ResidentialGeneralVacancyLoss(rate=0.03),
-            collection_loss=ResidentialCollectionLoss(rate=0.012),
+            collection_loss=ResidentialCreditLoss(rate=0.012),
         ),
         miscellaneous_income=misc_income,
     )
@@ -838,7 +838,7 @@ def test_comprehensive_performance_suite() -> List[Dict[str, Any]]:
             expenses=expenses,
             losses=ResidentialLosses(
                 general_vacancy=ResidentialGeneralVacancyLoss(rate=0.04),
-                collection_loss=ResidentialCollectionLoss(rate=0.015),
+                collection_loss=ResidentialCreditLoss(rate=0.015),
             ),
         )
 

@@ -47,7 +47,7 @@ import traceback
 from datetime import date
 
 from performa.asset.residential import (
-    ResidentialCollectionLoss,
+    ResidentialCreditLoss,
     ResidentialExpenses,
     ResidentialGeneralVacancyLoss,
     ResidentialLosses,
@@ -243,8 +243,8 @@ def create_deal_via_composition():
             vacancy_rate=1.0 - 0.95,  # Copy Pattern EXACTLY: 1.0 - occupancy_rate
             timeline=timeline,
         ),
-        collection_loss=ResidentialCollectionLoss(
-            collection_loss_rate=0.02,  # Copy Pattern EXACTLY: collection_loss_rate
+        credit_loss=ResidentialCreditLoss(
+            rate=0.02,  # Copy Pattern EXACTLY: collection_loss_rate 
             timeline=timeline,
         ),
     )

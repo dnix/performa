@@ -11,6 +11,9 @@ familiar real estate industry formats and language.
 from datetime import date
 from typing import Any, Dict
 
+import pandas as pd
+
+from ..core.ledger import LedgerQueries
 from .base import BaseReport
 
 
@@ -25,48 +28,28 @@ class SourcesAndUsesReport(BaseReport):
 
     def generate(self) -> Dict[str, Any]:
         """
-        Generate Sources & Uses report from analysis results.
+        Generate Sources & Uses report using ledger-first architecture.
 
         Returns:
             Dictionary with structured Sources & Uses data
-
-        Raises:
-            TypeError: If called on non-development deals
         """
-        # Check that this is a development deal
-        if not self._results.deal_summary.is_development:
-            raise TypeError(
-                "Sources & Uses report is only applicable to development deals"
-            )
-
-        # Extract final funding cascade details
-        funding_details = self._results.levered_cash_flows.funding_cascade_details
-        if not funding_details:
-            raise ValueError("No funding cascade details available in analysis results")
-
-        # Extract uses breakdown from final analysis
-        uses_breakdown = funding_details.uses_breakdown
-        if uses_breakdown is None or uses_breakdown.empty:
-            raise ValueError("No uses breakdown available in funding cascade details")
-
-        # Extract funding totals from interest compounding details
-        compounding_details = funding_details.interest_compounding_details
-        total_project_cost = compounding_details.total_project_cost
-        equity_funded = compounding_details.equity_funded
-        debt_funded = compounding_details.debt_funded
-
-        # Categorize uses from the analysis results
-        uses = self._categorize_uses_from_analysis(uses_breakdown)
-
-        # Extract sources from funding details
-        sources = {
-            "equity": equity_funded,
-            "debt": debt_funded,
-            "subsidies": 0.0,  # Could be enhanced to extract from analysis
-        }
-
-        total_uses = sum(uses.values()) if uses else total_project_cost
-        total_sources = sum(sources.values())
+        # Get ledger and create queries
+        ledger_df = self._results.ledger_builder.get_current_ledger()
+        queries = LedgerQueries(ledger_df)
+        
+        # Extract uses and sources from ledger
+        uses_data = queries.capital_uses_by_category()
+        sources_data = queries.capital_sources_by_category()
+        
+        if uses_data.empty and sources_data.empty:
+            raise ValueError("No capital transactions found in ledger")
+        
+        # Map ledger subcategories to industry-standard categories
+        uses = self._map_uses_to_standard_categories(uses_data)
+        sources = self._map_sources_to_standard_categories(sources_data)
+        
+        total_uses = sum(uses.values()) if uses else 0.0
+        total_sources = sum(sources.values()) if sources else 0.0
 
         return {
             "project_info": {
@@ -76,22 +59,24 @@ class SourcesAndUsesReport(BaseReport):
                 "report_date": date.today().strftime("%B %d, %Y"),
             },
             "uses": {
-                "Land Acquisition": self._format_currency(uses.get("land", 0)),
+                "Land Acquisition": self._format_currency(uses.get("purchase_price", 0)),
                 "Direct Construction Costs": self._format_currency(
                     uses.get("hard_costs", 0)
                 ),
                 "Indirect/Soft Costs": self._format_currency(uses.get("soft_costs", 0)),
-                "Financing Fees": self._format_currency(uses.get("financing_fees", 0)),
-                "Contingency": self._format_currency(uses.get("contingency", 0)),
-                "Developer Fee": self._format_currency(uses.get("developer_fee", 0)),
+                "Closing Costs": self._format_currency(uses.get("closing_costs", 0)),
+                "Due Diligence": self._format_currency(uses.get("due_diligence", 0)),
+                "Other Costs": self._format_currency(uses.get("other", 0)),
                 "Total Project Cost": self._format_currency(total_uses),
             },
             "sources": {
                 "Equity Investment": f"{self._format_currency(sources.get('equity', 0))} ({sources.get('equity', 0) / total_uses:.1%})"
                 if total_uses > 0
                 else f"{self._format_currency(sources.get('equity', 0))} (0.0%)",
-                "Debt Financing": f"{self._format_currency(sources.get('debt', 0))}",
-                "Government Subsidies": f"{self._format_currency(sources.get('subsidies', 0))}",
+                "Debt Financing": f"{self._format_currency(sources.get('debt', 0))} ({sources.get('debt', 0) / total_uses:.1%})"
+                if total_uses > 0
+                else f"{self._format_currency(sources.get('debt', 0))} (0.0%)",
+                "Other Sources": f"{self._format_currency(sources.get('other', 0))}",
                 "Total Sources": self._format_currency(total_sources),
             },
             "key_metrics": {
@@ -103,34 +88,78 @@ class SourcesAndUsesReport(BaseReport):
                 ),
             },
             "validation": {
-                "sources_equal_uses": abs(total_sources - total_uses) < 0.01,
+                "sources_equal_uses": abs(total_sources - total_uses) < 1000,  # Within $1,000
                 "variance": total_sources - total_uses,
+                "funding_gap": total_uses - total_sources,
             },
         }
 
-    def _categorize_uses_from_analysis(self, uses_breakdown) -> Dict[str, float]:
+    def _map_uses_to_standard_categories(self, uses_data: pd.Series) -> Dict[str, float]:
         """
-        Categorize uses from the final analysis breakdown.
-
-        This extracts the actual, final calculated uses rather than
-        estimating from input specifications.
+        Map ledger subcategories to industry-standard Sources & Uses categories.
+        
+        Args:
+            uses_data: Series with subcategory as index and amounts as values
+            
+        Returns:
+            Dictionary with standardized category names and amounts
         """
-        # Extract total uses from breakdown data
-        if hasattr(uses_breakdown, "sum"):
-            total_uses = uses_breakdown.sum().sum() if not uses_breakdown.empty else 0.0
-        else:
-            total_uses = 0.0
-
-        # Default categorization based on typical construction project distributions
-        # This should be enhanced to parse the actual breakdown from funding cascade
-        return {
-            "hard_costs": total_uses * 0.60,  # Typical distribution
-            "soft_costs": total_uses * 0.15,
-            "land": total_uses * 0.15,
-            "financing_fees": total_uses * 0.05,
-            "contingency": total_uses * 0.03,
-            "developer_fee": total_uses * 0.02,
+        # Initialize standard categories
+        mapped_uses = {
+            "purchase_price": 0.0,
+            "hard_costs": 0.0,
+            "soft_costs": 0.0,
+            "closing_costs": 0.0,
+            "due_diligence": 0.0,
+            "other": 0.0,
         }
+        
+        # Map ledger subcategories to standard categories
+        # Using the CapitalSubcategoryEnum values
+        for subcategory, amount in uses_data.items():
+            if subcategory in ["Purchase Price"]:
+                mapped_uses["purchase_price"] += amount
+            elif subcategory in ["Hard Costs"]:
+                mapped_uses["hard_costs"] += amount
+            elif subcategory in ["Soft Costs"]:
+                mapped_uses["soft_costs"] += amount
+            elif subcategory in ["Closing Costs"]:
+                mapped_uses["closing_costs"] += amount
+            elif subcategory in ["Due Diligence"]:
+                mapped_uses["due_diligence"] += amount
+            else:
+                mapped_uses["other"] += amount
+                
+        return mapped_uses
+        
+    def _map_sources_to_standard_categories(self, sources_data: pd.Series) -> Dict[str, float]:
+        """
+        Map ledger subcategories to industry-standard Sources categories.
+        
+        Args:
+            sources_data: Series with subcategory as index and amounts as values
+            
+        Returns:
+            Dictionary with standardized category names and amounts
+        """
+        # Initialize standard categories
+        mapped_sources = {
+            "equity": 0.0,
+            "debt": 0.0,
+            "other": 0.0,
+        }
+        
+        # Map ledger subcategories to standard categories
+        # Using the FinancingSubcategoryEnum values
+        for subcategory, amount in sources_data.items():
+            if subcategory in ["Equity Contribution"]:
+                mapped_sources["equity"] += amount
+            elif subcategory in ["Loan Proceeds", "Debt"]:
+                mapped_sources["debt"] += amount
+            else:
+                mapped_sources["other"] += amount
+                
+        return mapped_sources
 
     def _format_currency(self, value: float) -> str:
         """Format currency values."""

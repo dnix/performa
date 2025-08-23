@@ -448,6 +448,7 @@ class ValueAddAcquisitionPattern(PatternBase):
         financing_plan = create_construction_to_permanent_plan(
             construction_terms={
                 "name": "Bridge Loan",
+                "loan_amount": loan_amount,  # Explicit loan amount for construction facility
                 "tranches": [
                     {
                         "name": "Bridge Financing",
