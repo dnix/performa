@@ -132,13 +132,13 @@ class ConstructionFacility(DebtFacilityBase):
     # Enhanced interest calculation settings
     interest_calculation_method: InterestCalculationMethod = Field(
         default=InterestCalculationMethod.NONE,
-        description="Method for handling construction interest calculation"
+        description="Method for handling construction interest calculation",
     )
     simple_reserve_rate: Optional[float] = Field(
         default=None,
         ge=0,
         le=0.3,
-        description="Reserve percentage when using SIMPLE method (required for SIMPLE method, typically 8-12%)"
+        description="Reserve percentage when using SIMPLE method (required for SIMPLE method, typically 8-12%)",
     )
 
     @model_validator(mode="before")
@@ -318,35 +318,41 @@ class ConstructionFacility(DebtFacilityBase):
     def _calculate_loan_commitment(self, context: "DealContext") -> float:
         """
         Calculate the loan commitment based on project costs and interest calculation method.
-        
+
         This is the key method that solves the construction financing gap by properly
         sizing debt facilities to fund the actual capital needs identified in the ledger.
-        
+
         Args:
             context: Deal context with ledger access
-            
+
         Returns:
             float: Calculated loan commitment amount
         """
         # Get base project costs from ledger or context fallback
         current_ledger = context.ledger_builder.get_current_ledger()
         base_costs = 0.0
-        
+
         if not current_ledger.empty:
             # Sum capital uses (negative amounts in ledger) to get total project costs
             capital_uses = current_ledger[
-                current_ledger['flow_purpose'] == 'Capital Use'
+                current_ledger["flow_purpose"] == "Capital Use"
             ]
-            base_costs = abs(capital_uses['amount'].sum()) if not capital_uses.empty else 0.0
-        
+            base_costs = (
+                abs(capital_uses["amount"].sum()) if not capital_uses.empty else 0.0
+            )
+
         # Fallback to context.project_costs if ledger has no capital uses yet
-        if base_costs == 0 and hasattr(context, 'project_costs') and context.project_costs:
+        if (
+            base_costs == 0
+            and hasattr(context, "project_costs")
+            and context.project_costs
+        ):
             base_costs = context.project_costs
-            
+
         # Final fallback to self.loan_amount if explicitly set
         if base_costs == 0 and self.loan_amount:
             return self.loan_amount
-            
+
         # No silent failures! Raise explicit error if we can't determine project costs
         if base_costs == 0:
             raise ValueError(
@@ -357,17 +363,18 @@ class ConstructionFacility(DebtFacilityBase):
                 "and no loan_amount was specified."
             )
 
-        
         # Get maximum LTC across all tranches (multi-tranche facilities fund up to highest LTC)
         if not self.tranches or len(self.tranches) == 0:
-            raise ValueError("ConstructionFacility requires at least one tranche to determine LTC")
+            raise ValueError(
+                "ConstructionFacility requires at least one tranche to determine LTC"
+            )
         ltc = max(tranche.ltc_threshold for tranche in self.tranches)
-            
+
         # Calculate loan amount based on interest calculation method
         if self.interest_calculation_method == InterestCalculationMethod.NONE:
             # Simple LTC on base costs
             return base_costs * ltc
-            
+
         elif self.interest_calculation_method == InterestCalculationMethod.SIMPLE:
             # Algebraic solution with interest reserve (no iteration needed!)
             # Loan = (Base × LTC) / (1 - Reserve% × LTC)
@@ -383,43 +390,49 @@ class ConstructionFacility(DebtFacilityBase):
                     f"LTC ({ltc:.1%}) combination is invalid - denominator is {denominator:.4f}"
                 )
             return (base_costs * ltc) / denominator
-            
+
         elif self.interest_calculation_method == InterestCalculationMethod.SCHEDULED:
             # Sophisticated draw-based calculation using actual draw schedules
             # This leverages Performa's draw schedule capabilities
-            draw_schedule_total = sum(self.draw_schedule.values()) if self.draw_schedule else base_costs
-            
+            draw_schedule_total = (
+                sum(self.draw_schedule.values()) if self.draw_schedule else base_costs
+            )
+
             # Calculate interest on draws using construction timeline
             construction_periods = self.loan_term_months or 24
             annual_rate = self._get_effective_rate()
             monthly_rate = annual_rate / 12
-            
+
             # Estimate average outstanding balance during construction
             # (simplified: assume uniform draws, average balance is 50% of final)
             avg_outstanding = (draw_schedule_total * ltc) * 0.5
             total_interest = avg_outstanding * monthly_rate * construction_periods
-            
+
             # Add interest to project costs and apply LTC
             total_project_with_interest = base_costs + total_interest
             return total_project_with_interest * ltc
-            
+
         elif self.interest_calculation_method == InterestCalculationMethod.ITERATIVE:
             # Future enhancement: full iterative simulation
             # For now, fall back to SCHEDULED method
-            return self._calculate_loan_commitment_scheduled_method(context, base_costs, ltc)
-            
+            return self._calculate_loan_commitment_scheduled_method(
+                context, base_costs, ltc
+            )
+
         else:
             # Default: use base LTC
             return base_costs * ltc
-            
-    def _calculate_loan_commitment_scheduled_method(self, context: "DealContext", base_costs: float, ltc: float) -> float:
+
+    def _calculate_loan_commitment_scheduled_method(
+        self, context: "DealContext", base_costs: float, ltc: float
+    ) -> float:
         """Helper for scheduled calculation method."""
         # This would contain the sophisticated draw schedule logic
         # For now, use the same logic as SCHEDULED above
         construction_periods = self.loan_term_months or 24
         annual_rate = self._get_effective_rate()
         monthly_rate = annual_rate / 12
-        
+
         avg_outstanding = (base_costs * ltc) * 0.5
         total_interest = avg_outstanding * monthly_rate * construction_periods
         total_project_with_interest = base_costs + total_interest
@@ -445,19 +458,24 @@ class ConstructionFacility(DebtFacilityBase):
         effective_loan_amount = self._calculate_loan_commitment(context)
 
         # Write interest capitalization to ledger if using SIMPLE or SCHEDULED methods
-        if self.interest_calculation_method in [InterestCalculationMethod.SIMPLE, InterestCalculationMethod.SCHEDULED]:
+        if self.interest_calculation_method in [
+            InterestCalculationMethod.SIMPLE,
+            InterestCalculationMethod.SCHEDULED,
+        ]:
             self._record_interest_capitalization(context, effective_loan_amount)
 
         # Generate debt service with calculated loan amount
         return self._generate_debt_service_with_amount(context, effective_loan_amount)
 
-    def _record_interest_capitalization(self, context: "DealContext", loan_amount: float) -> None:
+    def _record_interest_capitalization(
+        self, context: "DealContext", loan_amount: float
+    ) -> None:
         """
         Record capitalized interest in the ledger as soft costs.
-        
+
         This method implements the critical architectural requirement to record
         interest capitalization as part of the total project costs in the ledger.
-        
+
         Args:
             context: Deal context with ledger builder access
             loan_amount: Total loan commitment including interest
@@ -466,28 +484,32 @@ class ConstructionFacility(DebtFacilityBase):
         current_ledger = context.ledger_builder.get_current_ledger()
         if current_ledger.empty:
             return
-            
-        capital_uses = current_ledger[current_ledger['flow_purpose'] == 'Capital Use']
-        base_costs = abs(capital_uses['amount'].sum()) if not capital_uses.empty else 0.0
-        
+
+        capital_uses = current_ledger[current_ledger["flow_purpose"] == "Capital Use"]
+        base_costs = (
+            abs(capital_uses["amount"].sum()) if not capital_uses.empty else 0.0
+        )
+
         if base_costs == 0:
             return
-            
+
         # Get maximum LTC across all tranches
         if not self.tranches or len(self.tranches) == 0:
             return  # Can't calculate without tranche info
         ltc = max(tranche.ltc_threshold for tranche in self.tranches)
-            
+
         # Calculate interest component
         base_loan = base_costs * ltc
         interest_component = loan_amount - base_loan
-        
+
         if interest_component > 0:
             # Record as soft costs in first period
             timeline = context.timeline
             if len(timeline.period_index) > 0:
-                interest_series = pd.Series([-interest_component], index=[timeline.period_index[0]])
-                
+                interest_series = pd.Series(
+                    [-interest_component], index=[timeline.period_index[0]]
+                )
+
                 interest_metadata = SeriesMetadata(
                     category=CashFlowCategoryEnum.CAPITAL,
                     subcategory=CapitalSubcategoryEnum.SOFT_COSTS,

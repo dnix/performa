@@ -67,12 +67,11 @@ from __future__ import annotations
 import logging
 import traceback
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List
 
 import numpy as np
 import pandas as pd
 
-from performa.analysis.orchestrator import AnalysisContext
 from performa.core.primitives import Timeline, UnleveredAggregateLineKey
 from performa.core.primitives.enums import (
     CashFlowCategoryEnum,
@@ -162,7 +161,7 @@ class DebtAnalyzer:
         noi_series: pd.Series,
         unlevered_analysis: UnleveredAnalysisResult,
         ledger_builder: "LedgerBuilder",
-        deal_context: Optional["DealContext"] = None,
+        deal_context: "DealContext",
     ) -> FinancingAnalysisResult:
         """
         Analyze the complete financing structure including facilities, refinancing, covenants, and DSCR.
@@ -205,7 +204,7 @@ class DebtAnalyzer:
     def _process_facilities(
         self,
         ledger_builder: "LedgerBuilder",
-        deal_context: Optional["DealContext"] = None,
+        deal_context: "DealContext",
     ) -> None:
         """
         Process each facility through their compute_cf method for ledger integration.
@@ -216,19 +215,10 @@ class DebtAnalyzer:
 
         Args:
             ledger_builder: LedgerBuilder instance for facility processing
-            deal_context: DealContext for proper debt facility processing (replaces AnalysisContext)
+            deal_context: DealContext for proper debt facility processing (required)
         """
-        # Use DealContext if provided, otherwise create fallback AnalysisContext
-        if deal_context is not None:
-            context = deal_context
-        else:
-            # Fallback for backward compatibility (should be rare with new architecture)
-            context = AnalysisContext(
-                timeline=self.timeline,
-                settings=self.settings,
-                property_data=self.deal.asset,
-                ledger_builder=ledger_builder,
-            )
+        # Debt facilities are deal-level models and must use DealContext
+        context = deal_context
 
         for facility in self.deal.financing.facilities:
             facility_name = getattr(facility, "name", "Unnamed Facility")
@@ -253,44 +243,84 @@ class DebtAnalyzer:
                     # Extract loan proceeds from ledger after compute_cf execution
                     try:
                         current_ledger = ledger_builder.get_current_ledger()
-                        logger.info(f"DEBUG: Ledger size after compute_cf: {len(current_ledger)}")
-                        
+                        logger.info(
+                            f"DEBUG: Ledger size after compute_cf: {len(current_ledger)}"
+                        )
+
                         if not current_ledger.empty:
                             # Debug: Show all financing entries
-                            financing_entries = current_ledger[current_ledger['category'] == CashFlowCategoryEnum.FINANCING]
-                            logger.info(f"DEBUG: Found {len(financing_entries)} financing entries")
-                            
+                            financing_entries = current_ledger[
+                                current_ledger["category"]
+                                == CashFlowCategoryEnum.FINANCING
+                            ]
+                            logger.info(
+                                f"DEBUG: Found {len(financing_entries)} financing entries"
+                            )
+
                             if not financing_entries.empty:
                                 logger.info(f"DEBUG: Financing entries:")
                                 for idx, row in financing_entries.iterrows():
-                                    logger.info(f"  - {row['item_name']}: ${row['amount']:,.0f} ({row['category']}/{row.get('subcategory', 'N/A')})")
-                            
+                                    logger.info(
+                                        f"  - {row['item_name']}: ${row['amount']:,.0f} ({row['category']}/{row.get('subcategory', 'N/A')})"
+                                    )
+
                             # Filter for actual loan proceeds (by subcategory enum, not just positive amount)
                             financing_mask = (
-                                (current_ledger['category'] == CashFlowCategoryEnum.FINANCING) &
-                                (current_ledger['subcategory'] == FinancingSubcategoryEnum.LOAN_PROCEEDS) &  # Only actual loan proceeds
-                                (current_ledger['item_name'].str.contains(facility_name, case=False, na=False))
+                                (
+                                    current_ledger["category"]
+                                    == CashFlowCategoryEnum.FINANCING
+                                )
+                                & (
+                                    current_ledger["subcategory"]
+                                    == FinancingSubcategoryEnum.LOAN_PROCEEDS
+                                )  # Only actual loan proceeds
+                                & (
+                                    current_ledger["item_name"].str.contains(
+                                        facility_name, case=False, na=False
+                                    )
+                                )
                             )
                             facility_proceeds = current_ledger[financing_mask]
-                            logger.info(f"DEBUG: Found {len(facility_proceeds)} facility proceeds for '{facility_name}'")
-                            
+                            logger.info(
+                                f"DEBUG: Found {len(facility_proceeds)} facility proceeds for '{facility_name}'"
+                            )
+
                             if not facility_proceeds.empty:
-                                # Group by date and sum to get loan proceeds by period
-                                proceeds_by_period = facility_proceeds.groupby('date')['amount'].sum()
+                                # Convert dates to periods for proper reindexing
+                                facility_proceeds_copy = facility_proceeds.copy()
+                                facility_proceeds_copy["period"] = pd.to_datetime(
+                                    facility_proceeds_copy["date"]
+                                ).dt.to_period("M")
+                                # Group by period and sum to get loan proceeds by period
+                                proceeds_by_period = facility_proceeds_copy.groupby(
+                                    "period"
+                                )["amount"].sum()
                                 # Reindex to match timeline
                                 loan_proceeds = proceeds_by_period.reindex(
                                     self.timeline.period_index, fill_value=0.0
                                 )
-                                self.financing_analysis.loan_proceeds[facility_name] = loan_proceeds
-                                logger.info(f"✅ Extracted ${loan_proceeds.sum():,.0f} loan proceeds for '{facility_name}' from ledger")
+                                self.financing_analysis.loan_proceeds[facility_name] = (
+                                    loan_proceeds
+                                )
+                                logger.info(
+                                    f"✅ Extracted ${loan_proceeds.sum():,.0f} loan proceeds for '{facility_name}' from ledger"
+                                )
                             else:
-                                logger.warning(f"❌ No loan proceeds found in ledger for '{facility_name}'")
-                                self.financing_analysis.loan_proceeds[facility_name] = None
+                                logger.warning(
+                                    f"❌ No loan proceeds found in ledger for '{facility_name}'"
+                                )
+                                self.financing_analysis.loan_proceeds[facility_name] = (
+                                    None
+                                )
                         else:
-                            logger.warning("❌ Ledger is empty - cannot extract loan proceeds")
+                            logger.warning(
+                                "❌ Ledger is empty - cannot extract loan proceeds"
+                            )
                             self.financing_analysis.loan_proceeds[facility_name] = None
                     except Exception as e:
-                        logger.warning(f"❌ Error extracting loan proceeds from ledger for '{facility_name}': {e}")
+                        logger.warning(
+                            f"❌ Error extracting loan proceeds from ledger for '{facility_name}': {e}"
+                        )
                         logger.warning(f"Traceback: {traceback.format_exc()}")
                         self.financing_analysis.loan_proceeds[facility_name] = None
 

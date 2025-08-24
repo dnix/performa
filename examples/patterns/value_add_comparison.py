@@ -132,10 +132,14 @@ def create_deal_via_composition():
     # === STEP 1: PROJECT TIMELINE ===
     acquisition_date = date(2024, 1, 1)
     timeline = Timeline(start_date=acquisition_date, duration_months=84)  # 7 years
-    
+
     # EXACT MATCH: Renovation timeline to match pattern approach (starts year 1)
-    renovation_start_date = date(2025, 1, 1)  # Start renovations 1 year after acquisition  
-    renovation_timeline = Timeline(start_date=renovation_start_date, duration_months=24)  # EXACT MATCH: 2 years
+    renovation_start_date = date(
+        2025, 1, 1
+    )  # Start renovations 1 year after acquisition
+    renovation_timeline = Timeline(
+        start_date=renovation_start_date, duration_months=24
+    )  # EXACT MATCH: 2 years
 
     # === STEP 2: CREATE ABSORPTION PLAN ID FIRST ===
     post_renovation_plan_id = uuid4()
@@ -154,16 +158,17 @@ def create_deal_via_composition():
             term_months=12,
         ),
         renewal_terms=ResidentialRolloverLeaseTerms(
-            market_rent=1400.0 * 0.95,  # EXACT MATCH: Renewal rent (slightly below market)
+            market_rent=1400.0
+            * 0.95,  # EXACT MATCH: Renewal rent (slightly below market)
             term_months=12,
         ),
     )
 
     # === STEP 4: CURRENT RENT ROLL ===
-    # EXACT MATCH: Split units into 1BR and 2BR like pattern 
+    # EXACT MATCH: Split units into 1BR and 2BR like pattern
     br1_count = 100 // 2  # 50 units
     br2_count = 100 - br1_count  # 50 units
-    
+
     unit_specs = [
         ResidentialUnitSpec(
             unit_type_name="1BR - Current",
@@ -174,13 +179,13 @@ def create_deal_via_composition():
             lease_start_date=date(2023, 4, 1),  # Default lease start
         ),
         ResidentialUnitSpec(
-            unit_type_name="2BR - Current", 
+            unit_type_name="2BR - Current",
             unit_count=br2_count,
             avg_area_sf=800 * 1.2,  # 2BR is 120% of average (960 SF)
             current_avg_monthly_rent=1400.0 * 1.1,  # 2BR is 110% of average ($1540)
             rollover_profile=rollover_profile,
             lease_start_date=date(2023, 4, 1),
-        )
+        ),
     ]
 
     rent_roll = ResidentialRentRoll(unit_specs=unit_specs, vacant_units=[])
@@ -229,9 +234,7 @@ def create_deal_via_composition():
                 value=200.0,  # $200 per unit annually
                 frequency=FrequencyEnum.ANNUAL,
                 reference=PropertyAttributeKey.UNIT_COUNT,
-                growth_rate=PercentageGrowthRate(
-                    name="Utility Inflation", value=0.04
-                ),
+                growth_rate=PercentageGrowthRate(name="Utility Inflation", value=0.04),
             ),
             ResidentialOpExItem(
                 name="Marketing & Leasing",
@@ -250,7 +253,7 @@ def create_deal_via_composition():
         ]
     )
 
-    # === STEP 6: LOSSES (VACANCY & COLLECTION) === 
+    # === STEP 6: LOSSES (VACANCY & COLLECTION) ===
     # MATCHED TO PATTERN: Use identical assumptions as pattern approach
     losses = ResidentialLosses(
         general_vacancy=ResidentialGeneralVacancyLoss(
@@ -258,7 +261,7 @@ def create_deal_via_composition():
             rate=0.05,  # 5% stabilized vacancy (matches pattern)
         ),
         credit_loss=ResidentialCreditLoss(
-            name="Credit Loss", 
+            name="Credit Loss",
             rate=0.015,  # 1.5% collection loss (matches pattern default)
         ),
     )
@@ -269,7 +272,9 @@ def create_deal_via_composition():
         uid=post_renovation_plan_id,
         name="Post-Renovation Premium Leasing",
         start_date_anchor=StartDateAnchorEnum.ANALYSIS_START,
-        pace=FixedQuantityPace(quantity=2, unit="Units", frequency_months=1),  # EXACT MATCH: 2 units/month
+        pace=FixedQuantityPace(
+            quantity=2, unit="Units", frequency_months=1
+        ),  # EXACT MATCH: 2 units/month
         leasing_assumptions=ResidentialDirectLeaseTerms(
             monthly_rent=2200.0,  # $800 rent premium post-renovation
             lease_term_months=12,
@@ -284,7 +289,7 @@ def create_deal_via_composition():
     # === STEP 8: RENOVATION CAPITAL PLAN ===
     renovation_items = [
         CapitalItem(
-            name="Unit Renovations", 
+            name="Unit Renovations",
             work_type="renovation",
             value=1_500_000,  # EXACT MATCH: $1.5M total to match pattern budget
             timeline=renovation_timeline,  # EXACT MATCH: Use renovation timeline (starts 2025-01)
@@ -323,11 +328,11 @@ def create_deal_via_composition():
     # === STEP 10: CONSTRUCTION-TO-PERMANENT FINANCING ===
     # ✅ SOLVED: Our new ConstructionFacility automatically calculates loan amounts
     # based on TOTAL PROJECT COST (acquisition + renovation) from the ledger!
-    
+
     # Calculate explicit loan amount to ensure proper financing
     total_project_cost = 8_500_000 + 1_500_000  # Acquisition + renovation = $10M
     construction_loan_amount = total_project_cost * 0.65  # 65% LTC
-    
+
     # Construction facility with explicit loan sizing (auto-sizing was failing)
     construction_loan = ConstructionFacility(
         name="Bridge Loan",  # EXACT MATCH: Same name as pattern
@@ -335,7 +340,9 @@ def create_deal_via_composition():
         tranches=[
             DebtTranche(
                 name="Bridge Financing",
-                interest_rate=InterestRate(details=FixedRate(rate=0.075)),  # 7.5% bridge rate
+                interest_rate=InterestRate(
+                    details=FixedRate(rate=0.075)
+                ),  # 7.5% bridge rate
                 fee_rate=0.015,  # 1.5% origination fee
                 ltc_threshold=0.65,  # 65% Loan-to-Cost
             )
@@ -350,10 +357,12 @@ def create_deal_via_composition():
     permanent_loan = PermanentFacility(
         name="Permanent Financing",
         loan_amount=construction_loan_amount,  # EXPLICIT amount to match construction loan
-        interest_rate=InterestRate(details=FixedRate(rate=0.055)),  # 5.5% permanent rate
+        interest_rate=InterestRate(
+            details=FixedRate(rate=0.055)
+        ),  # 5.5% permanent rate
         loan_term_years=10,
         amortization_years=30,
-        ltv_ratio=0.65,  # 65% LTV 
+        ltv_ratio=0.65,  # 65% LTV
         dscr_hurdle=1.25,  # 1.25x DSCR requirement
         sizing_method="manual",  # Use explicit loan amount (manual sizing)
     )
@@ -439,7 +448,7 @@ def demonstrate_pattern_interface():
             # Acquisition terms
             acquisition_price=8_500_000,  # $85K per unit (attractive value-add basis)
             closing_costs_rate=0.02,  # EXACT MATCH: 2% to match pattern default behavior
-            # Value-add strategy - EXACT MATCH timing 
+            # Value-add strategy - EXACT MATCH timing
             renovation_budget=1_500_000,
             renovation_start_year=1,  # Start in year 1 (2025-01)
             renovation_duration_years=2,  # EXACT MATCH: 2 years = 24 months
@@ -599,7 +608,9 @@ def main():
     print("1. Composition: Manual assembly of components (current production approach)")
     print("2. Convention: Pattern-driven interface (ready for full implementation)")
     print()
-    print("✅ SUCCESS: Both approaches now use the unified construction financing solution")
+    print(
+        "✅ SUCCESS: Both approaches now use the unified construction financing solution"
+    )
     print("   with automatic loan sizing and ledger-first Sources & Uses integration.")
     print()
 
@@ -633,7 +644,9 @@ def main():
             print("Architectural Success:")
             print("  🎯 Both approaches produce equivalent results")
             print("  🎯 Pattern approach enables rapid deal scenario generation")
-            print("  🎯 Construction financing works consistently across all deal types")
+            print(
+                "  🎯 Construction financing works consistently across all deal types"
+            )
             print("  🎯 Composition approach remains for advanced customization")
 
     print("\n🎉 VALUE-ADD PATTERN COMPARISON COMPLETE!")
@@ -643,4 +656,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

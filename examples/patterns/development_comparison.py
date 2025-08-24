@@ -296,7 +296,7 @@ def create_deal_via_composition():
 
     # === STEP 11: EXIT STRATEGY ===
     exit_valuation = ReversionValuation(
-        name="Stabilized Disposition", 
+        name="Stabilized Disposition",
         cap_rate=0.055,  # Better exit cap rate
         transaction_costs_rate=0.02,  # Lower transaction costs
         hold_period_months=60,  # 5-year hold period
@@ -369,7 +369,7 @@ def demonstrate_pattern_interface():
             stabilized_occupancy_rate=0.95,  # 95% stabilized occupancy
             # Construction cost model - REDUCED COSTS FOR BETTER RETURNS
             construction_cost_psf=280.0,  # $280/SF (reduced from $300)
-            soft_costs_rate=0.08,  # 8% soft costs (reduced from 10%)  
+            soft_costs_rate=0.08,  # 8% soft costs (reduced from 10%)
             developer_fee_rate=0.05,  # 5% developer fee (market standard)
             # Construction timeline (EXACT MATCH to composition)
             construction_start_months=1,  # Start immediately after land (like composition)
@@ -397,10 +397,10 @@ def demonstrate_pattern_interface():
         )
 
         print(f"✅ Pattern created: {pattern.project_name}")
+        print(f"   Total Project Cost: ${pattern.total_project_cost:,.0f}")
         print(
-            f"   Total Project Cost: ${pattern.total_project_cost:,.0f}"
+            f"   Building Size: {pattern.net_rentable_area:,.0f} SF across {pattern.floors} floors"
         )
-        print(f"   Building Size: {pattern.net_rentable_area:,.0f} SF across {pattern.floors} floors")
         print(f"   Configuration: Single step, office-specific parameters, type-safe")
 
         # Demonstrate timeline integration
@@ -419,11 +419,13 @@ def demonstrate_pattern_interface():
         try:
             deal = pattern.create()
             print(f"   Interface: ✅ Complete")
-            print(f"   Validation: ✅ Working") 
+            print(f"   Validation: ✅ Working")
             print(f"   Timeline: ✅ Integrated")
             print(f"   Implementation: ✅ Fully Working")
             print(f"   Deal Creation: ✅ {deal.name}")
-            print(f"   Construction Finance: ✅ Enhanced with sophisticated calculations")
+            print(
+                f"   Construction Finance: ✅ Enhanced with sophisticated calculations"
+            )
 
         except Exception as e:
             print(f"   ❌ Implementation failed: {e}")
@@ -510,7 +512,7 @@ def main():
 
     # === APPROACH 2: CONVENTION ===
     pattern_result = demonstrate_pattern_interface()
-    
+
     # Handle the new return format (pattern, deal) or (None, None)
     if pattern_result and len(pattern_result) == 2:
         pattern, pattern_deal = pattern_result
@@ -521,81 +523,117 @@ def main():
     if composition_deal and pattern_deal:
         # Both approaches working - compare them
         composition_results = analyze_composition_deal(composition_deal)
-        
+
         # Analyze pattern deal too
         print("\n📊 ANALYZING PATTERN DEAL")
         print("-" * 60)
-        
+
         try:
             timeline = Timeline(start_date=date(2024, 1, 1), duration_months=120)
             settings = GlobalSettings()
-            
+
             pattern_results = analyze(pattern_deal, timeline, settings)
-            
+
             print("✅ Pattern Analysis Complete!")
             print(f"   Deal IRR: {pattern_results.deal_metrics.irr:.2%}")
-            print(f"   Equity Multiple: {pattern_results.deal_metrics.equity_multiple:.2f}x")
+            print(
+                f"   Equity Multiple: {pattern_results.deal_metrics.equity_multiple:.2f}x"
+            )
             print(
                 f"   Total Equity Invested: ${pattern_results.deal_metrics.total_equity_invested:,.0f}"
             )
             print(f"   Net Profit: ${pattern_results.deal_metrics.net_profit:,.0f}")
-            
+
             # Compare results
             if composition_results:
-                irr_diff = abs((composition_results.deal_metrics.irr or 0) - (pattern_results.deal_metrics.irr or 0))
-                em_diff = abs(composition_results.deal_metrics.equity_multiple - pattern_results.deal_metrics.equity_multiple)
-                equity_diff = abs(composition_results.deal_metrics.total_equity_invested - pattern_results.deal_metrics.total_equity_invested)
-                
+                irr_diff = abs(
+                    (composition_results.deal_metrics.irr or 0)
+                    - (pattern_results.deal_metrics.irr or 0)
+                )
+                em_diff = abs(
+                    composition_results.deal_metrics.equity_multiple
+                    - pattern_results.deal_metrics.equity_multiple
+                )
+                equity_diff = abs(
+                    composition_results.deal_metrics.total_equity_invested
+                    - pattern_results.deal_metrics.total_equity_invested
+                )
+
                 print(f"\n   EQUIVALENCE CHECK:")
-                print(f"     IRR Difference: {irr_diff:.4%} ({'✅ EQUIVALENT' if irr_diff < 0.001 else '⚠️ DIFFERENT'})")
-                print(f"     EM Difference: {em_diff:.4f}x ({'✅ EQUIVALENT' if em_diff < 0.01 else '⚠️ DIFFERENT'})")
-                print(f"     Equity Difference: ${equity_diff:,.0f} ({'✅ EQUIVALENT' if equity_diff < 10000 else '⚠️ DIFFERENT'})")
-                
+                print(
+                    f"     IRR Difference: {irr_diff:.4%} ({'✅ EQUIVALENT' if irr_diff < 0.001 else '⚠️ DIFFERENT'})"
+                )
+                print(
+                    f"     EM Difference: {em_diff:.4f}x ({'✅ EQUIVALENT' if em_diff < 0.01 else '⚠️ DIFFERENT'})"
+                )
+                print(
+                    f"     Equity Difference: ${equity_diff:,.0f} ({'✅ EQUIVALENT' if equity_diff < 10000 else '⚠️ DIFFERENT'})"
+                )
+
                 # Add ledger comparison if not equivalent
                 if irr_diff >= 0.001 or em_diff >= 0.01 or equity_diff >= 10000:
                     print(f"\n🔍 DETAILED LEDGER COMPARISON:")
                     print("=" * 60)
-                    
+
                     # Get ledgers
-                    comp_queries = composition_results.asset_analysis.get_ledger_queries()
-                    pattern_queries = pattern_results.asset_analysis.get_ledger_queries()
-                    
+                    comp_queries = (
+                        composition_results.asset_analysis.get_ledger_queries()
+                    )
+                    pattern_queries = (
+                        pattern_results.asset_analysis.get_ledger_queries()
+                    )
+
                     comp_ledger = comp_queries.ledger
                     pattern_ledger = pattern_queries.ledger
-                    
+
                     print(f"   Composition ledger: {len(comp_ledger)} records")
                     print(f"   Pattern ledger: {len(pattern_ledger)} records")
-                    
+
                     # Aggregate by category and subcategory
                     def aggregate_ledger(ledger_df):
                         # Convert categorical columns to string to avoid merge issues
                         df = ledger_df.copy()
-                        for col in ['category', 'subcategory']:
+                        for col in ["category", "subcategory"]:
                             if col in df.columns:
                                 df[col] = df[col].astype(str)
-                        return df.groupby(['category', 'subcategory'], observed=False)['amount'].sum().reset_index()
-                    
+                        return (
+                            df.groupby(["category", "subcategory"], observed=False)[
+                                "amount"
+                            ]
+                            .sum()
+                            .reset_index()
+                        )
+
                     comp_agg = aggregate_ledger(comp_ledger)
                     pattern_agg = aggregate_ledger(pattern_ledger)
-                    
+
                     # Merge and compare
                     comparison = pd.merge(
-                        comp_agg, pattern_agg,
-                        on=['category', 'subcategory'],
-                        how='outer',
-                        suffixes=('_comp', '_pattern')
+                        comp_agg,
+                        pattern_agg,
+                        on=["category", "subcategory"],
+                        how="outer",
+                        suffixes=("_comp", "_pattern"),
                     )
-                    
+
                     # Fill NaN values with 0 for numeric columns
-                    comparison['amount_comp'] = comparison['amount_comp'].fillna(0)
-                    comparison['amount_pattern'] = comparison['amount_pattern'].fillna(0)
-                    
-                    comparison['difference'] = comparison['amount_pattern'] - comparison['amount_comp']
-                    comparison['abs_diff'] = comparison['difference'].abs()
-                    
+                    comparison["amount_comp"] = comparison["amount_comp"].fillna(0)
+                    comparison["amount_pattern"] = comparison["amount_pattern"].fillna(
+                        0
+                    )
+
+                    comparison["difference"] = (
+                        comparison["amount_pattern"] - comparison["amount_comp"]
+                    )
+                    comparison["abs_diff"] = comparison["difference"].abs()
+
                     # Show top differences
-                    differences = comparison[comparison['abs_diff'] > 1000].sort_values('abs_diff', ascending=False).head(10)
-                    
+                    differences = (
+                        comparison[comparison["abs_diff"] > 1000]
+                        .sort_values("abs_diff", ascending=False)
+                        .head(10)
+                    )
+
                     if len(differences) > 0:
                         print(f"   TOP DIFFERENCES (> $1,000):")
                         for _, row in differences.iterrows():
@@ -605,7 +643,7 @@ def main():
                             print(f"       Difference: ${row['difference']:,.2f}")
                     else:
                         print(f"   ✅ No significant ledger differences found!")
-            
+
         except Exception as e:
             print(f"❌ Pattern Analysis failed: {e}")
             pattern_results = None
@@ -631,7 +669,9 @@ def main():
                 print("  🎯 Both approaches produce results")
                 print("  🎯 Pattern approach enables rapid office development modeling")
                 print("  🎯 Construction financing works in both approaches")
-                print("  🎯 Asset-specific parameters provide natural developer experience")
+                print(
+                    "  🎯 Asset-specific parameters provide natural developer experience"
+                )
             else:
                 print("  🎯 Pattern approach interface established")
                 print("  🎯 Foundation for rapid development modeling")

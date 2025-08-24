@@ -36,18 +36,18 @@ class SourcesAndUsesReport(BaseReport):
         # Get ledger and create queries
         ledger_df = self._results.ledger_builder.get_current_ledger()
         queries = LedgerQueries(ledger_df)
-        
+
         # Extract uses and sources from ledger
         uses_data = queries.capital_uses_by_category()
         sources_data = queries.capital_sources_by_category()
-        
+
         if uses_data.empty and sources_data.empty:
             raise ValueError("No capital transactions found in ledger")
-        
+
         # Map ledger subcategories to industry-standard categories
         uses = self._map_uses_to_standard_categories(uses_data)
         sources = self._map_sources_to_standard_categories(sources_data)
-        
+
         total_uses = sum(uses.values()) if uses else 0.0
         total_sources = sum(sources.values()) if sources else 0.0
 
@@ -59,7 +59,9 @@ class SourcesAndUsesReport(BaseReport):
                 "report_date": date.today().strftime("%B %d, %Y"),
             },
             "uses": {
-                "Land Acquisition": self._format_currency(uses.get("purchase_price", 0)),
+                "Land Acquisition": self._format_currency(
+                    uses.get("purchase_price", 0)
+                ),
                 "Direct Construction Costs": self._format_currency(
                     uses.get("hard_costs", 0)
                 ),
@@ -88,19 +90,22 @@ class SourcesAndUsesReport(BaseReport):
                 ),
             },
             "validation": {
-                "sources_equal_uses": abs(total_sources - total_uses) < 1000,  # Within $1,000
+                "sources_equal_uses": abs(total_sources - total_uses)
+                < 1000,  # Within $1,000
                 "variance": total_sources - total_uses,
                 "funding_gap": total_uses - total_sources,
             },
         }
 
-    def _map_uses_to_standard_categories(self, uses_data: pd.Series) -> Dict[str, float]:
+    def _map_uses_to_standard_categories(
+        self, uses_data: pd.Series
+    ) -> Dict[str, float]:
         """
         Map ledger subcategories to industry-standard Sources & Uses categories.
-        
+
         Args:
             uses_data: Series with subcategory as index and amounts as values
-            
+
         Returns:
             Dictionary with standardized category names and amounts
         """
@@ -113,7 +118,7 @@ class SourcesAndUsesReport(BaseReport):
             "due_diligence": 0.0,
             "other": 0.0,
         }
-        
+
         # Map ledger subcategories to standard categories
         # Using the CapitalSubcategoryEnum values
         for subcategory, amount in uses_data.items():
@@ -129,16 +134,18 @@ class SourcesAndUsesReport(BaseReport):
                 mapped_uses["due_diligence"] += amount
             else:
                 mapped_uses["other"] += amount
-                
+
         return mapped_uses
-        
-    def _map_sources_to_standard_categories(self, sources_data: pd.Series) -> Dict[str, float]:
+
+    def _map_sources_to_standard_categories(
+        self, sources_data: pd.Series
+    ) -> Dict[str, float]:
         """
         Map ledger subcategories to industry-standard Sources categories.
-        
+
         Args:
             sources_data: Series with subcategory as index and amounts as values
-            
+
         Returns:
             Dictionary with standardized category names and amounts
         """
@@ -148,7 +155,7 @@ class SourcesAndUsesReport(BaseReport):
             "debt": 0.0,
             "other": 0.0,
         }
-        
+
         # Map ledger subcategories to standard categories
         # Using the FinancingSubcategoryEnum values
         for subcategory, amount in sources_data.items():
@@ -158,7 +165,7 @@ class SourcesAndUsesReport(BaseReport):
                 mapped_sources["debt"] += amount
             else:
                 mapped_sources["other"] += amount
-                
+
         return mapped_sources
 
     def _format_currency(self, value: float) -> str:

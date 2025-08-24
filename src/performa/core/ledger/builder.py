@@ -234,9 +234,9 @@ class LedgerBuilder:
         """Apply date indexing for large ledgers."""
         # DISABLED: Smart indexing causes pandas groupby ambiguity issues.
         # All downstream operations expect groupby("date") which requires a column.
-        # The performance benefits of date indexing are theoretical while the 
+        # The performance benefits of date indexing are theoretical while the
         # pandas ambiguity issues are real and affect all users.
-        # 
+        #
         # Future enhancement: Could add date indexing only for specific query
         # patterns that benefit from it, but would need to handle groupby carefully.
         return df

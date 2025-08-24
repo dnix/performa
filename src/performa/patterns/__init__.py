@@ -30,7 +30,7 @@ __all__ = [
     "OfficeDevelopmentPattern",
     # TODO: Add ResidentialDevelopmentPattern when implemented
     # General patterns
-    "StabilizedAcquisitionPattern", 
+    "StabilizedAcquisitionPattern",
     "ValueAddAcquisitionPattern",
     # Legacy patterns (DEPRECATED - use asset-specific patterns instead)
     "DevelopmentPattern",  # DEPRECATED: Use OfficeDevelopmentPattern or ResidentialDevelopmentPattern

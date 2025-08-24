@@ -81,6 +81,7 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from performa.analysis.api import run
 from performa.asset.residential import (
     ResidentialCreditLoss,
     ResidentialExpenses,
@@ -388,11 +389,8 @@ def demonstrate_components():
     )
 
     # Run analysis using modern API
-    from performa.analysis.api import run
     asset_results = run(
-        model=property_obj,
-        timeline=timeline,
-        settings=GlobalSettings()
+        model=property_obj, timeline=timeline, settings=GlobalSettings()
     )
 
     print("✅ Analysis Complete - Property Analysis Available")
@@ -400,20 +398,20 @@ def demonstrate_components():
 
     # Get financial metrics from ledger
     ledger_queries = asset_results.get_ledger_queries()
-    
+
     # Calculate key metrics for 5-year period
     try:
         pgr_series = ledger_queries.pgr()  # Potential Gross Revenue
-        egi_series = ledger_queries.egi()  # Effective Gross Income  
+        egi_series = ledger_queries.egi()  # Effective Gross Income
         opex_series = ledger_queries.opex()  # Operating Expenses
         noi_series = ledger_queries.noi()  # Net Operating Income
-        
+
         # Get annual totals
         pgr_annual = pgr_series.sum() / 5 if len(pgr_series) > 0 else 0
         egi_annual = egi_series.sum() / 5 if len(egi_series) > 0 else 0
         opex_annual = abs(opex_series.sum() / 5) if len(opex_series) > 0 else 0
         noi_annual = noi_series.sum() / 5 if len(noi_series) > 0 else 0
-        
+
         print("RESIDENTIAL PROPERTY PERFORMANCE ANALYSIS:")
         print("-" * 50)
         print(f"   Average Annual Potential Gross Revenue: ${pgr_annual:,.0f}")
@@ -423,15 +421,15 @@ def demonstrate_components():
         if egi_annual > 0:
             print(f"   NOI Margin: {noi_annual / egi_annual:.1%}")
         print()
-        
+
         results = asset_results  # Set results for downstream use
-        
+
     except Exception as e:
         print(f"❌ Error calculating metrics from ledger: {e}")
         results = None
 
     # Extract key metrics from the results if available
-    if results is not None and hasattr(results, 'empty') and not results.empty:
+    if results is not None and hasattr(results, "empty") and not results.empty:
         # Get first year totals (sum of first 12 months)
         first_year_data = results.iloc[:12].sum()
 
@@ -497,12 +495,18 @@ def demonstrate_components():
     try:
         # Calculate loan amount using LTV approach (simpler and more direct)
         max_ltv_amount = property_value * loan.ltv_ratio
-        max_dscr_amount = (noi_annual if 'noi_annual' in locals() and noi_annual > 0 else 2_100_000) / loan.dscr_hurdle * 12
+        max_dscr_amount = (
+            (noi_annual if "noi_annual" in locals() and noi_annual > 0 else 2_100_000)
+            / loan.dscr_hurdle
+            * 12
+        )
         loan_amount = min(max_ltv_amount, max_dscr_amount)
-        
+
         print(f"✅ Loan Sizing Successful:")
         print(f"   Property Value: ${property_value:,.0f}")
-        print(f"   Annual NOI: ${noi_annual if 'noi_annual' in locals() else 2100000:,.0f}")
+        print(
+            f"   Annual NOI: ${noi_annual if 'noi_annual' in locals() else 2100000:,.0f}"
+        )
         print(f"   Max LTV Amount: ${max_ltv_amount:,.0f}")
         print(f"   Max DSCR Amount: ${max_dscr_amount:,.0f}")
         print(f"   Loan Amount: ${loan_amount:,.0f}")
@@ -527,31 +531,37 @@ def demonstrate_components():
     print("Calculating realistic stabilized deal metrics...")
 
     # Realistic assumptions for stabilized multifamily
-    realistic_noi = noi_annual if 'noi_annual' in locals() and noi_annual > 0 else 1_800_000
-    realistic_loan_amount = loan_amount if 'loan_amount' in locals() else property_value * 0.70
-    
+    realistic_noi = (
+        noi_annual if "noi_annual" in locals() and noi_annual > 0 else 1_800_000
+    )
+    realistic_loan_amount = (
+        loan_amount if "loan_amount" in locals() else property_value * 0.70
+    )
+
     # Conservative equity investment
     equity_investment = property_value - realistic_loan_amount
-    
+
     # Realistic annual cash flow (after debt service)
     # Assume 5.5% interest rate, 25-year amortization
     annual_debt_service = realistic_loan_amount * 0.076  # Approximate payment factor
     annual_cash_flow = realistic_noi - annual_debt_service
-    
+
     # Conservative exit assumptions
-    year5_noi = realistic_noi * (1.025 ** 5)  # 2.5% annual NOI growth
+    year5_noi = realistic_noi * (1.025**5)  # 2.5% annual NOI growth
     exit_cap_rate = 0.055  # 5.5% exit cap rate (conservative)
     exit_value = year5_noi / exit_cap_rate
-    
+
     # Sale proceeds after costs and loan balance
     remaining_loan_balance = realistic_loan_amount * 0.82  # ~18% paydown over 5 years
     sale_costs = exit_value * 0.025  # 2.5% transaction costs
     sale_proceeds = exit_value - sale_costs - remaining_loan_balance
-    
+
     # Total returns over 5 years
     total_cash_flows = annual_cash_flow * 5
     total_distributions = total_cash_flows + sale_proceeds
-    equity_multiple = total_distributions / equity_investment if equity_investment > 0 else 0
+    equity_multiple = (
+        total_distributions / equity_investment if equity_investment > 0 else 0
+    )
 
     print(f"✅ Realistic Stabilized Deal Metrics:")
     print(f"   Equity Investment: ${equity_investment:,.0f}")

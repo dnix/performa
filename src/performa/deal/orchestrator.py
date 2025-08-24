@@ -336,29 +336,33 @@ class DealCalculator:
             # === ORCHESTRATION STATE PATTERN ===
             # Calculate initial project costs from deal structure for financing sizing
             initial_project_costs = 0.0
-            
+
             # Add acquisition costs if available
             if self.deal.acquisition:
                 # Get acquisition value (can be scalar or Series)
                 if isinstance(self.deal.acquisition.value, (int, float)):
                     acquisition_value = self.deal.acquisition.value
-                elif hasattr(self.deal.acquisition.value, 'sum'):
+                elif hasattr(self.deal.acquisition.value, "sum"):
                     acquisition_value = self.deal.acquisition.value.sum()
                 else:
                     acquisition_value = 0.0
-                
+
                 initial_project_costs += acquisition_value
                 # Add closing costs (percentage of acquisition value)
                 if acquisition_value > 0 and self.deal.acquisition.closing_costs_rate:
-                    initial_project_costs += acquisition_value * self.deal.acquisition.closing_costs_rate
-            
+                    initial_project_costs += (
+                        acquisition_value * self.deal.acquisition.closing_costs_rate
+                    )
+
             # Add renovation/development costs if available
-            if hasattr(self.deal.asset, 'renovation_budget'):
+            if hasattr(self.deal.asset, "renovation_budget"):
                 initial_project_costs += self.deal.asset.renovation_budget or 0.0
-            elif hasattr(self.deal.asset, 'construction_plan'):
-                if hasattr(self.deal.asset.construction_plan, 'total_cost'):
-                    initial_project_costs += self.deal.asset.construction_plan.total_cost or 0.0
-            
+            elif hasattr(self.deal.asset, "construction_plan"):
+                if hasattr(self.deal.asset.construction_plan, "total_cost"):
+                    initial_project_costs += (
+                        self.deal.asset.construction_plan.total_cost or 0.0
+                    )
+
             # Create DealContext for deal-level orchestration (Phase 5 implementation)
             # This will be progressively populated with results from each phase
             deal_context = DealContext(
@@ -367,7 +371,9 @@ class DealCalculator:
                 ledger_builder=ledger_builder,
                 deal=self.deal,
                 # Pass initial project costs for construction financing sizing
-                project_costs=initial_project_costs if initial_project_costs > 0 else None,
+                project_costs=initial_project_costs
+                if initial_project_costs > 0
+                else None,
                 # noi_series, property_value will be populated progressively
             )
 

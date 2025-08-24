@@ -33,7 +33,7 @@ financing and partnership structures:
 
 **Key Modeling Components**:
 - **Construction Facility**: Senior tranche at 70% LTC, 6.5% rate, sophisticated draw-based interest calculation
-- **Permanent Facility**: $18M, 5.5% rate, 10-year term, 25-year amortization  
+- **Permanent Facility**: $18M, 5.5% rate, 10-year term, 25-year amortization
 - **Absorption Plan**: 9 leases over 18 months, $35/SF rent, 7-year terms
 - **Exit Strategy**: 6.5% reversion cap rate, 2.5% transaction costs
 
@@ -59,7 +59,7 @@ The example demonstrates Performa's capabilities:
 
 - **Asset Factory Pattern**: Absorption plans defining leasing strategy and stabilized assumptions
 - **Sophisticated Construction Finance**: Automated loan sizing with draw-based interest calculations
-- **Polymorphic Valuation**: ReversionValuation with cap rate methodology  
+- **Polymorphic Valuation**: ReversionValuation with cap rate methodology
 - **Multi-Facility Financing**: Construction-to-permanent transition modeling
 - **Institutional Waterfall**: Binary search precision for IRR-based promote tiers
 - **Comprehensive Reporting**: Sources & uses, draw requests, leasing status, development summary
@@ -359,8 +359,8 @@ def main():
     print("\n📈 Running Comprehensive Deal Analysis...")
     try:
         timeline = Timeline(
-            start_date=date(2024, 1, 1), duration_months=120
-        )  # 10-year analysis
+            start_date=date(2024, 1, 1), duration_months=84
+        )  # 7-year analysis (matches exit timing)
         settings = GlobalSettings()
 
         results = analyze(deal, timeline, settings)

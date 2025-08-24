@@ -244,7 +244,7 @@ def create_deal_via_composition():
             timeline=timeline,
         ),
         credit_loss=ResidentialCreditLoss(
-            rate=0.02,  # Copy Pattern EXACTLY: collection_loss_rate 
+            rate=0.02,  # Copy Pattern EXACTLY: collection_loss_rate
             timeline=timeline,
         ),
     )

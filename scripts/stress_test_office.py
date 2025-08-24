@@ -232,21 +232,40 @@ def test_small_office_building() -> Dict[str, Any]:
 
     # Validate results using new ledger-based approach
     lease_models = scenario.models  # Models are directly accessible
-    
-    # Get ledger queries for summary data
-    ledger_queries = scenario.get_ledger_queries()
-    
-    # Get key metrics
-    try:
-        noi = ledger_queries.noi().sum()
-        pgr = ledger_queries.pgr().sum() 
-        egi = ledger_queries.egi().sum()
-        opex = abs(ledger_queries.opex().sum())
-    except:
+
+    # Get key metrics using new architecture
+    summary = scenario.summary_df
+    if len(summary) > 0:
+        first_month = summary.index[0]
+        if "Potential Gross Revenue" in summary.columns:
+            pgr_monthly = summary.loc[first_month, "Potential Gross Revenue"]
+            pgr = pgr_monthly * len(summary)  # Approximate total for timeline
+        else:
+            pgr = 0
+        if "Net Operating Income" in summary.columns:
+            noi_monthly = summary.loc[first_month, "Net Operating Income"]
+            noi = noi_monthly * len(summary)
+        else:
+            noi = 0
+        if "Effective Gross Income" in summary.columns:
+            egi_monthly = summary.loc[first_month, "Effective Gross Income"]
+            egi = egi_monthly * len(summary)
+        else:
+            egi = 0
+        if "Total Operating Expenses" in summary.columns:
+            opex_monthly = abs(summary.loc[first_month, "Total Operating Expenses"])
+            opex = opex_monthly * len(summary)
+        else:
+            opex = 0
+    else:
         noi = pgr = egi = opex = 0
-        
-    expected_pgr_monthly = 5000 * 35 / 12  # 5,000 sq ft × $35/sq ft/year ÷ 12 months = $14,583
-    actual_pgr_monthly = pgr / 60 if pgr > 0 else 0  # Convert annual to monthly (5 year timeline)
+
+    expected_pgr_monthly = (
+        5000 * 35 / 12
+    )  # 5,000 sq ft × $35/sq ft/year ÷ 12 months = $14,583
+    actual_pgr_monthly = (
+        pgr / 60 if pgr > 0 else 0
+    )  # Convert annual to monthly (5 year timeline)
 
     print(f"  Property: {property_model.name}")
     print(f"  Area: {property_model.net_rentable_area:,.0f} sq ft")
@@ -259,12 +278,16 @@ def test_small_office_building() -> Dict[str, Any]:
         f"  Performance: {property_model.net_rentable_area / execution_time:,.0f} sq ft/second"
     )
 
-    # Fundamental sanity checks - Updated for new architecture 
+    # Fundamental sanity checks - Updated for new architecture
     # Note: Architecture may create multiple models now, that's okay
     print(f"  ✅ Analysis completed with {len(lease_models)} models")
     # PGR validation - convert to comparable units
-    monthly_pgr_check = abs(actual_pgr_monthly - expected_pgr_monthly) < 2000  # More lenient for new architecture
-    print(f"  PGR Check: Expected ~${expected_pgr_monthly:,.0f}/month, Got ${actual_pgr_monthly:,.0f}/month - {'✅' if monthly_pgr_check else '⚠️'}")
+    monthly_pgr_check = (
+        abs(actual_pgr_monthly - expected_pgr_monthly) < 2000
+    )  # More lenient for new architecture
+    print(
+        f"  PGR Check: Expected ~${expected_pgr_monthly:,.0f}/month, Got ${actual_pgr_monthly:,.0f}/month - {'✅' if monthly_pgr_check else '⚠️'}"
+    )
 
     return {
         "scale": "Small Office Building",
@@ -369,19 +392,20 @@ def test_multi_tenant_office() -> Dict[str, Any]:
     scenario = run(model=property_model, timeline=timeline, settings=settings)
     execution_time = time.time() - start_time
 
-    # Validate results
-    orchestrator = scenario._orchestrator
-    lease_models = [
-        m for m in orchestrator.models if m.__class__.__name__ == "OfficeLease"
-    ]
-    expense_models = [
-        m for m in orchestrator.models if "ExItem" in m.__class__.__name__
-    ]
+    # Validate results using new architecture
+    orchestrator = scenario.scenario._orchestrator
+    lease_models = [m for m in scenario.models if m.__class__.__name__ == "OfficeLease"]
+    expense_models = [m for m in scenario.models if "ExItem" in m.__class__.__name__]
 
     summary = scenario.summary_df
-    first_month = summary.index[0]
-    pgr_cols = [col for col in summary.columns if "POTENTIAL_GROSS_REVENUE" in str(col)]
-    actual_pgr = summary.loc[first_month, pgr_cols[0]] if pgr_cols else 0
+    if len(summary) > 0:
+        first_month = summary.index[0]
+        if "Potential Gross Revenue" in summary.columns:
+            actual_pgr = summary.loc[first_month, "Potential Gross Revenue"]
+        else:
+            actual_pgr = 0
+    else:
+        actual_pgr = 0
 
     # Calculate expected rent (approximate - leases have different start dates)
     expected_monthly_rent = sum(
@@ -563,25 +587,27 @@ def test_institutional_office_complex() -> Dict[str, Any]:
     scenario = run(model=property_model, timeline=timeline, settings=settings)
     execution_time = time.time() - start_time
 
-    # Validate results
-    orchestrator = scenario._orchestrator
-    lease_models = [
-        m for m in orchestrator.models if m.__class__.__name__ == "OfficeLease"
-    ]
-    expense_models = [
-        m for m in orchestrator.models if "ExItem" in m.__class__.__name__
-    ]
+    # Validate results using new architecture
+    orchestrator = scenario.scenario._orchestrator
+    lease_models = [m for m in scenario.models if m.__class__.__name__ == "OfficeLease"]
+    expense_models = [m for m in scenario.models if "ExItem" in m.__class__.__name__]
     misc_models = [
-        m for m in orchestrator.models if m.__class__.__name__ == "OfficeMiscIncome"
+        m for m in scenario.models if m.__class__.__name__ == "OfficeMiscIncome"
     ]
 
     summary = scenario.summary_df
-    first_month = summary.index[0]
-    pgr_cols = [col for col in summary.columns if "POTENTIAL_GROSS_REVENUE" in str(col)]
-    misc_cols = [col for col in summary.columns if "MISCELLANEOUS_INCOME" in str(col)]
-
-    actual_pgr = summary.loc[first_month, pgr_cols[0]] if pgr_cols else 0
-    actual_misc = summary.loc[first_month, misc_cols[0]] if misc_cols else 0
+    if len(summary) > 0:
+        first_month = summary.index[0]
+        if "Potential Gross Revenue" in summary.columns:
+            actual_pgr = summary.loc[first_month, "Potential Gross Revenue"]
+        else:
+            actual_pgr = 0
+        if "Miscellaneous Income" in summary.columns:
+            actual_misc = summary.loc[first_month, "Miscellaneous Income"]
+        else:
+            actual_misc = 0
+    else:
+        actual_pgr = actual_misc = 0
 
     # Calculate expected rent (approximate)
     expected_monthly_rent = sum(
@@ -1203,33 +1229,30 @@ def complex_office_stress_test():
     execution_time = end_time - start_time
     performance = len(tenants) / execution_time
 
-    # Validate complex calculations worked
-    orchestrator = scenario._orchestrator
-    # Access PGR from summary DataFrame after execution
-    if "Potential Gross Revenue" in orchestrator.summary_df.columns:
-        monthly_pgr = orchestrator.summary_df["Potential Gross Revenue"]
-        first_month_pgr = monthly_pgr.iloc[0]
+    # Validate complex calculations worked using new architecture
+    orchestrator = scenario.scenario._orchestrator
+    summary = scenario.summary_df
+
+    if len(summary) > 0 and "Potential Gross Revenue" in summary.columns:
+        first_month_pgr = summary.iloc[0]["Potential Gross Revenue"]
     else:
-        # Fallback if PGR column doesn't exist
         first_month_pgr = 0.0
 
     # Count model types created
-    lease_models = sum(
-        1 for model in orchestrator.models if isinstance(model, OfficeLease)
-    )
+    lease_models = sum(1 for model in scenario.models if isinstance(model, OfficeLease))
     ti_models = sum(
-        1 for model in orchestrator.models if isinstance(model, OfficeTenantImprovement)
+        1 for model in scenario.models if isinstance(model, OfficeTenantImprovement)
     )
     lc_models = sum(
-        1 for model in orchestrator.models if isinstance(model, OfficeLeasingCommission)
+        1 for model in scenario.models if isinstance(model, OfficeLeasingCommission)
     )
     expense_models = sum(
         1
-        for model in orchestrator.models
+        for model in scenario.models
         if isinstance(model, (OfficeOpExItem, OfficeCapExItem))
     )
     misc_models = sum(
-        1 for model in orchestrator.models if isinstance(model, OfficeMiscIncome)
+        1 for model in scenario.models if isinstance(model, OfficeMiscIncome)
     )
 
     print(f"  First Month PGR: ${first_month_pgr:,.0f}")
@@ -1238,20 +1261,18 @@ def complex_office_stress_test():
     print(f"  LC Models: {lc_models}")
     print(f"  Expense Models: {expense_models}")
     print(f"  Misc Income Models: {misc_models}")
-    print(f"  Total Models: {len(orchestrator.models)}")
+    print(f"  Total Models: {len(scenario.models)}")
     print(f"  Execution Time: {execution_time:.3f}s")
     print(f"  Performance: {performance:.0f} tenants/second")
     print(
-        f"  Model Performance: {len(orchestrator.models) / execution_time:.0f} models/second"
+        f"  Model Performance: {len(scenario.models) / execution_time:.0f} models/second"
     )
 
     # Validate performance targets
     assert performance > 25, f"Performance too slow: {performance:.1f} tenants/second"
     assert (
-        len(orchestrator.models) > 50
-    ), (
-        f"Not enough models created: {len(orchestrator.models)}"
-    )  # Realistic for 43 tenants
+        len(scenario.models) > 50
+    ), f"Not enough models created: {len(scenario.models)}"  # Realistic for 43 tenants
     assert first_month_pgr > 1000000, f"PGR too low: ${first_month_pgr:,.0f}"
 
     print("  ✅ Complex stress test: PASSED")
@@ -1259,7 +1280,7 @@ def complex_office_stress_test():
     return {
         "area": property_model.net_rentable_area,
         "tenants": len(tenants),
-        "models": len(orchestrator.models),
+        "models": len(scenario.models),
         "time": execution_time,
         "performance": performance,
         "pgr": first_month_pgr,
