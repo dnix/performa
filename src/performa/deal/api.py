@@ -9,7 +9,7 @@ Main entry point for deal-level analysis functionality.
 
 from typing import TYPE_CHECKING, Optional
 
-from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
+from performa.core.ledger import Ledger, LedgerGenerationSettings
 from performa.core.primitives import GlobalSettings, Timeline
 from performa.deal.deal import Deal
 from performa.deal.orchestrator import DealCalculator
@@ -17,7 +17,7 @@ from performa.deal.results import DealAnalysisResult
 
 if TYPE_CHECKING:
     from performa.analysis.results import AssetAnalysisResult
-    from performa.core.ledger import LedgerBuilder
+    from performa.core.ledger import Ledger
 
 
 def analyze(
@@ -25,7 +25,7 @@ def analyze(
     timeline: Timeline,
     settings: Optional[GlobalSettings] = None,
     asset_analysis: Optional["AssetAnalysisResult"] = None,
-    ledger_builder: Optional["LedgerBuilder"] = None,
+    ledger: Optional["Ledger"] = None,
 ) -> DealAnalysisResult:
     """
     Analyze a complete real estate deal with strongly-typed results.
@@ -42,10 +42,10 @@ def analyze(
         timeline: Analysis timeline for cash flow projections
         settings: Optional analysis settings (defaults to standard settings)
         asset_analysis: Optional pre-computed asset analysis result to reuse.
-            If provided, its ledger_builder will be used (Pass-the-Builder pattern).
+            If provided, its ledger will be used (Pass-the-Builder pattern).
             If not provided, a new analysis will be run on deal.asset.
-        ledger_builder: Optional LedgerBuilder to use for the analysis.
-            Priority: asset_analysis.ledger_builder > ledger_builder > new LedgerBuilder.
+        ledger: Optional Ledger to use for the analysis.
+            Priority: asset_analysis.ledger > ledger > new Ledger.
             This enables maximum flexibility for testing and complex workflows.
 
     Returns:
@@ -92,21 +92,21 @@ def analyze(
     if settings is None:
         settings = GlobalSettings()
 
-    # Determine ledger_builder source with validation (Pass-the-Builder pattern)
+    # Determine ledger source with validation (Pass-the-Builder pattern)
     # This supports maximum flexibility while preventing ambiguous cases
 
-    if asset_analysis is not None and ledger_builder is not None:
-        # CASE: Both asset_analysis and ledger_builder provided
+    if asset_analysis is not None and ledger is not None:
+        # CASE: Both asset_analysis and ledger provided
         # Validate they're the same instance to prevent confusion
-        if asset_analysis.ledger_builder is not ledger_builder:
+        if asset_analysis.ledger is not ledger:
             raise ValueError(
-                "Conflicting ledger builders provided. When both asset_analysis and "
-                "ledger_builder are specified, they must be the same instance. "
+                "Conflicting ledgers provided. When both asset_analysis and "
+                "ledger are specified, they must be the same instance. "
                 "Use either asset_analysis (to reuse existing analysis) or "
-                "ledger_builder (for custom ledger), but not both with different instances."
+                "ledger (for custom ledger), but not both with different instances."
             )
         # Same instance - use it (explicit validation passed)
-        latest_ledger_builder = asset_analysis.ledger_builder
+        current_ledger = asset_analysis.ledger
         calculator = DealCalculator(
             deal, timeline, settings, asset_analysis=asset_analysis
         )
@@ -114,22 +114,22 @@ def analyze(
     elif asset_analysis is not None:
         # CASE: Only asset_analysis provided - reuse existing analysis
         # Use the ledger from the pre-computed asset analysis
-        latest_ledger_builder = asset_analysis.ledger_builder
+        current_ledger = asset_analysis.ledger
         calculator = DealCalculator(
             deal, timeline, settings, asset_analysis=asset_analysis
         )
 
-    elif ledger_builder is not None:
-        # CASE: Only ledger_builder provided - use custom ledger
+    elif ledger is not None:
+        # CASE: Only ledger provided - use custom ledger
         # Run fresh asset analysis with the provided ledger
-        latest_ledger_builder = ledger_builder
+        current_ledger = ledger
         calculator = DealCalculator(deal, timeline, settings)
 
     else:
         # CASE: Neither provided - create fresh analysis
-        # Create new ledger builder for complete fresh analysis
-        latest_ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        # Create new ledger for complete fresh analysis
+        current_ledger = Ledger(settings=LedgerGenerationSettings())
         calculator = DealCalculator(deal, timeline, settings)
 
-    # Run deal analysis with the determined ledger builder
-    return calculator.run(ledger_builder=latest_ledger_builder)
+    # Run deal analysis with the determined ledger
+    return calculator.run(ledger=current_ledger)

@@ -33,7 +33,7 @@ from performa.asset.residential.rollover import (
 )
 from performa.core.base import FixedQuantityPace as ResidentialFixedQuantityPace
 from performa.core.capital import CapitalItem, CapitalPlan
-from performa.core.ledger import LedgerBuilder
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     AssetTypeEnum,
     GlobalSettings,
@@ -115,7 +115,7 @@ def test_development_analysis_scenario_instantiation():
 
     scenario = DevelopmentAnalysisScenario(
         model=project, timeline=timeline, settings=global_settings,
-        ledger_builder=LedgerBuilder()
+        ledger=Ledger()
     )
 
     assert scenario.model == project
@@ -199,7 +199,7 @@ def test_development_analysis_scenario_prepare_models():
 
     scenario = DevelopmentAnalysisScenario(
         model=project, timeline=timeline, settings=global_settings,
-        ledger_builder=LedgerBuilder()
+        ledger=Ledger()
     )
 
     # Execute the orchestrator
@@ -324,7 +324,7 @@ def test_development_analysis_scenario_mixed_use():
 
     scenario = DevelopmentAnalysisScenario(
         model=project, timeline=timeline, settings=global_settings,
-        ledger_builder=LedgerBuilder()
+        ledger=Ledger()
     )
 
     # Execute polymorphic orchestration
@@ -380,7 +380,7 @@ def test_development_analysis_scenario_empty_blueprints():
 
     scenario = DevelopmentAnalysisScenario(
         model=project, timeline=timeline, settings=global_settings,
-        ledger_builder=LedgerBuilder()
+        ledger=Ledger()
     )
 
     # Should still work (construction + financing only)
@@ -465,7 +465,7 @@ def test_development_analysis_scenario_with_disposition():
 
     scenario = DevelopmentAnalysisScenario(
         model=project, timeline=timeline, settings=global_settings,
-        ledger_builder=LedgerBuilder()
+        ledger=Ledger()
     )
 
     # Execute with disposition

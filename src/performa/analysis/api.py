@@ -12,7 +12,7 @@ the deal module.
 from typing import Optional
 
 from performa.core.base.property import PropertyBaseModel
-from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
+from performa.core.ledger import Ledger, LedgerGenerationSettings
 from performa.core.primitives import GlobalSettings, Timeline
 
 from .registry import get_scenario_for_model
@@ -24,7 +24,7 @@ def run(
     timeline: Timeline,
     settings: GlobalSettings,
     ledger_settings: Optional[LedgerGenerationSettings] = None,
-    ledger_builder: Optional[LedgerBuilder] = None,
+    ledger: Optional[Ledger] = None,
 ) -> AssetAnalysisResult:
     """
     Run asset-level analysis with full scenario execution and ledger generation.
@@ -48,25 +48,25 @@ def run(
         This replaces the legacy run() function while adding ledger support.
         The result includes the full scenario for backward compatibility.
     """
-    # Step 1: Create or use existing LedgerBuilder (pass-the-builder pattern)
-    if ledger_builder is not None:
-        # Use existing builder (pass-the-builder pattern)
-        builder = ledger_builder
+    # Step 1: Create or use existing Ledger
+    if ledger is not None:
+        # Use existing ledger
+        current_ledger = ledger
     else:
-        # Create new builder
+        # Create new ledger
         if ledger_settings is None:
             ledger_settings = LedgerGenerationSettings()
-        builder = LedgerBuilder(settings=ledger_settings)
+        current_ledger = Ledger(settings=ledger_settings)
 
     # Step 2: Get the appropriate scenario class from registry
     scenario_cls = get_scenario_for_model(model)
 
-    # Step 3: Create scenario with builder injected
+    # Step 3: Create scenario with current_ledger injected
     scenario = scenario_cls(
-        model=model, timeline=timeline, settings=settings, ledger_builder=builder
+        model=model, timeline=timeline, settings=settings, ledger=current_ledger
     )
 
-    # Step 4: Run scenario (ledger gets built during this!)
+    # Step 4: Run scenario (current_ledger gets built during this!)
     scenario.run()
 
     # Step 5: Verify orchestrator was created
@@ -83,8 +83,8 @@ def run(
     # All financial metrics (NOI, EGI, UCF, etc.) are now computed on-demand
     # from the ledger, ensuring single source of truth
     return AssetAnalysisResult(
-        # Core ledger-based architecture
-        ledger_builder=builder,
+        # Transactional ledger
+        ledger=current_ledger,
         # Core inputs
         property=model,
         timeline=timeline,

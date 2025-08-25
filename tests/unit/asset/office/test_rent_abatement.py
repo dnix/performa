@@ -12,7 +12,7 @@ from performa.asset.office.property import OfficeProperty
 from performa.asset.office.recovery import ExpensePool, OfficeRecoveryMethod, Recovery
 from performa.asset.office.rent_abatement import OfficeRentAbatement
 from performa.core.base import RecoveryCalculationState
-from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
+from performa.core.ledger import Ledger, LedgerGenerationSettings
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -103,12 +103,12 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        ledger = Ledger(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger_builder=ledger_builder
+            ledger=ledger
         )
 
         cash_flows = lease.compute_cf(context)
@@ -162,12 +162,12 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        ledger = Ledger(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger_builder=ledger_builder
+            ledger=ledger
         )
 
         cash_flows = lease.compute_cf(context)
@@ -223,12 +223,12 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        ledger = Ledger(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger_builder=ledger_builder
+            ledger=ledger
         )
 
         cash_flows = lease.compute_cf(context)
@@ -296,13 +296,13 @@ class TestOfficeRentAbatement(unittest.TestCase):
             capital_plans=[],
             unit_mix=None,
         )
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        ledger = Ledger(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=property_data,
             # Will be populated below
-            ledger_builder=ledger_builder
+            ledger=ledger
         )
 
         # Pre-populate expense cash flows and recovery states
@@ -383,13 +383,13 @@ class TestOfficeRentAbatement(unittest.TestCase):
             capital_plans=[],
             unit_mix=None,
         )
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        ledger = Ledger(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=property_data,
             # Will be populated below
-            ledger_builder=ledger_builder
+            ledger=ledger
         )
 
         # Pre-populate expense cash flows and recovery states
@@ -469,13 +469,13 @@ class TestOfficeRentAbatement(unittest.TestCase):
             capital_plans=[],
             unit_mix=None,
         )
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        ledger = Ledger(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=property_data,
             # Will be populated below
-            ledger_builder=ledger_builder
+            ledger=ledger
         )
 
         # Pre-populate expense cash flows and recovery states
@@ -552,12 +552,12 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, short_timeline, self.settings
         )
 
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        ledger = Ledger(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=short_timeline,
             settings=self.settings,
             property_data=None,
-            ledger_builder=ledger_builder
+            ledger=ledger
         )
 
         cash_flows = lease.compute_cf(context)
@@ -601,12 +601,12 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, short_timeline, self.settings
         )
 
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        ledger = Ledger(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=short_timeline,
             settings=self.settings,
             property_data=None,
-            ledger_builder=ledger_builder
+            ledger=ledger
         )
 
         cash_flows = lease.compute_cf(context)
@@ -647,12 +647,12 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        ledger = Ledger(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger_builder=ledger_builder
+            ledger=ledger
         )
 
         cash_flows = lease.compute_cf(context)
@@ -703,13 +703,13 @@ class TestOfficeRentAbatement(unittest.TestCase):
             capital_plans=[],
             unit_mix=None,
         )
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        ledger = Ledger(settings=LedgerGenerationSettings())
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
             property_data=property_data,
             # Will be populated below
-            ledger_builder=ledger_builder
+            ledger=ledger
         )
 
         # Pre-populate expense cash flows and recovery states

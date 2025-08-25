@@ -15,7 +15,7 @@ import pandas as pd
 import pytest
 
 from performa.analysis import AnalysisContext
-from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
+from performa.core.ledger import Ledger, LedgerGenerationSettings
 from performa.core.primitives import (
     CapitalSubcategoryEnum,
     CashFlowCategoryEnum,
@@ -164,12 +164,12 @@ class TestAcquisitionTermsCashFlowComputation:
         mock_property.net_rentable_area = 100_000
         mock_property.uid = "550e8400-e29b-41d4-a716-446655440098"
 
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        ledger = Ledger(settings=LedgerGenerationSettings())
         return AnalysisContext(
             timeline=timeline,
             settings=GlobalSettings(),
             property_data=mock_property,
-            ledger_builder=ledger_builder
+            ledger=ledger
         )
 
     def test_single_payment_cash_flow(self, mock_context):
@@ -412,12 +412,12 @@ class TestAcquisitionTermsEdgeCases:
         mock_property.net_rentable_area = 100_000
         mock_property.uid = "550e8400-e29b-41d4-a716-446655440098"
         
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        ledger = Ledger(settings=LedgerGenerationSettings())
         mock_context = AnalysisContext(
             timeline=timeline,
             settings=GlobalSettings(),
             property_data=mock_property,
-            ledger_builder=ledger_builder
+            ledger=ledger
         )
 
         with pytest.raises(

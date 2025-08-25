@@ -65,7 +65,7 @@ from uuid import UUID
 import pandas as pd
 
 from performa.core.base import LeaseBase
-from performa.core.ledger import LedgerBuilder, LedgerQueries, SeriesMetadata
+from performa.core.ledger import Ledger, LedgerQueries, SeriesMetadata
 from performa.core.primitives import (
     CashFlowCategoryEnum,
     OrchestrationPass,
@@ -113,8 +113,8 @@ class AnalysisContext:
     settings: "GlobalSettings"
     property_data: "PropertyBaseModel"
 
-    # --- Ledger Builder (Required - single source of truth) ---
-    ledger_builder: LedgerBuilder  # Must be explicitly provided
+    # --- Ledger (Required - single source of truth) ---
+    ledger: Ledger  # Must be explicitly provided
 
     # --- Pre-Calculated Static State (Set by Scenario before run) ---
     recovery_states: Dict[UUID, "RecoveryCalculationState"] = field(
@@ -174,11 +174,11 @@ class AnalysisContext:
 
     def __post_init__(self):
         """Validate required fields after initialization."""
-        # Validate that ledger_builder is provided (critical for Pass-the-Builder pattern)
-        if self.ledger_builder is None:
+        # Validate that ledger is provided
+        if self.ledger is None:
             raise ValueError(
-                "AnalysisContext requires a ledger_builder instance. "
-                "This enforces the Pass-the-Builder pattern where a single LedgerBuilder "
+                "AnalysisContext requires a ledger instance. "
+                "This enforces the pass-the-builder pattern where a single Ledger "
                 "is created at the API level and passed through all analysis components."
             )
 
@@ -306,11 +306,11 @@ class CashFlowOrchestrator:
         # This ensures dependent models never fail due to missing aggregate references
         if self.models:  # Only if we have models
             # Get current ledger and create aggregates for dependent models
-            current_ledger = self.context.ledger_builder.get_current_ledger()
+            ledger_df = self.context.ledger.ledger_df()
 
             # Always populate aggregates - either from ledger data or as zeros
             # Use DRY helper method to avoid duplication
-            self._update_aggregates_from_ledger(current_ledger, "intermediate")
+            self._update_aggregates_from_ledger(ledger_df, "intermediate")
 
         intermediate_time = time.time() - intermediate_start
         logger.info(f"Intermediate Phase completed in {intermediate_time:.3f}s")
@@ -456,7 +456,7 @@ class CashFlowOrchestrator:
 
     def _update_aggregates_from_ledger(
         self,
-        ledger: pd.DataFrame,
+        ledger_df: pd.DataFrame,
         phase_name: Literal["intermediate", "final"] = "final",
     ) -> None:
         """
@@ -466,10 +466,10 @@ class CashFlowOrchestrator:
         Can be called at intermediate or final phases.
 
         Args:
-            ledger: Current ledger DataFrame
+            ledger_df: Current ledger DataFrame
             phase_name: Name of phase for logging ("intermediate" or "final")
         """
-        if ledger.empty:
+        if ledger_df.empty:
             # Populate all aggregates with zeros
             zero_series = pd.Series(0.0, index=self.context.timeline.period_index)
 
@@ -482,7 +482,7 @@ class CashFlowOrchestrator:
             )
         else:
             # Create queries once (performance optimization)
-            queries = LedgerQueries(ledger)
+            queries = LedgerQueries(ledger_df)
 
             # Map aggregate keys to query methods (using aliased enum)
             aggregate_mappings = {
@@ -697,8 +697,9 @@ class CashFlowOrchestrator:
             # This is necessary because some dependent models (like credit loss)
             # depend on aggregates that include other dependent models (like vacancy loss)
             if model.calculation_pass == OrchestrationPass.DEPENDENT_MODELS:
-                current_ledger = self.context.ledger_builder.get_current_ledger()
-                self._update_aggregates_from_ledger(current_ledger, "intermediate")
+                self._update_aggregates_from_ledger(
+                    self.context.ledger.ledger_df(), "intermediate"
+                )
 
     def _add_to_ledger(self, model: "CashFlowModel", result: Any) -> None:
         """Add model cash flows to ledger with metadata."""
@@ -751,7 +752,7 @@ class CashFlowOrchestrator:
                         asset_id=self.context.property_data.uid,
                         pass_num=model.calculation_pass.value,  # Use model's actual calculation pass
                     )
-                    self.context.ledger_builder.add_series(series_to_add, metadata)
+                    self.context.ledger.add_series(series_to_add, metadata)
                     logger.debug(
                         f"Added to ledger: {model.name} - {component} ({len(aligned_series)} periods)"
                     )
@@ -809,7 +810,7 @@ class CashFlowOrchestrator:
                     asset_id=self.context.property_data.uid,
                     pass_num=model.calculation_pass.value,  # Use model's actual calculation pass
                 )
-                self.context.ledger_builder.add_series(series_to_add, metadata)
+                self.context.ledger.add_series(series_to_add, metadata)
                 logger.debug(
                     f"Added to ledger: {model.name} ({len(aligned_result)} periods)"
                 )
@@ -830,14 +831,14 @@ class CashFlowOrchestrator:
         This is the ONLY place we query the complete ledger for final aggregates.
         """
         # Get complete ledger data (includes Phase 1 and Phase 2 results)
-        ledger = self.context.ledger_builder.get_current_ledger()
+        ledger_df = self.context.ledger.ledger_df()
         analysis_periods = self.context.timeline.period_index
 
         logger.info(
-            f"Finalizing aggregation from ledger with {len(ledger)} transactions"
+            f"Finalizing aggregation from ledger with {len(ledger_df)} transactions"
         )
 
-        if ledger.empty:
+        if ledger_df.empty:
             logger.warning("Ledger is empty - creating zero-filled summary_df")
             # Create zero-filled summary with proper structure
             summary_data = {
@@ -898,7 +899,7 @@ class CashFlowOrchestrator:
             return
 
         # Use elegant LedgerQueries for all aggregation (single query instance)
-        queries = LedgerQueries(ledger)
+        queries = LedgerQueries(ledger_df)
 
         # Build all aggregate series with proper PeriodIndex conversion
         # This replaces both the old summary_df logic AND the resolved_lookups update

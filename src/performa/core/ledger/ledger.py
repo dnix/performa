@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Progressive ledger construction with the pass-the-builder pattern.
+Progressive ledger construction pattern.
 
-This module provides the LedgerBuilder class, which serves as the central
+This module provides the Ledger class, which serves as the central
 accumulator for transaction records and owns the ledger DataFrame, ensuring
 consistency and preventing data mismatches.
 """
@@ -26,19 +26,13 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class LedgerBuilder:
+class Ledger:
     """
-    Progressive ledger construction with pass-the-builder pattern.
+    Progressive ledger construction with a pass-the-builder pattern.
 
-    THREAD SAFETY: Designed for single-threaded use, matching the analysis architecture.
-    Each analysis run creates its own isolated LedgerBuilder instance.
-    No shared state between analysis runs = no concurrency issues.
-
-    If concurrent analyses are needed in future, each would have its own builder.
-
-    The builder "owns" the ledger, maintaining internal state and providing
-    get_current_ledger() for access. This prevents mismatches between
-    the builder's records and any external DataFrame references.
+    The ledger "owns" the transaction records, maintaining internal state and providing
+    ledger_df() for access. This prevents mismatches between the ledger's
+    records and any external DataFrame references.
     """
 
     # Configuration
@@ -51,8 +45,6 @@ class LedgerBuilder:
     series_batch: List[Tuple[pd.Series, SeriesMetadata]] = field(
         default_factory=list, init=False
     )
-
-    # Ledger ownership - the builder owns the DataFrame
     _current_ledger: Optional[pd.DataFrame] = field(
         default=None, init=False, repr=False
     )
@@ -100,23 +92,23 @@ class LedgerBuilder:
             self.records.extend(records)
             self._ledger_dirty = True
 
-    def get_current_ledger(self) -> pd.DataFrame:
+    def ledger_df(self) -> pd.DataFrame:
         """
-        Get the current ledger DataFrame, building it if necessary.
+        Get the current ledger as a DataFrame, creating it if necessary.
 
-        The builder owns the ledger - this is the only way to access it.
+        The class owns the ledger - this is the only way to access it.
         Ledger is built/cached and only rebuilt when dirty.
 
         Returns:
             Complete ledger DataFrame
         """
         if self._current_ledger is None or self._ledger_dirty:
-            self._current_ledger = self.to_dataframe()
+            self._current_ledger = self._to_dataframe()
             self._ledger_dirty = False
 
         return self._current_ledger
 
-    def to_dataframe(self) -> pd.DataFrame:
+    def _to_dataframe(self) -> pd.DataFrame:
         """
         Convert all Series and Records to optimized DataFrame.
 
@@ -124,7 +116,7 @@ class LedgerBuilder:
         Memory target: <60% of raw object dtypes
         """
         logger.debug(
-            f"to_dataframe called with {len(self.series_batch)} series and {len(self.records)} records"
+            f"_to_dataframe called with {len(self.series_batch)} series and {len(self.records)} records"
         )
 
         # Batch convert all Series (vectorized)

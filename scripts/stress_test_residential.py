@@ -33,7 +33,7 @@ from performa.asset.residential import (
 )
 from performa.asset.residential.lease import ResidentialLease
 from performa.core.capital import CapitalPlan
-from performa.core.ledger import LedgerBuilder
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -508,7 +508,7 @@ def test_fundamental_sanity() -> bool:
         timeline=timeline,
         settings=GlobalSettings(),
         property_data=None,
-        ledger_builder=LedgerBuilder(),  # Add required ledger_builder
+        ledger=Ledger(),  # Add required ledger
         recovery_states={},  # Add required recovery_states
     )
 

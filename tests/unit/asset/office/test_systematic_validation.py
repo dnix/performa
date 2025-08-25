@@ -35,7 +35,7 @@ from performa.asset.office import (
     Recovery,
 )
 from performa.core.base import Address
-from performa.core.ledger import LedgerBuilder
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     CalculationSettings,
     FrequencyEnum,
@@ -1280,7 +1280,7 @@ class TestSystematicValidation:
         # Create analysis scenario
         scenario = OfficeAnalysisScenario(
             model=property_model, timeline=timeline, settings=settings,
-            ledger_builder=LedgerBuilder()
+            ledger=Ledger()
         )
 
         # Test the pre-calculation logic

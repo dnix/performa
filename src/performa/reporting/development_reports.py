@@ -34,7 +34,7 @@ class SourcesAndUsesReport(BaseReport):
             Dictionary with structured Sources & Uses data
         """
         # Get ledger and create queries
-        ledger_df = self._results.ledger_builder.get_current_ledger()
+        ledger_df = self._results.ledger.ledger_df()
         queries = LedgerQueries(ledger_df)
 
         # Extract uses and sources from ledger

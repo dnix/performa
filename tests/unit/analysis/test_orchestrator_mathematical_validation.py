@@ -19,7 +19,7 @@ import pandas as pd
 import pytest
 
 from performa.analysis.orchestrator import AnalysisContext, CashFlowOrchestrator
-from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
+from performa.core.ledger import Ledger, LedgerGenerationSettings
 from performa.core.primitives import (
     CashFlowModel,
     ExpenseSubcategoryEnum,
@@ -46,13 +46,13 @@ class TestCashFlowOrchestratorMathematical:
             uid = "550e8400-e29b-41d4-a716-446655440005"  # Changed from id to uid with valid UUID
             net_rentable_area = 10000
 
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        ledger = Ledger(settings=LedgerGenerationSettings())
         return AnalysisContext(
             timeline=timeline, 
             settings=GlobalSettings(), 
             property_data=SimpleProperty(),
             # Add required field
-            ledger_builder=ledger_builder
+            ledger=ledger
         )
 
     def test_orchestrator_calculates_effective_gross_income_for_dependent_models(
@@ -412,12 +412,12 @@ def test_effective_gross_income_bug_reproduction():
         uid = "550e8400-e29b-41d4-a716-446655440006"  # Changed from id to uid with valid UUID
         net_rentable_area = 10000
 
-    ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+    ledger = Ledger(settings=LedgerGenerationSettings())
     context = AnalysisContext(
         timeline=timeline, 
         settings=GlobalSettings(), 
         property_data=SimpleProperty(),
-        ledger_builder=ledger_builder
+        ledger=ledger
     )
 
     # Exact models from the original validation script

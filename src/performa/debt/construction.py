@@ -329,7 +329,7 @@ class ConstructionFacility(DebtFacilityBase):
             float: Calculated loan commitment amount
         """
         # Get base project costs from ledger or context fallback
-        current_ledger = context.ledger_builder.get_current_ledger()
+        current_ledger = context.ledger.ledger_df()
         base_costs = 0.0
 
         if not current_ledger.empty:
@@ -477,11 +477,11 @@ class ConstructionFacility(DebtFacilityBase):
         interest capitalization as part of the total project costs in the ledger.
 
         Args:
-            context: Deal context with ledger builder access
+            context: Deal context with ledger access
             loan_amount: Total loan commitment including interest
         """
         # Calculate the interest component
-        current_ledger = context.ledger_builder.get_current_ledger()
+        current_ledger = context.ledger.ledger_df()
         if current_ledger.empty:
             return
 
@@ -518,7 +518,7 @@ class ConstructionFacility(DebtFacilityBase):
                     asset_id=context.deal.asset.uid,
                     pass_num=CalculationPhase.FINANCING.value,
                 )
-                context.ledger_builder.add_series(interest_series, interest_metadata)
+                context.ledger.add_series(interest_series, interest_metadata)
 
     def _generate_debt_service_with_amount(
         self, context: "DealContext", loan_amount: float
@@ -530,7 +530,7 @@ class ConstructionFacility(DebtFacilityBase):
         loan amount as a parameter and handling ledger writes directly.
 
         Args:
-            context: Deal context with ledger builder and timeline
+            context: Deal context with ledger and timeline
             loan_amount: Effective loan amount to use (may differ from self.loan_amount)
 
         Returns:
@@ -553,7 +553,7 @@ class ConstructionFacility(DebtFacilityBase):
                 asset_id=context.deal.asset.uid,
                 pass_num=CalculationPhase.FINANCING.value,
             )
-            context.ledger_builder.add_series(proceeds_series, proceeds_metadata)
+            context.ledger.add_series(proceeds_series, proceeds_metadata)
 
         # Write debt service to ledger (negative outflows)
         if not debt_service.empty and debt_service.sum() != 0:
@@ -566,7 +566,7 @@ class ConstructionFacility(DebtFacilityBase):
                 pass_num=CalculationPhase.FINANCING.value,
             )
             # Debt service is outflow (negative in ledger)
-            context.ledger_builder.add_series(-debt_service, service_metadata)
+            context.ledger.add_series(-debt_service, service_metadata)
 
         return debt_service
 

@@ -22,7 +22,7 @@ from unittest.mock import Mock, patch
 import pandas as pd
 import pytest
 
-from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
+from performa.core.ledger import Ledger, LedgerGenerationSettings
 from performa.core.primitives import GlobalSettings, Timeline, UnleveredAggregateLineKey
 from performa.deal.analysis.valuation import ValuationEngine
 from performa.deal.deal import Deal
@@ -428,8 +428,8 @@ class TestDispositionProceeds:
             disposition_cf
         )
 
-        # Create a simple ledger_builder for the test
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        # Create a simple ledger for the test
+        ledger = Ledger(settings=LedgerGenerationSettings())
         
         with patch("performa.analysis.AnalysisContext") as mock_context_class:
             # Mock the context creation
@@ -438,7 +438,7 @@ class TestDispositionProceeds:
             mock_context_class.return_value = mock_context
 
             proceeds = engine.calculate_disposition_proceeds(
-                ledger_builder, sample_unlevered_analysis_with_noi
+                ledger, sample_unlevered_analysis_with_noi
             )
 
         assert isinstance(proceeds, pd.Series)
@@ -461,11 +461,11 @@ class TestDispositionProceeds:
             deal=mock_deal_basic, timeline=sample_timeline, settings=sample_settings
         )
 
-        # Create a simple ledger_builder for the test
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        # Create a simple ledger for the test
+        ledger = Ledger(settings=LedgerGenerationSettings())
         
         proceeds = engine.calculate_disposition_proceeds(
-            ledger_builder, sample_unlevered_analysis_with_noi
+            ledger, sample_unlevered_analysis_with_noi
         )
 
         assert isinstance(proceeds, pd.Series)
@@ -494,10 +494,10 @@ class TestDispositionProceeds:
             mock_context = Mock()
             mock_context_class.return_value = mock_context
 
-            # Create a simple ledger_builder for the test
-            ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+            # Create a simple ledger for the test
+            ledger = Ledger(settings=LedgerGenerationSettings())
             
-            proceeds = engine.calculate_disposition_proceeds(ledger_builder, None)
+            proceeds = engine.calculate_disposition_proceeds(ledger, None)
 
         assert isinstance(proceeds, pd.Series)
         assert len(proceeds) == 24
@@ -523,11 +523,11 @@ class TestDispositionProceeds:
         )
 
         # Should handle the error gracefully and return zeros
-        # Create a simple ledger_builder for the test
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        # Create a simple ledger for the test
+        ledger = Ledger(settings=LedgerGenerationSettings())
         
         proceeds = engine.calculate_disposition_proceeds(
-            ledger_builder, sample_unlevered_analysis_with_noi
+            ledger, sample_unlevered_analysis_with_noi
         )
 
         assert isinstance(proceeds, pd.Series)
@@ -552,15 +552,15 @@ class TestDispositionProceeds:
             disposition_cf
         )
 
-        # Create a simple ledger_builder for the test
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        # Create a simple ledger for the test
+        ledger = Ledger(settings=LedgerGenerationSettings())
         
         with patch("performa.analysis.AnalysisContext") as mock_context_class:
             mock_context = Mock()
             mock_context.resolved_lookups = {}
             mock_context_class.return_value = mock_context
 
-            proceeds = engine.calculate_disposition_proceeds(ledger_builder)
+            proceeds = engine.calculate_disposition_proceeds(ledger)
 
         assert proceeds.iloc[-1] == 2500000.0  # Should be positive
         assert (proceeds >= 0).all()  # All values should be non-negative
@@ -588,8 +588,8 @@ class TestIntegrationScenarios:
             sample_unlevered_analysis_with_noi
         )
 
-        # Create a simple ledger_builder for the test
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        # Create a simple ledger for the test
+        ledger = Ledger(settings=LedgerGenerationSettings())
         
         # Extract NOI series
         noi_series = engine.extract_noi_series(sample_unlevered_analysis_with_noi)
@@ -608,7 +608,7 @@ class TestIntegrationScenarios:
             )
             
             disposition_proceeds = engine.calculate_disposition_proceeds(
-                ledger_builder, sample_unlevered_analysis_with_noi
+                ledger, sample_unlevered_analysis_with_noi
             )
 
         # Verify all methods worked
@@ -789,10 +789,10 @@ class TestEdgeCasesAndErrorHandling:
             "performa.analysis.AnalysisContext",
             side_effect=Exception("Context creation failed"),
         ):
-            # Create a simple ledger_builder for the test
-            ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+            # Create a simple ledger for the test
+            ledger = Ledger(settings=LedgerGenerationSettings())
             
-            proceeds = engine.calculate_disposition_proceeds(ledger_builder)
+            proceeds = engine.calculate_disposition_proceeds(ledger)
 
         # Should handle the error gracefully
         assert isinstance(proceeds, pd.Series)
@@ -826,10 +826,10 @@ class TestEdgeCasesAndErrorHandling:
             mock_context.resolved_lookups = {}
             mock_context_class.return_value = mock_context
 
-            # Create a simple ledger_builder for the test
-            ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+            # Create a simple ledger for the test
+            ledger = Ledger(settings=LedgerGenerationSettings())
             
-            proceeds = engine.calculate_disposition_proceeds(ledger_builder, mock_analysis)
+            proceeds = engine.calculate_disposition_proceeds(ledger, mock_analysis)
 
         # Should continue despite NOI extraction failure and return the disposition proceeds
         assert isinstance(proceeds, pd.Series)

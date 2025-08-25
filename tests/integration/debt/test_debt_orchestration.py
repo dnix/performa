@@ -45,7 +45,7 @@ class TestEnhancedDebtServiceIntegration:
         # Create DealContext (required for new ledger-based architecture)
         from unittest.mock import Mock
 
-        from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
+        from performa.core.ledger import Ledger, LedgerGenerationSettings
         
         mock_deal = Mock()
         mock_deal.name = "Interest Only Test Deal"
@@ -53,7 +53,7 @@ class TestEnhancedDebtServiceIntegration:
         context = Mock()
         context.timeline = timeline
         context.deal = mock_deal
-        context.ledger_builder = LedgerBuilder(LedgerGenerationSettings())
+        context.ledger = Ledger(LedgerGenerationSettings())
 
         # Calculate debt service using new architecture
         debt_service = facility.compute_cf(context)

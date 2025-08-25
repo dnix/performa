@@ -120,7 +120,7 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=self.model,
-            ledger_builder=self.ledger_builder,  # Use inherited ledger_builder
+            ledger=self.ledger,  # Use inherited ledger
             recovery_states=recovery_states,
             rollover_profile_lookup=rollover_profile_lookup,
             recovery_method_lookup=recovery_method_lookup,

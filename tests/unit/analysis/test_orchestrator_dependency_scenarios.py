@@ -23,7 +23,7 @@ import pandas as pd
 import pytest
 
 from performa.analysis.orchestrator import AnalysisContext, CashFlowOrchestrator
-from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
+from performa.core.ledger import Ledger, LedgerGenerationSettings
 from performa.core.primitives import (
     CashFlowCategoryEnum,
     CashFlowModel,
@@ -52,13 +52,13 @@ class TestSystematicDependencyScenarios:
             uid = "550e8400-e29b-41d4-a716-446655440007"  # Changed from id to uid with valid UUID
             net_rentable_area = 10000
 
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        ledger = Ledger(settings=LedgerGenerationSettings())
         return AnalysisContext(
             timeline=timeline, 
             settings=GlobalSettings(), 
             property_data=SimpleProperty(),
             # Add required field
-            ledger_builder=ledger_builder
+            ledger=ledger
         )
 
     @pytest.fixture

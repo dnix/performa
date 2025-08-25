@@ -16,7 +16,7 @@ import pytest
 
 from performa.core.ledger import (
     FlowPurposeMapper,
-    LedgerBuilder,
+    Ledger,
     LedgerGenerationSettings,
     LedgerQueries,
     SeriesMetadata,
@@ -157,19 +157,19 @@ class TestLedgerBuilder:
     
     def test_empty_builder(self):
         """Test empty LedgerBuilder creation."""
-        builder = LedgerBuilder()
+        builder = Ledger()
         assert builder.record_count() == 0
         assert builder.series_count() == 0
         
         # Empty ledger should have proper schema
-        ledger = builder.get_current_ledger()
+        ledger = builder.ledger_df()
         assert ledger.empty
         assert 'date' in ledger.columns
         assert 'amount' in ledger.columns
     
     def test_add_series(self):
         """Test adding Series to builder."""
-        builder = LedgerBuilder()
+        builder = Ledger()
         
         # Create test series
         dates = pd.date_range('2024-01-01', periods=3, freq='M')
@@ -188,19 +188,19 @@ class TestLedgerBuilder:
         assert builder.series_count() == 1
         
         # Building ledger should convert series to records
-        ledger = builder.get_current_ledger()
+        ledger = builder.ledger_df()
         assert len(ledger) == 3  # 3 months of data
         assert builder.series_count() == 0  # Series batch cleared after conversion
     
     def test_builder_ownership(self):
         """Test that builder owns the ledger."""
-        builder = LedgerBuilder()
+        builder = Ledger()
         
         # First call creates ledger
-        ledger1 = builder.get_current_ledger()
+        ledger1 = builder.ledger_df()
         
         # Second call should return same DataFrame (cached)
-        ledger2 = builder.get_current_ledger()
+        ledger2 = builder.ledger_df()
         assert ledger1 is ledger2
         
         # Adding data should mark as dirty
@@ -218,7 +218,7 @@ class TestLedgerBuilder:
         builder.add_series(series, metadata)
         
         # Next call should rebuild (different DataFrame)
-        ledger3 = builder.get_current_ledger()
+        ledger3 = builder.ledger_df()
         assert ledger3 is not ledger1
         assert len(ledger3) == 2
 
@@ -336,7 +336,7 @@ def test_full_integration():
     """Test full integration of ledger components."""
     # Create builder with custom settings
     settings = LedgerGenerationSettings(skip_zero_values=True)
-    builder = LedgerBuilder(settings=settings)
+    builder = Ledger(settings=settings)
     
     # Create test data
     dates = pd.date_range('2024-01-01', periods=12, freq='M')
@@ -367,7 +367,7 @@ def test_full_integration():
     builder.add_series(expense_series, expense_metadata)
     
     # Get ledger
-    ledger = builder.get_current_ledger()
+    ledger = builder.ledger_df()
     assert len(ledger) == 24  # 12 months * 2 series
     
     # Query the ledger

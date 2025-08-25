@@ -23,7 +23,7 @@ from performa.asset.office.rollover import (
     OfficeRolloverLeaseTerms,
     OfficeRolloverProfile,
 )
-from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
+from performa.core.ledger import Ledger, LedgerGenerationSettings
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -67,7 +67,7 @@ def sample_analysis_context(sample_global_settings: GlobalSettings) -> AnalysisC
         timeline=timeline,
         settings=sample_global_settings,
         property_data=property_data,
-        ledger_builder=LedgerBuilder(settings=LedgerGenerationSettings()),
+        ledger=Ledger(settings=LedgerGenerationSettings()),
     )
 
 
@@ -272,7 +272,7 @@ def test_rollover_stops_at_analysis_end(sample_global_settings: GlobalSettings):
         timeline=analysis_timeline, 
         settings=sample_global_settings, 
         property_data=property_data,
-        ledger_builder=LedgerBuilder()
+        ledger=Ledger()
     )
 
     # Lease timeline is 20 months, expires Aug 2025.

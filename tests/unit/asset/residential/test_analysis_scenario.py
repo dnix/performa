@@ -28,7 +28,7 @@ from performa.asset.residential import (
     ResidentialRolloverProfile,
     ResidentialUnitSpec,
 )
-from performa.core.ledger import LedgerBuilder
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     CashFlowModel,
     FrequencyEnum,
@@ -139,7 +139,7 @@ def test_analysis_scenario_registration(
     assert isinstance(result.scenario, ResidentialAnalysisScenario)
     assert result.scenario.model is sample_residential_property
     # Also verify we have ledger and other new features
-    assert result.ledger_builder is not None
+    assert result.ledger is not None
     assert result.noi is not None
 
 
@@ -222,14 +222,14 @@ def test_analysis_scenario_properties(
         model=sample_residential_property,
         timeline=analysis_timeline,
         settings=global_settings,
-        ledger_builder=LedgerBuilder()
+        ledger=Ledger()
     )
 
     context = AnalysisContext(
         timeline=analysis_timeline,
         settings=global_settings,
         property_data=sample_residential_property,
-        ledger_builder=LedgerBuilder(),  # Create new builder, don't use scenario's
+        ledger=Ledger(),  # Create new ledger, don't use scenario's
         capital_plan_lookup={},
         rollover_profile_lookup={},
     )
@@ -311,8 +311,8 @@ def test_minimal_property_analysis():
     assert isinstance(result.scenario, ResidentialAnalysisScenario)
     
     # Verify ledger was built
-    assert result.ledger_builder is not None
-    assert not result.ledger.empty
+    assert result.ledger is not None
+    assert not result.ledger.ledger_df().empty
 
     # Should unroll to 5 lease instances
     lease_models = [

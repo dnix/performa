@@ -22,7 +22,7 @@ from performa.asset.office.rent_escalation import (
     create_stepped_fixed_escalations,
     create_stepped_percentage_escalations,
 )
-from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
+from performa.core.ledger import Ledger, LedgerGenerationSettings
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -65,12 +65,12 @@ class TestMultipleEscalations:
     @pytest.fixture
     def context(self, timeline) -> AnalysisContext:
         """Create analysis context for testing"""
-        ledger_builder = LedgerBuilder(settings=LedgerGenerationSettings())
+        ledger = Ledger(settings=LedgerGenerationSettings())
         return AnalysisContext(
             timeline=timeline,
             settings=GlobalSettings(analysis_start_date=date(2024, 1, 1)),
             property_data=None,
-            ledger_builder=ledger_builder
+            ledger=ledger
         )
 
     def test_multiple_escalations_chronological_order(self, base_spec, context):

@@ -39,14 +39,14 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         ledger: DataFrame with transaction records following the standard schema
     """
 
-    def __init__(self, ledger: pd.DataFrame):
+    def __init__(self, ledger_df: pd.DataFrame):
         """Initialize with ledger DataFrame."""
         # Store ledger directly - we expect date as a column, not index
-        self.ledger = ledger
+        self.ledger = ledger_df
 
         # Validate schema (basic check)
         required_cols = ["date", "amount", "flow_purpose", "category", "subcategory"]
-        missing = [col for col in required_cols if col not in ledger.columns]
+        missing = [col for col in required_cols if col not in ledger_df.columns]
         if missing:
             raise ValueError(f"Ledger missing required columns: {missing}")
 
@@ -573,7 +573,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             ValueError: If no asset valuation found in ledger
 
         Example:
-            queries = LedgerQueries(ledger)
+            queries = LedgerQueries(ledger_df)
             current_value = queries.asset_value()  # e.g., 12_000_000.0
         """
         valuation_txns = self.ledger[
@@ -609,7 +609,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of financing flows matching criteria
 
         Example:
-            queries = LedgerQueries(ledger)
+            queries = LedgerQueries(ledger_df)
             loan_proceeds = queries.financing_flows('Loan Proceeds')
             debt_service = queries.financing_flows('Debt Service')
         """

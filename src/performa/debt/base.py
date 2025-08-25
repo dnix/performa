@@ -122,7 +122,7 @@ class DebtFacilityBase(Model):
         for full auditability and query capabilities.
 
         Args:
-            context: Deal context containing ledger_builder, timeline, and deal data
+            context: Deal context containing ledger, timeline, and deal data
 
         Returns:
             pd.Series: Debt service schedule (for compatibility)
@@ -146,7 +146,7 @@ class DebtFacilityBase(Model):
                 asset_id=context.deal.asset.uid,  # Clean access via DealContext
                 pass_num=CalculationPhase.FINANCING.value,
             )
-            context.ledger_builder.add_series(proceeds_series, proceeds_metadata)
+            context.ledger.add_series(proceeds_series, proceeds_metadata)
 
         # Write debt service to ledger (negative outflows)
         if not debt_service.empty and debt_service.sum() != 0:
@@ -159,6 +159,6 @@ class DebtFacilityBase(Model):
                 pass_num=CalculationPhase.FINANCING.value,
             )
             # Debt service is outflow (negative in ledger)
-            context.ledger_builder.add_series(-debt_service, service_metadata)
+            context.ledger.add_series(-debt_service, service_metadata)
 
         return debt_service

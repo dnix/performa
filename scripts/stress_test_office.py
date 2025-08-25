@@ -84,7 +84,7 @@ from performa.asset.office import (
     SpaceFilter,
 )
 from performa.core.base import Address, CommissionTier
-from performa.core.ledger import LedgerBuilder
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -134,7 +134,7 @@ def test_office_fundamental_sanity() -> bool:
         timeline=timeline,
         settings=GlobalSettings(),
         property_data=None,
-        ledger_builder=LedgerBuilder(),
+        ledger=Ledger(),
         recovery_states={},  # Add required recovery_states
     )
 

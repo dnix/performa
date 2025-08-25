@@ -5,7 +5,7 @@ This module provides the foundational building blocks for all real estate financ
 ## Key Components
 
 ### Transactional Ledger System (`performa.core.ledger`)
-- **LedgerBuilder**: Progressive ledger construction with pass-the-builder pattern
+- **Ledger**: Progressive ledger construction with pass-the-builder pattern
 - **TransactionRecord**: Immutable atomic transaction units with full auditability
 - **LedgerQueries**: Clean semantic interface for financial metrics and analysis
 - **SeriesMetadata**: Type-safe metadata for Series-to-transaction conversion
@@ -67,14 +67,14 @@ class TransactionRecord:
     pass_num: int                    # Calculation pass
 ```
 
-#### `LedgerBuilder` 
+#### `Ledger` 
 Progressive ledger construction following the pass-the-builder pattern:
 
 ```python
-from performa.core.ledger import LedgerBuilder, SeriesMetadata
+from performa.core.ledger import Ledger, SeriesMetadata
 
 # Create builder (passed through analysis context)
-builder = LedgerBuilder()
+ledger = Ledger()
 
 # Add cash flows with metadata
 metadata = SeriesMetadata(
@@ -85,10 +85,10 @@ metadata = SeriesMetadata(
     asset_id=property.uid,
     pass_num=1
 )
-builder.add_series(rental_income_series, metadata)
+ledger.add_series(rental_income_series, metadata)
 
-# Builder owns the ledger - prevents data mismatches
-ledger = builder.get_current_ledger()
+# ledger owns the ledger - prevents data mismatches
+ledger_df = ledger.ledger_df()
 ```
 
 #### `LedgerQueries`
@@ -98,7 +98,7 @@ Clean semantic interface for standard real estate metrics:
 from performa.core.ledger import LedgerQueries
 
 # Initialize with ledger DataFrame
-queries = LedgerQueries(ledger)
+queries = LedgerQueries(ledger_df)
 
 # Standard real estate metrics via simple queries
 potential_gross_revenue = queries.pgr()  # All revenue at 100% occupancy
@@ -179,20 +179,20 @@ builder.add_series(rental_income, metadata)  # Converted in batch
 
 #### Pass-the-Builder Pattern
 ```python
-def analyze_deal(deal, timeline, ledger_builder):
-    """All analysis functions require explicit ledger_builder."""
+def analyze_deal(deal, timeline, ledger):
+    """All analysis functions require explicit ledger."""
     
     # Asset analysis writes to ledger
-    asset_analysis = run_asset_analysis(deal.asset, timeline, ledger_builder)
+    asset_analysis = run_asset_analysis(deal.asset, timeline, ledger)
     
     # Debt analysis reads from and writes to same ledger
-    debt_analysis = run_debt_analysis(deal.financing, timeline, ledger_builder)
+    debt_analysis = run_debt_analysis(deal.financing, timeline, ledger)
     
     # Single source of truth maintained throughout
     return DealAnalysisResult(
         asset_analysis=asset_analysis,
         debt_analysis=debt_analysis,
-        ledger_queries=LedgerQueries(ledger_builder.get_current_ledger())
+        ledger_queries=LedgerQueries(ledger.ledger_df())
     )
 ```
 
@@ -225,7 +225,7 @@ construction_audit = ledger_queries.ledger[
 
 ```python
 from performa.core.primitives import Timeline, CashFlowModel, GlobalSettings
-from performa.core.ledger import LedgerBuilder, SeriesMetadata
+from performa.core.ledger import Ledger, SeriesMetadata
 from performa.core.capital import CapitalPlan
 
 # Analysis with automatic ledger construction
@@ -249,7 +249,7 @@ monthly_rent = ledger[
 
 ```python
 # Manual ledger construction for custom analysis
-builder = LedgerBuilder()
+ledger = Ledger()
 
 # Add custom transaction
 from performa.core.ledger import TransactionRecord
@@ -264,7 +264,7 @@ custom_transaction = TransactionRecord(
     asset_id=property.uid,
     pass_num=1
 )
-builder.add_record(custom_transaction)
+ledger.add_record(custom_transaction)
 
 # Combine with Series data
 renovation_costs = pd.Series([100_000, 150_000], 
@@ -274,11 +274,11 @@ metadata = SeriesMetadata(
     subcategory=CapitalSubcategoryEnum.HARD_COSTS,
     item_name="Renovation - Phase 1"
 )
-builder.add_series(renovation_costs, metadata)
+ledger.add_series(renovation_costs, metadata)
 
 # Generate final ledger
-final_ledger = builder.get_current_ledger()
-queries = LedgerQueries(final_ledger)
+final_ledger_df = ledger.ledger_df()
+queries = LedgerQueries(final_ledger_df)
 ```
 
 ## Performance Characteristics

@@ -27,7 +27,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from performa.core.ledger import LedgerBuilder
+from performa.core.ledger import Ledger
 from performa.core.ledger.records import SeriesMetadata
 from performa.core.primitives import GlobalSettings, Timeline, UnleveredAggregateLineKey
 from performa.core.primitives.enums import (
@@ -58,19 +58,19 @@ def sample_settings() -> GlobalSettings:
 
 
 @pytest.fixture
-def sample_ledger_builder() -> LedgerBuilder:
+def sample_ledger() -> Ledger:
     """Standard ledger builder for testing."""
-    return LedgerBuilder()
+    return Ledger()
 
 
-def create_deal_context(timeline, settings, ledger_builder, deal):
+def create_deal_context(timeline, settings, ledger, deal):
     """Helper function to create DealContext with any deal."""
     from performa.deal.orchestrator import DealContext
     
     return DealContext(
         timeline=timeline,
         settings=settings,
-        ledger_builder=ledger_builder,
+        ledger=ledger,
         deal=deal,
         property_value=None,  # Will be populated by individual tests if needed
         noi_series=None,      # Will be populated by individual tests if needed
@@ -159,7 +159,7 @@ def mock_construction_facility():
                 asset_id=asset_id,
                 pass_num=CalculationPhase.FINANCING.value,
             )
-            context.ledger_builder.add_series(proceeds_series, proceeds_metadata)
+            context.ledger.add_series(proceeds_series, proceeds_metadata)
 
         # Write debt service to ledger (negative outflows)
         # Handle both DealContext and AnalysisContext
@@ -177,7 +177,7 @@ def mock_construction_facility():
             asset_id=asset_id,
             pass_num=CalculationPhase.FINANCING.value,
         )
-        context.ledger_builder.add_series(-debt_service, debt_service_metadata)
+        context.ledger.add_series(-debt_service, debt_service_metadata)
         
         return debt_service
     
@@ -324,7 +324,7 @@ class TestAnalyzeFinancingStructureNoFinancing:
         sample_timeline,
         sample_settings,
         sample_unlevered_analysis,
-        sample_ledger_builder,
+        sample_ledger,
     ):
         """Test analysis when deal has no financing."""
         analyzer = DebtAnalyzer(
@@ -337,7 +337,7 @@ class TestAnalyzeFinancingStructureNoFinancing:
         deal_context = create_deal_context(
             timeline=sample_timeline,
             settings=sample_settings, 
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal=mock_deal_without_financing
         )
 
@@ -347,7 +347,7 @@ class TestAnalyzeFinancingStructureNoFinancing:
             ),
             noi_series=pd.Series([100000.0] * 60, index=sample_timeline.period_index),
             unlevered_analysis=sample_unlevered_analysis,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal_context=deal_context,
         )
 
@@ -364,14 +364,14 @@ class TestAnalyzeFinancingStructureNoFinancing:
         sample_timeline,
         sample_settings,
         sample_unlevered_analysis,
-        sample_ledger_builder,
+        sample_ledger,
     ):
         """Test that analyzer state is properly maintained when no financing."""
         # Create DealContext for proper debt analyzer integration
         deal_context = create_deal_context(
             timeline=sample_timeline,
             settings=sample_settings,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal=mock_deal_without_financing
         )
 
@@ -388,7 +388,7 @@ class TestAnalyzeFinancingStructureNoFinancing:
             ),
             noi_series=pd.Series([100000.0] * 60, index=sample_timeline.period_index),
             unlevered_analysis=sample_unlevered_analysis,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal_context=deal_context,
         )
 
@@ -398,7 +398,7 @@ class TestAnalyzeFinancingStructureNoFinancing:
             ),
             noi_series=pd.Series([200000.0] * 60, index=sample_timeline.period_index),
             unlevered_analysis=sample_unlevered_analysis,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal_context=deal_context,
         )
 
@@ -417,7 +417,7 @@ class TestAnalyzeFinancingStructureWithFinancing:
         sample_timeline,
         sample_settings,
         sample_unlevered_analysis,
-        sample_ledger_builder,
+        sample_ledger,
     ):
         """Test analysis with basic construction financing."""
         # Add facility to deal
@@ -433,7 +433,7 @@ class TestAnalyzeFinancingStructureWithFinancing:
         deal_context = create_deal_context(
             timeline=sample_timeline,
             settings=sample_settings, 
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal=mock_deal_with_financing
         )
 
@@ -443,7 +443,7 @@ class TestAnalyzeFinancingStructureWithFinancing:
             ),
             noi_series=pd.Series([300000.0] * 60, index=sample_timeline.period_index),
             unlevered_analysis=sample_unlevered_analysis,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal_context=deal_context,
         )
 
@@ -480,7 +480,7 @@ class TestAnalyzeFinancingStructureWithFinancing:
         sample_timeline,
         sample_settings,
         sample_unlevered_analysis,
-        sample_ledger_builder,
+        sample_ledger,
     ):
         """Test analysis with multiple financing facilities."""
         # Add multiple facilities to deal
@@ -493,7 +493,7 @@ class TestAnalyzeFinancingStructureWithFinancing:
         deal_context = create_deal_context(
             timeline=sample_timeline,
             settings=sample_settings,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal=mock_deal_with_financing
         )
 
@@ -509,7 +509,7 @@ class TestAnalyzeFinancingStructureWithFinancing:
             ),
             noi_series=pd.Series([400000.0] * 60, index=sample_timeline.period_index),
             unlevered_analysis=sample_unlevered_analysis,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal_context=deal_context,
         )
 
@@ -538,7 +538,7 @@ class TestAnalyzeFinancingStructureWithFinancing:
         sample_timeline,
         sample_settings,
         sample_unlevered_analysis,
-        sample_ledger_builder,
+        sample_ledger,
     ):
         """Test analysis when facility calculations raise errors."""
         # Create a facility that raises errors in the new architecture
@@ -560,7 +560,7 @@ class TestAnalyzeFinancingStructureWithFinancing:
         deal_context = create_deal_context(
             timeline=sample_timeline,
             settings=sample_settings,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal=mock_deal_with_financing
         )
 
@@ -576,7 +576,7 @@ class TestAnalyzeFinancingStructureWithFinancing:
             ),
             noi_series=pd.Series([100000.0] * 60, index=sample_timeline.period_index),
             unlevered_analysis=sample_unlevered_analysis,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal_context=deal_context,
         )
 
@@ -591,7 +591,7 @@ class TestAnalyzeFinancingStructureWithFinancing:
         sample_timeline,
         sample_settings,
         sample_unlevered_analysis,
-        sample_ledger_builder,
+        sample_ledger,
     ):
         """Test analysis with facility that doesn't have required methods."""
         # Create a facility without calculation methods (no compute_cf, no old methods)
@@ -605,7 +605,7 @@ class TestAnalyzeFinancingStructureWithFinancing:
         deal_context = create_deal_context(
             timeline=sample_timeline,
             settings=sample_settings,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal=mock_deal_with_financing
         )
 
@@ -621,7 +621,7 @@ class TestAnalyzeFinancingStructureWithFinancing:
             ),
             noi_series=pd.Series([100000.0] * 60, index=sample_timeline.period_index),
             unlevered_analysis=sample_unlevered_analysis,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal_context=deal_context,
         )
 
@@ -641,7 +641,7 @@ class TestEnhancedDebtServiceCalculation:
         sample_timeline,
         sample_settings,
         sample_unlevered_analysis,
-        sample_ledger_builder,
+        sample_ledger,
     ):
         """Test enhanced debt service for standard permanent facility."""
         mock_deal_with_financing.financing.facilities = [mock_permanent_facility]
@@ -670,7 +670,7 @@ class TestEnhancedDebtServiceCalculation:
         sample_timeline,
         sample_settings,
         sample_unlevered_analysis,
-        sample_ledger_builder,
+        sample_ledger,
     ):
         """Test enhanced debt service for facility with refinancing."""
         mock_deal_with_financing.financing.facilities = [
@@ -712,7 +712,7 @@ class TestEnhancedDebtServiceCalculation:
         sample_timeline,
         sample_settings,
         sample_unlevered_analysis,
-        sample_ledger_builder,
+        sample_ledger,
     ):
         """Test enhanced debt service when refinanced loan amount is zero."""
         mock_deal_with_financing.financing.facilities = [
@@ -784,7 +784,7 @@ class TestDSCRCalculations:
         sample_timeline,
         sample_settings,
         sample_unlevered_analysis,
-        sample_ledger_builder,
+        sample_ledger,
     ):
         """Test DSCR calculation when no financing exists."""
         analyzer = DebtAnalyzer(
@@ -805,7 +805,7 @@ class TestDSCRCalculations:
         sample_timeline,
         sample_settings,
         sample_unlevered_analysis,
-        sample_ledger_builder,
+        sample_ledger,
     ):
         """Test DSCR calculation with financing."""
         mock_deal_with_financing.financing.facilities = [mock_construction_facility]
@@ -814,7 +814,7 @@ class TestDSCRCalculations:
         deal_context = create_deal_context(
             timeline=sample_timeline,
             settings=sample_settings,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal=mock_deal_with_financing
         )
 
@@ -826,7 +826,7 @@ class TestDSCRCalculations:
 
         # Set has_financing to True and process facilities
         analyzer.financing_analysis.has_financing = True
-        analyzer._process_facilities(sample_ledger_builder, deal_context)
+        analyzer._process_facilities(sample_ledger, deal_context)
 
         # Then calculate DSCR
         analyzer.calculate_dscr_metrics(sample_unlevered_analysis)
@@ -867,7 +867,7 @@ class TestDSCRCalculations:
         sample_timeline,
         sample_settings,
         sample_unlevered_analysis,
-        sample_ledger_builder,
+        sample_ledger,
     ):
         """Test DSCR calculation with multiple facilities."""
         mock_deal_with_financing.financing.facilities = [
@@ -879,7 +879,7 @@ class TestDSCRCalculations:
         deal_context = create_deal_context(
             timeline=sample_timeline,
             settings=sample_settings,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal=mock_deal_with_financing
         )
 
@@ -891,7 +891,7 @@ class TestDSCRCalculations:
 
         # Set has_financing and process facilities
         analyzer.financing_analysis.has_financing = True
-        analyzer._process_facilities(sample_ledger_builder, deal_context)
+        analyzer._process_facilities(sample_ledger, deal_context)
         analyzer.calculate_dscr_metrics(sample_unlevered_analysis)
 
         # Verify DSCR was calculated (may be None if calculation failed)
@@ -955,7 +955,7 @@ class TestPrivateMethodsAndUtilities:
         sample_timeline,
         sample_settings,
         sample_unlevered_analysis,
-        sample_ledger_builder,
+        sample_ledger,
     ):
         """Test NOI extraction from unlevered analysis."""
         analyzer = DebtAnalyzer(
@@ -993,7 +993,7 @@ class TestPrivateMethodsAndUtilities:
         mock_permanent_facility,
         sample_timeline,
         sample_settings,
-        sample_ledger_builder,
+        sample_ledger,
     ):
         """Test debt service aggregation with multiple facilities."""
         mock_deal_with_financing.financing.facilities = [
@@ -1005,7 +1005,7 @@ class TestPrivateMethodsAndUtilities:
         deal_context = create_deal_context(
             timeline=sample_timeline,
             settings=sample_settings,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal=mock_deal_with_financing
         )
 
@@ -1016,7 +1016,7 @@ class TestPrivateMethodsAndUtilities:
         )
 
         # Process facilities first
-        analyzer._process_facilities(sample_ledger_builder, deal_context)
+        analyzer._process_facilities(sample_ledger, deal_context)
 
         # Then aggregate
         total_debt_service = analyzer._aggregate_debt_service()
@@ -1163,7 +1163,7 @@ class TestRefinancingTransactions:
         sample_timeline,
         sample_settings,
         sample_unlevered_analysis,
-        sample_ledger_builder,
+        sample_ledger,
     ):
         """Test financing analysis with refinancing enabled."""
         # Enable refinancing
@@ -1173,7 +1173,7 @@ class TestRefinancingTransactions:
         deal_context = create_deal_context(
             timeline=sample_timeline,
             settings=sample_settings,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal=mock_deal_with_financing
         )
 
@@ -1195,7 +1195,7 @@ class TestRefinancingTransactions:
                     [300000.0] * 60, index=sample_timeline.period_index
                 ),
                 unlevered_analysis=sample_unlevered_analysis,
-                ledger_builder=sample_ledger_builder,
+                ledger=sample_ledger,
                 deal_context=deal_context,
             )
 
@@ -1213,7 +1213,7 @@ class TestEdgeCasesAndErrorHandling:
         sample_timeline,
         sample_settings,
         sample_unlevered_analysis,
-        sample_ledger_builder,
+        sample_ledger,
     ):
         """Test handling of facility without name attribute."""
         # Create facility without name
@@ -1227,7 +1227,7 @@ class TestEdgeCasesAndErrorHandling:
         deal_context = create_deal_context(
             timeline=sample_timeline,
             settings=sample_settings,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal=mock_deal_with_financing
         )
 
@@ -1243,7 +1243,7 @@ class TestEdgeCasesAndErrorHandling:
             ),
             noi_series=pd.Series([100000.0] * 60, index=sample_timeline.period_index),
             unlevered_analysis=sample_unlevered_analysis,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal_context=deal_context,
         )
 
@@ -1257,7 +1257,7 @@ class TestEdgeCasesAndErrorHandling:
         sample_timeline,
         sample_settings,
         sample_unlevered_analysis,
-        sample_ledger_builder,
+        sample_ledger,
     ):
         """Test handling of facility without description attribute."""
         # Create facility without description
@@ -1271,7 +1271,7 @@ class TestEdgeCasesAndErrorHandling:
         deal_context = create_deal_context(
             timeline=sample_timeline,
             settings=sample_settings,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal=mock_deal_with_financing
         )
 
@@ -1287,7 +1287,7 @@ class TestEdgeCasesAndErrorHandling:
             ),
             noi_series=pd.Series([100000.0] * 60, index=sample_timeline.period_index),
             unlevered_analysis=sample_unlevered_analysis,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal_context=deal_context,
         )
 
@@ -1343,7 +1343,7 @@ class TestIntegrationScenarios:
         sample_timeline,
         sample_settings,
         sample_unlevered_analysis,
-        sample_ledger_builder,
+        sample_ledger,
     ):
         """Test complete development financing scenario."""
         # Set up complex financing structure
@@ -1357,7 +1357,7 @@ class TestIntegrationScenarios:
         deal_context = create_deal_context(
             timeline=sample_timeline,
             settings=sample_settings,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal=mock_deal_with_financing
         )
 
@@ -1387,7 +1387,7 @@ class TestIntegrationScenarios:
                     property_value_series=property_values,
                     noi_series=noi_values,
                     unlevered_analysis=sample_unlevered_analysis,
-                    ledger_builder=sample_ledger_builder,
+                    ledger=sample_ledger,
                     deal_context=deal_context,
                 )
 
@@ -1410,7 +1410,7 @@ class TestIntegrationScenarios:
         sample_timeline,
         sample_settings,
         sample_unlevered_analysis,
-        sample_ledger_builder,
+        sample_ledger,
     ):
         """Test high leverage scenario with potential covenant breaches."""
         # Create high debt service facility
@@ -1462,7 +1462,7 @@ class TestIntegrationScenarios:
                 asset_id=uuid4(),  # Use generic asset_id for this test
                 pass_num=CalculationPhase.FINANCING.value,
             )
-            context.ledger_builder.add_series(debt_service_ledger_series, debt_service_metadata)
+            context.ledger.add_series(debt_service_ledger_series, debt_service_metadata)
             
             # Generate loan proceeds series 
             proceeds_series = pd.Series(
@@ -1479,7 +1479,7 @@ class TestIntegrationScenarios:
                 asset_id=uuid4(),  # Use generic asset_id for this test
                 pass_num=CalculationPhase.FINANCING.value,
             )
-            context.ledger_builder.add_series(proceeds_series, proceeds_metadata)
+            context.ledger.add_series(proceeds_series, proceeds_metadata)
             
             return debt_service_series
             
@@ -1491,7 +1491,7 @@ class TestIntegrationScenarios:
         deal_context = create_deal_context(
             timeline=sample_timeline,
             settings=sample_settings,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal=mock_deal_with_financing
         )
 
@@ -1507,7 +1507,7 @@ class TestIntegrationScenarios:
             ),
             noi_series=pd.Series([100000.0] * 60, index=sample_timeline.period_index),
             unlevered_analysis=sample_unlevered_analysis,
-            ledger_builder=sample_ledger_builder,
+            ledger=sample_ledger,
             deal_context=deal_context,
         )
 

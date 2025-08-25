@@ -4,7 +4,7 @@
 import pandas as pd
 
 from performa.analysis.results import AssetAnalysisResult
-from performa.core.ledger import LedgerBuilder
+from performa.core.ledger import Ledger
 from performa.core.primitives import Timeline
 from performa.deal.results import (
     DealAnalysisResult,
@@ -44,7 +44,7 @@ def test_fluent_pro_forma_summary():
     )
     
     asset_analysis = AssetAnalysisResult(
-        ledger_builder=LedgerBuilder(),
+        ledger=Ledger(),
         property=MockProperty(),
         timeline=timeline,
         scenario=MockScenario(),

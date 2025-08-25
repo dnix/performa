@@ -84,7 +84,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 import pandas as pd
 
 from performa.analysis import AnalysisContext
-from performa.core.ledger import LedgerQueries, SeriesMetadata
+from performa.core.ledger import SeriesMetadata
 from performa.core.primitives import (
     CashFlowCategoryEnum,
     ExpenseSubcategoryEnum,
@@ -104,7 +104,7 @@ from performa.deal.results import (
 )
 
 if TYPE_CHECKING:
-    from performa.core.ledger import LedgerBuilder
+    from performa.core.ledger import Ledger
     from performa.core.primitives import GlobalSettings, Timeline
     from performa.deal.deal import Deal
 
@@ -187,7 +187,7 @@ class CashFlowEngine:
         self,
         unlevered_analysis: UnleveredAnalysisResult,
         financing_analysis: FinancingAnalysisResult,
-        ledger_builder: "LedgerBuilder",
+        ledger: "Ledger",
         disposition_proceeds: Optional[pd.Series] = None,
         funding_cascade_details: Optional["FundingCascadeDetails"] = None,
     ) -> LeveredCashFlowResult:
@@ -207,7 +207,7 @@ class CashFlowEngine:
         Args:
             unlevered_analysis: Results from unlevered asset analysis
             financing_analysis: Results from debt analysis
-            ledger_builder: The analysis ledger builder (Pass-the-Builder pattern).
+            ledger: The analysis ledger (Pass-the-Builder pattern).
                 Must be the same instance used throughout the analysis.
             disposition_proceeds: Disposition proceeds from valuation analysis (optional)
 
@@ -216,8 +216,8 @@ class CashFlowEngine:
         """
         # === Step 1: Calculate Period Uses ===
         # Use ledger-based uses calculation (single source of truth)
-        # ledger_builder contains the asset-level transactions from prior analysis
-        base_uses = self._calculate_ledger_based_uses(ledger_builder)
+        # ledger contains the asset-level transactions from prior analysis
+        base_uses = self._calculate_ledger_based_uses(ledger)
 
         # Note: uses_breakdown is created by DealCalculator during funding cascade orchestration
         # CashFlowEngine focuses on the funding mechanics, not the categorization
@@ -227,16 +227,16 @@ class CashFlowEngine:
 
         # === Step 3: Execute Funding Cascade ===
         cascade_results = self._execute_funding_cascade(
-            base_uses, funding_components, ledger_builder
+            base_uses, funding_components, ledger
         )
 
         # === Step 3.5: Add Funding Sources to Ledger ===
-        self._add_funding_sources_to_ledger(ledger_builder, funding_components)
+        self._add_funding_sources_to_ledger(ledger, funding_components)
 
         # === Step 4: Calculate disposition proceeds if not provided ===
         if disposition_proceeds is None:
             disposition_proceeds = self._calculate_disposition_proceeds(
-                ledger_builder, unlevered_analysis
+                ledger, unlevered_analysis
             )
 
         # === Step 5: Assemble Final Results ===
@@ -340,7 +340,7 @@ class CashFlowEngine:
 
         return uses_df
 
-    def _calculate_ledger_based_uses(self, ledger_builder) -> pd.Series:
+    def _calculate_ledger_based_uses(self, ledger) -> pd.Series:
         """
         Calculate total uses from ledger transactions.
 
@@ -348,30 +348,32 @@ class CashFlowEngine:
         transactions to determine total funding needs by period.
 
         Args:
-            ledger_builder: The ledger builder containing all transactions
+            ledger: The ledger containing all transactions
 
         Returns:
             pd.Series with total uses by period
         """
         # Get the current ledger
-        ledger = ledger_builder.get_current_ledger()
+        current_ledger = ledger.ledger_df()
 
-        if ledger.empty:
+        if current_ledger.empty:
             raise ValueError(
                 "Ledger is empty - CashFlowEngine requires a populated ledger from asset analysis"
             )
 
         # Query for all capital uses and financing service transactions
-        uses_filter = ledger["flow_purpose"].isin([
+        uses_filter = current_ledger["flow_purpose"].isin([
             TransactionPurpose.CAPITAL_USE.value,
             TransactionPurpose.FINANCING_SERVICE.value,
         ])
-        uses_transactions = ledger[uses_filter]
+        uses_transactions = current_ledger[uses_filter]
 
-        logger.debug(f"CashFlowEngine: Ledger has {len(ledger)} total transactions")
+        logger.debug(
+            f"CashFlowEngine: Ledger has {len(current_ledger)} total transactions"
+        )
         logger.debug(f"CashFlowEngine: Found {len(uses_transactions)} use transactions")
         logger.debug(
-            f"CashFlowEngine: Flow purposes in ledger: {ledger['flow_purpose'].unique()}"
+            f"CashFlowEngine: Flow purposes in ledger: {current_ledger['flow_purpose'].unique()}"
         )
 
         if uses_transactions.empty:
@@ -406,7 +408,7 @@ class CashFlowEngine:
 
         return result
 
-    def _add_funding_sources_to_ledger(self, ledger_builder, funding_components):
+    def _add_funding_sources_to_ledger(self, ledger, funding_components):
         """
         Add funding source transactions (equity only) to the ledger.
 
@@ -415,7 +417,7 @@ class CashFlowEngine:
         This avoids duplicate ledger entries and maintains single source of truth.
 
         Args:
-            ledger_builder: The ledger builder to add transactions to
+            ledger: The ledger to add transactions to
             funding_components: Dict containing funding series from cascade
         """
         # Add equity contributions as Capital Source
@@ -432,7 +434,7 @@ class CashFlowEngine:
                     deal_id=self.deal.uid,
                     pass_num=2,  # Funding is pass 2
                 )
-                ledger_builder.add_series(equity_series, metadata)
+                ledger.add_series(equity_series, metadata)
 
         # NOTE: Debt draws are NOT added here because they are already written by debt facilities
         # via their compute_cf method. This avoids duplicate ledger entries.
@@ -475,7 +477,7 @@ class CashFlowEngine:
         self,
         base_uses: pd.Series,
         funding_components: Dict[str, Any],
-        ledger_builder: "LedgerBuilder",
+        ledger: "Ledger",
     ) -> Dict[str, Any]:
         """
         Execute institutional-grade funding cascade with proper iterative logic.
@@ -613,7 +615,7 @@ class CashFlowEngine:
                     i,
                     funding_components,
                     working_uses,
-                    ledger_builder,
+                    ledger,
                 )
 
                 # Update funding components
@@ -685,7 +687,7 @@ class CashFlowEngine:
         period_idx: int,
         funding_components: Dict[str, Any],
         working_uses: pd.Series,
-        ledger_builder: "LedgerBuilder",
+        ledger: "Ledger",
     ) -> tuple[float, float]:
         """
         Fund period uses with equity-first, then ledger-based debt funding logic.
@@ -702,7 +704,7 @@ class CashFlowEngine:
             period_idx: Current period index
             funding_components: Funding components for tranche tracking
             working_uses: Working uses series for cumulative calculations
-            ledger_builder: Ledger builder containing debt facility transactions
+            ledger: Ledger containing debt facility transactions
 
         Returns:
             Tuple of (period_equity, period_debt)
@@ -719,7 +721,7 @@ class CashFlowEngine:
 
             # Get actual debt funding by querying ledger (replaces multi-tranche logic)
             period_debt = self._get_available_debt_funding(
-                period_debt_needed, period_idx, ledger_builder
+                period_debt_needed, period_idx, ledger
             )
 
             return period_equity, period_debt
@@ -728,7 +730,7 @@ class CashFlowEngine:
         self,
         debt_needed: float,
         period_idx: int,
-        ledger_builder: "LedgerBuilder",
+        ledger: "Ledger",
     ) -> float:
         """
         Query ledger for available debt funding capacity.
@@ -740,7 +742,7 @@ class CashFlowEngine:
         Args:
             debt_needed: Amount of debt funding needed this period
             period_idx: Current period index
-            ledger_builder: Ledger builder containing debt facility transactions
+            ledger: Ledger containing debt facility transactions
 
         Returns:
             Available debt funding for this period (up to debt_needed)
@@ -749,13 +751,12 @@ class CashFlowEngine:
             return 0.0
 
         try:
-            # Get current ledger DataFrame from builder and create queries interface
-            current_ledger = ledger_builder.get_current_ledger()
-            queries = LedgerQueries(current_ledger)
+            # Get current ledger DataFrame and create queries interface
+            current_ledger_df = ledger.ledger_df()
 
             # Query ledger directly for financing transactions (bypass LedgerQueries due to enum serialization issues)
-            financing_txns = current_ledger[
-                current_ledger["category"] == CashFlowCategoryEnum.FINANCING
+            financing_txns = current_ledger_df[
+                current_ledger_df["category"] == CashFlowCategoryEnum.FINANCING
             ]
 
             # Get loan proceeds transactions using enum for reliable matching
@@ -1205,14 +1206,14 @@ class CashFlowEngine:
 
     def _calculate_disposition_proceeds(
         self,
-        ledger_builder: "LedgerBuilder",
+        ledger: "Ledger",
         unlevered_analysis: UnleveredAnalysisResult = None,
     ) -> pd.Series:
         """
         Calculate disposition proceeds if there's a disposition event.
 
         Args:
-            ledger_builder: The analysis ledger builder (Pass-the-Builder pattern).
+            ledger: The analysis ledger (Pass-the-Builder pattern).
                 Must be the same instance used throughout the analysis.
             unlevered_analysis: Results from unlevered asset analysis containing NOI data
 
@@ -1224,12 +1225,12 @@ class CashFlowEngine:
         if self.deal.exit_valuation:
             try:
                 # Calculate disposition proceeds from the disposition model
-                # ledger_builder is required parameter (Pass-the-Builder pattern)
+                # ledger is required parameter
                 context = AnalysisContext(
                     timeline=self.timeline,
                     settings=self.settings,
                     property_data=self.deal.asset,
-                    ledger_builder=ledger_builder,
+                    ledger=ledger,
                 )
 
                 # Pass unlevered analysis to the context so valuation models can access NOI

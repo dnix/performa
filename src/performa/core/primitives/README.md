@@ -154,7 +154,7 @@ already_string = enum_to_string("already_string")
 
 **Usage in Ledger System**:
 ```python
-# Used internally by LedgerBuilder for DataFrame compatibility
+# Used internally by Ledger for DataFrame compatibility
 def _records_to_dataframe(self, records):
     for record in records:
         row_data = {

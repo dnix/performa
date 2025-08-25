@@ -451,7 +451,7 @@ class TestDCFContextIntegration:
         non_zero_periods = result[result > 0]
         assert len(non_zero_periods) == 1  # Should have exactly one disposition period
 
-    def test_compute_cf_with_ledger_builder(self):
+    def test_compute_cf_with_ledger(self):
         """Test compute_cf with ledger builder (new single source of truth approach)."""
         dcf = DCFValuation(
             name="Test",
@@ -483,9 +483,9 @@ class TestDCFContextIntegration:
             })
         
         mock_ledger = pd.DataFrame(ledger_data)
-        mock_ledger_builder = Mock()
-        mock_ledger_builder.get_current_ledger.return_value = mock_ledger
-        mock_context.ledger_builder = mock_ledger_builder
+        mock_ledger = Mock()
+        mock_ledger.ledger_df.return_value = mock_ledger
+        mock_context.ledger = mock_ledger
         
         # Set NOI series directly (clean architecture - no fallback needed)
         # NOI = Revenue ($10,000) - Expenses ($2,000) = $8,000 per month

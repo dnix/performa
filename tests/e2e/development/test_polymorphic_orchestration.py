@@ -49,7 +49,7 @@ from performa.asset.residential.rollover import (
 )
 from performa.core.base import FixedQuantityPace as ResidentialFixedQuantityPace
 from performa.core.capital import CapitalItem, CapitalPlan
-from performa.core.ledger import LedgerBuilder
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     AssetTypeEnum,
     GlobalSettings,
@@ -334,7 +334,7 @@ def test_orchestrator_basic_structure(
     # Create analysis scenario
     scenario = DevelopmentAnalysisScenario(
         model=project, timeline=analysis_timeline, settings=global_settings,
-        ledger_builder=LedgerBuilder()
+        ledger=Ledger()
     )
 
     # Validate basic structure
@@ -365,7 +365,7 @@ def test_orchestrator_prepare_models_basic(
 
     scenario = DevelopmentAnalysisScenario(
         model=project, timeline=analysis_timeline, settings=global_settings,
-        ledger_builder=LedgerBuilder()
+        ledger=Ledger()
     )
 
     # Execute the simplified orchestrator
@@ -403,7 +403,7 @@ def test_orchestrator_polymorphic_blueprint_processing(
 
     scenario = DevelopmentAnalysisScenario(
         model=project, timeline=analysis_timeline, settings=global_settings,
-        ledger_builder=LedgerBuilder()
+        ledger=Ledger()
     )
 
     # Execute polymorphic orchestration
@@ -444,7 +444,7 @@ def test_orchestrator_asset_factory_integration(
 
     scenario = DevelopmentAnalysisScenario(
         model=project, timeline=analysis_timeline, settings=global_settings,
-        ledger_builder=LedgerBuilder()
+        ledger=Ledger()
     )
 
     # Test asset factory integration manually
@@ -482,7 +482,7 @@ def test_orchestrator_no_blueprints(
 
     scenario = DevelopmentAnalysisScenario(
         model=project, timeline=analysis_timeline, settings=global_settings,
-        ledger_builder=LedgerBuilder()
+        ledger=Ledger()
     )
 
     # Should still work (construction + financing only)
@@ -517,7 +517,7 @@ def test_orchestrator_performance_no_conditionals(
 
     scenario = DevelopmentAnalysisScenario(
         model=project, timeline=analysis_timeline, settings=global_settings,
-        ledger_builder=LedgerBuilder()
+        ledger=Ledger()
     )
 
     # Time the polymorphic iteration (simulating the core loop)
@@ -594,7 +594,7 @@ def test_complete_development_lifecycle(
         model=comprehensive_project,
         timeline=analysis_timeline,
         settings=global_settings,
-        ledger_builder=LedgerBuilder()
+        ledger=Ledger()
     )
 
     # Execute full preparation

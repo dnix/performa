@@ -16,7 +16,7 @@ from performa.asset.office.lease import OfficeLease
 from performa.asset.office.property import OfficeProperty
 from performa.asset.office.recovery import ExpensePool, OfficeRecoveryMethod, Recovery
 from performa.core.base import RecoveryCalculationState
-from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
+from performa.core.ledger import Ledger, LedgerGenerationSettings
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -86,7 +86,7 @@ def pre_populated_context(
         timeline=sample_timeline,
         settings=GlobalSettings(),
         property_data=property_data,
-        ledger_builder=LedgerBuilder(settings=LedgerGenerationSettings()),
+        ledger=Ledger(settings=LedgerGenerationSettings()),
         )
     for item in sample_opex_items.values():
         context.resolved_lookups[item.uid] = item.compute_cf(context=context)

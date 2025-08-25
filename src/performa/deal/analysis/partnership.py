@@ -90,11 +90,11 @@ import numpy as np
 import pandas as pd
 from pyxirr import xirr
 
-from performa.core.ledger import LedgerBuilder, SeriesMetadata
+from performa.core.ledger import Ledger, SeriesMetadata
 from performa.deal.results import FeeAccountingDetails
 
 if TYPE_CHECKING:
-    from performa.core.ledger import LedgerBuilder
+    from performa.core.ledger import Ledger
     from performa.core.primitives import GlobalSettings, Timeline
     from performa.deal.deal import Deal
 
@@ -729,7 +729,7 @@ class PartnershipAnalyzer:
     def calculate_partner_distributions(
         self,
         levered_cash_flows: pd.Series,
-        ledger_builder: "LedgerBuilder",  # REQUIRED - must be the populated ledger from asset analysis
+        ledger: "Ledger",  # REQUIRED - must be the populated ledger from asset analysis
     ) -> PartnerDistributionResult:
         """
         Calculate partner distributions through equity waterfall with comprehensive fee handling.
@@ -740,7 +740,7 @@ class PartnershipAnalyzer:
 
         Args:
             levered_cash_flows: The levered cash flow series from cash flow analysis
-            ledger_builder: Optional ledger builder for transaction recording
+            ledger: Optional ledger for transaction recording
 
         Returns:
             PartnerDistributionResult containing distribution analysis
@@ -827,16 +827,16 @@ class PartnershipAnalyzer:
                 error_results
             )
 
-        # Add distribution records to ledger (ledger_builder must be provided)
-        if ledger_builder is None:
+        # Add distribution records to ledger (ledger must be provided)
+        if ledger is None:
             raise ValueError(
-                "ledger_builder is required and must contain prior transaction data"
+                "ledger is required and must contain prior transaction data"
             )
-        self._add_distribution_records_to_ledger(ledger_builder)
+        self._add_distribution_records_to_ledger(ledger)
 
         return self.partner_distributions
 
-    def _add_distribution_records_to_ledger(self, ledger_builder: LedgerBuilder):
+    def _add_distribution_records_to_ledger(self, ledger: Ledger):
         """
         Add partner distribution transactions to the ledger.
 
@@ -844,7 +844,7 @@ class PartnershipAnalyzer:
         distribution transactions to the ledger for full audit trail.
 
         Args:
-            ledger_builder: The ledger builder to add transactions to
+            ledger: The ledger to add transactions to
         """
 
         if (
@@ -879,7 +879,7 @@ class PartnershipAnalyzer:
                     )
                     # Note: Use negative cash flows since distributions are outflows from project perspective
                     distribution_flows = -1 * partner_metrics.cash_flows
-                    ledger_builder.add_series(distribution_flows, metadata)
+                    ledger.add_series(distribution_flows, metadata)
 
     def _calculate_single_entity_distributions(
         self, cash_flows: pd.Series

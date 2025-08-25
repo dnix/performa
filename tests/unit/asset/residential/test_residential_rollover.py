@@ -25,7 +25,7 @@ from performa.asset.residential.rollover import (
     ResidentialRolloverLeaseTerms,
     ResidentialRolloverProfile,
 )
-from performa.core.ledger import LedgerBuilder, LedgerGenerationSettings
+from performa.core.ledger import Ledger, LedgerGenerationSettings
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -97,7 +97,7 @@ def sample_analysis_context(sample_global_settings: GlobalSettings) -> AnalysisC
         timeline=timeline,
         settings=sample_global_settings,
         property_data=property_data,
-        ledger_builder=LedgerBuilder(settings=LedgerGenerationSettings()),
+        ledger=Ledger(settings=LedgerGenerationSettings()),
     )
 
 
@@ -358,7 +358,7 @@ def test_rollover_multiple_periods_iterative(sample_analysis_context: AnalysisCo
         timeline=Timeline(start_date=date(2024, 1, 1), duration_months=360),
         settings=GlobalSettings(),
         property_data=property_data,
-        ledger_builder=LedgerBuilder(settings=LedgerGenerationSettings()),
+        ledger=Ledger(settings=LedgerGenerationSettings()),
     )
 
     # Act

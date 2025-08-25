@@ -11,7 +11,7 @@ that serves as the single source of truth for all financial calculations.
 Key Components:
     - TransactionRecord: Immutable transaction representation
     - SeriesMetadata: Type-safe metadata for Series conversion
-    - LedgerBuilder: Progressive ledger construction with ownership pattern
+    - Ledger: Progressive ledger construction with ownership pattern
     - LedgerQueries: Clean query interface for financial metrics
     - FlowPurposeMapper: Business logic for transaction classification
     - LedgerGenerationSettings: Pydantic configuration model
@@ -24,10 +24,10 @@ Architecture:
 
 Usage:
     ```python
-    from performa.core.ledger import LedgerBuilder, SeriesMetadata
+    from performa.core.ledger import Ledger, SeriesMetadata
 
-    # Create builder
-    builder = LedgerBuilder()
+    # Create ledger
+    ledger = Ledger()
 
     # Add series with metadata
     metadata = SeriesMetadata(
@@ -38,16 +38,16 @@ Usage:
         asset_id=property.uid,
         pass_num=1
     )
-    builder.add_series(cash_flow_series, metadata)
+    ledger.add_series(cash_flow_series, metadata)
 
-    # Get ledger (builder owns it)
-    ledger = builder.get_current_ledger()
+    # Get current state of ledger
+    ledger_df = ledger.ledger_df()
     ```
 """
 
 # Core data models
-# Builder and query interface
-from .builder import LedgerBuilder
+# Ledger and query interface
+from .ledger import Ledger
 
 # Utilities
 from .mapper import FlowPurposeMapper
@@ -55,19 +55,14 @@ from .queries import LedgerQueries
 from .records import SeriesMetadata, TransactionRecord
 from .settings import LedgerGenerationSettings
 
-# Type alias for clarity in Pass-the-Builder pattern
-AnalysisLedger = LedgerBuilder
-
 __all__ = [
     # Core data models
     "TransactionRecord",
     "SeriesMetadata",
-    # Builder and query interface
-    "LedgerBuilder",
+    # Ledger and query interface
+    "Ledger",
     "LedgerQueries",
     # Utilities
     "FlowPurposeMapper",
     "LedgerGenerationSettings",
-    # Type aliases
-    "AnalysisLedger",
 ]

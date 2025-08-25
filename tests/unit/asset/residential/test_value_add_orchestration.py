@@ -32,7 +32,7 @@ from performa.asset.residential import (
 from performa.asset.residential.absorption import ResidentialDirectLeaseTerms
 from performa.core.base import Address
 from performa.core.base.absorption import FixedQuantityPace
-from performa.core.ledger import LedgerBuilder
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -57,7 +57,7 @@ class TestValueAddOrchestration:
         
         scenario = ResidentialAnalysisScenario(
             model=property_model, timeline=self.timeline, settings=self.settings,
-            ledger_builder=LedgerBuilder()
+            ledger=Ledger()
         )
 
         # Create transformative lease (REABSORB + target_absorption_plan_id)
@@ -132,7 +132,7 @@ class TestValueAddOrchestration:
         
         scenario = ResidentialAnalysisScenario(
             model=property_model, timeline=self.timeline, settings=self.settings,
-            ledger_builder=LedgerBuilder()
+            ledger=Ledger()
         )
 
         # Create context
@@ -140,7 +140,7 @@ class TestValueAddOrchestration:
             timeline=self.timeline,
             settings=self.settings,
             property_data=property_model,
-            ledger_builder=LedgerBuilder(),
+            ledger=Ledger(),
         )
 
         # Create lease with rollover profile pointing to non-existent plan

@@ -8,7 +8,7 @@ from typing import List, Optional
 
 from pydantic import PrivateAttr
 
-from performa.core.ledger import LedgerBuilder
+from performa.core.ledger import Ledger
 from performa.core.primitives import CashFlowModel, GlobalSettings, Model, Timeline
 
 from .orchestrator import AnalysisContext, CashFlowOrchestrator
@@ -18,7 +18,7 @@ class AnalysisScenarioBase(Model, ABC):
     model: Model
     settings: GlobalSettings
     timeline: Timeline
-    ledger_builder: LedgerBuilder
+    ledger: Ledger
 
     _orchestrator: Optional[CashFlowOrchestrator] = PrivateAttr(default=None)
 
@@ -30,7 +30,7 @@ class AnalysisScenarioBase(Model, ABC):
         # 1. PREPARE: Call the concrete implementation
         all_models = self.prepare_models()
 
-        # 2. CREATE CONTEXT: Create the mutable state packet with builder
+        # 2. CREATE CONTEXT: Create the mutable state packet with ledger
         # The scenario can populate pre-calculated state here
         recovery_states = getattr(self, "_recovery_states", {})
 
@@ -39,7 +39,7 @@ class AnalysisScenarioBase(Model, ABC):
             settings=self.settings,
             property_data=self.model,
             recovery_states=recovery_states,
-            ledger_builder=self.ledger_builder,
+            ledger=self.ledger,
         )
 
         # 3. EXECUTE: Create and run the service object

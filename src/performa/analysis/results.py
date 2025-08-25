@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, List
 
 import pandas as pd
 
-from performa.core.ledger import LedgerBuilder, LedgerQueries
+from performa.core.ledger import Ledger, LedgerQueries
 from performa.core.primitives import Timeline
 from performa.core.primitives.enums import UnleveredAggregateLineKey
 
@@ -36,7 +36,7 @@ class AssetAnalysisResult:
     eliminates pre-computed DataFrames that can become stale.
 
     Attributes:
-        ledger_builder: The builder instance that owns the transactional ledger
+        ledger: Transactional ledger
         property: Property model used in analysis
         timeline: Timeline used for the analysis
         scenario: The executed analysis scenario with full orchestrator access
@@ -44,7 +44,7 @@ class AssetAnalysisResult:
     """
 
     # Core ledger-based architecture
-    ledger_builder: LedgerBuilder
+    ledger: Ledger
 
     # Core inputs
     property: "PropertyBaseModel"
@@ -55,27 +55,23 @@ class AssetAnalysisResult:
     models: List["CashFlowModel"]  # Direct access to all models
 
     @property
-    def ledger(self) -> pd.DataFrame:
+    def get_ledger_df(self) -> pd.DataFrame:
         """
         Convenience accessor for the current ledger.
 
         Returns:
             The complete transactional ledger DataFrame
-
-        Note:
-            The ledger is owned by the builder - this property provides
-            convenient access without exposing the builder's internals.
         """
-        return self.ledger_builder.get_current_ledger()
+        return self.ledger.ledger_df()
 
-    def get_ledger_queries(self):
+    def get_ledger_queries(self) -> LedgerQueries:
         """
         Create a LedgerQueries instance for comprehensive ledger analysis.
 
         Returns:
             LedgerQueries instance with all financial metrics available
         """
-        return LedgerQueries(self.ledger)
+        return LedgerQueries(self.get_ledger_df)
 
     # === Query-Based Financial Properties ===
     # All metrics computed on-demand from ledger (single source of truth)

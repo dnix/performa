@@ -85,7 +85,7 @@ from performa.deal.results import (
 )
 
 if TYPE_CHECKING:
-    from performa.core.ledger import LedgerBuilder
+    from performa.core.ledger import Ledger
     from performa.core.primitives import GlobalSettings, Timeline
     from performa.deal.deal import Deal
     from performa.deal.orchestrator import DealContext
@@ -160,7 +160,7 @@ class DebtAnalyzer:
         property_value_series: pd.Series,
         noi_series: pd.Series,
         unlevered_analysis: UnleveredAnalysisResult,
-        ledger_builder: "LedgerBuilder",
+        ledger: "Ledger",
         deal_context: "DealContext",
     ) -> FinancingAnalysisResult:
         """
@@ -176,7 +176,7 @@ class DebtAnalyzer:
             property_value_series: Property value time series for refinancing analysis
             noi_series: NOI time series for covenant monitoring
             unlevered_analysis: Results from unlevered asset analysis for DSCR calculation
-            ledger_builder: LedgerBuilder for debt facility processing
+            ledger: Ledger for debt facility processing
 
         Returns:
             FinancingAnalysisResult containing all debt analysis results
@@ -190,7 +190,7 @@ class DebtAnalyzer:
         self.financing_analysis.financing_plan = self.deal.financing.name
 
         # Step 1: Process each facility in the financing plan
-        self._process_facilities(ledger_builder, deal_context)
+        self._process_facilities(ledger, deal_context)
 
         # Step 2: Handle refinancing transactions if the plan supports them
         if self.deal.financing.has_refinancing:
@@ -203,7 +203,7 @@ class DebtAnalyzer:
 
     def _process_facilities(
         self,
-        ledger_builder: "LedgerBuilder",
+        ledger: "Ledger",
         deal_context: "DealContext",
     ) -> None:
         """
@@ -214,7 +214,7 @@ class DebtAnalyzer:
         backward compatibility by populating the FinancingAnalysisResult.
 
         Args:
-            ledger_builder: LedgerBuilder instance for facility processing
+            ledger: Ledger instance for facility processing
             deal_context: DealContext for proper debt facility processing (required)
         """
         # Debt facilities are deal-level models and must use DealContext
@@ -242,7 +242,7 @@ class DebtAnalyzer:
 
                     # Extract loan proceeds from ledger after compute_cf execution
                     try:
-                        current_ledger = ledger_builder.get_current_ledger()
+                        current_ledger = ledger.ledger_df()
                         logger.info(
                             f"DEBUG: Ledger size after compute_cf: {len(current_ledger)}"
                         )

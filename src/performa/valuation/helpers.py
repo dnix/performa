@@ -14,7 +14,7 @@ from uuid import UUID, uuid4
 
 import pandas as pd
 
-from ..core.ledger import LedgerBuilder, SeriesMetadata
+from ..core.ledger import Ledger, SeriesMetadata
 from ..core.primitives import (
     CashFlowCategoryEnum,
     ValuationSubcategoryEnum,
@@ -35,7 +35,7 @@ class AssetValuation:
 
     @staticmethod
     def add_to_ledger(
-        ledger_builder: LedgerBuilder,
+        ledger: Ledger,
         value: float,
         date: pd.Timestamp,
         method: str = "Direct",
@@ -46,7 +46,7 @@ class AssetValuation:
         Add an explicit asset valuation to the ledger.
 
         Args:
-            ledger_builder: The ledger to write to
+            ledger: The ledger to write to
             value: Asset value (positive amount)
             date: Valuation date
             method: Valuation method description (e.g., "Appraisal", "DCF", "Direct")
@@ -58,7 +58,7 @@ class AssetValuation:
 
         Example:
             valuation_id = AssetValuation.add_to_ledger(
-                ledger_builder=context.ledger_builder,
+                ledger=context.ledger,
                 value=12_000_000,
                 date=pd.Timestamp("2024-01-01"),
                 method="Appraisal",
@@ -80,13 +80,13 @@ class AssetValuation:
             pass_num=1,  # Valuations are independent of other calculations
         )
 
-        ledger_builder.add_series(valuation_series, metadata)
+        ledger.add_series(valuation_series, metadata)
         return source_id
 
     @classmethod
     def from_cap_rate(
         cls,
-        ledger_builder: LedgerBuilder,
+        ledger: Ledger,
         annual_noi: float,
         cap_rate: float,
         date: pd.Timestamp,
@@ -100,7 +100,7 @@ class AssetValuation:
         using the direct capitalization approach: Value = NOI / Cap Rate
 
         Args:
-            ledger_builder: The ledger to write to
+            ledger: The ledger to write to
             annual_noi: Annual Net Operating Income
             cap_rate: Capitalization rate (as decimal, e.g., 0.06 for 6%)
             date: Valuation date
@@ -112,7 +112,7 @@ class AssetValuation:
 
         Example:
             value, valuation_id = AssetValuation.from_cap_rate(
-                ledger_builder=context.ledger_builder,
+                ledger=context.ledger,
                 annual_noi=1_200_000,
                 cap_rate=0.06,  # 6% cap rate
                 date=acquisition_date,
@@ -128,7 +128,7 @@ class AssetValuation:
         value = annual_noi / cap_rate
 
         source_id = cls.add_to_ledger(
-            ledger_builder=ledger_builder,
+            ledger=ledger,
             value=value,
             date=date,
             method=f"Direct Cap ({cap_rate:.1%})",
@@ -141,7 +141,7 @@ class AssetValuation:
     @classmethod
     def from_price_per_unit(
         cls,
-        ledger_builder: LedgerBuilder,
+        ledger: Ledger,
         price_per_unit: float,
         unit_count: int,
         date: pd.Timestamp,
@@ -155,7 +155,7 @@ class AssetValuation:
         expressed as price per dwelling unit.
 
         Args:
-            ledger_builder: The ledger to write to
+            ledger: The ledger to write to
             price_per_unit: Price per unit (e.g., price per apartment)
             unit_count: Number of units
             date: Valuation date
@@ -167,7 +167,7 @@ class AssetValuation:
 
         Example:
             value, valuation_id = AssetValuation.from_price_per_unit(
-                ledger_builder=context.ledger_builder,
+                ledger=context.ledger,
                 price_per_unit=200_000,  # $200k per unit
                 unit_count=100,          # 100 units
                 date=acquisition_date,
@@ -183,7 +183,7 @@ class AssetValuation:
         value = price_per_unit * unit_count
 
         source_id = cls.add_to_ledger(
-            ledger_builder=ledger_builder,
+            ledger=ledger,
             value=value,
             date=date,
             method=f"Price/Unit (${price_per_unit:,.0f}/unit)",

@@ -78,7 +78,7 @@ def analyze(
     timeline: Timeline,
     settings: Optional[GlobalSettings] = None,
     asset_analysis: Optional[AssetAnalysisResult] = None,
-    ledger_builder: Optional[LedgerBuilder] = None,
+    ledger: Optional[Ledger] = None,
 ) -> DealAnalysisResult:
     """Analyze a complete real estate deal with strongly-typed results."""
 ```

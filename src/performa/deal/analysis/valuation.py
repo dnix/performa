@@ -51,7 +51,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from performa.analysis import AnalysisContext
-from performa.core.ledger import LedgerBuilder
+from performa.core.ledger import Ledger
 
 if TYPE_CHECKING:
     from performa.core.primitives import GlobalSettings, Timeline
@@ -278,7 +278,7 @@ class ValuationEngine:
         )
         return self.noi_series
 
-    def _extract_noi_from_ledger(self, ledger_builder: LedgerBuilder) -> pd.Series:
+    def _extract_noi_from_ledger(self, ledger: Ledger) -> pd.Series:
         """
         Extract NOI from ledger transactions.
 
@@ -286,19 +286,21 @@ class ValuationEngine:
         NOI by summing revenue and expense flows.
 
         Args:
-            ledger_builder: The ledger builder containing transactions
+            ledger: The ledger containing transactions
 
         Returns:
             pd.Series with NOI by period, or None if no data available
         """
         try:
-            ledger = ledger_builder.get_current_ledger()
+            current_ledger = ledger.ledger_df()
 
-            if ledger.empty:
+            if current_ledger.empty:
                 return None
 
             # Query for operating transactions (revenues and expenses)
-            operating_txns = ledger[ledger["flow_purpose"] == "Operating"]
+            operating_txns = current_ledger[
+                current_ledger["flow_purpose"] == "Operating"
+            ]
 
             if operating_txns.empty:
                 return None
@@ -315,7 +317,7 @@ class ValuationEngine:
 
     def calculate_disposition_proceeds(
         self,
-        ledger_builder: LedgerBuilder,
+        ledger: Ledger,
         unlevered_analysis: UnleveredAnalysisResult = None,
     ) -> pd.Series:
         """
@@ -335,7 +337,7 @@ class ValuationEngine:
         valuation models have access to all necessary data for accurate calculations.
 
         Args:
-            ledger_builder: The analysis ledger builder (Pass-the-Builder pattern).
+            ledger: The analysis ledger (Pass-the-Builder pattern).
                            Must be the same instance used throughout the analysis.
             unlevered_analysis: Results from unlevered asset analysis containing NOI data
                                and other operational metrics (optional)
@@ -364,12 +366,12 @@ class ValuationEngine:
             try:
                 # Step 1: Create analysis context for valuation model
                 # This provides the valuation model with all necessary data and configuration
-                # ledger_builder is required parameter (Pass-the-Builder pattern)
+                # ledger is required parameter (Pass-the-Builder pattern)
                 context = AnalysisContext(
                     timeline=self.timeline,
                     settings=self.settings,
                     property_data=self.deal.asset,
-                    ledger_builder=ledger_builder,
+                    ledger=ledger,
                 )
 
                 # Step 2: Populate context with unlevered analysis data

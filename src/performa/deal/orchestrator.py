@@ -100,7 +100,7 @@ from performa.deal.results import (
 
 if TYPE_CHECKING:
     from performa.analysis.results import AssetAnalysisResult
-    from performa.core.ledger import LedgerBuilder
+    from performa.core.ledger import Ledger
     from performa.deal.deal import Deal
 
 logger = logging.getLogger(__name__)
@@ -128,7 +128,7 @@ class DealContext:
     - Proper data access patterns for each domain
 
     Key Design Principles:
-    - Single source of truth via ledger_builder (Pass-the-Builder pattern)
+    - Single source of truth via ledger (Pass-the-Builder pattern)
     - Deal-centric data access (full Deal object, not just asset)
     - Deal-level metrics readily available (property value, NOI, project costs)
     - Clean separation from asset-specific data (no recovery states, lease contexts)
@@ -139,7 +139,7 @@ class DealContext:
         context = DealContext(
             timeline=timeline,
             settings=settings,
-            ledger_builder=builder,
+            ledger=ledger,
             deal=deal,
             property_value=valuation_series,
             noi_series=noi_series,
@@ -155,7 +155,7 @@ class DealContext:
     # --- Configuration (Set at creation) ---
     timeline: "Timeline"
     settings: "GlobalSettings"
-    ledger_builder: "LedgerBuilder"
+    ledger: "Ledger"
     deal: "Deal"
 
     # --- Deal-Level Metrics (Optional - populated as needed) ---
@@ -165,11 +165,11 @@ class DealContext:
 
     def __post_init__(self):
         """Validate required fields after initialization."""
-        # Validate that ledger_builder is provided (critical for Pass-the-Builder pattern)
-        if self.ledger_builder is None:
+        # Validate that ledger is provided (critical for Pass-the-Builder pattern)
+        if self.ledger is None:
             raise ValueError(
-                "DealContext requires a ledger_builder instance. "
-                "This enforces the Pass-the-Builder pattern where a single LedgerBuilder "
+                "DealContext requires a ledger instance. "
+                "This enforces the Pass-the-Builder pattern where a single Ledger "
                 "is created at the API level and passed through all deal analysis components."
             )
 
@@ -221,7 +221,7 @@ class DealContext:
         return cls(
             timeline=analysis_context.timeline,
             settings=analysis_context.settings,
-            ledger_builder=analysis_context.ledger_builder,
+            ledger=analysis_context.ledger,
             deal=deal,
             property_value=property_value,
             noi_series=noi_series,
@@ -290,12 +290,12 @@ class DealCalculator:
         init=False, repr=False, default_factory=DealMetricsResult
     )
 
-    def run(self, ledger_builder: "LedgerBuilder") -> DealAnalysisResult:
+    def run(self, ledger: "Ledger") -> DealAnalysisResult:
         """
         Execute the complete deal analysis workflow by delegating to specialist services.
 
         Args:
-            ledger_builder: The analysis ledger builder (Pass-the-Builder pattern).
+            ledger: The analysis ledger (Pass-the-Builder pattern).
                 Must be the same instance used throughout the analysis.
 
         Returns:
@@ -312,19 +312,18 @@ class DealCalculator:
             # === PASS 1: Asset Analysis (Ledger-Based) ===
             if self.asset_analysis is not None:
                 # Use pre-computed asset analysis (Pass-the-Builder pattern)
-                # The ledger_builder already contains asset transactions
+                # The ledger already contains asset transactions
                 asset_result = self.asset_analysis
             else:
-                # Run fresh asset analysis with provided ledger builder
+                # Run fresh asset analysis with provided ledger
                 asset_result = run(
                     model=self.deal.asset,
                     timeline=self.timeline,
                     settings=self.settings,
-                    ledger_builder=ledger_builder,
+                    ledger=ledger,
                 )
 
-            # Continue with same builder (pass-the-builder pattern)
-            # ledger_builder is the same instance used by asset analysis
+            # Continue with same ledger used by asset analysis
 
             # Create backward compatibility wrapper using ledger data
             self.unlevered_analysis = UnleveredAnalysisResult(
@@ -368,7 +367,7 @@ class DealCalculator:
             deal_context = DealContext(
                 timeline=self.timeline,
                 settings=self.settings,
-                ledger_builder=ledger_builder,
+                ledger=ledger,
                 deal=self.deal,
                 # Pass initial project costs for construction financing sizing
                 project_costs=initial_project_costs
@@ -379,7 +378,7 @@ class DealCalculator:
 
             # === PASS 2: Add Deal Transactions to Ledger ===
             # Add acquisition costs BEFORE funding cascade so they're included in uses
-            self._add_acquisition_records(ledger_builder)
+            self._add_acquisition_records(ledger)
 
             # === PASS 3: Valuation Analysis (needed for debt analysis) ===
             valuation_engine = ValuationEngine(
@@ -391,7 +390,7 @@ class DealCalculator:
             )
             noi_series = valuation_engine.extract_noi_series(self.unlevered_analysis)
             disposition_proceeds = valuation_engine.calculate_disposition_proceeds(
-                ledger_builder, self.unlevered_analysis
+                ledger, self.unlevered_analysis
             )
 
             # === ORCHESTRATION STATE PATTERN ===
@@ -401,7 +400,7 @@ class DealCalculator:
 
             # Calculate and populate project costs for debt analysis
             try:
-                current_ledger = ledger_builder.get_current_ledger()
+                current_ledger = ledger.ledger_df()
                 if not current_ledger.empty:
                     # Sum all capital/development costs as project costs
                     try:
@@ -433,19 +432,17 @@ class DealCalculator:
                 property_value_series=property_value_series,
                 noi_series=noi_series,
                 unlevered_analysis=self.unlevered_analysis,
-                ledger_builder=ledger_builder,
+                ledger=ledger,
                 deal_context=deal_context,  # Pass DealContext for proper debt facility processing
             )
 
             # === PASS 4 (continued): Add Remaining Deal Transactions to Ledger ===
             # NOTE: Financing records are handled by DebtAnalyzer._process_facilities()
-            self._add_partnership_records(ledger_builder)
+            self._add_partnership_records(ledger)
 
             # === PASS 5: Create Funding Cascade Summary ===
             # Create funding cascade details functionally (no mutation)
-            funding_cascade_details = self._create_funding_cascade_summary(
-                ledger_builder
-            )
+            funding_cascade_details = self._create_funding_cascade_summary(ledger)
 
             # === PASS 6: Cash Flow Analysis ===
             # CashFlowEngine handles the actual funding cascade mechanics (period-by-period funding)
@@ -455,7 +452,7 @@ class DealCalculator:
             self.levered_cash_flows = cash_flow_engine.calculate_levered_cash_flows(
                 unlevered_analysis=self.unlevered_analysis,
                 financing_analysis=self.financing_analysis,
-                ledger_builder=ledger_builder,
+                ledger=ledger,
                 disposition_proceeds=disposition_proceeds,
                 funding_cascade_details=funding_cascade_details,  # Pass details to engine
             )
@@ -464,9 +461,11 @@ class DealCalculator:
             partnership_analyzer = PartnershipAnalyzer(
                 deal=self.deal, timeline=self.timeline, settings=self.settings
             )
-            self.partner_distributions = partnership_analyzer.calculate_partner_distributions(
-                levered_cash_flows=self.levered_cash_flows.levered_cash_flows,
-                ledger_builder=ledger_builder,  # Pass ledger builder for distribution recording
+            self.partner_distributions = (
+                partnership_analyzer.calculate_partner_distributions(
+                    levered_cash_flows=self.levered_cash_flows.levered_cash_flows,
+                    ledger=ledger,  # Pass ledger for distribution recording
+                )
             )
 
             # === PASS 6: Deal Metrics ===
@@ -492,7 +491,7 @@ class DealCalculator:
     # These methods orchestrate the institutional funding cascade for development deals.
 
     def _create_funding_cascade_summary(
-        self, builder: "LedgerBuilder"
+        self, ledger: "Ledger"
     ) -> Optional["FundingCascadeDetails"]:
         """
         Create a static funding cascade summary from ledger for reporting purposes.
@@ -507,19 +506,19 @@ class DealCalculator:
         compounding) are handled by CashFlowEngine._execute_funding_cascade().
         """
         # Get current ledger with all asset-level transactions
-        ledger = builder.get_current_ledger()
+        ledger_df = ledger.ledger_df()
         logger.debug(
-            f"Funding cascade: Processing ledger with {len(ledger)} transactions"
+            f"Funding cascade: Processing ledger with {len(ledger_df)} transactions"
         )
 
-        if ledger.empty:
+        if ledger_df.empty:
             logger.warning(
                 "Funding cascade: Ledger is empty, creating zero funding cascade"
             )
             return self._create_zero_funding_cascade()
 
         # Calculate total uses from ledger (all negative amounts = outflows/costs)
-        uses_by_period = self._calculate_uses_from_ledger(ledger)
+        uses_by_period = self._calculate_uses_from_ledger(ledger_df)
         total_uses = uses_by_period.sum()
 
         logger.debug(f"Funding cascade: Total uses calculated as ${total_uses:,.2f}")
@@ -531,7 +530,7 @@ class DealCalculator:
             return self._create_zero_funding_cascade()
 
         # Create uses breakdown DataFrame from actual ledger transactions
-        uses_breakdown = self._create_uses_breakdown_from_ledger(ledger)
+        uses_breakdown = self._create_uses_breakdown_from_ledger(ledger_df)
 
         # Create and return funding cascade details
         funding_cascade_details = self._create_funding_cascade_details(
@@ -848,9 +847,9 @@ class DealCalculator:
             pass
 
     # === TRANSACTION INTEGRATION METHODS ===
-    # These methods flow deal-level transactions through the ledger builder
+    # These methods flow deal-level transactions through the ledger
 
-    def _add_acquisition_records(self, builder: "LedgerBuilder") -> None:
+    def _add_acquisition_records(self, ledger: "Ledger") -> None:
         """Add acquisition and fee transactions to ledger."""
         if not self.deal.acquisition:
             logger.debug("No acquisition terms to add to ledger")
@@ -880,7 +879,7 @@ class DealCalculator:
             asset_id=self.deal.asset.uid,
             pass_num=CalculationPhase.ACQUISITION.value,  # Acquisition phase
         )
-        builder.add_series(purchase_price_series, metadata)
+        ledger.add_series(purchase_price_series, metadata)
         logger.debug(f"Added acquisition purchase price: ${purchase_price:,.0f}")
 
         # Closing costs (negative amount representing outflow/use)
@@ -899,7 +898,7 @@ class DealCalculator:
             asset_id=self.deal.asset.uid,
             pass_num=CalculationPhase.ACQUISITION.value,  # Acquisition phase
         )
-        builder.add_series(closing_costs_series, metadata)
+        ledger.add_series(closing_costs_series, metadata)
         logger.debug(f"Added acquisition closing costs: ${closing_costs:,.0f}")
 
         # Add deal fees if they exist
@@ -915,14 +914,14 @@ class DealCalculator:
                         source_id=str(getattr(fee, "uid", fee)),
                         asset_id=self.deal.asset.uid,
                     )
-                    builder.add_series(fee_cf, metadata)
+                    ledger.add_series(fee_cf, metadata)
                     logger.debug(f"Added deal fee: {getattr(fee, 'name', 'Unknown')}")
                 except Exception as e:
                     logger.warning(f"Failed to add deal fee: {e}")
         else:
             logger.debug("No deal fees to add")
 
-    def _add_partnership_records(self, builder: "LedgerBuilder") -> None:
+    def _add_partnership_records(self, ledger: "Ledger") -> None:
         """Add partnership transactions to ledger."""
         if not self.deal.equity_partners:
             logger.debug("No partnership to add to ledger")
@@ -960,7 +959,7 @@ class DealCalculator:
             asset_id=self.deal.asset.uid,
             pass_num=CalculationPhase.PARTNERSHIP.value,  # Partnership phase
         )
-        builder.add_series(equity_contribution_series, metadata)
+        ledger.add_series(equity_contribution_series, metadata)
         logger.debug(f"Added equity contribution: ${required_equity:,.0f}")
         # TODO: Add partnership flows after they're calculated
         pass
