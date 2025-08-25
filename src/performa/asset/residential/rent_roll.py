@@ -4,9 +4,10 @@
 from __future__ import annotations
 
 from datetime import date
+from functools import cached_property
 from typing import List, Optional
 
-from pydantic import Field, computed_field, model_validator
+from pydantic import Field, model_validator
 
 from ...core.primitives import Model, PositiveFloat, PositiveInt
 from .rollover import ResidentialRolloverProfile
@@ -47,13 +48,11 @@ class ResidentialUnitSpec(Model):
         description="Start date for leases in this unit spec (for progressive absorption)",
     )
 
-    @computed_field
     @property
     def total_area(self) -> float:
         """Total area for all units of this type."""
         return self.unit_count * self.avg_area_sf
 
-    @computed_field
     @property
     def monthly_income_potential(self) -> float:
         """Total monthly rental income potential for all units of this type."""
@@ -82,13 +81,11 @@ class ResidentialVacantUnit(Model):
     market_rent: PositiveFloat
     rollover_profile: ResidentialRolloverProfile
 
-    @computed_field
     @property
     def total_area(self) -> float:
         """Total area for all vacant units of this type."""
         return self.unit_count * self.avg_area_sf
 
-    @computed_field
     @property
     def monthly_income_potential(self) -> float:
         """Total monthly rental income potential if all units were leased."""
@@ -134,59 +131,51 @@ class ResidentialRentRoll(Model):
             )
         return self
 
-    @computed_field
-    @property
+    @cached_property
     def occupied_units(self) -> int:
         """Total number of occupied units."""
         return sum(spec.unit_count for spec in self.unit_specs)
 
-    @computed_field
-    @property
+    @cached_property
     def vacant_unit_count(self) -> int:
         """Total number of vacant units."""
         return sum(vacant.unit_count for vacant in self.vacant_units)
 
-    @computed_field
     @property
     def total_unit_count(self) -> int:
         """Total number of units (occupied + vacant)."""
         return self.occupied_units + self.vacant_unit_count
 
-    @computed_field
-    @property
+    @cached_property
     def occupied_area(self) -> float:
         """Total rentable area of occupied units."""
         return sum(spec.total_area for spec in self.unit_specs)
 
-    @computed_field
-    @property
+    @cached_property
     def vacant_area(self) -> float:
         """Total rentable area of vacant units."""
         return sum(vacant.total_area for vacant in self.vacant_units)
 
-    @computed_field
     @property
     def total_rentable_area(self) -> float:
         """Total rentable area across all units (occupied + vacant)."""
         return self.occupied_area + self.vacant_area
 
-    @computed_field
-    @property
+    @cached_property
     def current_monthly_income(self) -> float:
         """Current monthly rental income from occupied units only."""
         return sum(spec.monthly_income_potential for spec in self.unit_specs)
 
-    @computed_field
-    @property
+    @cached_property
     def total_monthly_income_potential(self) -> float:
         """Total monthly rental income potential if all units were leased."""
-        occupied_income = sum(spec.monthly_income_potential for spec in self.unit_specs)
+        # Use cached current_monthly_income instead of recalculating
+        occupied_income = self.current_monthly_income
         vacant_income = sum(
             vacant.monthly_income_potential for vacant in self.vacant_units
         )
         return occupied_income + vacant_income
 
-    @computed_field
     @property
     def occupancy_rate(self) -> float:
         """Current occupancy rate calculated from unit composition."""
@@ -194,7 +183,6 @@ class ResidentialRentRoll(Model):
             return 0.0
         return self.occupied_units / self.total_unit_count
 
-    @computed_field
     @property
     def average_rent_per_unit(self) -> float:
         """Weighted average rent per unit if all units were leased."""
@@ -202,7 +190,6 @@ class ResidentialRentRoll(Model):
             return 0.0
         return self.total_monthly_income_potential / self.total_unit_count
 
-    @computed_field
     @property
     def current_average_rent_per_occupied_unit(self) -> float:
         """Average rent per currently occupied unit."""
@@ -210,7 +197,6 @@ class ResidentialRentRoll(Model):
             return 0.0
         return self.current_monthly_income / self.occupied_units
 
-    @computed_field
     @property
     def average_rent_per_sf(self) -> float:
         """Weighted average rent per square foot if all units were leased."""
@@ -218,7 +204,6 @@ class ResidentialRentRoll(Model):
             return 0.0
         return self.total_monthly_income_potential / self.total_rentable_area
 
-    @computed_field
     @property
     def weighted_avg_rent(self) -> float:
         """Alias for average_rent_per_unit - weighted average rent per unit."""

@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, List, Optional
 
-from pydantic import Field, computed_field, model_validator
+from pydantic import Field, model_validator
 
 from ...core.base import PropertyBaseModel, VacantSuiteBase
 from ...core.primitives import AssetTypeEnum, Model
@@ -30,7 +30,6 @@ class RentRoll(Model):
     leases: List[OfficeLeaseSpec] = Field(default_factory=list)
     vacant_suites: List[VacantSuiteBase] = Field(default_factory=list)
 
-    @computed_field
     @property
     def total_occupied_area(self) -> float:
         return sum(lease.area for lease in self.leases)
@@ -100,19 +99,16 @@ class OfficeProperty(PropertyBaseModel):
             for floor_num, tenants in floor_tenants.items()
         ]
 
-    @computed_field
     @property
     def occupied_area(self) -> float:
         """Calculate total occupied area from the rent roll."""
         return self.rent_roll.total_occupied_area
 
-    @computed_field
     @property
     def vacant_area(self) -> float:
         """Calculate total vacant area from explicit vacant suites."""
         return self.rent_roll.total_vacant_area
 
-    @computed_field
     @property
     def occupancy_rate(self) -> float:
         """Calculate current occupancy rate."""

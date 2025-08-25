@@ -8,7 +8,7 @@ from datetime import date
 from typing import TYPE_CHECKING, Dict, Optional
 
 import pandas as pd
-from pydantic import computed_field, field_validator, model_validator
+from pydantic import field_validator, model_validator
 
 from ..primitives.cash_flow import CashFlowModel, ReferenceKey
 from ..primitives.enums import (
@@ -65,7 +65,6 @@ class LeaseSpecBase(Model, ABC):
         """Validate term specification using reusable validator."""
         return validate_term_specification(cls, data)
 
-    @computed_field
     @property
     def computed_end_date(self) -> date:
         if self.end_date:
@@ -101,7 +100,6 @@ class LeaseBase(CashFlowModel, ABC):
     # Rent-related fields
     rent_abatement: Optional[RentAbatementBase] = None
 
-    @computed_field
     @property
     def calculation_pass(self) -> OrchestrationPass:
         """

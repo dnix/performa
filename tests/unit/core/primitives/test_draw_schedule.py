@@ -127,10 +127,11 @@ class TestManualDrawSchedule:
         values = [1.0, 2.0, 3.0]
         schedule = ManualDrawSchedule(values=values)
         json_data = schedule.model_dump()
-        # period_count is included due to @computed_field decorator
+        # period_count is now @property (not @computed_field), so not serialized
         assert json_data["kind"] == "manual"
         assert json_data["values"] == values
-        assert json_data["period_count"] == 3
+        # period_count still works as a property but is not serialized
+        assert schedule.period_count == 3
 
         # Test round-trip
         reloaded = ManualDrawSchedule.model_validate(json_data)

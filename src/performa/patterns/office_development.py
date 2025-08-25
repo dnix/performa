@@ -13,7 +13,7 @@ from __future__ import annotations
 from datetime import date
 from typing import List
 
-from pydantic import Field, computed_field
+from pydantic import Field
 
 from ..asset.office import (
     DirectLeaseTerms,
@@ -156,7 +156,6 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
 
     # === COMPUTED FIELDS ===
 
-    @computed_field
     @property
     def gross_area_computed(self) -> float:
         """Calculate gross area if not provided (typically 11% larger than net)."""
@@ -164,25 +163,21 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
             return self.gross_area
         return self.net_rentable_area * 1.11
 
-    @computed_field
     @property
     def average_floor_size_sf(self) -> float:
         """Calculate average floor size."""
         return self.net_rentable_area / self.floors
 
-    @computed_field
     @property
     def hard_construction_costs(self) -> float:
         """Calculate hard construction costs."""
         return self.gross_area_computed * self.construction_cost_psf
 
-    @computed_field
     @property
     def soft_costs(self) -> float:
         """Calculate soft costs (professional fees, permits, etc.)."""
         return self.hard_construction_costs * self.soft_costs_rate
 
-    @computed_field
     @property
     def developer_fee(self) -> float:
         """Calculate developer fee."""
@@ -190,13 +185,11 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
             self.hard_construction_costs + self.soft_costs
         ) * self.developer_fee_rate
 
-    @computed_field
     @property
     def total_construction_budget(self) -> float:
         """Calculate total construction budget."""
         return self.hard_construction_costs + self.soft_costs + self.developer_fee
 
-    @computed_field
     @property
     def total_project_cost(self) -> float:
         """Calculate total project cost including land (excluding closing costs for development cost comparison)."""

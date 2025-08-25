@@ -11,7 +11,7 @@ including equity partners and third-party service providers.
 from typing import Literal, Optional
 from uuid import UUID, uuid4
 
-from pydantic import Field, computed_field, field_validator
+from pydantic import Field, field_validator
 
 from ..core.primitives.model import Model
 
@@ -27,7 +27,6 @@ class Entity(Model):
     )
     description: Optional[str] = Field(None, description="Additional entity details")
 
-    @computed_field
     @property
     def is_equity_participant(self) -> bool:
         """Check if this entity participates in equity distributions."""

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List
 
-from pydantic import Field, computed_field, model_validator
+from pydantic import Field, model_validator
 
 from ...core.base import PropertyBaseModel
 from ...core.capital import CapitalPlan
@@ -62,31 +62,26 @@ class ResidentialProperty(PropertyBaseModel):
     # These are required by PropertyBaseModel - must be provided explicitly
     # gross_area and net_rentable_area are inherited from PropertyBaseModel
 
-    @computed_field
     @property
     def unit_count(self) -> int:
         """Total number of units (occupied + vacant)."""
         return self.unit_mix.total_unit_count
 
-    @computed_field
     @property
     def weighted_avg_rent(self) -> float:
         """Weighted average rent across all unit types (including vacant units)."""
         return self.unit_mix.average_rent_per_unit
 
-    @computed_field
     @property
     def occupancy_rate(self) -> float:
         """Current occupancy rate as decimal (0.0 to 1.0)."""
         return self.unit_mix.occupancy_rate
 
-    @computed_field
     @property
     def monthly_income_potential(self) -> float:
         """Total monthly income if 100% occupied."""
         return self.unit_mix.total_monthly_income_potential
 
-    @computed_field
     @property
     def current_monthly_income(self) -> float:
         """Current monthly income based on occupancy."""

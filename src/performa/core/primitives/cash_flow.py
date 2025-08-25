@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Union
 from uuid import UUID, uuid4
 
 import pandas as pd
-from pydantic import Field, computed_field, field_validator
+from pydantic import Field, field_validator
 
 from .enums import (
     FrequencyEnum,
@@ -128,7 +128,6 @@ class CashFlowModel(Model):
 
         return v
 
-    @computed_field
     @property
     def calculation_pass(self) -> OrchestrationPass:
         """

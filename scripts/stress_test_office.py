@@ -134,7 +134,7 @@ def test_office_fundamental_sanity() -> bool:
         timeline=timeline,
         settings=GlobalSettings(),
         property_data=None,
-        ledger_builder=LedgerBuilder(),  # Add required ledger_builder
+        ledger_builder=LedgerBuilder(),
         recovery_states={},  # Add required recovery_states
     )
 
@@ -1129,7 +1129,8 @@ def complex_office_stress_test():
         vacant_suites.append(vacant_suite)
 
     # === ABSORPTION PLAN ===
-    absorption_plan = OfficeAbsorptionPlan(
+    # Use factory method to create plan with standard operating assumptions
+    absorption_plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="Aggressive Leasing Campaign",
         pace=FixedQuantityPace(
             quantity=1.5,  # 1.5 units per month

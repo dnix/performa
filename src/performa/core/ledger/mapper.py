@@ -9,6 +9,7 @@ to TransactionPurpose values, following standard real estate accounting
 principles and the existing Performa categorization system.
 """
 
+from functools import lru_cache
 from typing import Union
 
 from performa.core.primitives import (
@@ -16,6 +17,7 @@ from performa.core.primitives import (
     CapitalSubcategoryEnum,
     CashFlowCategoryEnum,
     ExpenseSubcategoryEnum,
+    FinancingSubcategoryEnum,
     RevenueSubcategoryEnum,
     TransactionPurpose,
     ValuationSubcategoryEnum,
@@ -30,6 +32,32 @@ class FlowPurposeMapper:
     Encapsulates business rules for flow classification based on
     standard real estate accounting principles.
     """
+
+    # PERFORMANCE OPTIMIZATION: Cache enum value lists to avoid repeated list comprehensions
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def _get_capital_subcategory_values():
+        return [e.value for e in CapitalSubcategoryEnum]
+
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def _get_capex_category_values():
+        return [e.value for e in CapExCategoryEnum]
+
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def _get_revenue_subcategory_values():
+        return [e.value for e in RevenueSubcategoryEnum]
+
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def _get_financing_subcategory_values():
+        return [e.value for e in FinancingSubcategoryEnum]
+
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def _get_expense_subcategory_values():
+        return [e.value for e in ExpenseSubcategoryEnum]
 
     @staticmethod
     def determine_purpose(
@@ -116,18 +144,18 @@ class FlowPurposeMapper:
             - Financing subcategories -> CAPITAL_SOURCE (proceeds) or FINANCING_SERVICE
         """
 
-        # Use enum values for robust classification
+        # Use enum values for robust classification (OPTIMIZED: cached enum lists)
         try:
             # Capital subcategories (acquisition, construction costs)
-            if subcategory in [e.value for e in CapitalSubcategoryEnum]:
+            if subcategory in FlowPurposeMapper._get_capital_subcategory_values():
                 return TransactionPurpose.CAPITAL_USE
 
             # CapEx subcategories (tenant improvements, leasing costs, renovations)
-            if subcategory in [e.value for e in CapExCategoryEnum]:
+            if subcategory in FlowPurposeMapper._get_capex_category_values():
                 return TransactionPurpose.CAPITAL_USE
 
             # Revenue subcategories
-            if subcategory in [e.value for e in RevenueSubcategoryEnum]:
+            if subcategory in FlowPurposeMapper._get_revenue_subcategory_values():
                 if subcategory == RevenueSubcategoryEnum.SALE:
                     return TransactionPurpose.CAPITAL_SOURCE
                 else:

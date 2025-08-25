@@ -7,7 +7,6 @@ from datetime import date
 from typing import List, Optional, Union
 
 import pandas as pd
-from pydantic import computed_field
 
 from ...core.base import LeaseSpecBase
 from ...core.primitives import LeaseTypeEnum, UponExpirationEnum
@@ -40,7 +39,6 @@ class OfficeLeaseSpec(LeaseSpecBase):
 
     # Term validation is now handled by LeaseSpecBase
 
-    @computed_field
     @property
     def computed_end_date(self) -> date:
         if self.end_date:
@@ -51,7 +49,6 @@ class OfficeLeaseSpec(LeaseSpecBase):
             ).end_time.date()
         raise ValueError("Cannot compute end_date without end_date or term_months")
 
-    @computed_field
     @property
     def computed_term_months(self) -> int:
         if self.term_months:

@@ -865,8 +865,11 @@ class DealCalculator:
             return
 
         # Purchase price (negative amount representing outflow/use)
+        acquisition_period = pd.Period(acquisition_date, freq="M")
         purchase_price_series = pd.Series(
-            [-purchase_price], index=[acquisition_date], name="Purchase Price"
+            [-purchase_price],
+            index=pd.PeriodIndex([acquisition_period], freq="M"),
+            name="Purchase Price",
         )
 
         metadata = SeriesMetadata(
@@ -883,7 +886,9 @@ class DealCalculator:
         # Closing costs (negative amount representing outflow/use)
         closing_costs = purchase_price * closing_costs_rate
         closing_costs_series = pd.Series(
-            [-1 * closing_costs], index=[acquisition_date], name="Closing Costs"
+            [-1 * closing_costs],
+            index=pd.PeriodIndex([acquisition_period], freq="M"),
+            name="Closing Costs",
         )
 
         metadata = SeriesMetadata(
@@ -939,9 +944,11 @@ class DealCalculator:
             logger.error(f"Failed to access partnership attributes: {e}")
             return
 
+        # ARCHITECTURAL CONSISTENCY: Use PeriodIndex like all other models
+        acquisition_period = pd.Period(acquisition_date, freq="M")
         equity_contribution_series = pd.Series(
             [required_equity],
-            index=[acquisition_date],
+            index=pd.PeriodIndex([acquisition_period], freq="M"),
             name="Partner Capital Contributions",
         )
 

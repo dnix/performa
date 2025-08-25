@@ -72,10 +72,6 @@ class LedgerBuilder:
             metadata: Associated metadata for conversion
         """
         if series is not None and not series.empty:
-            # Validate if enabled
-            if self.settings.validate_metadata:
-                SeriesBatchConverter.validate_series_metadata(series, metadata)
-
             self.series_batch.append((series, metadata))
             self._ledger_dirty = True
 

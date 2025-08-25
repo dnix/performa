@@ -16,7 +16,7 @@ from typing import Dict, List, Optional, Union
 from uuid import UUID, uuid4
 
 import pandas as pd
-from pydantic import Field, computed_field, field_validator
+from pydantic import Field, field_validator
 
 from ..primitives import (
     AnyDrawSchedule,
@@ -161,7 +161,6 @@ class CapitalPlan(Model):
     capital_items: List[CapitalItem] = Field(default_factory=list)
     uid: UUID = Field(default_factory=uuid4)
 
-    @computed_field
     @property
     def total_cost(self) -> float:
         """Total cost across all capital items."""
@@ -170,7 +169,6 @@ class CapitalPlan(Model):
             for item in self.capital_items
         )
 
-    @computed_field
     @property
     def duration_months(self) -> int:
         """Total duration from earliest start to latest end."""

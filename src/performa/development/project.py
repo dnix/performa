@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Annotated, List, Union
 
-from pydantic import Discriminator, computed_field
+from pydantic import Discriminator
 
 from ..asset.office import OfficeDevelopmentBlueprint
 from ..asset.residential import ResidentialDevelopmentBlueprint
@@ -82,7 +82,6 @@ class DevelopmentProject(PropertyBaseModel):
     construction_plan: CapitalPlan
     blueprints: List[AnyDevelopmentBlueprint]
 
-    @computed_field
     @property
     def unit_count(self) -> int:
         """Total number of units across all residential blueprints."""

@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import List, Optional, Union
 from uuid import UUID, uuid4
 
-from pydantic import Field, computed_field
+from pydantic import Field
 
 from ..asset.office.property import OfficeProperty
 from ..asset.residential.property import ResidentialProperty
@@ -101,7 +101,6 @@ class Deal(Model):
         default=None, description="Deal-level fee structures and payment schedules"
     )
 
-    @computed_field
     @property
     def deal_type(self) -> str:
         """
@@ -120,13 +119,11 @@ class Deal(Model):
         else:
             return f"{self.asset.property_type.value}_acquisition"
 
-    @computed_field
     @property
     def is_development_deal(self) -> bool:
         """Check if this is a development deal."""
         return hasattr(self.asset, "construction_plan")
 
-    @computed_field
     @property
     def financing_type(self) -> str:
         """Classify the financing structure."""
@@ -141,7 +138,6 @@ class Deal(Model):
         else:
             return "other_financing"
 
-    @computed_field
     @property
     def has_equity_partners(self) -> bool:
         """Check if this deal has equity partners."""

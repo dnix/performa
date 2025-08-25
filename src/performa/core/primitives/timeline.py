@@ -7,7 +7,7 @@ from datetime import date
 from typing import Any, Optional, Union
 
 import pandas as pd
-from pydantic import computed_field, field_validator, model_validator
+from pydantic import field_validator, model_validator
 
 from .model import Model
 from .types import PositiveInt
@@ -104,7 +104,6 @@ class Timeline(Model):
             )
         return self.start_date
 
-    @computed_field
     @property
     def end_date(self) -> pd.Period:
         """Calculate the end date based on duration (only for absolute timelines)."""

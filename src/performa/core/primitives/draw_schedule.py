@@ -16,7 +16,7 @@ from typing import List, Literal, Optional, Union
 
 import numpy as np
 import pandas as pd
-from pydantic import Field, computed_field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from scipy.stats import norm
 from typing_extensions import Annotated
 
@@ -239,7 +239,6 @@ class ManualDrawSchedule(DrawSchedule):
 
         return v
 
-    @computed_field
     @property
     def period_count(self) -> int:
         """Number of periods in this schedule."""
@@ -367,7 +366,6 @@ class FirstLastDrawSchedule(DrawSchedule):
         )
         return self
 
-    @computed_field
     @property
     def effective_first_percentage(self) -> float:
         """Get the effective first percentage, calculating from last_percentage if needed."""

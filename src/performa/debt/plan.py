@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, computed_field, model_validator
+from pydantic import Field, model_validator
 
 from ..core.primitives import Model
 from .construction import ConstructionFacility
@@ -75,7 +75,6 @@ class FinancingPlan(Model):
         ..., description="List of debt facilities in chronological order", min_length=1
     )
 
-    @computed_field
     @property
     def primary_facility(self) -> AnyDebtFacility:
         """
@@ -86,7 +85,6 @@ class FinancingPlan(Model):
         """
         return self.facilities[0]
 
-    @computed_field
     @property
     def has_construction_financing(self) -> bool:
         """Check if the plan includes construction financing."""
@@ -94,7 +92,6 @@ class FinancingPlan(Model):
             isinstance(facility, ConstructionFacility) for facility in self.facilities
         )
 
-    @computed_field
     @property
     def has_permanent_financing(self) -> bool:
         """Check if the plan includes permanent financing."""
@@ -102,13 +99,11 @@ class FinancingPlan(Model):
             isinstance(facility, PermanentFacility) for facility in self.facilities
         )
 
-    @computed_field
     @property
     def has_refinancing(self) -> bool:
         """Check if the plan includes a refinancing transition."""
         return len(self.facilities) > 1
 
-    @computed_field
     @property
     def construction_facilities(self) -> List[ConstructionFacility]:
         """Get all construction facilities in the plan."""
@@ -118,7 +113,6 @@ class FinancingPlan(Model):
             if isinstance(facility, ConstructionFacility)
         ]
 
-    @computed_field
     @property
     def permanent_facilities(self) -> List[PermanentFacility]:
         """Get all permanent facilities in the plan."""

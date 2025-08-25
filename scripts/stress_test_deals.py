@@ -412,8 +412,10 @@ def test_complex_development_deal() -> Dict[str, Any]:
             # Create moderately complex deal using pattern
             pattern = ValueAddAcquisitionPattern(
                 property_name=f"Complex Development {i + 1}",
+                acquisition_date=date(2024, 1, 1),
                 acquisition_price=25_000_000 + i * 2_000_000,
                 renovation_budget=5_000_000,
+                current_avg_rent=2200,
                 target_avg_rent=2800,
                 hold_period_years=8,
                 ltv_ratio=0.65,
@@ -488,8 +490,10 @@ def test_pattern_vs_composition_performance() -> Dict[str, Any]:
     try:
         pattern = ValueAddAcquisitionPattern(
             property_name="Pattern Test Deal",
+            acquisition_date=date(2024, 1, 1),
             acquisition_price=12_000_000,
             renovation_budget=1_800_000,
+            current_avg_rent=1650,
             target_avg_rent=1950,
             hold_period_years=5,
             ltv_ratio=0.70,

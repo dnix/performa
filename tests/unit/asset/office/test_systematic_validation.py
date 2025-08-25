@@ -1392,22 +1392,23 @@ class TestSystematicValidation:
         assert fully_recoverable.recoverable_ratio == 1.0
         assert fully_recoverable.is_recoverable == True  # noqa: E712
 
-        # Test 4: Verify computed field appears in model fields
+        # Test 4: Verify field behavior after @computed_field removal
         model_fields = fully_recoverable.model_fields
-        computed_fields = fully_recoverable.model_computed_fields
 
         # recoverable_ratio should be a settable field
         assert "recoverable_ratio" in model_fields
 
-        # is_recoverable should be a computed field
-        assert "is_recoverable" in computed_fields
+        # is_recoverable is now a regular @property (not computed_field)
+        # Verify it still works correctly as a derived property
+        assert hasattr(fully_recoverable, "is_recoverable")
+        assert fully_recoverable.is_recoverable == True  # noqa: E712
 
-        # Test 5: Verify serialization includes computed fields
+        # Test 5: Verify serialization behavior after @computed_field removal
         serialized = fully_recoverable.model_dump()
         assert "recoverable_ratio" in serialized
-        assert "is_recoverable" in serialized
         assert serialized["recoverable_ratio"] == 1.0
-        assert serialized["is_recoverable"] == True  # noqa: E712
+        # is_recoverable is no longer serialized (was @computed_field, now @property)
+        # This is expected behavior after removing @computed_field
 
         print("✅ Computed field pattern validation:")
         print(
@@ -1417,9 +1418,7 @@ class TestSystematicValidation:
             f"   Partial (0.8): is_recoverable = {partial_recoverable.is_recoverable}"
         )
         print(f"   Full (1.0): is_recoverable = {fully_recoverable.is_recoverable}")
-        print(
-            f"   Model includes computed field: {'is_recoverable' in computed_fields}"
-        )
+        print("   Model includes computed field: No (removed @computed_field pattern)")
         print(
             f"   Serialization includes computed field: {'is_recoverable' in serialized}"
         )

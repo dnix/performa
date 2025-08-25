@@ -11,6 +11,7 @@ clean module boundaries by keeping deal-related results in the deal module.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cached_property
 from typing import TYPE_CHECKING, List
 
 import pandas as pd
@@ -139,7 +140,7 @@ class AssetAnalysisResult:
         """
         return self.get_ledger_queries().ucf()
 
-    @property
+    @cached_property
     def summary_df(self) -> pd.DataFrame:
         """
         Cash flow summary DataFrame generated from ledger queries.

@@ -6,8 +6,6 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from pydantic import computed_field
-
 from ..primitives.cash_flow import CashFlowModel
 from ..primitives.enums import CashFlowCategoryEnum, ExpenseSubcategoryEnum
 from ..primitives.types import FloatBetween0And1
@@ -49,7 +47,6 @@ class ExpenseItemBase(CashFlowModel):
     group: Optional[str] = None
     recoverable_ratio: Optional[FloatBetween0And1] = 0.0  # Default: not recoverable
 
-    @computed_field
     @property
     def is_recoverable(self) -> bool:
         """
@@ -96,7 +93,6 @@ class OpExItemBase(ExpenseItemBase):
     subcategory: ExpenseSubcategoryEnum = ExpenseSubcategoryEnum.OPEX
     variable_ratio: Optional[FloatBetween0And1] = None
 
-    @computed_field
     @property
     def is_variable(self) -> bool:
         """True if this expense varies with occupancy (has variable_ratio)."""

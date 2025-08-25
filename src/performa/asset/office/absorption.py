@@ -808,6 +808,7 @@ class OfficeAbsorptionPlan(
     def _create_typical_expenses(cls) -> OfficeExpenses:
         """Create typical office operating expenses."""
         # Create a basic timeline for the expense items
+        # Template timeline for typical assumptions - will be adjusted to actual deal timeline during analysis
         timeline = Timeline(
             start_date=date(2024, 1, 1),
             duration_months=120,  # 10 years
