@@ -205,6 +205,47 @@ deal = pattern.create()
 
 ## Pattern Architecture
 
+### Pattern Class Hierarchy
+
+```mermaid
+%%{ init : { "theme" : "default" }}%%
+graph TD
+    subgraph wrap [" "]
+        subgraph base [" "]
+            PB[PatternBase<br/><<Abstract>><br/>+create Deal<br/>+validate_parameters]
+        end
+        
+        subgraph dev ["DEVELOPMENT"]
+            DPB[DevelopmentPatternBase<br/><<Abstract>><br/>+land_cost: float<br/>+construction_cost_psf: float<br/>+create_development_project]
+            ODP[OfficeDevelopmentPattern<br/>+project_name: str<br/>+net_rentable_area: int<br/>+construction_duration_months: int<br/>+create Deal]
+        end
+        
+        subgraph acq ["ACQUISITION"]
+            VAA[ValueAddAcquisitionPattern<br/>+acquisition_price: float<br/>+renovation_budget: float<br/>+target_avg_rent: float<br/>+create Deal]
+            SAA[StabilizedAcquisitionPattern<br/>+acquisition_price: float<br/>+initial_noi: float<br/>+hold_period_years: int<br/>+create Deal]
+        end
+    end
+
+    PB --> VAA
+    PB --> SAA
+    PB --> DPB
+    DPB --> ODP
+
+    style PB fill:#f9f9f9,stroke:#666,stroke-width:2px
+    style VAA fill:#e3f2fd,stroke:#2196f3,stroke-width:2px
+    style SAA fill:#e3f2fd,stroke:#2196f3,stroke-width:2px
+    style DPB fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
+    style ODP fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
+    
+    %% Style subgraphs to override yellow default
+    style wrap fill:#f5f5f5,stroke-width:0px
+    style base fill:#eee,stroke:#ccc,stroke-width:1px
+    style dev fill:#eee,stroke:#ccc,stroke-width:1px
+    style acq fill:#eee,stroke:#ccc,stroke-width:1px
+```
+
+*Patterns inherit from PatternBase or specialized bases like DevelopmentPatternBase, providing consistent interfaces for deal creation while supporting different investment strategies.*
+
 ### Base Classes
 
 #### `PatternBase`

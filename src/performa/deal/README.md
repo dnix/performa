@@ -5,11 +5,161 @@ This module provides deal-level modeling capabilities for real estate transactio
 ## Key Components
 
 ### Core Deal Structure
+
+```mermaid
+%%{ init : { "theme" : "default" }}%%
+graph TD
+    subgraph wrap [" "]
+        subgraph inputs ["DEAL INPUTS"]
+            A[Deal Configuration<br/><i>Asset, Financing, Partnership</i>]
+            B[Analysis Context<br/><i>Timeline, Settings, Ledger</i>]
+        end
+
+        subgraph workflow ["DEAL ANALYSIS WORKFLOW"]
+            C[Asset Analysis<br/><i>Property Cash Flows & NOI</i>]
+            D[Valuation Analysis<br/><i>Property Value & Exit Proceeds</i>]
+            E[Debt Analysis<br/><i>Loan Proceeds & Debt Service</i>]
+            F[Levered Cash Flows<br/><i>After-Debt Property Returns</i>]
+            G[Partnership Analysis<br/><i>Waterfall Distributions</i>]
+        end
+
+        subgraph results ["DEAL RESULTS"]
+            H[Deal Metrics<br/><i>IRR, Equity Multiple, Returns</i>]
+            I[Partner Returns<br/><i>Individual Partner Analysis</i>]
+            J[Financing Analysis<br/><i>DSCR, Loan Performance</i>]
+        end
+    end
+
+    A --> C
+    B --> C
+    C --> D
+    C --> E
+    D --> F
+    E --> F
+    F --> G
+    G --> H
+    G --> I
+    E --> J
+
+    %% Deal Inputs - Gray theme
+    style A fill:#f5f5f5,stroke:#666,stroke-width:2px
+    style B fill:#f5f5f5,stroke:#666,stroke-width:2px
+    
+    %% Deal workflow styling - Progressive colors
+    style C fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
+    style D fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style E fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style F fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    style G fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    
+    %% Deal Results - Green theme
+    style H fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
+    style I fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
+    style J fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
+    
+    %% Style subgraphs
+    style wrap fill:#f8f9fa,stroke-width:0px
+    style inputs fill:#f5f5f5,stroke:#999,stroke-width:1px
+    style workflow fill:#fff8e1,stroke:#f57c00,stroke-width:1px
+    style results fill:#f1f8e9,stroke:#4caf50,stroke-width:1px
+```
+
+*Deal analysis executes a multi-phase workflow where asset performance drives valuation, debt analysis, and ultimately partnership distributions, providing comprehensive investment analysis across all deal components.*
+
 - **Deal**: Complete deal container with asset, debt, equity, and partnership integration
 - **AcquisitionTerms**: Purchase price, closing costs, and transaction timing
 - **DealFee**: Flexible fee structures (acquisition, asset management, disposition)
 
 ### Partnership & Waterfalls
+
+```mermaid
+%%{ init : { "theme" : "default" }}%%
+graph TD
+    subgraph wrap [" "]
+        subgraph input ["CASH FLOW INPUT"]
+            A[Levered Cash Flows<br/><i>Available for Distribution</i>]
+        end
+
+        subgraph waterfall ["WATERFALL DISTRIBUTION"]
+            B{Capital Return<br/><i>Complete?</i>}
+            C[Return of Capital<br/><i>Pro Rata to Partners</i>]
+            D[Remaining Cash Flow<br/><i>After Capital Return</i>]
+            E[Available Cash<br/><i>Ready for Distribution</i>]
+            F{Preferred Return<br/><i>8% Met?</i>}
+            G[Preferred Return<br/><i>to LPs at 8%</i>]
+            H{GP Catch-up<br/><i>Complete?</i>}
+            J[GP Catch-up<br/><i>100% to GP</i>]
+            K[Promote Distribution<br/><i>Split Analysis</i>]
+            L[Remaining Cash<br/><i>To Promote Tiers</i>]
+            M{IRR Threshold<br/><i>Performance Analysis</i>}
+        end
+
+        subgraph splits ["PROMOTE SPLITS"]
+            N[80/20 Split<br/><i>LP/GP at < 15% IRR</i>]
+            O[70/30 Split<br/><i>LP/GP at 15-20% IRR</i>]
+            P[60/40 Split<br/><i>LP/GP at > 20% IRR</i>]
+        end
+
+        subgraph output ["FINAL DISTRIBUTION"]
+            I[End Distribution<br/><i>Complete Allocation</i>]
+        end
+    end
+    
+    A --> B
+    B -->|No| C
+    C --> D
+    B -->|Yes| E
+    D --> E
+    E --> F
+    F -->|No| G
+    F -->|Yes| H
+    G --> I
+    H -->|No| J
+    H -->|Yes| K
+    J --> L
+    L --> K
+    K --> M
+    M -->|IRR < 15%| N
+    M -->|IRR 15-20%| O
+    M -->|IRR > 20%| P
+    N --> I
+    O --> I
+    P --> I
+
+    %% Cash flow input - Gray theme
+    style A fill:#f5f5f5,stroke:#666,stroke-width:2px
+    
+    %% Waterfall process - Progressive colors
+    style B fill:#fff3cd,stroke:#856404,stroke-width:2px
+    style C fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
+    style D fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style E fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style F fill:#fff3cd,stroke:#856404,stroke-width:2px
+    style G fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
+    style H fill:#fff3cd,stroke:#856404,stroke-width:2px
+    style J fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style K fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    style L fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style M fill:#fff3cd,stroke:#856404,stroke-width:2px
+    
+    %% Promote splits - Orange theme
+    style N fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style O fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style P fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    
+    %% Final distribution - Green theme
+    style I fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
+    
+    %% Style subgraphs
+    style wrap fill:#f8f9fa,stroke-width:0px
+    style input fill:#f5f5f5,stroke:#666,stroke-width:1px
+    style waterfall fill:#fff8e1,stroke:#f57c00,stroke-width:1px
+    style splits fill:#fff3e0,stroke:#f57c00,stroke-width:1px
+    style output fill:#f1f8e9,stroke:#4caf50,stroke-width:1px
+```
+
+*Partnership distributions follow a waterfall structure with return of capital, preferred returns, catch-up, and tiered promotes based on IRR thresholds.*
+
 - **Partner**: Individual or entity with capital contributions and return expectations
 - **PartnershipStructure**: Multi-partner deals with capital stack management
 - **WaterfallTier**: Individual waterfall hurdles with IRR thresholds

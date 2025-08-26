@@ -34,6 +34,85 @@ This module provides the foundational building blocks for all real estate financ
 
 The ledger system replaces traditional wide-format DataFrames with an immutable, auditable record-based system that serves as the **single source of truth** for all financial calculations.
 
+```mermaid
+%%{ init : { "theme" : "default" }}%%
+graph TD
+    subgraph wrap [" "]
+        subgraph data ["DATA SOURCES"]
+            A[Asset Cash Flows<br/>Rent, Expenses, etc.]
+            B[Debt Cash Flows<br/>Loan Proceeds, Debt Service]
+            C[Capital Cash Flows<br/>Acquisitions, CapEx, Sales]
+            D[Partnership Flows<br/>Contributions, Distributions]
+        end
+
+        subgraph ledger ["LEDGER CONSTRUCTION"]
+            E[SeriesMetadata<br/>Classification & Context]
+            F[LedgerBuilder<br/>Pass-the-Builder Pattern]
+            G[TransactionRecord<br/>Immutable Audit Trail]
+        end
+
+        subgraph queries ["LEDGER QUERIES"]
+            H[Standard Metrics<br/>NOI, EGI, PGR, DSCR]
+            I[Custom Analysis<br/>Pandas Operations]
+            J[Audit Trail<br/>Transaction History]
+        end
+
+        subgraph output ["OUTPUT"]
+            K[Financial Reports<br/>P&L, Cash Flow, Balance Sheet]
+            L[Deal Analysis<br/>IRR, Equity Multiple, Returns]
+            M[Compliance<br/>Complete Audit Trail]
+        end
+    end
+
+    A --> E
+    B --> E
+    C --> E
+    D --> E
+    
+    E --> F
+    F --> G
+    G --> H
+    G --> I
+    G --> J
+    
+    H --> K
+    H --> L
+    I --> L
+    J --> M
+
+    %% Data Sources - Blue theme
+    style A fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style B fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style C fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style D fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    
+    %% Metadata - Purple theme
+    style E fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    
+    %% Ledger Construction - Yellow/Red theme (existing)
+    style F fill:#fff3cd,stroke:#856404,stroke-width:2px
+    style G fill:#f8d7da,stroke:#721c24,stroke-width:2px
+    
+    %% Ledger Queries - Green theme (existing)
+    style H fill:#d4edda,stroke:#155724,stroke-width:2px
+    style I fill:#d4edda,stroke:#155724,stroke-width:2px
+    style J fill:#d4edda,stroke:#155724,stroke-width:2px
+    
+    %% Outputs - Orange theme
+    style K fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style L fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style M fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+
+    %% Style subgraphs to override yellow default
+    style wrap fill:#f5f5f5,stroke-width:0px
+    style data fill:#eee,stroke:#ccc,stroke-width:1px
+    style ledger fill:#eee,stroke:#ccc,stroke-width:1px
+    style queries fill:#eee,stroke:#ccc,stroke-width:1px
+    style output fill:#eee,stroke:#ccc,stroke-width:1px
+```
+
+*The transactional ledger system provides complete audit trails by recording every financial event as immutable TransactionRecords, enabling both standard reporting and custom analysis.*
+
 ### Key Benefits
 
 **🔍 Complete Transparency**: Every financial transaction is explicitly recorded with full audit trail
@@ -209,6 +288,72 @@ construction_audit = ledger_queries.ledger[
     ledger_queries.ledger['subcategory'] == 'Hard Costs'
 ][['date', 'amount', 'item_name', 'source_id']]
 ```
+
+## Model Inheritance Architecture
+
+```mermaid
+classDiagram
+    direction BT
+
+    class BaseModel {
+        <<External Pydantic>>
+        +model_config: ConfigDict
+        +model_validate()
+        +model_dump()
+    }
+
+    class Model {
+        +model_config: ConfigDict
+        +frozen: True
+        +arbitrary_types_allowed: True
+        +copy()
+    }
+
+    class CashFlowModel {
+        +uid: UUID
+        +timeline: Timeline
+        +value: Union[float, Series]
+        +compute_cf()
+    }
+
+    class PropertyBaseModel {
+        <<Abstract>>
+        +name: str
+        +expenses: ExpenseModel
+        +misc_income: MiscIncomeModel
+    }
+    
+    class LeaseBase {
+        <<Abstract>>
+        +status: LeaseStatusEnum
+        +area: float
+        +rent_escalations: List[RentEscalation]
+    }
+
+    class OfficeLease {
+        +recovery_method: OfficeRecoveryMethod
+        +base_rent: float
+        +expense_stops: List[ExpenseStop]
+    }
+
+    class Deal {
+        +name: str
+        +asset: AnyAsset
+        +financing: Optional[FinancingPlan]
+    }
+
+    BaseModel <|-- Model
+    Model <|-- CashFlowModel
+    CashFlowModel <|-- PropertyBaseModel
+    CashFlowModel <|-- LeaseBase
+    LeaseBase <|-- OfficeLease
+    Model <|-- Deal
+
+    note for Model "Frozen models with<br/>type safety & validation"
+    note for CashFlowModel "Universal cash flow<br/>computation interface"
+```
+
+*All Performa models follow a clear inheritance chain from a Pydantic-powered base Model, ensuring data validation, type safety, and a consistent API throughout the system.*
 
 ## Architecture Principles
 
