@@ -25,6 +25,108 @@ Verify everything is working:
 make check
 ```
 
+For more detailed development instructions, see [Installation for Development](#installation-for-development).
+
+<br/>
+
+## Usage
+
+`performa` is a Python library. You can import it into your own projects, or you can consume it directly in a web browser with example notebooks. Below are the installation instructions for both.
+
+
+### Web Browser Usage
+
+No installation, just batteries-included notebooks. Coming soon! 🚧
+
+<!-- Open one of the below links to a [marimo](https://marimo.io/l/c7h6pz) in web broswer. That's it! If you want to customize one of the examples, fork the notebook and use the documentation as a guide.
+
+- [Office Property](https://marimo.app/l/c7h6pz)
+- [Residential Property](https://marimo.app/l/c7h6pz)
+- [Retail Property](https://marimo.app/l/c7h6pz)
+- [Hotel Property](https://marimo.app/l/c7h6pz)
+- [Industrial Property](https://marimo.app/l/c7h6pz) -->
+
+### Local Python Installation
+
+This assumes you have Python installed. If not, see [python.org](https://www.python.org/downloads/). We recommend using Homebrew and ASDF to install Python to a supported version. From there, use our Makefile for streamlined setup.
+
+```bash
+# Clone the repository
+git clone https://github.com/performa-dev/performa.git
+cd performa
+
+# Complete development setup (includes asdf, uv, venv, and dependencies)
+make dev-setup
+
+# Verify everything is working
+make check
+```
+
+For production installation only:
+```bash
+# Setup without development dependencies
+make install-prod
+```
+
+Alternative manual installation:
+```bash
+# Install ASDF and a supported version of Python
+brew install asdf
+asdf install python 3.11.9
+asdf local python 3.11.9
+asdf exec python -m venv .venv
+source .venv/bin/activate
+
+# Install from GitHub (current)
+pip install git+https://github.com/performa-dev/performa.git
+
+# Coming soon to PyPI
+pip install performa
+```
+
+For development installation, see [DEVELOPMENT.md](DEVELOPMENT.md).
+
+#### Python Quick Start
+
+```python
+from performa.asset.office import OfficeProperty
+from performa.analysis import run
+from performa.core.primitives import Timeline, GlobalSettings
+
+# Create property model
+property = OfficeProperty(...)
+
+# Run analysis
+timeline = Timeline.from_dates('2024-01-01', '2033-12-31')
+scenario = run(property, timeline, GlobalSettings())
+
+# Get results
+cash_flows = scenario.summary_df
+```
+
+#### Library Architecture
+
+`performa` is organized into logical modules that reflect the natural structure of real estate finance:
+
+⚙️ **[Core Framework](/src/performa/core/README.md)**: The foundational building blocks that power everything. Contains [primitives](/src/performa/core/primitives/README.md) for [timeline management](/src/performa/core/primitives/timeline.py) and [cash flow models](/src/performa/core/primitives/cash_flow.py), [base classes](/src/performa/core/base/README.md) that provide abstract foundations for all property types, and [capital planning](/src/performa/core/capital/README.md) tools for sophisticated project/construction management with flexible timing ([draw schedules](/src/performa/core/primitives/draw_schedule.py), s-curve, upfront, etc.).
+
+🏢 **[Asset Models](/src/performa/asset/README.md)**: Property-specific modeling with deep expertise for each asset class. Includes mature [office](/src/performa/asset/office/README.md) modeling with complex [lease structures](/src/performa/asset/office/lease.py) and [recovery methods](/src/performa/asset/office/recovery.py), [residential](/src/performa/asset/residential/README.md) multifamily properties with [unit-centric modeling](/src/performa/asset/residential/rent_roll.py), and shared [commercial](/src/performa/asset/commercial/) logic. [Retail](/src/performa/asset/retail/), [industrial](/src/performa/asset/industrial/), [hotel](/src/performa/asset/hotel/) modules (and more!) coming soon.
+
+📊 **[Analysis Engine](/src/performa/analysis/README.md)**: The [orchestrator](/src/performa/analysis/orchestrator.py) that brings models to life through multi-phase cash flow calculations with [dependency resolution](/src/performa/analysis/orchestrator.py). Features universal [analysis context](/src/performa/analysis/orchestrator.py) and assembler pattern for efficient object resolution, plus automatic [scenario selection](/src/performa/analysis/registry.py) based on model type.
+
+💰 **[Debt & Finance](/src/performa/debt/README.md)**: Comprehensive real estate financing capabilities including [construction](/src/performa/debt/construction.py) and [permanent debt facilities](/src/performa/debt/permanent.py). Supports [amortization schedules](/src/performa/debt/amortization.py), interest rate modeling, and multi-tranche debt structures for complex financing arrangements.
+
+🤝 **[Deal Structuring](/src/performa/deal/README.md)**: Complete deal-level modeling and [partnership structures](/src/performa/deal/partnership.py) supporting multi-partner waterfall mechanics with IRR hurdles. Handles [acquisition terms](/src/performa/deal/acquisition.py), fee structures, and partnership accounting with distribution calculations for complex investment scenarios.
+
+
+🏗️ **[Development](/src/performa/development/README.md)**: [Development project modeling](/src/performa/development/project.py) from ground-up to stabilization including construction budgets and timeline management. Features [development blueprints](/src/performa/asset/office/blueprint.py) and asset factory patterns for lease-up and absorption modeling throughout the development lifecycle.
+
+📈 **[Valuation](/src/performa/valuation/README.md)**: Industry-standard valuation methodologies including [DCF analysis](/src/performa/valuation/dcf.py) with [terminal value calculations](/src/performa/valuation/reversion.py). Supports [direct capitalization](/src/performa/valuation/direct_cap.py) and sales comparison methods with universal metrics and yield calculations.
+
+📋 **[Reporting](/src/performa/reporting/README.md)**: Professional-grade [reporting interfaces](/src/performa/reporting/interface.py) for industry-standard [financial statements](/src/performa/reporting/financial_reports.py). Provides customizable report generation and integration with visualization tools for comprehensive analysis presentation.
+
+<br/>
+
 ## Installation for Development
 
 ### Recommended: Using the Makefile
@@ -108,6 +210,8 @@ uv sync --all-extras
 - Pre-commit hooks and code formatting
 - IDE configuration
 
+<br/>
+
 ## Project Structure
 
 ```bash
@@ -128,6 +232,9 @@ performa/
 ├── examples/         # Usage examples, including notebooks
 └── docs/             # Additional documentation
 ```
+
+<br/>
+
 
 ## Logging for (Software) Developers
 
@@ -212,6 +319,8 @@ Performa uses a hierarchical logger structure:
   - `performa.deal` - Deal structuring
   - `performa.debt` - Debt modeling
 
+<br/>
+
 ## Testing
 
 ### Running Tests
@@ -262,6 +371,8 @@ class TestOfficeProperty:
         # Test implementation
         pass
 ```
+
+<br/>
 
 ## Code Standards
 
@@ -322,6 +433,8 @@ from performa.core.primitives import Model
 from performa.core.base import PropertyBaseModel
 ```
 
+<br/>
+
 ## Contributing Workflow
 
 ### Setting Up for Contribution
@@ -365,6 +478,8 @@ make clean-all   # Full cleanup including venv
 - Changelog maintenance
 - PyPI deployment process
 - Documentation updates
+
+<br/>
 
 ## Architecture Guidelines
 

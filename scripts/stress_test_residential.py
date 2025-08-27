@@ -1054,7 +1054,7 @@ def generate_performance_insights(results: List[Dict[str, Any]]) -> None:
     )
 
     print(
-        "\nThis performance profile makes Performa residential analysis **competitive with Argus and Rockport** while being fast enough to enable **modern, interactive user experiences** that traditional desktop software can't match! 🎉"
+        "\nThis performance profile makes Performa residential analysis **competitive with industry standard tools** while being fast enough to enable **modern, interactive user experiences** that traditional desktop software can't match! 🎉"
     )
 
     print("\nThe speed enables use cases like:")
