@@ -412,6 +412,26 @@ class ExampleModel(Model):
 
 Performa follows a three-tier architectural approach that provides flexibility for different use cases, from detailed custom modeling to high-level deal creation:
 
+```mermaid
+%%{ init : { "theme" : "default" }}%%
+graph LR
+    PR["<br/><b>PRIMITIVES</b><br/><i>Core Building Blocks</i><br/><br/>+Timeline,CashFlow,Ledger<br/>+Lease,Expense,DebtFacility<br/>+PropertyBase,CashFlowModel<br/><br/>"]
+    
+    C["<br/><b>CONSTRUCTS</b><br/><i>Reusable Combinations</i><br/><br/>+create_stabilized_acquisition_deal<br/>+create_construction_to_permanent_plan<br/>+ Partnership & Debt factories<br/><br/>"]
+    
+    P["<br/><b>PATTERNS</b><br/><i>Complete Deal Workflows</i><br/><br/>+ValueAddAcquisitionPattern<br/>+OfficeDevelopmentPattern<br/>+StabilizedAcquisitionPattern<br/><br/>"]
+
+    PR --> C
+    C --> P
+
+    %% Tier styling with distinct colors - Red, Blue, Green
+    style P fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    style C fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style PR fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+```
+
+*The Performa library is designed with a three-tier architecture, allowing you to work at the level of abstraction that best suits your needs, from detailed control with Primitives to rapid deal workflows with [Patterns](/src/performa/patterns/README.md).*
+
 #### Tier 1: Primitives (Core Building Blocks)
 
 **Location**: `src/performa/core/primitives/`
