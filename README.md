@@ -72,11 +72,33 @@ This comes at a pivotal moment: the _dawn of the AI era_ and the _maturation of 
 
 `performa` provides "Lego brick" components where each piece — a lease, expense, loan — is a validated Pydantic data model that connects seamlessly with others. Every input is validated and every calculation is explicit Python code you can audit and trust.
 
-**For Analysts & Developers:** Spend less time on boilerplate logic and debugging formulas, and more time on what matters: the assumptions, the strategy, and the deal itself. Move from being a "spreadsheet jockey" to an architect of value.
+Performa packages these building blocks in a three-tier architectural approach that provides flexibility for different use cases, from low-level custom modeling to high-level workflows for standard use cases:
 
-**For Institutions & Stakeholders:** Drastically reduce transaction friction. When a developer, a lender, and an investor all speak the same language, diligence becomes faster, risk is minimized, and capital can move more efficiently.
+```mermaid
+%%{ init : { "theme" : "default" }}%%
+graph LR
+    PR["<br/><b>PRIMITIVES</b><br/><i>Core Building Blocks</i><br/><br/>+Timeline,CashFlow,Ledger<br/>+Lease,Expense,DebtFacility<br/>+PropertyBase,CashFlowModel<br/><br/>"]
+    
+    C["<br/><b>CONSTRUCTS</b><br/><i>Reusable Combinations</i><br/><br/>+create_stabilized_acquisition_deal<br/>+create_construction_to_permanent_plan<br/>+ Partnership & Debt factories<br/><br/>"]
+    
+    P["<br/><b>PATTERNS</b><br/><i>Complete Deal Workflows</i><br/><br/>+ValueAddAcquisitionPattern<br/>+OfficeDevelopmentPattern<br/>+StabilizedAcquisitionPattern<br/><br/>"]
 
-**For the AI-Powered Future:** Stop trying to teach AI how to decipher a spreadsheet. Also don't have it reinvent the wheel! Instead, give it the native building blocks it understands. `performa` is the "math co-processor" for real estate AI, turning natural language requests into institutional-grade, auditable financial models.
+    PR --> C
+    C --> P
+
+    %% Tier styling with distinct colors - Red, Blue, Green
+    style P fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    style C fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style PR fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+```
+
+### What does this mean for you?
+
+**For Analysts & Sponsors:** Spend less time on boilerplate logic and debugging formulas, and more time on what matters: the assumptions, the strategy, and the deal itself. Move from being a "spreadsheet jockey" to an architect of value.
+
+**For Institutions & Stakeholders:** Drastically reduce transaction friction. When the sponsor, the underwriter, the broker, the lender, and the investor all speak the same language, diligence becomes faster, risk is minimized, and capital can move more freely and efficiently.
+
+**For the AI-Powered Future:** Stop trying to teach AI how to decipher a spreadsheet. Stop making one-off models from scratch again and again with mixed results – don't have it reinvent the wheel! Instead, give your AI the building blocks it understands natively, in code. `performa` is the "math co-processor" for real estate AI, turning natural language requests into institutional-grade, auditable financial models with deterministic results.
 
 _Spend less time building models and more time creating value._
 
