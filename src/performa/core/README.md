@@ -47,7 +47,7 @@ graph TD
 
         subgraph ledger ["LEDGER CONSTRUCTION"]
             E[SeriesMetadata<br/>Classification & Context]
-            F[LedgerBuilder<br/>Pass-the-Builder Pattern]
+            F[Ledger<br/>Pass-the-Builder Pattern]
             G[TransactionRecord<br/>Immutable Audit Trail]
         end
 
