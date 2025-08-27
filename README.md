@@ -180,6 +180,26 @@ Tooling matters; the tools we use shape the way we think - better tools, better 
 
 Our inspiration comes from countless sources, but especially [Pydantic](https://docs.pydantic.dev/)'s data modeling standards, dataviz and abstractions in [Observable](https://observablehq.com/) + [Plot](https://observablehq.com/plot/) + [D3](https://d3js.org/), [marimo](https://marimo.io/), array math in [Numpy](https://numpy.org/) and [Pandas](https://pandas.pydata.org/), data apps in [streamlit](https://github.com/streamlit/streamlit), data ETL in [Airflow](https://airflow.apache.org/) and [DAG](https://en.wikipedia.org/wiki/Directed_acyclic_graph)s, statistics in [R](https://www.r-project.org/), configuration and convention in [Kubernetes](https://kubernetes.io/), Infrastructure as Code in [AWS CDK](https://aws.amazon.com/cdk/), and more esoteric terrain like [geospatial FOSS](https://www.osgeo.org/) (maps and geoprocessing), and [EnergyPlus](https://energyplus.net/) (building energy modeling).
 
+<br>
+
 ---
 
-_This project is underpinned by the power of data-driven decision-making and the open source movement._ 🚀
+## Note from the Author
+
+My name is **[Dave](https://github.com/dnix)** 👋. I like building useful tech for real estate and energy. 
+
+My goal with Performa is to move the real estate industry beyond brittle spreadsheets and black-box software. 
+
+There is a better way. Let's build it together! 🚀
+
+
+
+<br>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/wordmark-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/wordmark-light.svg">
+    <img src="docs/wordmark.svg" alt="Performa" width="200">
+  </picture>
+</p>
