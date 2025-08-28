@@ -5,7 +5,7 @@
 Performa Valuation Module - Industry Standard Approaches
 
 Three standard real estate valuation methods:
-1. Income Approach (DirectCap) - NOI/Cap Rate  
+1. Income Approach (DirectCap) - NOI/Cap Rate
 2. Sales Comparison Approach (SalesComps) - Comparable analysis
 3. Cost/Manual Approach (DirectEntry) - Manual pricing
 
@@ -21,7 +21,7 @@ from .helpers import AssetValuation
 from .metrics import PropertyMetrics
 from .sales_comp import SalesComparable, SalesCompValuation
 
-# Polymorphic union type for all valuation models  
+# Polymorphic union type for all valuation models
 AnyValuation = Union[DirectCapValuation, DirectEntry, SalesCompValuation]
 
 __all__ = [
@@ -29,11 +29,11 @@ __all__ = [
     "BaseValuation",
     # Three standard valuation approaches
     "DirectCapValuation",  # Income approach
-    "DirectEntry",         # Cost/manual approach
+    "DirectEntry",  # Cost/manual approach
     "SalesCompValuation",  # Sales comparison approach
     "SalesComparable",
     # Helpers and utilities
-    "AssetValuation", 
+    "AssetValuation",
     "PropertyMetrics",
     # Type unions
     "AnyValuation",
