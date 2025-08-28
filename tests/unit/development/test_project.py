@@ -54,7 +54,7 @@ from performa.debt import (
 )
 from performa.debt.rates import FixedRate, InterestRate
 from performa.development import AnyDevelopmentBlueprint, DevelopmentProject
-from performa.valuation import ReversionValuation
+from performa.valuation import DirectCapValuation
 
 # Shared fixtures for development project tests
 
@@ -199,13 +199,14 @@ def residential_blueprint() -> ResidentialDevelopmentBlueprint:
 
 
 @pytest.fixture
-def disposition_plan() -> ReversionValuation:
+def disposition_plan() -> DirectCapValuation:
     """Standard disposition plan for development projects."""
-    return ReversionValuation(
+    return DirectCapValuation(
         name="Mixed-Use Disposition",
         cap_rate=0.055,
         transaction_costs_rate=0.025,
-        disposition_date=date(2028, 12, 31),
+        hold_period_months=60,  # Changed from disposition_date to hold_period_months
+        noi_basis_kind="LTM",   # Added required NOI basis
     )
 
 

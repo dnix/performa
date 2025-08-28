@@ -62,7 +62,7 @@ from performa.debt import (
 )
 from performa.debt.rates import FixedRate, InterestRate
 from performa.development import DevelopmentAnalysisScenario, DevelopmentProject
-from performa.valuation import ReversionValuation
+from performa.valuation import DirectCapValuation
 
 # Shared fixtures for orchestrator tests
 
@@ -291,11 +291,12 @@ def comprehensive_project() -> DevelopmentProject:
     )
 
     # Create disposition plan
-    disposition_plan = ReversionValuation(
+    disposition_plan = DirectCapValuation(
         name="Mixed-Use Exit Strategy",
         cap_rate=0.055,
         transaction_costs_rate=0.025,
-        disposition_date=date(2028, 12, 31),
+        hold_period_months=60,  # Changed from disposition_date
+        noi_basis_kind="LTM",   # Added NOI basis
     )
 
     return DevelopmentProject(

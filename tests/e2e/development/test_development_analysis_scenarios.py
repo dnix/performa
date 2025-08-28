@@ -46,7 +46,7 @@ from performa.debt import (
 )
 from performa.debt.rates import FixedRate, InterestRate
 from performa.development import DevelopmentAnalysisScenario, DevelopmentProject
-from performa.valuation import ReversionValuation
+from performa.valuation import DirectCapValuation
 
 
 def test_development_analysis_scenario_instantiation():
@@ -440,11 +440,12 @@ def test_development_analysis_scenario_with_disposition():
         ),
     )
 
-    disposition_plan = ReversionValuation(
+    disposition_plan = DirectCapValuation(
         name="Investment Sale",
         cap_rate=0.055,
         transaction_costs_rate=0.025,
-        disposition_date=date(2028, 12, 31),
+        hold_period_months=60,  # Changed from disposition_date
+        noi_basis_kind="LTM",   # Added NOI basis
     )
 
     project = DevelopmentProject(
@@ -640,8 +641,11 @@ def test_development_analysis_end_to_end():
         ),
     )
 
-    disposition_plan = ReversionValuation(
-        name="Complete Sale", cap_rate=0.055, transaction_costs_rate=0.025
+    disposition_plan = DirectCapValuation(
+        name="Complete Sale", 
+        cap_rate=0.055, 
+        transaction_costs_rate=0.025,
+        noi_basis_kind="LTM"  # Added NOI basis
     )
 
     project = DevelopmentProject(

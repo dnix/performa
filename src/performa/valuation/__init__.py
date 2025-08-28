@@ -2,37 +2,39 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Performa Valuation Module
+Performa Valuation Module - Industry Standard Approaches
 
-Universal property valuation methods that work across all asset types
-and development scenarios. Supports multiple valuation approaches.
+Three standard real estate valuation methods:
+1. Income Approach (DirectCap) - NOI/Cap Rate  
+2. Sales Comparison Approach (SalesComps) - Comparable analysis
+3. Cost/Manual Approach (DirectEntry) - Manual pricing
+
+Follows industry standards used in Argus Enterprise and Rockport Val.
 """
 
 from typing import Union
 
-from .dcf import DCFValuation
+from .base.valuation import BaseValuation
 from .direct_cap import DirectCapValuation
+from .direct_entry import DirectEntry
 from .helpers import AssetValuation
 from .metrics import PropertyMetrics
-from .reversion import ReversionValuation
 from .sales_comp import SalesComparable, SalesCompValuation
 
-# Polymorphic union type for all valuation models
-AnyValuation = Union[
-    DCFValuation, DirectCapValuation, ReversionValuation, SalesCompValuation
-]
+# Polymorphic union type for all valuation models  
+AnyValuation = Union[DirectCapValuation, DirectEntry, SalesCompValuation]
 
 __all__ = [
-    # Core valuation methods
-    "DCFValuation",
-    "DirectCapValuation",
-    "ReversionValuation",
-    "SalesCompValuation",
+    # Base class
+    "BaseValuation",
+    # Three standard valuation approaches
+    "DirectCapValuation",  # Income approach
+    "DirectEntry",         # Cost/manual approach
+    "SalesCompValuation",  # Sales comparison approach
     "SalesComparable",
-    # Ledger-based helpers
-    "AssetValuation",
-    # Universal metrics
+    # Helpers and utilities
+    "AssetValuation", 
     "PropertyMetrics",
-    # Polymorphic union
+    # Type unions
     "AnyValuation",
 ]

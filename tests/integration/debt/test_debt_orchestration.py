@@ -10,6 +10,7 @@ including refinancing orchestration, covenant monitoring, and deal integration.
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from performa.core.primitives import Timeline
 from performa.debt import DebtTranche
@@ -23,6 +24,7 @@ from performa.debt.rates import FixedRate, FloatingRate, InterestRate, RateIndex
 class TestEnhancedDebtServiceIntegration:
     """Test enhanced debt service calculations with institutional features."""
 
+    @pytest.mark.filterwarnings("ignore:PermanentFacility.*development deal:UserWarning")
     def test_interest_only_debt_service_integration(self):
         """Test that interest-only periods are properly integrated into debt service."""
         # Create permanent facility with interest-only periods

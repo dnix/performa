@@ -88,15 +88,25 @@ class PropertyMetrics:
         if stabilization_period is None:
             stabilization_period = cash_flows.index[-1]
 
-        # Calculate NOI for the stabilization period
+        # Calculate trailing 12 months NOI for stabilization
         revenues = cash_flows.get("revenue", pd.Series(0, index=cash_flows.index))
         expenses = cash_flows.get("expenses", pd.Series(0, index=cash_flows.index))
-
+        
+        # Use trailing 12 months ending at stabilization period
         if stabilization_period in cash_flows.index:
-            monthly_noi = (
-                revenues[stabilization_period] - expenses[stabilization_period]
-            )
-            return monthly_noi * 12  # Annualize
+            stabilization_index = cash_flows.index.get_loc(stabilization_period)
+            start_index = max(0, stabilization_index - 11)  # 12 months including stabilization_period
+            
+            trailing_revenues = revenues.iloc[start_index:stabilization_index + 1].sum()
+            trailing_expenses = expenses.iloc[start_index:stabilization_index + 1].sum()
+            trailing_noi = trailing_revenues - trailing_expenses
+            
+            # If less than 12 months available, annualize proportionally
+            periods_used = stabilization_index - start_index + 1
+            if periods_used < 12:
+                trailing_noi *= (12 / periods_used)
+                
+            return trailing_noi
         else:
             raise ValueError(
                 f"Stabilization period {stabilization_period} not found in cash flows"
