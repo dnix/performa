@@ -1,11 +1,6 @@
-> [!CAUTION]
-> **Pre-Alpha Status:** This project is under active development. Breaking changes are expected; APIs and data structures may change significantly. Validation testing is in progress. Comments, feedback, and contributions are most welcome! 🚧
-
 <p align="center">
   <img src="docs/synthwave.gif" alt="Performa Hero" width="100%" />
 </p>
-
-<br/>
 
 <p align="center">
   <picture>
@@ -115,6 +110,9 @@ graph LR
 ## 🏎️ Installation & Usage
 
 See detailed installation instructions in the [Development & Usage Guide](DEVELOPMENT.md).
+
+> [!CAUTION]
+> **Pre-Alpha Status:** This project is under active development. Breaking changes are expected; APIs and data structures may change significantly. Validation testing is in progress. Comments, feedback, and contributions are most welcome! 🚧
 
 <br/>
 

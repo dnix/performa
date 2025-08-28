@@ -1,3 +1,6 @@
+> [!CAUTION]
+> **Pre-Alpha Status:** This project is under active development. Breaking changes are expected; APIs and data structures may change significantly. Validation testing is in progress. Comments, feedback, and contributions are most welcome! 🚧
+
 # Development Guide
 
 This guide covers everything you need to know for developing with and contributing to Performa.
