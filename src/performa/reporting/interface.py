@@ -10,11 +10,12 @@ This is the primary user-facing interface for the reporting system.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import pandas as pd
 
 # Import all report classes at the top level
+from .assumptions import AssumptionsReport
 from .development_reports import SourcesAndUsesReport
 from .financial_reports import ProFormaReport
 
@@ -89,5 +90,56 @@ class ReportingInterface:
         """
         report = SourcesAndUsesReport(self._results)
         return report.generate()
+
+    def assumptions_summary(
+        self,
+        include_risk_assessment: bool = True,
+        include_defaults_detail: bool = False,
+        focus_components: Optional[List[str]] = None,
+        formatted: bool = True,
+    ) -> Union[str, Dict[str, Any]]:
+        """
+        Generate comprehensive model assumptions documentation.
+
+        Suitable for due diligence, audit trails, and
+        configuration analysis requirements. Shows user-specified vs default
+        parameters with risk assessment.
+
+        Args:
+            include_risk_assessment: Include risk flagging for critical defaults
+            include_defaults_detail: Include detailed list of defaulted parameters
+            focus_components: Limit to specific components ('asset', 'financing', 'exit', 'partnership')
+            formatted: Return formatted text (True) or raw data dict (False)
+
+        Returns:
+            Formatted assumptions report or structured data dictionary
+
+        Example:
+            ```python
+            results = analyze(deal, timeline)
+
+            # Formatted report for presentations
+            assumptions_doc = results.reporting.assumptions_summary()
+            print(assumptions_doc)
+
+            # Raw data for further processing
+            assumptions_data = results.reporting.assumptions_summary(formatted=False)
+            quality_score = assumptions_data['quality_assessment']['overall_score']
+            ```
+        """
+        report = AssumptionsReport(self._results)
+
+        if formatted:
+            return report.generate_formatted(
+                include_risk_assessment=include_risk_assessment,
+                include_defaults_detail=include_defaults_detail,
+                focus_components=focus_components,
+            )
+        else:
+            return report.generate(
+                include_risk_assessment=include_risk_assessment,
+                include_defaults_detail=include_defaults_detail,
+                focus_components=focus_components,
+            )
 
     # Additional report methods can be added here as needed

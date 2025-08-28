@@ -14,7 +14,22 @@ The primary interface is the fluent API:
 This module also exports base classes for custom report development.
 """
 
+from .assumptions import generate_assumptions_report
 from .base import BaseReport, ReportTemplate
+from .debug import (
+    analyze_configuration_intentionality,
+    analyze_ledger_semantically,
+    compare_configuration_intentionality,
+    compare_deal_configs,
+    create_actionable_config_summary,
+    dump_deal_config,
+    dump_performa_object,
+    format_config_analysis,
+    format_ledger_analysis,
+    format_performa_object,
+    generate_configuration_report,
+    ledger_sanity_check,
+)
 from .interface import ReportingInterface
 
 __all__ = [
@@ -23,4 +38,19 @@ __all__ = [
     "ReportTemplate",
     # Fluent interface (exposed via DealAnalysisResult.reporting)
     "ReportingInterface",
+    # Model assumptions reporting
+    "generate_assumptions_report",
+    # Debug utilities
+    "analyze_configuration_intentionality",
+    "analyze_ledger_semantically",
+    "compare_configuration_intentionality",
+    "compare_deal_configs",
+    "create_actionable_config_summary",
+    "dump_deal_config",
+    "dump_performa_object",
+    "format_config_analysis",
+    "format_ledger_analysis",
+    "format_performa_object",
+    "generate_configuration_report",
+    "ledger_sanity_check",
 ]

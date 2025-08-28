@@ -31,6 +31,7 @@ DealAnalysisResult → .reporting → ReportingInterface → Specific Reports �
 from performa.deal import analyze
 from performa.patterns import create_value_add_acquisition_deal
 from performa.core.primitives import Timeline
+from performa.reporting import generate_assumptions_report
 
 # Create and analyze deal
 deal = create_value_add_acquisition_deal(
@@ -45,8 +46,13 @@ deal = create_value_add_acquisition_deal(
 timeline = Timeline.from_dates("2024-01-01", "2030-12-31")
 results = analyze(deal, timeline)
 
+# ESSENTIAL: Validate assumptions for model confidence
+assumptions_doc = generate_assumptions_report(deal, include_risk_assessment=True)
+print(assumptions_doc)  # Suitable for due diligence documentation
+
 # Generate reports via fluent interface
 annual_summary = results.reporting.pro_forma_summary()              # Default: annual
+assumptions_summary = results.reporting.assumptions_summary()       # Assumptions summary
 quarterly_detail = results.reporting.pro_forma_summary(frequency="Q")  # Quarterly breakdown
 monthly_detail = results.reporting.pro_forma_summary(frequency="M")    # Monthly detail
 ```
@@ -77,6 +83,44 @@ assert pro_forma.shape[1] >= 5  # At least 5 years of data
 ```
 
 ## Available Reports
+
+### Model Documentation
+
+#### Assumptions Summary (`assumptions_summary()`)
+
+**MODEL VALIDATION TOOL**: Comprehensive documentation of model assumptions with risk assessment.
+
+**Parameters**:
+- `include_risk_assessment`: Flag critical parameters using defaults (default: `True`)
+- `include_defaults_detail`: Include full list of defaulted parameters (default: `False`)
+- `focus_components`: Limit to specific components (optional)
+- `formatted`: Return formatted text (`True`) or raw data dict (`False`)
+
+**Output**: Formatted markdown report or structured data dictionary
+
+**Key Features**:
+- Configuration completeness scoring  
+- Critical defaults risk flagging
+- Component-by-component analysis with class visibility
+- User-specified vs system default parameter visibility
+- Suitable for due diligence packages and audit trails
+
+**Example**:
+```python
+# Model documentation
+assumptions_doc = results.reporting.assumptions_summary()
+print(assumptions_doc)
+
+# Due diligence package with full defaults detail
+full_doc = results.reporting.assumptions_summary(
+    include_defaults_detail=True,
+    focus_components=['asset', 'financing', 'exit']
+)
+
+# Raw data for further analysis
+assumptions_data = results.reporting.assumptions_summary(formatted=False)
+quality_score = assumptions_data['quality_assessment']['overall_score']
+```
 
 ### Universal Reports
 
