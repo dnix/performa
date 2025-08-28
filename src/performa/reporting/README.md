@@ -84,7 +84,7 @@ assert pro_forma.shape[1] >= 5  # At least 5 years of data
 
 ## Available Reports
 
-### Model Documentation
+### Model Documentation & Debugging
 
 #### Assumptions Summary (`assumptions_summary()`)
 
@@ -120,6 +120,100 @@ full_doc = results.reporting.assumptions_summary(
 # Raw data for further analysis
 assumptions_data = results.reporting.assumptions_summary(formatted=False)
 quality_score = assumptions_data['quality_assessment']['overall_score']
+```
+
+### Debug & Model Validation Utilities
+
+Performa includes sophisticated debugging and model validation tools essential for financial modeling workflows and LLM development.
+
+#### Polymorphic Object Introspection
+
+**`dump_performa_object(obj, exclude_defaults=True, include_computed=False, include_class_info=True)`**
+
+Polymorphic debugging utility that can introspect any Performa object type:
+
+- **Deal objects**: Complete deal analysis with component breakdown
+- **Asset objects**: Property models, development projects, blueprints  
+- **Pattern objects**: High-level deal patterns (ResidentialDevelopmentPattern, etc.)
+- **Primitive objects**: Core system components (Timeline, GlobalSettings, etc.)
+- **Debt objects**: Financing plans and facility structures
+- **Construct results**: Factory function outputs
+
+**Key Features**:
+- Automatic object type classification and appropriate handler dispatch
+- Class name visibility for understanding object hierarchy
+- Configuration parameter extraction with defaults filtering
+- Computed property access for complex derived metrics
+
+**Example**:
+```python
+from performa.reporting.debug import dump_performa_object
+
+# Debug any object type
+timeline_config = dump_performa_object(timeline)
+pattern_config = dump_performa_object(residential_pattern) 
+deal_config = dump_performa_object(complete_deal)
+
+print(f"Object type: {pattern_config['_object_info']['object_type']}")
+print(f"Class: {pattern_config['_object_info']['class_name']}")
+```
+
+#### Configuration Intentionality Analysis
+
+**`analyze_configuration_intentionality(obj, critical_params=None)`**
+
+Analyzes what's user-specified vs system defaults to identify potential configuration risks:
+
+- **Configuration completeness scoring**: Percentage of parameters explicitly set
+- **Critical defaults risk assessment**: Flags key parameters using potentially dangerous defaults
+- **User specification ratio**: Explicit vs defaulted parameter visibility
+- **Actionable recommendations**: Specific steps to improve configuration quality
+
+**Example**:
+```python
+from performa.reporting.debug import analyze_configuration_intentionality
+
+# Analyze configuration intentionality
+analysis = analyze_configuration_intentionality(
+    pattern, 
+    critical_params=['exit_cap_rate', 'target_rent', 'interest_rate']
+)
+
+print(f"Configuration completeness: {analysis['intentionality_metrics']['completeness_score']:.1%}")
+print(f"Critical defaults: {len(analysis['risk_assessment']['critical_defaults'])}")
+
+# Compare two approaches
+from performa.reporting.debug import compare_configuration_intentionality
+comparison = compare_configuration_intentionality(
+    comp_deal, pattern_deal, "Composition", "Pattern"
+)
+print(f"Intentionality parity: {comparison['intentionality_parity']}")
+```
+
+#### Ledger Analysis & Validation
+
+**`analyze_ledger_semantically(ledger)`**
+
+Comprehensive semantic analysis of financial ledger data for debugging and validation:
+
+- **Cash flow pattern analysis**: Timeline validation and flow categorization
+- **Anomaly detection**: Magnitude, sign, and timing issue identification  
+- **Balance validation**: Mathematical consistency checks
+- **Category breakdown**: Analysis by financial category and subcategory
+
+**Example**:
+```python
+from performa.reporting.debug import analyze_ledger_semantically, ledger_sanity_check
+
+# Semantic ledger analysis
+analysis = analyze_ledger_semantically(results.ledger)
+print(f"Total records: {analysis['record_count']:,}")
+print(f"Timeline span: {analysis['date_range']['span_months']:.1f} months")
+
+# Quick sanity check
+warnings = ledger_sanity_check(results.ledger, expected_returns={"irr": 0.18})
+for warning in warnings:
+    print(warning)
 ```
 
 ### Universal Reports
@@ -393,4 +487,40 @@ def test_end_to_end_reporting_workflow():
     assert quarterly_pf.shape[1] >= annual_pf.shape[1] * 4  # More periods
 ```
 
-This reporting architecture ensures reliable, maintainable, and user-friendly report generation while maintaining strict separation between analysis calculations and presentation formatting. 
+## Debug Module Architecture
+
+The debug utilities have been refactored into a clean nested module structure for maintainability:
+
+```
+src/performa/reporting/debug/
+├── __init__.py              # Public API + backward compatibility
+├── introspection.py         # Object dumping & classification  
+├── ledger_analysis.py       # Ledger semantic analysis
+└── config_analysis.py       # Configuration intentionality
+```
+
+### Backward Compatibility
+
+All existing imports continue to work through the public API:
+
+```python
+# These imports work exactly as before
+from performa.reporting.debug import dump_performa_object
+from performa.reporting.debug import analyze_ledger_semantically
+from performa.reporting.debug import analyze_configuration_intentionality
+
+# New imports also work for direct module access
+from performa.reporting.debug.introspection import _classify_performa_object
+from performa.reporting.debug.config_analysis import generate_configuration_report
+```
+
+### LLM Development Integration
+
+The debug utilities are specifically designed to support LLM development workflows:
+
+**CLAUDE.md Integration**: Enhanced with debugging guidance for LLM agents
+**Cursor Rules**: Model validation requirements for consistent LLM output
+**Configuration Analysis**: Automated detection of parameter quality issues
+**Ledger Validation**: Mathematical soundness verification for all scenarios
+
+This architecture ensures reliable, maintainable, and user-friendly report generation while maintaining strict separation between analysis calculations and presentation formatting. 
