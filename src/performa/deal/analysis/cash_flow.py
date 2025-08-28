@@ -92,6 +92,10 @@ from performa.core.primitives import (
     TransactionPurpose,
     UnleveredAggregateLineKey,
 )
+from performa.core.primitives.enums import (
+    CalculationPhase,
+    CapitalSubcategoryEnum,
+)
 from performa.deal.results import (
     CashFlowComponents,
     CashFlowSummary,
@@ -238,6 +242,9 @@ class CashFlowEngine:
             disposition_proceeds = self._calculate_disposition_proceeds(
                 ledger, unlevered_analysis
             )
+
+        # === Step 4.5: Add disposition to ledger ===
+        self._add_disposition_records_to_ledger(ledger, disposition_proceeds)
 
         # === Step 5: Assemble Final Results ===
         # Note: uses_breakdown is created by DealCalculator, CashFlowEngine uses base_uses
@@ -466,10 +473,12 @@ class CashFlowEngine:
         if self.deal.financing:
             for facility in self.deal.financing.facilities:
                 if hasattr(facility, "kind") and facility.kind == "construction":
-                    for tranche in facility.tranches:
-                        debt_draws_by_tranche[tranche.name] = pd.Series(
-                            0.0, index=self.timeline.period_index
-                        )
+                    # Check if facility has tranches and they're not None
+                    if hasattr(facility, "tranches") and facility.tranches:
+                        for tranche in facility.tranches:
+                            debt_draws_by_tranche[tranche.name] = pd.Series(
+                                0.0, index=self.timeline.period_index
+                            )
 
         return debt_draws_by_tranche
 
@@ -670,7 +679,8 @@ class CashFlowEngine:
         # For construction financing, use the first tranche's LTC as equity target
         for facility in self.deal.financing.facilities:
             if hasattr(facility, "kind") and facility.kind == "construction":
-                if facility.tranches:
+                # Check if facility actually has tranches and they're not None
+                if hasattr(facility, "tranches") and facility.tranches:
                     first_tranche_ltc = facility.tranches[0].ltc_threshold
                     equity_target = total_project_cost * (1 - first_tranche_ltc)
                     return equity_target
@@ -1186,17 +1196,21 @@ class CashFlowEngine:
             if hasattr(facility, "kind") and facility.kind == "construction":
                 total_facility_capacity = 0.0
 
-                for i, tranche in enumerate(facility.tranches):
-                    if i == 0:
-                        # First tranche: from 0 to its LTC threshold
-                        tranche_capacity = total_project_cost * tranche.ltc_threshold
-                    else:
-                        # Subsequent tranches: from previous LTC to current LTC
-                        prev_tranche_ltc = facility.tranches[i - 1].ltc_threshold
-                        tranche_capacity = total_project_cost * (
-                            tranche.ltc_threshold - prev_tranche_ltc
-                        )
-                    total_facility_capacity += tranche_capacity
+                # Check if facility has tranches
+                if hasattr(facility, "tranches") and facility.tranches:
+                    for i, tranche in enumerate(facility.tranches):
+                        if i == 0:
+                            # First tranche: from 0 to its LTC threshold
+                            tranche_capacity = (
+                                total_project_cost * tranche.ltc_threshold
+                            )
+                        else:
+                            # Subsequent tranches: from previous LTC to current LTC
+                            prev_tranche_ltc = facility.tranches[i - 1].ltc_threshold
+                            tranche_capacity = total_project_cost * (
+                                tranche.ltc_threshold - prev_tranche_ltc
+                            )
+                        total_facility_capacity += tranche_capacity
 
                 # Interest reserve capacity based on facility's configurable rate
                 interest_reserve_rate = getattr(facility, "interest_reserve_rate", 0.15)
@@ -1264,3 +1278,38 @@ class CashFlowEngine:
                 logger.warning(f"Could not calculate disposition proceeds: {e}")
 
         return disposition_proceeds
+
+    def _add_disposition_records_to_ledger(
+        self, ledger: "Ledger", disposition_proceeds: pd.Series
+    ) -> None:
+        """
+        Add disposition/exit sale transactions to the ledger.
+
+        Args:
+            ledger: The analysis ledger
+            disposition_proceeds: Series of disposition proceeds
+        """
+        if disposition_proceeds is None or (disposition_proceeds == 0).all():
+            logger.debug("No disposition proceeds to add to ledger")
+            return
+
+        # Disposition proceeds (positive = cash inflow from sale)
+        # Use OTHER subcategory since DISPOSITION doesn't exist
+        metadata = SeriesMetadata(
+            category=CashFlowCategoryEnum.CAPITAL,
+            subcategory=CapitalSubcategoryEnum.OTHER,
+            item_name="Exit Sale Proceeds",
+            source_id=str(self.deal.uid) if self.deal else "unknown",
+            asset_id=self.deal.asset.uid
+            if self.deal and self.deal.asset
+            else "unknown",
+            pass_num=CalculationPhase.VALUATION.value,
+        )
+
+        ledger.add_series(disposition_proceeds, metadata)
+
+        total_disposition = disposition_proceeds.sum()
+        if total_disposition > 0:
+            logger.info(
+                f"✅ Added disposition proceeds to ledger: ${total_disposition:,.0f}"
+            )

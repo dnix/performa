@@ -81,7 +81,7 @@ from performa.deal.constructs import create_simple_partnership
 from performa.deal.deal import Deal
 from performa.debt import FinancingPlan, FixedRate, InterestRate, PermanentFacility
 from performa.patterns import ValueAddAcquisitionPattern
-from performa.valuation import ReversionValuation
+from performa.valuation import DirectCapValuation
 
 
 def test_simple_stabilized_acquisition() -> Dict[str, Any]:
@@ -200,11 +200,12 @@ def test_simple_stabilized_acquisition() -> Dict[str, Any]:
     )
 
     # Reversion valuation (6% cap rate)
-    reversion_valuation = ReversionValuation(
+    reversion_valuation = DirectCapValuation(
         name="Property Disposition",
         cap_rate=0.06,
         transaction_costs_rate=0.025,
-        disposition_date=date(2029, 1, 1),
+        hold_period_months=60,  # Changed from disposition_date to hold_period_months
+        noi_basis_kind="LTM",
     )
 
     deal = Deal(

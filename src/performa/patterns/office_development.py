@@ -46,13 +46,13 @@ from ..deal import (
 from ..debt import (
     ConstructionFacility,
     DebtTranche,
-    FinancingPlan,
     FixedRate,
     InterestRate,
     PermanentFacility,
 )
+from ..debt.constructs import create_construction_to_permanent_plan
 from ..development import DevelopmentProject
-from ..valuation import ReversionValuation
+from ..valuation import DirectCapValuation
 from .base import DevelopmentPatternBase
 
 
@@ -190,6 +190,14 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
         """Calculate total construction budget."""
         return self.hard_construction_costs + self.soft_costs + self.developer_fee
 
+    def _derive_timeline(self) -> Timeline:
+        """Override to add buffer for exit transaction."""
+        return Timeline(
+            start_date=self.acquisition_date,
+            duration_months=self.hold_period_years * 12
+            + 6,  # Add 6 months buffer for exit and wind-down
+        )
+
     @property
     def total_project_cost(self) -> float:
         """Calculate total project cost including land (excluding closing costs for development cost comparison)."""
@@ -296,7 +304,8 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
                 frequency_months=self.leasing_frequency_months,
             ),
             leasing_assumptions=DirectLeaseTerms(
-                base_rent_value=self.target_rent_psf,
+                base_rent_value=self.target_rent_psf
+                / 12,  # Convert annual $/SF to monthly
                 base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 term_months=self.lease_term_months,
                 upon_expiration=UponExpirationEnum.MARKET,
@@ -330,6 +339,8 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
         )
 
         # === STEP 8: CONSTRUCTION FINANCING ===
+        # For multi-tranche mode, the facility will calculate loan amount
+        # based on LTC and capital uses in the ledger during analysis
         construction_loan = ConstructionFacility(
             name="Construction Facility",
             tranches=[
@@ -342,6 +353,7 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
                     ltc_threshold=self.construction_ltc_ratio,
                 )
             ],
+            # project_cost is passed via DealContext during analysis
             interest_calculation_method=getattr(
                 InterestCalculationMethod, self.interest_calculation_method
             ),
@@ -350,9 +362,23 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
         )
 
         # === STEP 9: PERMANENT FINANCING ===
+        # Calculate expected stabilized value for loan sizing
+        # Assume stabilized rent = target_rent * NRA * occupancy
+        stabilized_rent = self.target_rent_psf * self.net_rentable_area * 0.95
+        # Assume OpEx = 35% of EGI
+        stabilized_noi = stabilized_rent * 0.65
+        stabilized_value = stabilized_noi / self.exit_cap_rate
+        perm_loan_amount = stabilized_value * self.permanent_ltv_ratio
+
+        # Permanent loan should only trigger after construction period
+        # Construction is typically 18-24 months for office development
+        construction_period_months = (
+            self.construction_start_months + self.construction_duration_months
+        )
+
         permanent_loan = PermanentFacility(
             name="Permanent Facility",
-            loan_amount=18_000_000,  # Will be auto-sized based on stabilized value
+            loan_amount=perm_loan_amount,
             interest_rate=InterestRate(
                 details=FixedRate(rate=self.permanent_interest_rate)
             ),
@@ -361,11 +387,35 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
             ltv_ratio=self.permanent_ltv_ratio,
             dscr_hurdle=1.25,
             origination_fee_rate=0.005,
+            # TODO: Add refinance_month when available in PermanentFacility
+            # refinance_month=construction_period_months,
         )
 
-        financing_plan = FinancingPlan(
-            name="Construction-to-Permanent Financing",
-            facilities=[construction_loan, permanent_loan],
+        construction_period_months = (
+            self.construction_start_months + self.construction_duration_months
+        )
+
+        financing_plan = create_construction_to_permanent_plan(
+            construction_terms={
+                "name": "Construction Facility",
+                "loan_amount": self.total_project_cost
+                * self.construction_ltc_ratio,  # Explicit sizing
+                "interest_rate": self.construction_interest_rate,
+                "loan_term_months": 24,  # 2 years construction
+                "interest_reserve_rate": self.interest_reserve_rate,
+            },
+            permanent_terms={
+                "name": "Permanent Facility",
+                "loan_amount": perm_loan_amount,
+                "interest_rate": self.permanent_interest_rate,
+                "loan_term_months": self.permanent_loan_term_years * 12,
+                "amortization_months": self.permanent_amortization_years * 12,
+                "ltv_ratio": self.permanent_ltv_ratio,
+                "dscr_hurdle": 1.25,
+                "origination_fee_rate": 0.005,
+                "refinance_timing": construction_period_months,  # THIS IS THE KEY!
+            },
+            project_value=self.total_project_cost,
         )
 
         # === STEP 10: PARTNERSHIP STRUCTURE ===
@@ -393,11 +443,12 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
         )
 
         # === STEP 11: EXIT STRATEGY ===
-        exit_valuation = ReversionValuation(
+        exit_valuation = DirectCapValuation(
             name="Stabilized Disposition",
             cap_rate=self.exit_cap_rate,
             transaction_costs_rate=self.exit_costs_rate,
             hold_period_months=self.hold_period_years * 12,
+            noi_basis_kind="LTM",  # Use trailing 12 months for realistic exit
         )
 
         # === STEP 12: ASSEMBLE COMPLETE DEAL ===

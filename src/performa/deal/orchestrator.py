@@ -362,6 +362,13 @@ class DealCalculator:
                         self.deal.asset.construction_plan.total_cost or 0.0
                     )
 
+            # Development deals MUST have project costs for construction financing
+            if self.deal.is_development_deal and initial_project_costs <= 0:
+                logger.warning(
+                    "Development deal has no calculable project costs. "
+                    "Construction financing will fail unless costs are in the ledger."
+                )
+
             # Create DealContext for deal-level orchestration (Phase 5 implementation)
             # This will be progressively populated with results from each phase
             deal_context = DealContext(

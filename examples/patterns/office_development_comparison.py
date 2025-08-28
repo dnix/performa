@@ -75,7 +75,6 @@ from performa.core.primitives import (
     AssetTypeEnum,
     FirstOnlyDrawSchedule,
     GlobalSettings,
-    InterestCalculationMethod,
     ProgramUseEnum,
     PropertyAttributeKey,
     Timeline,
@@ -89,17 +88,10 @@ from performa.deal import (
     PartnershipStructure,
     analyze,
 )
-from performa.debt import (
-    ConstructionFacility,
-    DebtTranche,
-    FinancingPlan,
-    FixedRate,
-    InterestRate,
-    PermanentFacility,
-)
+from performa.debt.constructs import create_construction_to_permanent_plan
 from performa.development import DevelopmentProject
 from performa.patterns import OfficeDevelopmentPattern
-from performa.valuation import ReversionValuation
+from performa.valuation import DirectCapValuation
 
 
 def create_deal_via_composition():
@@ -240,39 +232,31 @@ def create_deal_via_composition():
         closing_costs_rate=0.025,
     )
 
-    # === STEP 8: CONSTRUCTION FINANCING ===
-    # Updated to use sophisticated draw-based interest calculation
-    construction_loan = ConstructionFacility(
-        name="Construction Facility",
-        tranches=[
-            DebtTranche(
-                name="Senior Construction",
-                interest_rate=InterestRate(details=FixedRate(rate=0.065)),
-                fee_rate=0.01,
-                ltc_threshold=0.70,
-            )
-        ],
-        # Use sophisticated draw-based calculation leveraging Performa's draw schedules
-        interest_calculation_method=InterestCalculationMethod.SCHEDULED,
-        fund_interest_from_reserve=True,
-        interest_reserve_rate=0.15,
-    )
+    # === STEP 8: CONSTRUCTION-TO-PERMANENT FINANCING ===
+    # Use the construct for proper debt timing (replaces manual facility creation)
 
-    # === STEP 9: PERMANENT FINANCING ===
-    permanent_loan = PermanentFacility(
-        name="Permanent Facility",
-        loan_amount=18_000_000,
-        interest_rate=InterestRate(details=FixedRate(rate=0.055)),
-        loan_term_years=10,
-        amortization_years=25,
-        ltv_ratio=0.70,
-        dscr_hurdle=1.25,
-        origination_fee_rate=0.005,
-    )
+    total_project_cost = sum(item.value for item in capital_items)
 
-    financing_plan = FinancingPlan(
-        name="Construction-to-Permanent Financing",
-        facilities=[construction_loan, permanent_loan],
+    financing_plan = create_construction_to_permanent_plan(
+        construction_terms={
+            "name": "Construction Facility",
+            "loan_amount": total_project_cost * 0.70,  # 70% LTC
+            "interest_rate": 0.065,  # 6.5% construction rate
+            "loan_term_months": 24,
+            "interest_reserve_rate": 0.15,  # 15% interest reserve
+        },
+        permanent_terms={
+            "name": "Permanent Facility",
+            "loan_amount": 18_000_000,
+            "interest_rate": 0.055,  # 5.5% permanent rate
+            "loan_term_months": 120,  # 10 years
+            "amortization_months": 300,  # 25 years
+            "ltv_ratio": 0.70,
+            "dscr_hurdle": 1.25,
+            "origination_fee_rate": 0.005,
+            "refinance_timing": 24,  # Refinance after 24 months construction
+        },
+        project_value=total_project_cost,
     )
 
     # === STEP 10: PARTNERSHIP STRUCTURE ===
@@ -295,11 +279,12 @@ def create_deal_via_composition():
     )
 
     # === STEP 11: EXIT STRATEGY ===
-    exit_valuation = ReversionValuation(
+    exit_valuation = DirectCapValuation(
         name="Stabilized Disposition",
         cap_rate=0.055,  # Better exit cap rate
         transaction_costs_rate=0.02,  # Lower transaction costs
         hold_period_months=60,  # 5-year hold period
+        noi_basis_kind="LTM",  # Use trailing 12 months (realistic)
     )
 
     # === STEP 12: ASSEMBLE COMPLETE DEAL ===
@@ -529,13 +514,19 @@ def main():
         print("-" * 60)
 
         try:
-            timeline = Timeline(start_date=date(2024, 1, 1), duration_months=120)
+            # Use pattern's own timeline instead of arbitrary 120 months
+            pattern_timeline = pattern._derive_timeline()
             settings = GlobalSettings()
 
-            pattern_results = analyze(pattern_deal, timeline, settings)
+            pattern_results = analyze(pattern_deal, pattern_timeline, settings)
 
             print("✅ Pattern Analysis Complete!")
-            print(f"   Deal IRR: {pattern_results.deal_metrics.irr:.2%}")
+            pattern_irr_str = (
+                f"{pattern_results.deal_metrics.irr:.2%}"
+                if pattern_results.deal_metrics.irr
+                else "N/A"
+            )
+            print(f"   Deal IRR: {pattern_irr_str}")
             print(
                 f"   Equity Multiple: {pattern_results.deal_metrics.equity_multiple:.2f}x"
             )

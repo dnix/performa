@@ -821,7 +821,7 @@ class OfficeAbsorptionPlan(
                     name="Property Management",
                     category="Expense",
                     timeline=timeline,
-                    value=5.0,  # $5/SF annually
+                    value=5.0 / 12,  # $5/SF annually = $0.417/SF monthly
                     reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                     growth_rate=PercentageGrowthRate(
                         name="Property Management Growth", value=0.03
@@ -831,7 +831,7 @@ class OfficeAbsorptionPlan(
                     name="Operating Costs",
                     category="Expense",
                     timeline=timeline,
-                    value=8.0,  # $8/SF annually
+                    value=8.0 / 12,  # $8/SF annually = $0.667/SF monthly
                     reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                     growth_rate=PercentageGrowthRate(name="OpEx Growth", value=0.035),
                 ),
@@ -839,7 +839,7 @@ class OfficeAbsorptionPlan(
                     name="Taxes & Insurance",
                     category="Expense",
                     timeline=timeline,
-                    value=2.0,  # $2/SF annually
+                    value=2.0 / 12,  # $2/SF annually = $0.167/SF monthly
                     reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                     growth_rate=PercentageGrowthRate(name="Tax Growth", value=0.025),
                 ),

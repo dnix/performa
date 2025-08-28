@@ -45,7 +45,7 @@ from ..deal import (
     create_simple_partnership,
 )
 from ..debt import FinancingPlan, PermanentFacility
-from ..valuation import ReversionValuation
+from ..valuation import DirectCapValuation
 from .base import PatternBase
 
 
@@ -361,11 +361,12 @@ class StabilizedAcquisitionPattern(PatternBase):
         )
 
         # === Step 5: Create Exit Valuation ===
-        reversion = ReversionValuation(
+        reversion = DirectCapValuation(
             name=f"{self.property_name} Sale",
             cap_rate=self.exit_cap_rate,
             transaction_costs_rate=self.exit_costs_rate,
             hold_period_months=self.hold_period_years * 12,
+            noi_basis_kind="LTM",  # Use trailing 12 months for realistic exit
         )
 
         # === Step 6: Assemble and Return Deal ===

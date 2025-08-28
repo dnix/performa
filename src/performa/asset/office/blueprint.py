@@ -110,14 +110,26 @@ class OfficeDevelopmentBlueprint(DevelopmentBlueprintBase):
                 # Create a new vacant suite for the remaining area
                 remaining_area = suite.area - total_leased_area
                 if remaining_area > 0:
+                    # Adjust subdivision parameters for remaining area
+                    # If remaining area is too small, don't set subdivision parameters
                     remaining_vacant_suite = OfficeVacantSuite(
                         suite=f"{suite.suite}_remaining",
                         floor=suite.floor,
                         area=remaining_area,
                         use_type=suite.use_type,
-                        is_divisible=suite.is_divisible,
-                        subdivision_average_lease_area=suite.subdivision_average_lease_area,
-                        subdivision_minimum_lease_area=suite.subdivision_minimum_lease_area,
+                        is_divisible=suite.is_divisible
+                        if remaining_area >= suite.subdivision_minimum_lease_area
+                        else False,
+                        subdivision_average_lease_area=min(
+                            suite.subdivision_average_lease_area, remaining_area
+                        )
+                        if suite.is_divisible
+                        and remaining_area >= suite.subdivision_minimum_lease_area
+                        else None,
+                        subdivision_minimum_lease_area=suite.subdivision_minimum_lease_area
+                        if suite.is_divisible
+                        and remaining_area >= suite.subdivision_minimum_lease_area
+                        else None,
                     )
                     remaining_vacant_suites.append(remaining_vacant_suite)
 

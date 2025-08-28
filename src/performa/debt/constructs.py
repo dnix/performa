@@ -271,7 +271,7 @@ from typing import Dict, Optional
 
 from .construction import ConstructionFacility
 
-# NOTE: DebtTranche removed in Phase 1 - will be restored in Phase 2
+# DebtTranche is actively used for multi-tranche construction financing
 from .permanent import PermanentFacility
 from .plan import FinancingPlan
 

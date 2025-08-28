@@ -200,11 +200,9 @@ class ConstructionFacility(DebtFacilityBase):
                     else:
                         ltc_threshold = first_tranche.ltc_threshold
 
-                    # For multi-tranche mode, loan_amount will be calculated dynamically
-                    # in compute_cf based on actual project costs and tranche LTC thresholds
-                    values["loan_amount"] = (
-                        1.0  # Placeholder - will be recalculated in compute_cf
-                    )
+                # NOTE: For multi-tranche mode, loan_amount will be calculated dynamically
+                # in compute_cf based on actual project costs and tranche LTC thresholds
+                pass  # loan_amount remains None and will be calculated properly
 
             # Single-facility mode: validate required parameters
             else:
@@ -349,25 +347,44 @@ class ConstructionFacility(DebtFacilityBase):
         ):
             base_costs = context.project_costs
 
-        # Final fallback to self.loan_amount if explicitly set
-        if base_costs == 0 and self.loan_amount:
+        # Final fallback to self.loan_amount ONLY if it's a real value (not None or tiny placeholder)
+        if base_costs == 0 and self.loan_amount and self.loan_amount > 1000:
+            # Only use loan_amount if it's a reasonable value (not a $1 placeholder)
             return self.loan_amount
 
-        # No silent failures! Raise explicit error if we can't determine project costs
-        if base_costs == 0:
+        # Simple mode: if explicit loan_amount provided and no tranches, use it
+        if self.loan_amount and not self.tranches:
+            return self.loan_amount
+
+        # Multi-tranche mode: requires project costs and tranches
+        if not self.tranches:
             raise ValueError(
-                "ConstructionFacility cannot determine project costs for loan sizing. "
-                "Either provide an explicit loan_amount, ensure project costs are in the ledger, "
-                "or pass project_costs in the DealContext. "
-                "Current state: ledger has no capital uses, context.project_costs is not set, "
-                "and no loan_amount was specified."
+                "ConstructionFacility requires either explicit loan_amount or tranches for LTC calculation"
             )
 
+        # Raise explicit error if we can't determine project costs
+        if base_costs == 0:
+            if self.tranches:
+                # Multi-tranche mode REQUIRES project costs
+                raise ValueError(
+                    "ConstructionFacility in multi-tranche mode REQUIRES project costs but found NONE!\n"
+                    "The facility cannot calculate loan amount from LTC without knowing total costs.\n\n"
+                    "Current state:\n"
+                    "  - No capital uses in ledger (construction may not have started)\n"
+                    "  - context.project_costs is not set\n"
+                    "  - No explicit loan_amount provided\n\n"
+                    "Solution: Ensure DealContext.project_costs is set during analysis, or\n"
+                    "use explicit loan_amount instead of tranches for simpler deals."
+                )
+            else:
+                # Single-facility mode should have loan_amount
+                raise ValueError(
+                    "ConstructionFacility cannot determine loan amount!\n"
+                    "Single-facility mode requires explicit loan_amount parameter.\n"
+                    "Multi-tranche mode requires project costs in context or ledger."
+                )
+
         # Get maximum LTC across all tranches (multi-tranche facilities fund up to highest LTC)
-        if not self.tranches or len(self.tranches) == 0:
-            raise ValueError(
-                "ConstructionFacility requires at least one tranche to determine LTC"
-            )
         ltc = max(tranche.ltc_threshold for tranche in self.tranches)
 
         # Calculate loan amount based on interest calculation method
@@ -643,10 +660,21 @@ class ConstructionFacility(DebtFacilityBase):
                     pass
 
         # If no explicit schedule or matching failed, distribute evenly
-        if draws.sum() == 0 and self.loan_amount > 0:
+        loan_amount_for_draws = self._get_effective_loan_amount_for_draws()
+        if draws.sum() == 0 and loan_amount_for_draws and loan_amount_for_draws > 0:
             # Uniform distribution over loan term
             draw_periods = min(len(timeline.period_index), self.loan_term_months)
-            monthly_draw = self.loan_amount / draw_periods
+            monthly_draw = loan_amount_for_draws / draw_periods
             draws.iloc[:draw_periods] = monthly_draw
 
         return draws
+
+    def _get_effective_loan_amount_for_draws(self) -> Optional[float]:
+        """Get effective loan amount for draw scheduling."""
+        if self.loan_amount and self.loan_amount > 1000:  # Has explicit amount
+            return self.loan_amount
+        elif self.tranches:
+            # Calculate from tranches if no explicit amount
+            return None  # Will be calculated by _calculate_loan_commitment
+        else:
+            return None

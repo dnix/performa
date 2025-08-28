@@ -379,20 +379,26 @@ class ValuationEngine:
                 if unlevered_analysis:
                     context.unlevered_analysis = unlevered_analysis
 
-                    # Also populate resolved_lookups for backward compatibility
-                    # This supports legacy valuation models that use string-based lookups
-                    if hasattr(context, "resolved_lookups"):
-                        try:
-                            noi_series = unlevered_analysis.get_series(
-                                UnleveredAggregateLineKey.NET_OPERATING_INCOME,
-                                self.timeline,
-                            )
+                    # CRITICAL: Set NOI series for ReversionValuation
+                    try:
+                        noi_series = unlevered_analysis.get_series(
+                            UnleveredAggregateLineKey.NET_OPERATING_INCOME,
+                            self.timeline,
+                        )
+                        context.noi_series = (
+                            noi_series  # ReversionValuation requires this!
+                        )
+
+                        # Also populate resolved_lookups for backward compatibility
+                        # This supports legacy valuation models that use string-based lookups
+                        if hasattr(context, "resolved_lookups"):
                             context.resolved_lookups[
                                 UnleveredAggregateLineKey.NET_OPERATING_INCOME.value
                             ] = noi_series
-                        except Exception:
-                            # Continue if NOI extraction fails
-                            pass
+                    except Exception as e:
+                        # Log but continue - some valuations may not need NOI
+                        logging.warning(f"Could not extract NOI for valuation: {e}")
+                        pass
 
                 # Step 3: Execute polymorphic dispatch
                 # Call compute_cf based on valuation type - works for any valuation model

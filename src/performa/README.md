@@ -46,7 +46,7 @@ cash_flows = scenario.summary_df
 - **`deal/`** - Deal-level structuring and partnership analysis
 - **`debt/`** - Real estate finance and debt structuring
 - **`development/`** - Development project modeling
-- **`reporting/`** - Industry-standard reporting interface
+- **`reporting/`** - Industry-standard reporting interface and debug utilities  
 - **`valuation/`** - Property valuation methods
 
 For detailed documentation and examples, see the individual module documentation. 

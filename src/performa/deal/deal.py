@@ -57,7 +57,7 @@ class Deal(Model):
             asset=office_property,
             acquisition=AcquisitionTerms(...),
             financing=FinancingPlan([permanent_loan]),
-            exit_valuation=ReversionValuation(...)
+            exit_valuation=DirectCapValuation(...)
         )
 
         # Complex development project

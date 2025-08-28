@@ -9,6 +9,7 @@ a parallel hierarchy for financing instruments that write to the ledger
 without inheriting asset-level concerns from CashFlowModel.
 """
 
+import warnings
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Union
 from uuid import UUID, uuid4
@@ -127,16 +128,42 @@ class DebtFacilityBase(Model):
         Returns:
             pd.Series: Debt service schedule (for compatibility)
         """
+        # Validate context for development deals
+        if hasattr(self, "kind") and self.kind == "permanent":
+            if context.deal and hasattr(context.deal, "is_development_deal"):
+                if context.deal.is_development_deal:
+                    # Check if this facility has refinance timing configured
+                    has_timing = (
+                        hasattr(self, "refinance_timing")
+                        and self.refinance_timing is not None
+                    )
+                    if not has_timing:
+                        warnings.warn(
+                            f"PermanentFacility '{self.name}' used in development deal without "
+                            f"refinance timing. The loan will fund on day 1 instead of after "
+                            f"construction completion, creating INCORRECT leverage ratios.",
+                            UserWarning,
+                            stacklevel=2,
+                        )
+
         timeline = context.timeline
 
         # Generate debt service schedule
         debt_service = self._generate_debt_service(timeline)
 
-        # Write loan proceeds to ledger (month 0 or first period)
-        if self.loan_amount > 0:
-            proceeds_series = pd.Series(
-                [self.loan_amount], index=[timeline.period_index[0]]
+        # Write loan proceeds to ledger
+        # Check if this facility has refinance timing (for permanent loans in development deals)
+        funding_period = timeline.period_index[0]  # Default to first period
+
+        if hasattr(self, "refinance_timing") and self.refinance_timing is not None:
+            # Delay funding until refinance month
+            refinance_idx = min(
+                self.refinance_timing - 1, len(timeline.period_index) - 1
             )
+            funding_period = timeline.period_index[refinance_idx]
+
+        if self.loan_amount > 0:
+            proceeds_series = pd.Series([self.loan_amount], index=[funding_period])
 
             proceeds_metadata = SeriesMetadata(
                 category=CashFlowCategoryEnum.FINANCING,

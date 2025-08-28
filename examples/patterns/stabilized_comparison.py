@@ -23,10 +23,10 @@ This example demonstrates two approaches to modeling the same stabilized multifa
 
 Both approaches model the identical stabilized acquisition:
 - Maple Ridge Apartments: $12M acquisition
-- Multifamily: 120 units, 95% occupied, $1,800/month average rent
+- Multifamily: 120 units, 95% occupied, $1,000/month average rent
 - Permanent financing at 70% LTV
 - GP/LP partnership with pari-passu distribution
-- 5-year hold period with 6.25% exit cap rate
+- 5-year hold period with 6.5% exit cap rate
 
 ## Key Benefits of Pattern Approach
 
@@ -75,7 +75,7 @@ from performa.deal import (
 )
 from performa.debt import FinancingPlan, PermanentFacility
 from performa.patterns import StabilizedAcquisitionPattern
-from performa.valuation import ReversionValuation
+from performa.valuation import DirectCapValuation
 
 
 def create_deal_via_composition():
@@ -106,7 +106,7 @@ def create_deal_via_composition():
 
     # === STEP 2: RESIDENTIAL ROLLOVER PROFILE ===
     # CRITICAL FIX: Match Pattern approach exactly - single profile for $1800 average rent
-    current_avg_rent = 1800.0  # Blended average like Pattern
+    current_avg_rent = 1000.0  # Realistic institutional level for $100K/unit
 
     # Market terms for new leases (match Pattern exactly)
     market_terms = ResidentialRolloverLeaseTerms(
@@ -307,11 +307,12 @@ def create_deal_via_composition():
     )
 
     # === STEP 10: EXIT STRATEGY ===
-    exit_valuation = ReversionValuation(
+    exit_valuation = DirectCapValuation(
         name="Stabilized Disposition",
-        cap_rate=0.0625,  # 6.25% exit cap rate
+        cap_rate=0.065,  # 6.5% exit cap (realistic institutional)
         transaction_costs_rate=0.025,  # 2.5% transaction costs
         hold_period_months=60,  # 5 years
+        noi_basis_kind="LTM",  # Use trailing 12 months (realistic)
     )
 
     # === STEP 11: ASSEMBLE COMPLETE DEAL ===
@@ -369,7 +370,7 @@ def demonstrate_pattern_interface():
             closing_costs_rate=0.025,
             # Property specifications
             total_units=120,
-            current_avg_rent=1800.0,  # Blended average rent
+            current_avg_rent=1000.0,  # Realistic institutional level for $100K/unit
             avg_unit_sf=950,  # Average unit size
             occupancy_rate=0.95,  # 95% occupied
             # Market assumptions
@@ -386,7 +387,7 @@ def demonstrate_pattern_interface():
             lp_share=0.90,
             # Exit strategy
             hold_period_years=5,
-            exit_cap_rate=0.0625,
+            exit_cap_rate=0.065,  # 6.5% exit cap (realistic institutional)
             exit_costs_rate=0.025,
         )
 

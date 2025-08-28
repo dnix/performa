@@ -102,7 +102,6 @@ from performa.core.primitives import (
     GlobalSettings,
     PropertyAttributeKey,
     Timeline,
-    UnleveredAggregateLineKey,
 )
 from performa.deal import (
     PartnershipStructure,
@@ -126,13 +125,13 @@ def create_sample_multifamily_property() -> ResidentialProperty:
     """
     # Create rollover assumptions for lease renewals and market-rate adjustments
     rollover_terms_1br = ResidentialRolloverLeaseTerms(
-        market_rent=1650.0,  # Market rent for 1BR units
+        market_rent=1020.0,  # Market rent for 1BR units (8%+ IRR target)
         renewal_rent_increase_percent=0.04,  # 4% renewal increase
         concessions_months=0,  # No concessions for stabilized property
     )
 
     rollover_terms_2br = ResidentialRolloverLeaseTerms(
-        market_rent=1950.0,  # Market rent for 2BR units
+        market_rent=1280.0,  # Market rent for 2BR units (8%+ IRR target)
         renewal_rent_increase_percent=0.04,  # 4% renewal increase
         concessions_months=0,  # No concessions for stabilized property
     )
@@ -161,14 +160,14 @@ def create_sample_multifamily_property() -> ResidentialProperty:
             unit_type_name="1BR/1BA",
             unit_count=60,
             avg_area_sf=650,  # 650 SF per 1BR unit
-            current_avg_monthly_rent=1650.0,  # $1,650/month for 1BR
+            current_avg_monthly_rent=1020.0,  # $1,020/month for 1BR (8%+ IRR target)
             rollover_profile=rollover_profile_1br,
         ),
         ResidentialUnitSpec(
             unit_type_name="2BR/2BA",
             unit_count=54,  # 54 occupied 2BR units
             avg_area_sf=950,  # 950 SF per 2BR unit
-            current_avg_monthly_rent=1950.0,  # $1,950/month for 2BR
+            current_avg_monthly_rent=1280.0,  # $1,280/month for 2BR (8%+ IRR target)
             rollover_profile=rollover_profile_2br,
         ),
     ]
@@ -179,7 +178,7 @@ def create_sample_multifamily_property() -> ResidentialProperty:
             unit_type_name="2BR/2BA Vacant",
             unit_count=6,
             avg_area_sf=950,
-            market_rent=1950.0,  # Same as occupied units (stabilized property)
+            market_rent=1280.0,  # Same as occupied units (8%+ IRR target)
             rollover_profile=rollover_profile_2br,  # Use same profile as occupied 2BR units
         ),
     ]
@@ -197,59 +196,92 @@ def create_sample_multifamily_property() -> ResidentialProperty:
     )
 
     # Create property expenses
-    # Property management: 4% of effective gross income
+    # Property management: ~$600 per unit annually (equivalent to ~4% of EGI)
     property_management = ResidentialOpExItem(
         name="Property Management",
         category="Expense",
         subcategory=ExpenseSubcategoryEnum.OPEX,
         timeline=timeline,
-        value=0.04,  # 4% of effective gross income
-        frequency=FrequencyEnum.MONTHLY,
-        reference=UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME,  # Reference EGI
+        value=600.0,  # $600 per unit annually (realistic for institutional property)
+        frequency=FrequencyEnum.ANNUAL,
+        reference=PropertyAttributeKey.UNIT_COUNT,  # Per unit basis
     )
 
-    # Insurance: $2.50 per square foot annually
+    # Insurance: $3.50 per square foot annually (increased from $2.50 for realism)
     insurance = ResidentialOpExItem(
         name="Property Insurance",
         category="Expense",
         subcategory=ExpenseSubcategoryEnum.OPEX,
         timeline=timeline,
-        value=2.50,  # $2.50 per SF
+        value=3.50,  # $3.50 per SF (more realistic)
         frequency=FrequencyEnum.ANNUAL,
         reference=PropertyAttributeKey.NET_RENTABLE_AREA,  # Per square foot
     )
 
-    # Property taxes: 1.8% of value (typical for many markets)
+    # Property taxes: 1.2% of value (more typical rate, reduced from 1.8%)
     property_taxes = ResidentialOpExItem(
         name="Property Taxes",
         category="Expense",
         subcategory=ExpenseSubcategoryEnum.OPEX,
         timeline=timeline,
-        value=216000.0,  # $216K annually ($12M * 1.8%)
+        value=144000.0,  # $144K annually ($12M * 1.2% - more realistic)
         frequency=FrequencyEnum.ANNUAL,
         # reference=None (direct currency amount)
     )
 
-    # Utilities (common areas): $200 per unit annually
+    # Utilities (common areas): $350 per unit annually (increased from $200)
     utilities = ResidentialOpExItem(
         name="Utilities - Common Areas",
         category="Expense",
         subcategory=ExpenseSubcategoryEnum.OPEX,
         timeline=timeline,
-        value=200.0,  # $200 per unit
+        value=350.0,  # $350 per unit (more realistic)
         frequency=FrequencyEnum.ANNUAL,
         reference=PropertyAttributeKey.UNIT_COUNT,  # Per dwelling unit
     )
 
-    # Maintenance and repairs: $400 per unit annually
+    # Maintenance and repairs: $1,000 per unit annually (increased from $400)
     maintenance = ResidentialOpExItem(
         name="Maintenance & Repairs",
         category="Expense",
         subcategory=ExpenseSubcategoryEnum.OPEX,
         timeline=timeline,
-        value=400.0,  # $400 per unit
+        value=1000.0,  # $1,000 per unit (more realistic)
         frequency=FrequencyEnum.ANNUAL,
         reference=PropertyAttributeKey.UNIT_COUNT,  # Per dwelling unit
+    )
+
+    # Marketing and leasing: $200 per unit annually
+    marketing = ResidentialOpExItem(
+        name="Marketing & Leasing",
+        category="Expense",
+        subcategory=ExpenseSubcategoryEnum.OPEX,
+        timeline=timeline,
+        value=200.0,  # $200 per unit
+        frequency=FrequencyEnum.ANNUAL,
+        reference=PropertyAttributeKey.UNIT_COUNT,
+    )
+
+    # Administrative expenses: $150 per unit annually
+    administrative = ResidentialOpExItem(
+        name="Administrative",
+        category="Expense",
+        subcategory=ExpenseSubcategoryEnum.OPEX,
+        timeline=timeline,
+        value=150.0,  # $150 per unit
+        frequency=FrequencyEnum.ANNUAL,
+        reference=PropertyAttributeKey.UNIT_COUNT,
+    )
+
+    # Reserves for replacements: $300 per unit annually
+    reserves = ResidentialOpExItem(
+        name="Reserves for Replacements",
+        category="Expense",
+        subcategory=ExpenseSubcategoryEnum.OPEX,
+        timeline=timeline,
+        value=300.0,  # $300 per unit
+        frequency=FrequencyEnum.ANNUAL,
+        reference=PropertyAttributeKey.UNIT_COUNT,
     )
 
     expenses = ResidentialExpenses(
@@ -259,6 +291,9 @@ def create_sample_multifamily_property() -> ResidentialProperty:
             property_taxes,
             utilities,
             maintenance,
+            marketing,
+            administrative,
+            reserves,
         ]
     )
 
