@@ -9,9 +9,6 @@
     <img src="docs/wordmark.svg" alt="Performa" width="275">
   </picture>
 </p>
-
-<br>
-
 <p align="center">
   <em>An open standard for real estate financial modeling — transparent, composable, and AI-ready</em>
 </p>
