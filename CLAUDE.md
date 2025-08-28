@@ -79,6 +79,46 @@ egi = ledger_queries.egi()  # Single source of truth
 ledger_df = results.get_ledger_df  # Full transaction history dataframe
 ```
 
+### Critical Debugging & Model Validation Framework
+
+**FUNDAMENTAL FOR LLM DEVELOPMENT**: Always use debug utilities for model iteration:
+
+```python
+from performa.reporting import (
+    generate_assumptions_report,
+    dump_performa_object, 
+    analyze_ledger_semantically
+)
+
+# 1. ASSUMPTIONS DOCUMENTATION - Essential for model validation
+assumptions_doc = generate_assumptions_report(
+    deal_or_pattern,
+    include_risk_assessment=True,  # Flag dangerous defaults
+    include_defaults_detail=True   # Full parameter visibility
+)
+print(assumptions_doc)  # Suitable for due diligence
+
+# 2. CONFIGURATION INTROSPECTION - Essential for debugging
+config = dump_performa_object(deal, exclude_defaults=True)
+print(f"Class: {config['_object_info']['class_name']}")
+print(f"User-specified params: {len(config['config'])}")
+
+# 3. LEDGER VALIDATION - Single source of truth for all cash flows
+ledger_analysis = analyze_ledger_semantically(results.ledger)
+print(f"Total records: {ledger_analysis['record_count']}")
+print(f"Net flow: ${ledger_analysis['balance_checks']['total_net_flow']:,.0f}")
+
+# 4. FLUENT REPORTING - Report generation
+assumptions_summary = results.reporting.assumptions_summary()
+pro_forma = results.reporting.pro_forma_summary(frequency='A')
+```
+
+**LLM Development Workflow**:
+1. **Create model** → Always validate with `generate_assumptions_report()`
+2. **Check parameters** → Use `dump_performa_object()` for configuration visibility  
+3. **Validate math** → Use `analyze_ledger_semantically()` for cash flow sanity checks
+4. **Generate reports** → Use `results.reporting.*` for documentation
+
 ### Debt Facility Integration
 
 Process debt facilities through their `compute_cf` method like other CashFlowModels:
@@ -129,6 +169,7 @@ def __(slider, mo):
 - **Explicit Values**: Derive parameters from objects, avoid magic numbers
 - **Import Organization**: Standard library → third-party → performa imports
 - **Type Safety**: Comprehensive type hints for all public APIs
+- **Model Validation**: Always use debug utilities for analysis and validation
 
 ### Technical Preferences
 
@@ -148,5 +189,30 @@ def __(slider, mo):
 1. **Plan with todos**: Track complex multi-step tasks
 2. **Ask permission**: Share thought process before making changes  
 3. **Fix incrementally**: One issue at a time, not batch fixes
-4. **Test thoroughly**: Comprehensive coverage required
-5. **Clean up**: Remove any temporary files created during development
+4. **Validate with debug utilities**: Use assumptions reports and ledger analysis
+5. **Test thoroughly**: Comprehensive coverage required
+6. **Clean up**: Remove any temporary files created during development
+
+### Essential Model Validation Pattern
+
+**CRITICAL**: Always validate model assumptions and ledger math when developing:
+
+```python
+# Step 1: Document assumptions for analysis  
+from performa.reporting import generate_assumptions_report
+assumptions_doc = generate_assumptions_report(deal, include_risk_assessment=True)
+
+# Step 2: Validate configuration quality
+from performa.reporting import analyze_configuration_intentionality  
+analysis = analyze_configuration_intentionality(deal)
+quality_score = analysis['intentionality_metrics']['completeness_score']
+
+# Step 3: Validate ledger math (single source of truth)
+from performa.reporting import analyze_ledger_semantically
+ledger_analysis = analyze_ledger_semantically(results.ledger) 
+net_flow = ledger_analysis['balance_checks']['total_net_flow']
+
+# Step 4: Generate analysis reports
+pro_forma = results.reporting.pro_forma_summary()
+assumptions_summary = results.reporting.assumptions_summary()
+```
