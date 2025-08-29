@@ -6,11 +6,11 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/wordmark-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="docs/wordmark-light.svg">
-    <img src="docs/wordmark.svg" alt="Performa" width="275">
+    <img src="docs/wordmark.svg" alt="Performa" width="225">
   </picture>
 </p>
 <p align="center">
-  <em>An open standard for real estate financial modeling — transparent, composable, and AI-ready</em>
+  <em>An open standard for real estate financial analysis — transparent, composable, and AI-ready</em>
 </p>
 
   <p align="center">
@@ -25,7 +25,7 @@
 
 <!-- # Performa -->
 
-**Performa** is an open-source Python library providing composable building blocks and standardized conventions for real estate financial modeling. It is designed to be a common protocol for analysts, sponsors, investors, financiers, as well as AI assistants and agentic systems.
+**Performa** is an open-source software library providing composable building blocks and standardized conventions for real estate financial modeling. It is designed to be a common protocol for analysts, sponsors, investors, financiers, as well as AI assistants and agentic systems.
 
 For decades, real estate finance has been powered by spreadsheets and proprietary "black box" software. But today, the industry stands at an inflection point. The dawn of the AI era demands models that are not just human-readable, but also machine-executable — a "glass box" approach that is transparent, auditable, and extensible.
 
@@ -54,7 +54,7 @@ Highlights:
 
 <br>
 
-## 💥 Why Performa? An Industry at an Inflection Point
+## 💥 Why Performa?
 
 For decades, real estate finance has been powered by two remarkable tools: the infinite flexibility of the [spreadsheet](https://www.hyperindexed.com/blog/2018/7/31/visicalcs-enduring-vision) and the institutional acceptance of proprietary "black box" software. These tools built the modern real estate world. But today, our industry stands at an inflection point, much like the derivatives market did before the [ISDA Common Domain Model (CDM)](https://github.com/finos/common-domain-model) created a universal language for complex trades.
 
@@ -64,9 +64,9 @@ Every transaction involves the same frustrating dance: sponsor, lender, and inve
 
 This comes at a pivotal moment: the _dawn of the AI era_ and the _maturation of data science tooling_. We can speak plain language to create complex models with rules, and with `performa` we get guardrails and reproducibility - not ad hoc AI slop or hallucinations. And now, with breakthrough work in [Pyodide](https://pyodide.org/) and [WASM](https://webassembly.org/), we can run Python - the stalwart language of data science - trivially, in a web browser.
 
-<br/>
+<br>
 
-## 🧱 What is Performa
+## 🧱 What is Performa?
 
 `performa` provides "Lego brick" components where each piece — a lease, expense, loan — is a validated Pydantic data model that connects seamlessly with others. Every input is validated and every calculation is explicit Python code you can audit and trust.
 
@@ -90,7 +90,7 @@ graph LR
     style PR fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
 ```
 
-<br/>
+<br>
 
 ### What does this mean for you?
 
@@ -102,7 +102,7 @@ graph LR
 
 **For the AI-Powered Future:** Stop trying to teach your AI assistant how to decipher a spreadsheet; stop trying to ask your AI assistant to build one-off calculations from scratch again and again with mixed results – on more reinventing the wheel! Instead, give your AI the building blocks it understands natively, _in code_. Performa is the "math co-processor" for real estate AI, helping turn natural language requests into institutional-grade, auditable financial models with deterministic results. 🤖
 
-<br/>
+<br>
 
 ## 🏎️ Installation & Usage
 
@@ -111,7 +111,7 @@ See detailed installation instructions in the [Development & Usage Guide](DEVELO
 > [!CAUTION]
 > **Pre-Alpha Status:** This project is under active development. Breaking changes are expected; APIs and data structures may change significantly. Validation testing is in progress. Comments, feedback, and contributions are most welcome! 🚧
 
-<br/>
+<br>
 
 ## 🙏 Contributing & Call for Feedback
 
@@ -119,7 +119,10 @@ This project is in active development. Feedback from real estate professionals, 
 
 [Development Guide](DEVELOPMENT.md) • [Contributing](CONTRIBUTING.md) • [License](LICENSE)
 
-## Inspiration ✨
+
+<br>
+
+## ✨ Inspiration
 
 Performa is a **reinvention** of the real estate financial model as a reproducible, interactive, auditable, shareable application instead of an error-prone spreadsheet. It is a protocol designed to be the common language for the next generation of analysts, developers, investors, and AI assistants.
 
@@ -129,13 +132,13 @@ Our inspiration comes from countless sources, but especially [Pydantic](https://
 
 <br>
 
----
-
 ## 📝 Note from the Author
 
-My name is [Dave](https://github.com/dnix) 👋. I like building useful tech for real estate and energy. My goal with [Performa](https://github.com/dnix/performa) is to nudge the real estate industry beyond brittle spreadsheets and black-box software -- toward a standard protocol.
+My name is [Dave](https://github.com/dnix) 👋. I am an entrepreneur and technologist; I like building fun, useful tech for real estate 🏢 and energy ⚡️ spaces.
 
-There is a better way. Let's build it together! 🚀
+I am building [Performa](https://github.com/dnix/performa) to nudge the real estate industry beyond brittle spreadsheets, closed-system software, and the coming scourge of generative AI slop -- toward better tooling and a standard protocol for all stakeholders.
+
+There is a better way. Let's build it! 🚀
 
 <br>
 
