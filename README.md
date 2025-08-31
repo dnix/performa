@@ -98,7 +98,7 @@ graph LR
 
 **For Institutions & Stakeholders:** Drastically reduce transaction friction. When the sponsor, the underwriter, the broker, the lender, and the investor all speak the same language, diligence becomes faster, risk is minimized, and capital can move more freely and efficiently. 💰
 
-**For Students & Educators:** Learn financial modeling and real estate concepts in a structured way, with a common language and a common set of tools. No more passing around a stranger's spreadsheet with mysterious logic. And no more paying for educational materials, tutorials, or software trial periods! 🤬
+**For Students & Educators:** Learn financial modeling and real estate concepts in a structured way, with a common language and a common set of tools. No more passing around a stranger's spreadsheet with mysterious logic. No more paying for educational materials, tutorials, or software trial periods. 🤬
 
 **For the AI-Powered Future:** Stop trying to teach your AI assistant how to decipher a spreadsheet; stop trying to ask your AI assistant to build one-off calculations from scratch again and again with mixed results – on more reinventing the wheel! Instead, give your AI the building blocks it understands natively, _in code_. Performa is the "math co-processor" for real estate AI, helping turn natural language requests into institutional-grade, auditable financial models with deterministic results. 🤖
 
