@@ -389,7 +389,6 @@ class ValuationEngine:
                             noi_series  # ReversionValuation requires this!
                         )
 
-            
                         # This supports valuation models that use string-based lookups
                         if hasattr(context, "resolved_lookups"):
                             context.resolved_lookups[

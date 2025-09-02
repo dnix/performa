@@ -857,7 +857,6 @@ class CashFlowOrchestrator:
             }
             self.summary_df = pd.DataFrame(summary_data, index=analysis_periods)
 
-
             return
 
         # Use elegant LedgerQueries for all aggregation (single query instance)
@@ -933,8 +932,6 @@ class CashFlowOrchestrator:
         zero_series = pd.Series(0.0, index=analysis_periods)
         self.context.resolved_lookups[AggKeys.DOWNTIME_VACANCY_LOSS.value] = zero_series
         self.context.resolved_lookups[AggKeys.ROLLOVER_VACANCY_LOSS.value] = zero_series
-
-
 
         logger.info(
             f"Finalized aggregation: {len(self.summary_df.columns)} metrics, {len(self.context.resolved_lookups)} aggregates"

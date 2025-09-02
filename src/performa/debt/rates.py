@@ -23,7 +23,6 @@ class RateIndexEnum(str, Enum):
     PRIME = "Prime Rate"
 
 
-
 class FixedRate(Model):
     """
     A simple fixed interest rate for debt facilities.
@@ -251,6 +250,3 @@ class InterestRate(Model):
                 else ""
             )
             return f"{self.details.rate_index} + {self.details.spread:.3%}{cap_str}{floor_str}"
-
-
-
