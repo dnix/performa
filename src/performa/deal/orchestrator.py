@@ -319,15 +319,6 @@ class DealCalculator:
                     ledger=ledger,
                 )
 
-            # Continue with same ledger used by asset analysis
-
-            # Create unlevered analysis result from ledger data
-            self.unlevered_analysis = UnleveredAnalysisResult(
-                scenario=asset_result.scenario,
-                cash_flows=asset_result.summary_df,  # Use actual cash flow summary
-                models=asset_result.models if hasattr(asset_result, "models") else [],
-            )
-
             # === ORCHESTRATION STATE PATTERN ===
             # Calculate initial project costs from deal structure for financing sizing
             initial_project_costs = 0.0
@@ -439,15 +430,15 @@ class DealCalculator:
                 deal_context=deal_context,  # Pass DealContext for proper debt facility processing
             )
 
-            # === PASS 4 (continued): Add Remaining Deal Transactions to Ledger ===
+            # === PASS 5: Add Remaining Deal Transactions to Ledger ===
             # NOTE: Financing records are handled by DebtAnalyzer._process_facilities()
             self._add_partnership_records(ledger)
 
-            # === PASS 5: Create Funding Cascade Summary ===
+            # === PASS 6: Create Funding Cascade Summary ===
             # Create funding cascade details functionally (no mutation)
             funding_cascade_details = self._create_funding_cascade_summary(ledger)
 
-            # === PASS 6: Cash Flow Analysis ===
+            # === PASS 7: Cash Flow Analysis ===
             # CashFlowEngine handles the actual funding cascade mechanics (period-by-period funding)
             cash_flow_engine = CashFlowEngine(
                 deal=self.deal, timeline=self.timeline, settings=self.settings
@@ -460,7 +451,7 @@ class DealCalculator:
                 funding_cascade_details=funding_cascade_details,  # Pass details to engine
             )
 
-            # === PASS 5: Partnership Analysis ===
+            # === PASS 8: Partnership Analysis ===
             partnership_analyzer = PartnershipAnalyzer(
                 deal=self.deal, timeline=self.timeline, settings=self.settings
             )
@@ -471,14 +462,13 @@ class DealCalculator:
                 )
             )
 
-            # === PASS 6: Deal Metrics ===
+            # === PASS 9: Deal Metrics ===
             self._calculate_deal_metrics()
 
             # Return the final typed result with ledger-based asset analysis
             return DealAnalysisResult(
                 deal_summary=self.deal_summary,
-                asset_analysis=asset_result,  # NEW: Ledger-based result
-                unlevered_analysis=self.unlevered_analysis,
+                asset_analysis=asset_result,
                 financing_analysis=self.financing_analysis
                 if self.financing_analysis.has_financing
                 else None,
