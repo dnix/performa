@@ -46,7 +46,7 @@ TESTED SCENARIOS:
 - Single tenant buildings through multi-tenant complexes
 - Multiple recovery method types and rollover profiles
 - Properties with 40+ tenants and complex lease structures
-- Maintains backward compatibility with existing models
+
 
 Implementation examples:
 - ResidentialAnalysisScenario: Basic assembler pattern

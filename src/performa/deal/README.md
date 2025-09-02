@@ -233,12 +233,7 @@ def analyze(
     """Analyze a complete real estate deal with strongly-typed results."""
 ```
 
-### Legacy Import (Still Available)
-```python
-# Both import paths work for backward compatibility
-from performa.deal import analyze           # Legacy path
-from performa.deal.api import analyze      # Recommended path
-```
+
 
 ## Example Usage
 

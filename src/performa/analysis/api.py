@@ -33,7 +33,7 @@ def run(
     1. Selects the appropriate scenario based on property type
     2. Runs the scenario (prepare_models, orchestration, etc.)
     3. Generates the transactional ledger
-    4. Returns comprehensive results including both legacy and ledger data
+    4. Returns comprehensive results with ledger-based data
 
     Args:
         model: Property model to analyze
@@ -45,8 +45,8 @@ def run(
         AssetAnalysisResult containing scenario, ledger, cash flows, and key metrics
 
     Note:
-        This replaces the legacy run() function while adding ledger support.
-        The result includes the full scenario for backward compatibility.
+        This function provides comprehensive analysis results with full ledger support.
+        The result includes the full scenario for detailed model introspection.
     """
     # Step 1: Create or use existing Ledger
     if ledger is not None:

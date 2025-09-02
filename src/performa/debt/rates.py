@@ -21,9 +21,7 @@ class RateIndexEnum(str, Enum):
     SOFR_30_DAY_AVG = "SOFR 30-Day Average"
     SOFR_90_DAY_AVG = "SOFR 90-Day Average"
     PRIME = "Prime Rate"
-    # Legacy indices (rarely used in new deals but may exist in older loans)
-    LIBOR_1M = "1-Month LIBOR"
-    LIBOR_3M = "3-Month LIBOR"
+
 
 
 class FixedRate(Model):

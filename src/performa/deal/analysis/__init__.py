@@ -47,7 +47,7 @@ Design Principles:
     - **Institutional Grade**: Implements real-world financial modeling standards
 """
 
-# Legacy AssetAnalyzer removed - use performa.analysis.run() instead
+
 from .cash_flow import CashFlowEngine
 from .debt import DebtAnalyzer
 from .partnership import PartnershipAnalyzer
