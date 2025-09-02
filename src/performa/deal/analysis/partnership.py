@@ -1044,7 +1044,7 @@ class PartnershipAnalyzer:
                         partner_fees_by_partner[payee_name] += fee_amount
                         total_partner_fees += fee_amount
 
-                        # Populate dictionary format (for backward compatibility)
+                        # Populate dictionary format for fee tracking
                         fee_details_by_partner[payee_name][fee_name] = float(fee_amount)
 
                         # Create fee detail dictionary for detailed audit trail
@@ -1096,7 +1096,7 @@ class PartnershipAnalyzer:
             "third_party_fee_cash_flows": third_party_fee_cash_flows,
             "total_fees_by_type": total_fees_by_type,
             "fee_timing_summary": fee_timing_summary,
-            # Keep backward compatibility
+    
             "total_developer_fee": total_partner_fees,
             "developer_fee_by_partner": {
                 payee: amount for payee, amount in partner_fees_by_partner.items()

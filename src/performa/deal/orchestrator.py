@@ -23,7 +23,6 @@ Key capabilities:
 - **Multi-Pass Analysis**: Systematic execution of analysis services in proper sequence
 - **Typed State Management**: Maintains strongly-typed intermediate results during analysis
 - **Comprehensive Results**: Returns complete DealAnalysisResult with all analysis components
-- **Backward Compatibility**: Maintains legacy API support for existing tests and integrations
 - **Error Handling**: Robust error handling with graceful degradation and detailed error reporting
 
 The orchestrator implements the "orchestration pattern" where it coordinates specialist services
@@ -50,13 +49,10 @@ Architecture:
     - Maintains typed state during multi-pass analysis execution
     - Delegates to specialist services for domain-specific logic
     - Returns strongly-typed results with comprehensive component access
-    - Provides backward compatibility for existing integrations
 
 Integration:
     - Integrates with all specialist services in the analysis module
-    - Maintains compatibility with existing test suites and integrations
     - Provides comprehensive error handling and logging
-    - Supports both new typed API and legacy compatibility methods
 """
 
 from __future__ import annotations
@@ -325,7 +321,7 @@ class DealCalculator:
 
             # Continue with same ledger used by asset analysis
 
-            # Create backward compatibility wrapper using ledger data
+            # Create unlevered analysis result from ledger data
             self.unlevered_analysis = UnleveredAnalysisResult(
                 scenario=asset_result.scenario,
                 cash_flows=asset_result.summary_df,  # Use actual cash flow summary
@@ -482,7 +478,7 @@ class DealCalculator:
             return DealAnalysisResult(
                 deal_summary=self.deal_summary,
                 asset_analysis=asset_result,  # NEW: Ledger-based result
-                unlevered_analysis=self.unlevered_analysis,  # DEPRECATED: Backward compatibility
+                unlevered_analysis=self.unlevered_analysis,
                 financing_analysis=self.financing_analysis
                 if self.financing_analysis.has_financing
                 else None,

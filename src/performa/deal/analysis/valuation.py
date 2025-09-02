@@ -389,8 +389,8 @@ class ValuationEngine:
                             noi_series  # ReversionValuation requires this!
                         )
 
-                        # Also populate resolved_lookups for backward compatibility
-                        # This supports legacy valuation models that use string-based lookups
+            
+                        # This supports valuation models that use string-based lookups
                         if hasattr(context, "resolved_lookups"):
                             context.resolved_lookups[
                                 UnleveredAggregateLineKey.NET_OPERATING_INCOME.value

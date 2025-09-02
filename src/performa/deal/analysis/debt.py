@@ -210,8 +210,8 @@ class DebtAnalyzer:
         Process each facility through their compute_cf method for ledger integration.
 
         This method processes both construction and permanent facilities using the new
-        compute_cf approach that writes all transactions to the ledger while maintaining
-        backward compatibility by populating the FinancingAnalysisResult.
+        compute_cf approach that writes all transactions to the ledger and populates
+        the FinancingAnalysisResult.
 
         Args:
             ledger: Ledger instance for facility processing
@@ -237,7 +237,7 @@ class DebtAnalyzer:
                 try:
                     # Call facility's compute_cf method - this writes all transactions to ledger
                     debt_service = facility.compute_cf(context)
-                    # Store for backward compatibility
+                    # Store facility cash flows for analysis results
                     self.financing_analysis.debt_service[facility_name] = debt_service
 
                     # Extract loan proceeds from ledger after compute_cf execution
