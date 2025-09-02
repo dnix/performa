@@ -857,45 +857,7 @@ class CashFlowOrchestrator:
             }
             self.summary_df = pd.DataFrame(summary_data, index=analysis_periods)
 
-            # Create agg_flows dict for empty case too
-            self.agg_flows = {
-                UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE: summary_data[
-                    "Potential Gross Revenue"
-                ],
-                UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS: summary_data[
-                    "Vacancy Loss"
-                ],
-                UnleveredAggregateLineKey.MISCELLANEOUS_INCOME: summary_data[
-                    "Miscellaneous Income"
-                ],
-                UnleveredAggregateLineKey.RENTAL_ABATEMENT: summary_data[
-                    "Rental Abatement"
-                ],
-                UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS: summary_data[
-                    "Expense Reimbursements"
-                ],
-                UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME: summary_data[
-                    "Effective Gross Income"
-                ],
-                UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES: summary_data[
-                    "Operating Expenses"
-                ],
-                UnleveredAggregateLineKey.NET_OPERATING_INCOME: summary_data[
-                    "Net Operating Income"
-                ],
-                UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES: summary_data[
-                    "Capital Expenditures"
-                ],
-                UnleveredAggregateLineKey.TOTAL_TENANT_IMPROVEMENTS: summary_data[
-                    "Tenant Improvements"
-                ],
-                UnleveredAggregateLineKey.TOTAL_LEASING_COMMISSIONS: summary_data[
-                    "Leasing Commissions"
-                ],
-                UnleveredAggregateLineKey.UNLEVERED_CASH_FLOW: summary_data[
-                    "Unlevered Cash Flow"
-                ],
-            }
+
             return
 
         # Use elegant LedgerQueries for all aggregation (single query instance)
@@ -972,22 +934,7 @@ class CashFlowOrchestrator:
         self.context.resolved_lookups[AggKeys.DOWNTIME_VACANCY_LOSS.value] = zero_series
         self.context.resolved_lookups[AggKeys.ROLLOVER_VACANCY_LOSS.value] = zero_series
 
-        # Create agg_flows dict for backward compatibility (if still needed)
-        self.agg_flows = {
-            UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE: pgr_series,
-            UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS: vacancy_series,
-            UnleveredAggregateLineKey.MISCELLANEOUS_INCOME: misc_income_series,
-            UnleveredAggregateLineKey.RENTAL_ABATEMENT: abatement_series,
-            UnleveredAggregateLineKey.CREDIT_LOSS: credit_loss_series,
-            UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS: reimbursements_series,
-            UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME: egi_series,
-            UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES: opex_series,
-            UnleveredAggregateLineKey.NET_OPERATING_INCOME: noi_series,
-            UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES: capex_series,
-            UnleveredAggregateLineKey.TOTAL_TENANT_IMPROVEMENTS: ti_series,
-            UnleveredAggregateLineKey.TOTAL_LEASING_COMMISSIONS: lc_series,
-            UnleveredAggregateLineKey.UNLEVERED_CASH_FLOW: ucf_series,
-        }
+
 
         logger.info(
             f"Finalized aggregation: {len(self.summary_df.columns)} metrics, {len(self.context.resolved_lookups)} aggregates"
