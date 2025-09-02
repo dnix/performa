@@ -525,11 +525,6 @@ class PartnerMetrics(ResultModel):
         0.0, description="Distributions from deal fees"
     )
 
-    # Backward compatibility (deprecated - use distributions_from_fees)
-    developer_fee: float = Field(
-        0.0, description="Developer fee received by partner (deprecated)"
-    )
-
     # Detailed fee breakdown for this partner
     fee_details: Dict[str, float] = Field(
         default_factory=dict, description="Detailed fee breakdown: {fee_name: amount}"

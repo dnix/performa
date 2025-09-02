@@ -233,8 +233,7 @@ class PropertyAttributeKey(str, Enum):
     Property attributes that can be used as calculation bases.
 
     This enum provides explicit references to property characteristics
-    that cash flow models can multiply against, replacing the ambiguous
-    UnitOfMeasureEnum.PER_UNIT system.
+    that cash flow models can multiply against for precise calculations.
 
     Industry Standard Measurements:
     - UNIT_COUNT: Dwelling units (residential), office suites, retail spaces
@@ -396,48 +395,6 @@ class CapExCategoryEnum(str, Enum):
     MAJOR_REPAIRS = "major_repairs"
     SYSTEM_UPGRADES = "system_upgrades"
     LEASING_COSTS = "leasing_costs"
-
-
-class UnitOfMeasureEnum(str, Enum):
-    """
-    FIXME: remove this now-deprecated enum
-    DEPRECATED: Unit of measure enumeration for cash flow models.
-
-    This enum is being phased out in favor of the new PropertyAttributeKey and
-    ReferenceKey system which provides more explicit and type-safe references.
-
-    Migration Guide:
-    - UnitOfMeasureEnum.CURRENCY -> reference=None
-    - UnitOfMeasureEnum.PER_UNIT -> reference=PropertyAttributeKey.UNIT_COUNT (residential)
-                                    or PropertyAttributeKey.NET_RENTABLE_AREA (office)
-    - UnitOfMeasureEnum.BY_PERCENT -> reference=UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME
-    - UnitOfMeasureEnum.BY_FACTOR -> reference=UnleveredAggregateLineKey.* (specific aggregate)
-
-    Do not use in new code. Use CashFlowModel.reference field instead.
-
-    IMPORTANT: PER_UNIT behavior changed in Phase 1 bug fix (Dec 2024).
-    See: validation_results/2-1-1_per_unit_calculation_fix_plan.md
-
-    Options:
-        CURRENCY: Absolute currency amount (e.g., total dollars)
-        PER_UNIT: Smart property-type detection for unitized calculations:
-            - Residential properties: per dwelling unit (unit_count)
-            - Office properties: per square foot (net_rentable_area)
-        BY_FACTOR: Factor relative to a reference amount (e.g., 1.1x)
-        BY_PERCENT: Percentage relative to a reference amount (e.g., 5% of EGI)
-
-    Migration Plan:
-        Phase 1 (CURRENT): Smart defaults fix critical calculation bug
-        Phase 2 (FUTURE): Full migration to PropertyAttributeKey reference system
-    """
-
-    # amount (direct amt, as in $/yr or $/mo)
-    CURRENCY = "currency"  # Formerly AMOUNT / $
-    # Smart defaults: per dwelling unit for residential, per SF for office
-    PER_UNIT = "per_unit"  # TODO: Replace with PropertyAttributeKey system (Phase 2)
-    # by factor (compared to a reference) or percentage
-    BY_FACTOR = "factor"
-    BY_PERCENT = "percent"
 
 
 class LeaseStatusEnum(str, Enum):

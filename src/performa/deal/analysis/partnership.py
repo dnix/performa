@@ -1172,7 +1172,6 @@ class PartnershipAnalyzer:
                     "distributions_from_waterfall": partner_metrics.get(
                         "total_distributions", 0.0
                     ),  # Add waterfall-specific field
-                    "developer_fee": 0.0,
                     "fee_details": {},  # Empty dictionary by default
                     "fee_cash_flows": pd.Series(
                         0.0, index=self.timeline.period_index
@@ -1189,7 +1188,6 @@ class PartnershipAnalyzer:
                         partner_results[payee_name]["distributions_from_fees"] = (
                             fee_amount
                         )
-                        partner_results[payee_name]["developer_fee"] = fee_amount
 
                         # Use the fee details from the dictionary format
                         fee_details_dict = fee_details["fee_details_by_partner"].get(
