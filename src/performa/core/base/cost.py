@@ -167,8 +167,12 @@ class TenantImprovementAllowanceBase(CashFlowModel):
                         f"Property attribute '{attribute_name}' not available for TI calculation"
                     )
         else:
+            # TODO: Add support for additional reference types beyond PropertyAttributeKey
+            # Currently supported: PropertyAttributeKey (NET_RENTABLE_AREA, UNIT_COUNT, etc.)
+            # Future enhancement: Custom reference types, ratios, complex calculation methods
             raise NotImplementedError(
-                f"Reference type {type(self.reference)} not implemented for TI calculations"
+                f"Reference type {type(self.reference)} not yet supported for TI calculations. "
+                f"Currently supported: PropertyAttributeKey enum values."
             )
 
         if self.payment_method == "upfront":

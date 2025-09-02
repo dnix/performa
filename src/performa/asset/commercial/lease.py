@@ -184,8 +184,12 @@ class CommercialLeaseBase(LeaseBase, ABC):
                 elif escalation.reference == PropertyAttributeKey.NET_RENTABLE_AREA:
                     monthly_amount = (rate * self.area) / 12
                 else:
+                    # TODO: Add support for additional escalation reference types
+                    # Currently supported: None (direct amounts), NET_RENTABLE_AREA
+                    # Future enhancement: UNIT_COUNT, GROSS_AREA, custom PropertyAttributeKey types
                     raise NotImplementedError(
-                        f"Escalation reference {escalation.reference} not implemented"
+                        f"Escalation reference {escalation.reference} not yet supported. "
+                        f"Currently supported: None, NET_RENTABLE_AREA."
                     )
             else:
                 rate = escalation.rate
@@ -194,8 +198,12 @@ class CommercialLeaseBase(LeaseBase, ABC):
                 elif escalation.reference == PropertyAttributeKey.NET_RENTABLE_AREA:
                     monthly_amount = (rate * self.area) / 12
                 else:
+                    # TODO: Add support for additional escalation reference types
+                    # Currently supported: None (direct amounts), NET_RENTABLE_AREA
+                    # Future enhancement: UNIT_COUNT, GROSS_AREA, custom PropertyAttributeKey types
                     raise NotImplementedError(
-                        f"Escalation reference {escalation.reference} not implemented"
+                        f"Escalation reference {escalation.reference} not yet supported. "
+                        f"Currently supported: None, NET_RENTABLE_AREA."
                     )
 
             if escalation.recurring:
@@ -275,8 +283,12 @@ class CommercialLeaseBase(LeaseBase, ABC):
                     # For now, assume unit-based (1x multiplier)
                     initial_monthly_value *= 1
             else:
+                # TODO: Add support for additional reference types beyond PropertyAttributeKey
+                # Currently supported: PropertyAttributeKey enum values, fallback to unit-based
+                # Future enhancement: Custom reference types, complex calculation methods, ratios
                 raise NotImplementedError(
-                    f"Reference type {type(self.reference)} not implemented for leases"
+                    f"Reference type {type(self.reference)} not yet supported for lease calculations. "
+                    f"Currently supported: PropertyAttributeKey enum values."
                 )
             base_rent = pd.Series(
                 initial_monthly_value, index=self.timeline.period_index

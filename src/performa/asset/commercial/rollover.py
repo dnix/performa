@@ -93,8 +93,12 @@ class CommercialRolloverProfileBase(RolloverProfileBase):
                 rent /= 12
             return rent
 
+        # TODO: Add support for additional market rent types beyond int/float/Series/Dict
+        # Currently supported: int, float (with growth rate), pd.Series, dict (converted to Series)
+        # Future enhancement: Complex rent structures, dynamic pricing models, market-based adjustments
         raise NotImplementedError(
-            f"Unsupported market_rent type: {type(terms.market_rent)}"
+            f"Market rent type {type(terms.market_rent)} not yet supported for commercial rollover. "
+            f"Currently supported: int, float, pd.Series, dict."
         )
 
     def blend_lease_terms(self) -> CommercialRolloverLeaseTermsBase:

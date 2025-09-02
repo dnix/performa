@@ -154,8 +154,12 @@ class OfficeRolloverProfile(RolloverProfileBase):
             temp_terms = terms.model_copy(update={"market_rent": temp_series})
             return self._calculate_rent(temp_terms, as_of_date, global_settings)
 
+        # TODO: Add support for additional market rent types beyond int/float/Series/dict
+        # Currently supported: int, float (with growth rate), pd.Series, dict (converted to Series)
+        # Future enhancement: Complex rent structures, market-based adjustments, dynamic pricing
         raise NotImplementedError(
-            f"Unsupported market_rent type: {type(terms.market_rent)}"
+            f"Market rent type {type(terms.market_rent)} not yet supported for office rollover. "
+            f"Currently supported: int, float, pd.Series, dict."
         )
 
     def blend_lease_terms(self) -> OfficeRolloverLeaseTerms:

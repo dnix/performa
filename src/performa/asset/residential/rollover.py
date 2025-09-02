@@ -138,8 +138,11 @@ class ResidentialRolloverProfile(RolloverProfileBase):
             return base_monthly_rent
 
         # TODO: Add support for Series and Dict rent schedules if needed
+        # Currently supported: int, float (with growth rate application)
+        # Future enhancement: pd.Series rent schedules, Dict-based rent structures, complex growth patterns
         raise NotImplementedError(
-            f"Unsupported market_rent type for residential: {type(terms.market_rent)}"
+            f"Market rent type {type(terms.market_rent)} not yet supported for residential rollover. "
+            f"Currently supported: int, float with growth rates."
         )
 
     def blend_lease_terms(self) -> ResidentialRolloverLeaseTerms:

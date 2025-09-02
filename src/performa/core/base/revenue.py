@@ -41,6 +41,11 @@ class MiscIncomeBase(CashFlowModel):
             return pd.Series(monthly_value, index=self.timeline.period_index)
         elif isinstance(self.value, pd.Series):
             return self.value.reindex(self.timeline.period_index, fill_value=0.0)
+        
+        # TODO: Add support for additional value types beyond int/float/Series
+        # Currently supported: int, float (with frequency conversion), pd.Series
+        # Future enhancement: Dict value types, custom calculation functions, growth patterns
         raise NotImplementedError(
-            "Base compute_cf requires override for complex value types."
+            f"Value type {type(self.value)} not yet supported in base compute_cf. "
+            f"Currently supported: int, float, pd.Series. Subclasses should override for complex types."
         )
