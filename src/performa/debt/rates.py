@@ -255,5 +255,4 @@ class InterestRate(Model):
             return f"{self.details.rate_index} + {self.details.spread:.3%}{cap_str}{floor_str}"
 
 
-# Backward compatibility aliases
-InterestRateType = RateIndexEnum  # For any code that might reference the old enum
+

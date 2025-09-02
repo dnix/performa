@@ -12,7 +12,6 @@ from .rates import (
     FixedRate,
     FloatingRate,
     InterestRate,
-    InterestRateType,
     RateIndexEnum,
 )
 from .tranche import DebtTranche
@@ -33,7 +32,6 @@ __all__ = [
     "FinancingPlan",
     # Rate mechanics
     "InterestRate",
-    "InterestRateType",  # Backward compatibility
     "RateIndexEnum",
     "FixedRate",
     "FloatingRate",
