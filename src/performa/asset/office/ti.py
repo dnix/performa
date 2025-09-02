@@ -62,7 +62,7 @@ class OfficeTenantImprovement(TenantImprovementAllowanceBase):
                         if payment_period in ti_cf.index:
                             ti_cf[payment_period] = total_amount
                 else:
-                    # Fallback to old timeline index logic for backward compatibility
+                    # Fallback to timeline-based payment timing when lease context unavailable
                     payment_period = self.timeline.period_index[0]
                     if self.payment_timing == "commencement":
                         # This is a simplification; in reality this might differ from timeline start

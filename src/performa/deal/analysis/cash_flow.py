@@ -1251,7 +1251,7 @@ class CashFlowEngine:
                 if unlevered_analysis:
                     context.unlevered_analysis = unlevered_analysis
 
-                    # Also populate resolved_lookups for backward compatibility
+                    # Also populate resolved_lookups for valuation models
                     if hasattr(context, "resolved_lookups"):
                         try:
                             noi_series = unlevered_analysis.get_series(

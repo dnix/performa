@@ -472,7 +472,7 @@ def test_end_to_end_reporting_workflow():
 
 ## Debug Module Architecture
 
-The debug utilities have been refactored into a clean nested module structure for maintainability:
+The debug utilities use a clean modular architecture for maintainability:
 
 ```
 src/performa/reporting/debug/
@@ -506,4 +506,4 @@ The debug utilities are specifically designed to support LLM development workflo
 **Configuration Analysis**: Automated detection of parameter quality issues
 **Ledger Validation**: Mathematical soundness verification for all scenarios
 
-This architecture ensures reliable, maintainable, and user-friendly report generation while maintaining strict separation between analysis calculations and presentation formatting. 
+This architecture ensures reliable, maintainable, and user-friendly report generation while maintaining strict separation between analysis calculations and presentation formatting.
