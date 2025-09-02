@@ -28,20 +28,24 @@ DealAnalysisResult → .reporting → ReportingInterface → Specific Reports �
 ### Basic Pattern
 
 ```python
+from datetime import date
 from performa.deal import analyze
-from performa.patterns import create_value_add_acquisition_deal
+from performa.patterns import ValueAddAcquisitionPattern
 from performa.core.primitives import Timeline
 from performa.reporting import generate_assumptions_report
 
 # Create and analyze deal
-deal = create_value_add_acquisition_deal(
+pattern = ValueAddAcquisitionPattern(
     property_name="Riverside Gardens",
+    acquisition_date=date(2024, 1, 1),
     acquisition_price=10_000_000,
     renovation_budget=1_500_000,
-    stabilized_noi=1_470_000,
+    current_avg_rent=1_800,
+    target_avg_rent=2_200,
     hold_period_years=7,
     ltv_ratio=0.75
 )
+deal = pattern.create()
 
 timeline = Timeline.from_dates("2024-01-01", "2030-12-31")
 results = analyze(deal, timeline)
@@ -260,7 +264,7 @@ assert quarterly_pf.shape[1] >= annual_pf.shape[1] * 4  # More periods
 Industry-standard development financing breakdown.
 
 **Availability**: Development deals only
-**Output**: `pandas.DataFrame` with sources/uses categories and amounts
+**Output**: `Dict[str, Any]` with structured sources/uses data
 
 **Example**:
 ```python
@@ -305,18 +309,18 @@ class CustomMetricsReport(BaseReport):
         
         metrics_data = {
             'Metric': [
-                'Unlevered IRR',
-                'Levered IRR', 
+                'IRR',
+                'Equity Multiple', 
                 'Cash-on-Cash (Year 1)',
-                'Total Return Multiple',
-                'Peak Equity Requirement'
+                'Total Return',
+                'Total Equity Invested'
             ],
             'Value': [
-                f"{deal_metrics.unlevered_irr:.2%}",
-                f"{deal_metrics.levered_irr:.2%}",
-                f"{deal_metrics.year_1_coc:.2%}",
-                f"{deal_metrics.total_return:.2f}x",
-                f"${deal_metrics.peak_equity:,.0f}"
+                f"{deal_metrics.irr:.2%}",
+                f"{deal_metrics.equity_multiple:.2f}x",
+                f"{deal_metrics.cash_on_cash:.2%}",
+                f"{deal_metrics.total_return:.2%}",
+                f"${deal_metrics.total_equity_invested:,.0f}"
             ]
         }
         
@@ -384,33 +388,7 @@ class ExtendedReportingInterface(ReportingInterface):
 
 **Cache Optimization**: Interface caching reduces object creation overhead for multiple report generation.
 
-## Migration from Legacy Patterns
 
-### Old Pattern (Deprecated)
-```python
-# OLD: Factory functions operating on input specifications
-from performa.reporting import create_pro_forma_summary
-
-# Required manual data extraction and calculation
-summary = create_pro_forma_summary(
-    property_model=deal.asset,
-    timeline=timeline,
-    # ... many manual parameters
-)
-```
-
-### New Pattern (Current)
-```python
-# NEW: Fluent interface operating on analysis results
-results = analyze(deal, timeline)
-summary = results.reporting.pro_forma_summary()
-
-# Benefits:
-# - Automatic data extraction from results
-# - No manual parameter coordination
-# - Guaranteed consistency with analysis
-# - Intuitive, discoverable interface
-```
 
 ## Performance Considerations
 
@@ -432,6 +410,7 @@ summary = results.reporting.pro_forma_summary()
 
 ```python
 import pytest
+# Note: ProFormaReport is internal - for custom reports, extend ReportingInterface instead
 from performa.reporting.financial_reports import ProFormaReport
 
 def test_pro_forma_report_generation(sample_analysis_results):
@@ -460,19 +439,23 @@ def test_fluent_interface_caching(sample_analysis_results):
 ```python
 def test_end_to_end_reporting_workflow():
     """Test complete analysis to reporting workflow."""
-    from performa.patterns import create_value_add_acquisition_deal
+    from datetime import date
+    from performa.patterns import ValueAddAcquisitionPattern
     from performa.deal import analyze
     from performa.core.primitives import Timeline
     
     # Create deal via pattern
-    deal = create_value_add_acquisition_deal(
+    pattern = ValueAddAcquisitionPattern(
         property_name="Test Property",
+        acquisition_date=date(2024, 1, 1),
         acquisition_price=5_000_000,
         renovation_budget=800_000,
-        stabilized_noi=450_000,
+        current_avg_rent=1_500,
+        target_avg_rent=1_800,
         hold_period_years=5,
         ltv_ratio=0.75
     )
+    deal = pattern.create()
     
     # Analyze deal
     timeline = Timeline.from_dates("2024-01-01", "2029-12-31")
