@@ -13,6 +13,7 @@ from ...core.base.loss import (
 )
 from ...core.primitives import Model
 
+# TODO: Remove backward compatibility aliases in future cleanup pass
 # Clean aliases - no office-specific logic needed
 OfficeVacancyLoss = VacancyLossConfig
 OfficeCreditLoss = CreditLossConfig

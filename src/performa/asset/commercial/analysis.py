@@ -132,9 +132,8 @@ class CommercialAnalysisScenarioBase(AnalysisScenarioBase):
         Prepares all cash flow models for the analysis with enhanced context support.
 
         ASSEMBLER PATTERN IMPLEMENTATION:
-        When context is provided, this method can perform UUID resolution and
-        object injection for maximum runtime performance. When context is None,
-        falls back to legacy behavior for backward compatibility.
+        Uses the provided AnalysisContext to perform UUID resolution and
+        object injection for maximum runtime performance.
 
         Args:
             context: Optional AnalysisContext containing pre-built lookup maps

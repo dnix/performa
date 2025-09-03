@@ -17,7 +17,7 @@ This module provides debt modeling capabilities for real estate transactions, su
 - **InterestCalculationMethod**: Multiple approaches for construction interest (NONE, SIMPLE, SCHEDULED, ITERATIVE)
 
 ### Rate Management
-- **InterestRateType**: Rate type definitions (fixed, prime-based, SOFR-based)
+- **RateIndexEnum**: Rate type definitions (fixed, prime-based, SOFR-based)
 - Support for rate caps, floors, and spreads
 - Time-varying rate scenarios
 

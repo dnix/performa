@@ -476,7 +476,7 @@ The debug utilities use a clean modular architecture for maintainability:
 
 ```
 src/performa/reporting/debug/
-├── __init__.py              # Public API + backward compatibility
+├── __init__.py              # Public API
 ├── introspection.py         # Object dumping & classification  
 ├── ledger_analysis.py       # Ledger semantic analysis
 └── config_analysis.py       # Configuration intentionality

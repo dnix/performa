@@ -73,8 +73,8 @@ def test_pattern_copy_with_updates():
     )
 
     # Test different leverage scenarios (valid range per validation)
-    high_leverage = base_pattern.copy(updates={"ltv_ratio": 0.70})  # Max valid value
-    low_leverage = base_pattern.copy(updates={"ltv_ratio": 0.60})
+    high_leverage = base_pattern.model_copy(update={"ltv_ratio": 0.70})  # Max valid value
+    low_leverage = base_pattern.model_copy(update={"ltv_ratio": 0.60})
 
     assert high_leverage.ltv_ratio == 0.70
     assert low_leverage.ltv_ratio == 0.60

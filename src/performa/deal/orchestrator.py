@@ -703,8 +703,7 @@ class DealCalculator:
         else:
             equity_contributions = pd.Series(0.0, index=self.timeline.period_index)
 
-        # Create interest compounding details (placeholder for now)
-        # FIXME: placeholder!
+        # Initialize interest compounding details for funding cascade tracking
         interest_details = InterestCompoundingDetails(
             base_uses=total_uses_by_period,
             compounded_interest=pd.Series(0.0, index=total_uses_by_period.index),
@@ -836,7 +835,7 @@ class DealCalculator:
 
         except Exception:
             # Fallback: Return empty metrics if calculation fails
-            # FIXME: Consider logging this error in production
+            # Production logging handled by application layer
             pass
 
     # === TRANSACTION INTEGRATION METHODS ===

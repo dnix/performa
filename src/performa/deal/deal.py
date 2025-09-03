@@ -31,7 +31,7 @@ from .partnership import PartnershipStructure
 # - ResidentialProperty: has unique 'unit_mix' field of type ResidentialRentRoll
 # - DevelopmentProject: has unique 'construction_plan' and 'blueprints' fields
 # No artificial discriminator needed - let Pydantic do the smart type inference
-# FIXME; this could be problematic to maintain as we add more use types. can we just use parent classes for typing?
+# Required by Pydantic for polymorphic validation across all asset types
 AnyAsset = Union[OfficeProperty, ResidentialProperty, DevelopmentProject]
 
 

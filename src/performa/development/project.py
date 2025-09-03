@@ -27,7 +27,7 @@ from ..core.capital import CapitalPlan
 AnyDevelopmentBlueprint = Annotated[
     Union[OfficeDevelopmentBlueprint, ResidentialDevelopmentBlueprint],
     Discriminator("use_type"),
-]  # FIXME: this could be problematic to maintain as we add more use types. can we just use parent classes for typing?
+]  # Required by Pydantic for polymorphic validation - discriminator enables type safety
 
 
 class DevelopmentProject(PropertyBaseModel):

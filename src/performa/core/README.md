@@ -440,23 +440,4 @@ The ledger system is optimized for real estate financial modeling performance:
 - ~100K transactions: <500ms ledger construction  
 - Query operations: <10ms for standard metrics
 
-## Migration from Legacy DataFrames
-
-The ledger system maintains API compatibility while providing enhanced capabilities:
-
-```python
-# Legacy approach (still works)
-summary_df = scenario.summary_df
-annual_noi = summary_df.loc['Net Operating Income'].resample('Y').sum()
-
-# Ledger approach
-queries = scenario.get_ledger_queries()
-annual_noi = queries.noi().resample('Y').sum()
-
-# Ledger provides additional detail not available in summary_df
-all_revenue_transactions = queries.ledger[
-    queries.ledger['category'] == 'Revenue'
-]
-```
-
 This core framework, anchored by the transactional ledger system, enables real estate financial modeling while maintaining transparency, auditability, and precision across the entire Performa ecosystem.

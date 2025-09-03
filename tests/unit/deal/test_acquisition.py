@@ -400,8 +400,8 @@ class TestAcquisitionTermsEdgeCases:
         )
 
         # Create a copy with float value but no acquisition_date (this should fail in compute_cf)
-        error_acquisition = acquisition.copy(
-            updates={
+        error_acquisition = acquisition.model_copy(
+            update={
                 "value": 1_000_000,  # Now it's a float
                 "acquisition_date": None,  # But no date provided
             }

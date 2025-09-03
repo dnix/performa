@@ -33,7 +33,7 @@ def test_model_copy_no_updates():
 def test_model_copy_with_updates():
     """Test the copy() method with updates."""
     m1 = _TestModel(a=1, b="original")
-    m2 = m1.copy(updates={"a": 100, "b": "updated"})
+    m2 = m1.model_copy(update={"a": 100, "b": "updated"})
 
     assert m1 != m2
     assert m2.a == 100
@@ -43,7 +43,7 @@ def test_model_copy_with_updates():
 def test_model_copy_with_partial_updates():
     """Test the copy() method with partial updates."""
     m1 = _TestModel(a=1, b="original")
-    m2 = m1.copy(updates={"a": 100})
+    m2 = m1.model_copy(update={"a": 100})
 
     assert m1 != m2
     assert m2.a == 100
