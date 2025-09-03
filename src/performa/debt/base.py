@@ -58,7 +58,7 @@ class DebtFacilityBase(Model):
     The compute_cf() method handles:
     1. Writing loan proceeds to ledger (at origination)
     2. Writing debt service to ledger (each period)
-    3. Returning debt service series for orchestrator compatibility
+    3. Returning debt service series for analysis results
     """
 
     # Core financing model fields
@@ -117,7 +117,7 @@ class DebtFacilityBase(Model):
         1. Generating the debt service schedule
         2. Writing loan proceeds as positive inflow at origination
         3. Writing debt service as negative outflow each period
-        4. Returning debt service series for backward compatibility
+        4. Returning debt service series for analysis results
 
         All debt transactions are recorded in the ledger with proper metadata
         for full auditability and query capabilities.
@@ -126,7 +126,7 @@ class DebtFacilityBase(Model):
             context: Deal context containing ledger, timeline, and deal data
 
         Returns:
-            pd.Series: Debt service schedule (for compatibility)
+            pd.Series: Debt service schedule for aggregation
         """
         # Validate context for development deals
         if hasattr(self, "kind") and self.kind == "permanent":
