@@ -1,5 +1,8 @@
-### asdf ###
-/.tool-versions
+### System ###
+.DS_Store
+
+# asdf
+.tool-versions
 
 ### JupyterNotebooks ###
 # gitignore template for Jupyter Notebooks
@@ -189,3 +192,7 @@ pyrightconfig.json
 specs/
 IMPLEMENTATION_STATUS.md
 IMPLEMENTATION_PLAN.md
+
+# Misc
+.crossnote/
+
