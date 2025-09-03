@@ -84,13 +84,12 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 import pandas as pd
 
 from performa.analysis import AnalysisContext
-from performa.core.ledger import SeriesMetadata
+from performa.core.ledger import LedgerQueries, SeriesMetadata
 from performa.core.primitives import (
     CashFlowCategoryEnum,
     ExpenseSubcategoryEnum,
     FinancingSubcategoryEnum,
     TransactionPurpose,
-    UnleveredAggregateLineKey,
 )
 from performa.core.primitives.enums import (
     CalculationPhase,
@@ -240,7 +239,7 @@ class CashFlowEngine:
         # === Step 4: Calculate disposition proceeds if not provided ===
         if disposition_proceeds is None:
             disposition_proceeds = self._calculate_disposition_proceeds(
-                ledger, unlevered_analysis
+                ledger
             )
 
         # === Step 4.5: Add disposition to ledger ===
@@ -1221,7 +1220,6 @@ class CashFlowEngine:
     def _calculate_disposition_proceeds(
         self,
         ledger: "Ledger",
-        unlevered_analysis: UnleveredAnalysisResult = None,
     ) -> pd.Series:
         """
         Calculate disposition proceeds if there's a disposition event.
@@ -1229,7 +1227,6 @@ class CashFlowEngine:
         Args:
             ledger: The analysis ledger (Pass-the-Builder pattern).
                 Must be the same instance used throughout the analysis.
-            unlevered_analysis: Results from unlevered asset analysis containing NOI data
 
         Returns:
             Disposition proceeds series aligned with timeline
@@ -1247,22 +1244,13 @@ class CashFlowEngine:
                     ledger=ledger,
                 )
 
-                # Pass unlevered analysis to the context so valuation models can access NOI
-                if unlevered_analysis:
-                    context.unlevered_analysis = unlevered_analysis
-
-                    # Also populate resolved_lookups for valuation models
-                    if hasattr(context, "resolved_lookups"):
-                        try:
-                            noi_series = unlevered_analysis.get_series(
-                                UnleveredAggregateLineKey.NET_OPERATING_INCOME,
-                                self.timeline,
-                            )
-                            context.resolved_lookups[
-                                UnleveredAggregateLineKey.NET_OPERATING_INCOME.value
-                            ] = noi_series
-                        except Exception:
-                            pass
+                # Set NOI series from ledger for valuation models
+                try:
+                    queries = LedgerQueries(ledger.ledger_df())
+                    context.noi_series = queries.noi()
+                except Exception:
+                    # Some valuations may not need NOI
+                    pass
 
                 # Get disposition cash flows
                 disposition_cf = self.deal.exit_valuation.compute_cf(context)

@@ -388,12 +388,6 @@ class ValuationEngine:
                         context.noi_series = (
                             noi_series  # ReversionValuation requires this!
                         )
-
-                        # This supports valuation models that use string-based lookups
-                        if hasattr(context, "resolved_lookups"):
-                            context.resolved_lookups[
-                                UnleveredAggregateLineKey.NET_OPERATING_INCOME.value
-                            ] = noi_series
                     except Exception as e:
                         # Log but continue - some valuations may not need NOI
                         logging.warning(f"Could not extract NOI for valuation: {e}")

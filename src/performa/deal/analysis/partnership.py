@@ -416,7 +416,6 @@ class PartnershipAnalyzer:
         # Initialize fee tracking
         total_partner_fees = 0.0
         partner_fees_by_partner = {}
-        fee_details_by_partner = {}  # Dictionary format for compatibility
         detailed_fee_breakdown = {}  # List format for detailed audit trail
         fee_cash_flows_by_partner = {}
 
@@ -436,7 +435,6 @@ class PartnershipAnalyzer:
         if self.deal.has_equity_partners:
             for partner in self.deal.equity_partners.partners:
                 partner_fees_by_partner[partner.name] = 0.0
-                fee_details_by_partner[partner.name] = {}  # Dictionary format
                 detailed_fee_breakdown[partner.name] = []  # List format
                 fee_cash_flows_by_partner[partner.name] = pd.Series(
                     0.0, index=self.timeline.period_index
@@ -490,7 +488,6 @@ class PartnershipAnalyzer:
                         # Handle partner fees
                         if payee_name not in partner_fees_by_partner:
                             partner_fees_by_partner[payee_name] = 0.0
-                            fee_details_by_partner[payee_name] = {}
                             detailed_fee_breakdown[payee_name] = []
                             fee_cash_flows_by_partner[payee_name] = pd.Series(
                                 0.0, index=self.timeline.period_index
@@ -498,9 +495,6 @@ class PartnershipAnalyzer:
 
                         partner_fees_by_partner[payee_name] += fee_amount
                         total_partner_fees += fee_amount
-
-                        # Populate dictionary format for fee tracking
-                        fee_details_by_partner[payee_name][fee_name] = float(fee_amount)
 
                         # Create fee detail dictionary for detailed audit trail
                         fee_detail = {
@@ -540,7 +534,6 @@ class PartnershipAnalyzer:
         return {
             "total_partner_fees": total_partner_fees,
             "partner_fees_by_partner": partner_fees_by_partner,
-            "fee_details_by_partner": fee_details_by_partner,
             "detailed_fee_breakdown": detailed_fee_breakdown,
             "fee_cash_flows_by_partner": fee_cash_flows_by_partner,
             "remaining_cash_flows_after_fee": remaining_cash_flows,
@@ -643,12 +636,12 @@ class PartnershipAnalyzer:
                             fee_amount
                         )
 
-                        # Use the fee details from the dictionary format
-                        fee_details_dict = fee_details["fee_details_by_partner"].get(
-                            payee_name, {}
-                        )
-                        partner_results[payee_name]["fee_details"] = fee_details_dict
-                        partner_results[payee_name]["fee_count"] = len(fee_details_dict)
+                        # Use the structured fee breakdown format
+                        fee_details_list = fee_details["detailed_fee_breakdown"].get(payee_name, [])
+                        partner_results[payee_name]["fee_details"] = {
+                            fee["fee_name"]: fee["amount"] for fee in fee_details_list
+                        }
+                        partner_results[payee_name]["fee_count"] = len(fee_details_list)
                         partner_results[payee_name]["fee_cash_flows"] = fee_details[
                             "fee_cash_flows_by_partner"
                         ].get(
