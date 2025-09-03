@@ -87,7 +87,6 @@ from performa.analysis import AnalysisContext
 from performa.core.ledger import LedgerQueries, SeriesMetadata
 from performa.core.primitives import (
     CashFlowCategoryEnum,
-    ExpenseSubcategoryEnum,
     FinancingSubcategoryEnum,
     TransactionPurpose,
 )
@@ -433,7 +432,7 @@ class CashFlowEngine:
             if equity_series.sum() > 0:
                 metadata = SeriesMetadata(
                     category=CashFlowCategoryEnum.FINANCING,
-                    subcategory=ExpenseSubcategoryEnum.OPEX,  # FIXME: Need proper financing subcategory enum
+                    subcategory=FinancingSubcategoryEnum.EQUITY_CONTRIBUTION,
                     item_name="Equity Contributions",
                     source_id=self.deal.uid,  # Deal is the source
                     asset_id=self.deal.asset.uid,

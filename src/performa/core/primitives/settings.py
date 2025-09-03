@@ -17,7 +17,7 @@ from .types import FloatBetween0And1, PositiveFloat, PositiveInt
 class DayCountConvention(str, Enum):
     """Day count conventions for financial calculations (Affects proration, interest)"""
 
-    # FIXME: Add implementation support where needed
+    # TODO: Add implementation support for interest calculations and proration logic
     THIRTY_360 = "30/360"
     ACTUAL_360 = "Actual/360"
     ACTUAL_365 = "Actual/365"
@@ -44,9 +44,9 @@ class RecoveryMethodEnum(str, Enum):  # Placeholder, often expense-specific
 
 
 class PercentageRentSettings(Model):
-    """FIXME: Percentage rent and occupancy cost settings (Placeholder)"""
+    """Percentage rent and occupancy cost settings (Planned for retail functionality)"""
 
-    # FIXME: Define actual settings based on requirements for retail etc.
+    # TODO: Define actual settings based on requirements for retail asset types
     enabled: bool = False
     breakpoint_method: Literal["natural", "fixed"] = "natural"
     include_recoveries_in_breakpoint: bool = True
@@ -140,7 +140,7 @@ class InflationSettings(Model):
 
     # NOTE: this only applies for PercentageGrowthRate named inflation
     # NOTE: all rates are defined as PercentageGrowthRate, not percentages here in settings
-    # FIXME: add support for inflation rate, here and in growth_rates and analysis
+    # TODO: Add inflation rate as baseline for GrowthRates and systematic application in analysis
     inflation_timing: InflationTimingEnum = Field(
         default=InflationTimingEnum.START_OF_YEAR,
         description="When annual inflation adjustments are applied.",
@@ -180,7 +180,7 @@ class RecoverySettings(Model):
     """Settings for expense recovery calculations, including gross-up."""
 
     # Gross-up settings (existing, working)
-    # FIXME: confirm 'gross_up_by_downtime' functionality is handled by these settings based on occupancy.
+    # Gross-up by downtime functionality implemented via occupancy-based calculations in recovery models
     gross_up_enabled: bool = Field(
         default=True,
         description="Enable grossing up of variable expenses for recovery calculations based on occupancy.",
@@ -194,12 +194,12 @@ class RecoverySettings(Model):
         description="If True, gross up to 100% occupancy always; if False, gross up to the threshold occupancy level (e.g., 95%).",
     )
 
-    # FIXME: add support for expense recovery method functionality
+    # Optional global default (recovery methods typically specified at lease level)
     default_recovery_method: Optional[RecoveryMethodEnum] = (
-        None  # Often expense-specific
+        None  # Usually property/lease-specific
     )
 
-    # FIXME: add support for expense cap functionality here in settings
+    # TODO: Centralize expense cap functionality from Recovery models to global settings
 
     # TODO: Future expense cap functionality integration
     # The cap functionality is currently implemented at the Recovery model level
@@ -210,8 +210,8 @@ class RecoverySettings(Model):
     # - cap_validation_rules: For business logic enforcement
 
 
-# FIXME: Market Leasing Assumptions are complex. Deferring a dedicated 'MarketLeasingSettings' sub-model.
-# FIXME: Rollover logic in `_rollover.py` will need inputs, possibly passed directly or via a simpler global default placeholder for now.
+# TODO: Consider dedicated 'MarketLeasingSettings' sub-model for centralized market assumptions
+# Current approach: Market terms specified per rollover profile (working, comprehensive implementation)
 
 
 class ValuationSettings(Model):

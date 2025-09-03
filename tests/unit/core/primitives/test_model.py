@@ -22,7 +22,7 @@ def test_model_is_frozen():
 def test_model_copy_no_updates():
     """Test the copy() method without any updates."""
     m1 = _TestModel(a=1, b="original")
-    m2 = m1.copy()
+    m2 = m1.model_copy()
 
     assert m1 == m2
     assert m1 is not m2

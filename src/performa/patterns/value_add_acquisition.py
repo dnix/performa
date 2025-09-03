@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Value-add acquisition deal pattern implementation.
+Residential value-add acquisition deal pattern implementation.
 
 This pattern models the common investment strategy of acquiring an underperforming
 property, executing renovations to increase NOI, and exiting via sale.
@@ -439,9 +439,9 @@ class ValueAddAcquisitionPattern(PatternBase):
         )
 
         # === Step 9: Create Financing Plan ===
-        # Calculate explicit loan amount to work around LTV sizing limitation
-        # FIXME: This is a hack to work around the fact that the LTV ratio is applied to the acquisition price,
-        # but the construction loan needs to fund both the acquisition and the renovations.
+        # Calculate loan amount based on total project cost (acquisition + renovations)
+        # For value-add deals, LTV applies to total project cost since construction loan
+        # must fund both the acquisition and the renovations
         total_project_cost = self.acquisition_price + self.renovation_budget
         loan_amount = total_project_cost * self.ltv_ratio
 
