@@ -468,18 +468,21 @@ class DebtAnalyzer:
         # Fallback to facility's specified loan amount
         return getattr(permanent_facility, "loan_amount", 0.0)
 
-    def _get_rate_index_curve(self) -> pd.Series:
+    def _get_rate_index_curve(
+        self, start_rate: float = 0.045, end_rate: float = 0.055
+    ) -> pd.Series:
         """
         Get rate index curve for dynamic rate calculations.
+
+        Args:
+            start_rate: Starting rate for the curve (default: 4.5%)
+            end_rate: Ending rate for the curve (default: 5.5%)
 
         In a real implementation, this would come from market data or user input.
         For now, we'll create a reasonable SOFR curve.
         """
-        # Create a sample SOFR curve that starts at 4.5% and gradually rises to 5.5%
+        # Create a sample SOFR curve with configurable start and end rates
         periods = len(self.timeline.period_index)
-        # FIXME: we should have default parameters in the method signature, not hard coded here
-        start_rate = 0.045  # 4.5%
-        end_rate = 0.055  # 5.5%
 
         # Linear interpolation
         rates = np.linspace(start_rate, end_rate, periods)
