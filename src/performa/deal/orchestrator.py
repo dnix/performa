@@ -374,6 +374,13 @@ class DealCalculator:
             # Add acquisition costs BEFORE funding cascade so they're included in uses
             self._add_acquisition_records(ledger)
 
+            # Create unlevered analysis result from ledger data for valuation engine
+            self.unlevered_analysis = UnleveredAnalysisResult(
+                scenario=asset_result.scenario,
+                cash_flows=asset_result.summary_df,  # Use actual cash flow summary
+                models=asset_result.models if hasattr(asset_result, "models") else [],
+            )
+
             # === PASS 3: Valuation Analysis (needed for debt analysis) ===
             valuation_engine = ValuationEngine(
                 deal=self.deal, timeline=self.timeline, settings=self.settings
