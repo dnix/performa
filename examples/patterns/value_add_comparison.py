@@ -348,8 +348,8 @@ def create_deal_via_composition():
                 ltc_threshold=0.65,  # 65% Loan-to-Cost
             )
         ],
-        # EXACT MATCH: Use NONE to match pattern approach
-        interest_calculation_method=InterestCalculationMethod.NONE,
+        # EXACT MATCH: Use SIMPLE to match pattern approach
+        interest_calculation_method=InterestCalculationMethod.SIMPLE,
         fund_interest_from_reserve=True,
         interest_reserve_rate=0.10,  # 10% interest reserve
     )
@@ -651,6 +651,56 @@ def main():
                 "  🎯 Construction financing works consistently across all deal types"
             )
             print("  🎯 Composition approach remains for advanced customization")
+
+    # === GOLDEN VALUE ASSERTIONS ===
+    # Add assertions if both approaches worked
+    if (
+        composition_deal
+        and pattern_deal
+        and "comp_results" in locals()
+        and "pattern_results" in locals()
+    ):
+        if comp_results and pattern_results:
+            # Golden values for value-add comparison
+            expected_irr = 0.152574  # 15.2574%
+            expected_em = 1.7043  # 1.7043x
+            expected_equity = 16_456_233  # $16,456,233
+
+            # Allow small floating point tolerance
+            tolerance_percent = 0.0001  # 0.01% tolerance
+            tolerance_dollar = 10  # $10 tolerance
+
+            # Assert composition results
+            comp_irr = comp_results.deal_metrics.irr
+            comp_em = comp_results.deal_metrics.equity_multiple
+            comp_equity = comp_results.deal_metrics.total_equity_invested
+
+            assert (
+                abs(comp_irr - expected_irr) < tolerance_percent
+            ), f"Composition IRR {comp_irr:.6f} != expected {expected_irr:.6f}"
+            assert (
+                abs(comp_em - expected_em) < tolerance_percent
+            ), f"Composition EM {comp_em:.4f} != expected {expected_em:.4f}"
+            assert (
+                abs(comp_equity - expected_equity) < tolerance_dollar
+            ), f"Composition Equity ${comp_equity:,.0f} != expected ${expected_equity:,.0f}"
+
+            # Assert pattern results match composition (parity validation)
+            pattern_irr = pattern_results.deal_metrics.irr
+            pattern_em = pattern_results.deal_metrics.equity_multiple
+            pattern_equity = pattern_results.deal_metrics.total_equity_invested
+
+            assert (
+                abs(pattern_irr - expected_irr) < tolerance_percent
+            ), f"Pattern IRR {pattern_irr:.6f} != expected {expected_irr:.6f}"
+            assert (
+                abs(pattern_em - expected_em) < tolerance_percent
+            ), f"Pattern EM {pattern_em:.4f} != expected {expected_em:.4f}"
+            assert (
+                abs(pattern_equity - expected_equity) < tolerance_dollar
+            ), f"Pattern Equity ${pattern_equity:,.0f} != expected ${expected_equity:,.0f}"
+
+            print("\n✅ Golden value assertions passed - metrics remain stable")
 
     print("\n🎉 VALUE-ADD PATTERN COMPARISON COMPLETE!")
     print("📋 Both approaches working with unified construction financing solution")

@@ -1,12 +1,35 @@
 #!/usr/bin/env python3
+# Copyright 2024-2025 David Gordon Nix
+# SPDX-License-Identifier: Apache-2.0
+
 """
-Residential Development Pattern Validation
+Residential Development Deal Modeling: Composition vs Convention
 
-Since the ResidentialDevelopmentPattern produces excellent returns (21.3% IRR, 2.92x EM)
-and manual residential assembly is highly complex, this script validates that the pattern
-approach is mathematically sound and ready for production use.
+This example demonstrates two approaches to modeling the same residential development deal:
 
-The pattern encapsulates the best-practice manual assembly approach.
+1. **COMPOSITION APPROACH** (Manual Assembly):
+   - Manually create each component (asset, financing, partnership, etc.)
+   - Full control over every detail
+   - Requires deep knowledge of Performa architecture
+   - ~250+ lines of configuration code
+   - Current approach used in production
+
+2. **CONVENTION APPROACH** (Pattern Interface):
+   - High-level parameterized interface
+   - Industry-standard defaults and validation
+   - Type-safe parameter flattening
+   - ~30 lines of configuration
+   - Future approach for rapid deal modeling
+
+Both approaches model the identical residential development project:
+- Institutional Residential Development: $28.7M development cost
+- Multifamily building: 120 units, mixed Studio/1BR/2BR/3BR
+- Construction-to-permanent financing at 70% LTC/LTV
+- GP/LP partnership with 8% preferred return + 20% promote
+- 7-year hold period with 5.0% exit cap rate
+
+The script validates perfect mathematical parity between approaches using comprehensive
+model validation utilities per CLAUDE.md requirements.
 """
 
 import sys
@@ -17,123 +40,627 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from performa.core.primitives import GlobalSettings
-from performa.deal import analyze
+from performa.asset.residential import (
+    ResidentialAbsorptionPlan,
+    ResidentialCreditLoss,
+    ResidentialDevelopmentBlueprint,
+    ResidentialExpenses,
+    ResidentialGeneralVacancyLoss,
+    ResidentialLosses,
+    ResidentialRolloverLeaseTerms,
+    ResidentialRolloverProfile,
+    ResidentialVacantUnit,
+)
+from performa.asset.residential.absorption import (
+    FixedQuantityPace,
+    ResidentialDirectLeaseTerms,
+)
+from performa.core.capital import CapitalItem, CapitalPlan
+from performa.core.ledger import Ledger
+from performa.core.primitives import (
+    AssetTypeEnum,
+    FirstOnlyDrawSchedule,
+    GlobalSettings,
+    StartDateAnchorEnum,
+    Timeline,
+    UponExpirationEnum,
+)
+from performa.deal import (
+    AcquisitionTerms,
+    Deal,
+    analyze,
+    create_gp_lp_waterfall,
+)
+from performa.debt.constructs import create_construction_to_permanent_plan
+from performa.development import DevelopmentProject
 from performa.patterns import ResidentialDevelopmentPattern
 
+# Model validation utilities per CLAUDE.md
+from performa.reporting import (
+    analyze_configuration_intentionality,
+    analyze_ledger_semantically,
+    generate_assumptions_report,
+)
+from performa.valuation import DirectCapValuation
 
-def main():
-    """Validate ResidentialDevelopmentPattern with institutional parameters."""
+
+def create_deal_via_composition():
+    """
+    COMPOSITION APPROACH: Manual assembly of all deal components.
+
+    This demonstrates the current production approach requiring
+    detailed knowledge of Performa architecture and explicit
+    configuration of every component.
+
+    Advantages:
+    - Full control over every parameter
+    - Access to advanced features
+    - No abstraction limitations
+
+    Disadvantages:
+    - High complexity and learning curve
+    - Verbose configuration (300+ lines)
+    - Prone to configuration errors
+    - Requires deep Performa expertise
+    """
+    print("🔧 COMPOSITION APPROACH: Manual Component Assembly")
+    print("-" * 60)
+
+    # === STEP 1: PROJECT TIMELINE ===
+    acquisition_date = date(2024, 1, 1)
+    timeline = Timeline(start_date=acquisition_date, duration_months=84)  # 7 years
+
+    # === STEP 2: CAPITAL EXPENDITURE PLAN ===
+    # CRITICAL: Match pattern's EXACT structure - SINGLE capital item (not 4 separate items)
+    land_cost = 8_000_000
+    total_units = 120
+    construction_cost_per_unit = 160_000  # Match pattern
+    hard_costs = total_units * construction_cost_per_unit  # $19,200,000
+    soft_costs = hard_costs * 0.08  # 8% soft costs = $1,536,000
+    total_construction_cost = (
+        hard_costs + soft_costs
+    )  # $20,736,000 (pattern's total_construction_cost)
+
+    # PATTERN CREATES SINGLE CAPITAL ITEM - replicate exactly
+    capital_items = [
+        CapitalItem(
+            name="Institutional Residential Development Construction",  # Match pattern naming
+            work_type="construction",  # Single construction item like pattern
+            value=total_construction_cost,  # $20,736,000 (hard + soft combined)
+            draw_schedule=FirstOnlyDrawSchedule(),
+            timeline=timeline,
+        ),
+    ]
+
+    capital_plan = CapitalPlan(
+        name="Institutional Residential Development Construction Plan",
+        capital_items=capital_items,
+    )
+
+    # Pattern's total_project_cost = land_cost + total_construction_cost
+    total_project_cost = land_cost + total_construction_cost  # $28,736,000
+
+    # === STEP 3: VACANT UNIT INVENTORY ===
+    # Match exact unit mix from pattern
+    unit_mix = [
+        {"unit_type": "Studio", "count": 24, "avg_sf": 500, "target_rent": 1200},
+        {"unit_type": "1BR", "count": 48, "avg_sf": 650, "target_rent": 1500},
+        {
+            "unit_type": "2BR",
+            "count": 36,
+            "avg_sf": 900,
+            "target_rent": 2000,
+        },  # Match pattern
+        {"unit_type": "3BR", "count": 12, "avg_sf": 1100, "target_rent": 2400},
+    ]
+
+    vacant_units = []
+    for unit_spec in unit_mix:
+        # Create rollover profile for each unit type (match pattern approach)
+        rollover_profile = ResidentialRolloverProfile(
+            name=f"{unit_spec['unit_type']} Rollover Profile",
+            term_months=12,
+            renewal_probability=0.75,
+            downtime_months=1,
+            upon_expiration=UponExpirationEnum.MARKET,
+            market_terms=ResidentialRolloverLeaseTerms(
+                market_rent=unit_spec["target_rent"],
+                term_months=12,
+            ),
+            renewal_terms=ResidentialRolloverLeaseTerms(
+                market_rent=unit_spec["target_rent"]
+                * 0.98,  # 2% renewal discount (match pattern)
+                term_months=12,
+            ),
+        )
+
+        vacant_unit = ResidentialVacantUnit(
+            unit_type_name=unit_spec["unit_type"],
+            unit_count=unit_spec["count"],
+            avg_area_sf=unit_spec["avg_sf"],
+            market_rent=unit_spec["target_rent"],
+            rollover_profile=rollover_profile,
+            available_date=date(
+                2025, 3, 1
+            ),  # Available month 15 (match pattern exactly)
+        )
+        vacant_units.append(vacant_unit)
+
+    # === STEP 4: ABSORPTION PLAN ===
+    # Calculate weighted average rent for leasing terms
+    total_rent = sum(spec["count"] * spec["target_rent"] for spec in unit_mix)
+    avg_rent = total_rent / total_units  # $1,650 weighted average
+
+    absorption_plan = ResidentialAbsorptionPlan(
+        name="Institutional Residential Development Residential Leasing",
+        start_date_anchor=StartDateAnchorEnum.ANALYSIS_START,
+        start_offset_months=15,  # CRITICAL: Match pattern exactly (Month 15)
+        pace=FixedQuantityPace(
+            quantity=8,  # 8 units per month
+            unit="Units",
+            frequency_months=1,
+        ),
+        leasing_assumptions=ResidentialDirectLeaseTerms(
+            monthly_rent=avg_rent,
+            lease_term_months=12,  # Standard residential lease
+            stabilized_renewal_probability=0.75,
+            stabilized_downtime_months=1,
+        ),
+        stabilized_expenses=ResidentialExpenses(operating_expenses=[]),
+        stabilized_losses=ResidentialLosses(
+            general_vacancy=ResidentialGeneralVacancyLoss(rate=0.05),
+            credit_loss=ResidentialCreditLoss(rate=0.02),
+        ),
+        stabilized_misc_income=[],
+    )
+
+    # === STEP 5: RESIDENTIAL DEVELOPMENT BLUEPRINT ===
+    residential_blueprint = ResidentialDevelopmentBlueprint(
+        name="Institutional Residential Development Residential Component",
+        vacant_inventory=vacant_units,
+        absorption_plan=absorption_plan,
+    )
+
+    # === STEP 6: DEVELOPMENT PROJECT ===
+    total_rentable_area = sum(
+        spec["count"] * spec["avg_sf"] for spec in unit_mix
+    )  # 84,200 SF
+    gross_building_area = total_rentable_area / 0.85  # 85% efficiency = 99,059 SF
+
+    project = DevelopmentProject(
+        name="Institutional Residential Development Development",
+        property_type=AssetTypeEnum.MULTIFAMILY,
+        gross_area=gross_building_area,
+        net_rentable_area=total_rentable_area,
+        construction_plan=capital_plan,
+        blueprints=[residential_blueprint],
+    )
+
+    # === STEP 7: ACQUISITION TERMS ===
+    acquisition = AcquisitionTerms(
+        name="Institutional Residential Development Land Acquisition",
+        timeline=Timeline(
+            start_date=acquisition_date,
+            duration_months=2,  # 60 days to close land
+        ),
+        value=land_cost,
+        acquisition_date=acquisition_date,
+        closing_costs=land_cost * 0.025,  # 2.5% closing costs
+    )
+
+    # === STEP 8: CONSTRUCTION-TO-PERMANENT FINANCING ===
+    # Calculate stabilized NOI for permanent loan sizing
+    total_monthly_rent = sum(spec["count"] * spec["target_rent"] for spec in unit_mix)
+    annual_gross_rent = total_monthly_rent * 12  # $2,376,000
+    effective_gross_income = annual_gross_rent * 0.95  # 5% vacancy
+    operating_expenses = total_units * 2000  # $2k per unit per year
+    estimated_noi = effective_gross_income - operating_expenses  # $2,017,200
+
+    # Stabilized value using 5.0% exit cap rate (match pattern)
+    stabilized_value = estimated_noi / 0.05  # $40,344,000
+
+    # CRITICAL: Use pattern's EXACT financing structure (discovered via debug utilities)
+    financing = create_construction_to_permanent_plan(
+        construction_terms={
+            "name": "Construction Facility",  # Exact pattern name
+            "debt_ratio": 0.70,  # Exact match: 70% LTC
+            "ltc_max": 0.80,  # Exact match: 80% max
+            "interest_rate": 0.065,  # Exact match: 6.5% construction rate
+            "loan_term_months": 24,  # CRITICAL: Pattern uses 24 months, not 36!
+            "interest_calculation_method": "scheduled",  # Pattern default: SCHEDULED
+            "interest_reserve_rate": 0.15,  # Pattern default: 15%
+        },
+        permanent_terms={
+            "name": "Permanent Facility",  # CRITICAL: Pattern uses "Permanent Facility", not "Permanent Loan"
+            "loan_amount": stabilized_value * 0.70,  # 70% LTV explicit amount
+            "interest_rate": 0.055,  # 5.5% permanent rate
+            "loan_term_months": 120,  # 10 years
+            "amortization_months": 360,  # 30 years amortization
+            "dscr_hurdle": 1.25,  # Pattern includes DSCR hurdle
+            "origination_fee_rate": 0.005,  # Pattern includes origination fee
+            "refinance_timing": 19,  # Exact match: Month 19 (1+18 construction)
+        },
+        project_value=total_project_cost,  # CRITICAL: Use total_project_cost, not stabilized_value!
+    )
+
+    # === STEP 9: PARTNERSHIP STRUCTURE ===
+    partnership = create_gp_lp_waterfall(
+        gp_share=0.10,  # 10% GP
+        lp_share=0.90,  # 90% LP
+        pref_return=0.08,  # 8% preferred return
+        promote_tiers=[(0.15, 0.20)],  # 20% promote after 15% IRR hurdle
+        final_promote_rate=0.20,  # 20% final promote rate
+    )
+
+    # === STEP 10: EXIT VALUATION ===
+    exit_valuation = DirectCapValuation(
+        name="Institutional Residential Development Exit Valuation",
+        cap_rate=0.05,  # 5.0% exit cap rate (match pattern)
+    )
+
+    # === STEP 11: ASSEMBLE COMPLETE DEAL ===
+    deal = Deal(
+        name="Institutional Residential Development Development Deal",
+        asset=project,
+        financing=financing,
+        partnership=partnership,
+        acquisition=acquisition,
+        exit_valuation=exit_valuation,
+    )
+
+    print(f"✅ Deal created: {deal.name}")
+    print(f"   Total Development Cost: ${total_project_cost:,.0f}")
+    print(f"   Units: {total_units}")
+    print(f"   Net Rentable Area: {total_rentable_area:,.0f} SF")
+    print(f"   Components assembled: 11 major steps, ~250 lines of code")
+
+    return deal
+
+
+def create_deal_via_convention():
+    """
+    CONVENTION APPROACH: Pattern-driven interface.
+
+    This demonstrates the pattern approach that encapsulates
+    all the manual assembly complexity into a high-level
+    parameterized interface.
+
+    Advantages:
+    - Minimal configuration (30 parameters)
+    - Industry-standard defaults
+    - Type safety and validation
+    - Rapid scenario generation
+
+    Disadvantages:
+    - Less granular control
+    - Must understand pattern assumptions
+    - Limited to pattern scope
+    """
+    print("🎯 CONVENTION APPROACH: Pattern Interface")
+    print("-" * 60)
+
+    # High-level pattern configuration - matches composition exactly
+    pattern = ResidentialDevelopmentPattern(
+        project_name="Institutional Residential Development",
+        acquisition_date=date(2024, 1, 1),
+        land_cost=8_000_000,
+        land_closing_costs_rate=0.025,
+        # Unit mix (120 units total) - match composition exactly
+        total_units=120,
+        unit_mix=[
+            {"unit_type": "Studio", "count": 24, "avg_sf": 500, "target_rent": 1200},
+            {"unit_type": "1BR", "count": 48, "avg_sf": 650, "target_rent": 1500},
+            {
+                "unit_type": "2BR",
+                "count": 36,
+                "avg_sf": 900,
+                "target_rent": 2000,
+            },  # Match composition
+            {"unit_type": "3BR", "count": 12, "avg_sf": 1100, "target_rent": 2400},
+        ],
+        building_efficiency=0.85,
+        # Construction parameters - match composition
+        construction_cost_per_unit=160_000,
+        construction_start_months=1,
+        construction_duration_months=18,
+        soft_costs_rate=0.08,
+        developer_fee_rate=0.05,
+        # Leasing parameters - match composition
+        leasing_start_months=15,  # CRITICAL: Match pattern exactly (Month 15, not 19)
+        absorption_pace_units_per_month=8,
+        lease_term_months=12,
+        # Financing parameters - match composition
+        construction_interest_rate=0.065,
+        construction_ltc_ratio=0.70,
+        construction_ltc_max=0.80,
+        permanent_ltv_ratio=0.70,
+        permanent_interest_rate=0.055,
+        permanent_term_years=10,
+        permanent_amortization_years=30,
+        # Partnership and exit - match composition
+        gp_share=0.10,
+        lp_share=0.90,
+        preferred_return=0.08,
+        promote_tier1=0.20,
+        exit_cap_rate=0.05,  # 5.0% to match composition
+        # Operating assumptions - match composition
+        stabilized_vacancy_rate=0.05,
+        credit_loss_rate=0.02,
+        renewal_probability=0.75,
+        downtime_months=1,
+        # Use SCHEDULED method to match pattern default
+        interest_calculation_method="SCHEDULED",
+    )
+
+    deal = pattern.create()
+
+    print(f"✅ Pattern created: {pattern.project_name}")
+    print(f"   Total Project Cost: ${pattern.total_project_cost:,.0f}")
+    print(
+        f"   Building Size: {pattern.total_units} units across {len(pattern.unit_mix)} unit types"
+    )
+    print(f"   Configuration: Single step, residential-specific parameters, type-safe")
+    print(f"   Timeline: {pattern.acquisition_date.strftime('%Y-%m')} for 84 months")
+    print(
+        f"   Validation: GP({pattern.gp_share:.0%}) + LP({pattern.lp_share:.0%}) = {pattern.gp_share + pattern.lp_share:.0%} ✓"
+    )
+    print(f"   Deal Creation: ✅ {deal.name}")
+
+    return deal, pattern
+
+
+def run_comparative_analysis():
+    """Run both approaches and validate perfect parity with model validation."""
 
     print("=" * 80)
-    print("RESIDENTIAL DEVELOPMENT PATTERN VALIDATION")
+    print("RESIDENTIAL DEVELOPMENT: COMPOSITION vs CONVENTION")
     print("=" * 80)
 
     try:
-        # Create realistic residential development
-        pattern = ResidentialDevelopmentPattern(
-            project_name="Institutional Residential Development",
-            acquisition_date=date(2024, 1, 1),
-            land_cost=8_000_000,
-            land_closing_costs_rate=0.025,
-            # Unit mix (120 units total)
-            total_units=120,
-            unit_mix=[
-                {
-                    "unit_type": "Studio",
-                    "count": 24,
-                    "avg_sf": 500,
-                    "target_rent": 1200,
-                },
-                {"unit_type": "1BR", "count": 48, "avg_sf": 650, "target_rent": 1500},
-                {"unit_type": "2BR", "count": 36, "avg_sf": 900, "target_rent": 2000},
-                {"unit_type": "3BR", "count": 12, "avg_sf": 1100, "target_rent": 2400},
-            ],
-            # Construction parameters
-            construction_cost_per_unit=160_000,  # $160K/unit
-            construction_start_months=1,
-            construction_duration_months=18,
-            soft_costs_rate=0.08,
-            developer_fee_rate=0.05,
-            # Absorption (8 units/month = 15 months lease-up)
-            absorption_pace_units_per_month=8,
-            # Financing terms
-            construction_ltc_ratio=0.70,
-            construction_interest_rate=0.065,
-            permanent_ltv_ratio=0.75,
-            permanent_interest_rate=0.055,
-            permanent_loan_term_years=10,
-            permanent_amortization_years=30,
-            # Partnership structure
-            distribution_method="waterfall",
-            gp_share=0.10,
-            lp_share=0.90,
-            preferred_return=0.08,
-            promote_tier_1=0.20,
-            # Exit strategy
-            hold_period_years=7,
-            exit_cap_rate=0.05,  # 5.0% cap rate
-            exit_costs_rate=0.02,  # 2% transaction costs
-        )
+        # === COMPOSITION APPROACH ===
+        comp_deal = create_deal_via_composition()
 
-        print("✅ Pattern created successfully")
-        print(f"   Total units: {pattern.total_units}")
-        print(f"   Total project cost: ${pattern.total_project_cost:,.0f}")
+        # === CONVENTION APPROACH ===
+        pattern_deal, pattern = create_deal_via_convention()
 
-        # Create deal and analyze
-        deal = pattern.create()
-        timeline = pattern._derive_timeline()
+        # === ANALYSIS SETUP ===
+        timeline = Timeline(start_date=date(2024, 1, 1), duration_months=84)
         settings = GlobalSettings()
 
-        print(f"   Analysis timeline: {timeline.duration_months} months")
+        # Create separate ledgers for isolation
+        comp_ledger = Ledger()
+        pattern_ledger = Ledger()
 
-        results = analyze(deal, timeline, settings)
+        # === STEP 1: ASSUMPTIONS DOCUMENTATION (per model-validation.mdc) ===
+        print("\n--- Step 1: Assumptions Documentation ---")
 
-        print(f"\n🎯 FINANCIAL VALIDATION:")
-        print(f"   Deal IRR: {results.deal_metrics.irr:.2%}")
-        print(f"   Equity Multiple: {results.deal_metrics.equity_multiple:.2f}x")
-        print(f"   Total Equity: ${results.deal_metrics.total_equity_invested:,.0f}")
+        comp_assumptions = generate_assumptions_report(
+            comp_deal, include_risk_assessment=True
+        )
+        pattern_assumptions = generate_assumptions_report(
+            pattern_deal, include_risk_assessment=True
+        )
+        print("✅ Assumptions documented for both approaches")
 
-        # Institutional benchmark validation
-        institutional_irr_min = 0.12  # 12% minimum institutional return
-        institutional_em_min = 1.5  # 1.5x minimum equity multiple
+        # === STEP 2: CONFIGURATION QUALITY (per model-validation.mdc) ===
+        print("\n--- Step 2: Configuration Quality Analysis ---")
 
-        print(f"\n📊 INSTITUTIONAL BENCHMARKS:")
+        comp_config = analyze_configuration_intentionality(
+            comp_deal,
+            critical_params=[
+                "construction_interest_rate",
+                "construction_ltc_ratio",
+                "exit_cap_rate",
+            ],
+        )
+        pattern_config = analyze_configuration_intentionality(
+            pattern,
+            critical_params=[
+                "construction_interest_rate",
+                "construction_ltc_ratio",
+                "exit_cap_rate",
+            ],
+        )
 
-        if results.deal_metrics.irr >= institutional_irr_min:
+        print(
+            f"Composition completeness: {comp_config['intentionality_metrics']['completeness_score']:.1%}"
+        )
+        print(
+            f"Pattern completeness: {pattern_config['intentionality_metrics']['completeness_score']:.1%}"
+        )
+
+        # === STEP 3: DEAL ANALYSIS ===
+        print("\n📊 ANALYZING COMPOSITION DEAL")
+        print("-" * 60)
+        comp_results = analyze(
+            deal=comp_deal, timeline=timeline, settings=settings, ledger=comp_ledger
+        )
+        print("✅ Analysis Complete!")
+
+        if comp_results.deal_metrics:
+            print(f"   Deal IRR: {comp_results.deal_metrics.irr:.2%}")
             print(
-                f"   ✅ IRR: {results.deal_metrics.irr:.1%} >= {institutional_irr_min:.1%}"
+                f"   Equity Multiple: {comp_results.deal_metrics.equity_multiple:.2f}x"
             )
-        else:
             print(
-                f"   ❌ IRR: {results.deal_metrics.irr:.1%} < {institutional_irr_min:.1%}"
+                f"   Total Equity Invested: ${comp_results.deal_metrics.total_equity_invested:,.0f}"
             )
 
-        if results.deal_metrics.equity_multiple >= institutional_em_min:
+        print("\n📊 ANALYZING PATTERN DEAL")
+        print("-" * 60)
+        pattern_results = analyze(
+            deal=pattern_deal,
+            timeline=timeline,
+            settings=settings,
+            ledger=pattern_ledger,
+        )
+        print("✅ Pattern Analysis Complete!")
+
+        if pattern_results.deal_metrics:
+            print(f"   Deal IRR: {pattern_results.deal_metrics.irr:.2%}")
             print(
-                f"   ✅ EM: {results.deal_metrics.equity_multiple:.2f}x >= {institutional_em_min:.2f}x"
+                f"   Equity Multiple: {pattern_results.deal_metrics.equity_multiple:.2f}x"
             )
-        else:
             print(
-                f"   ❌ EM: {results.deal_metrics.equity_multiple:.2f}x < {institutional_em_min:.2f}x"
+                f"   Total Equity Invested: ${pattern_results.deal_metrics.total_equity_invested:,.0f}"
             )
 
-        # Overall validation
-        if (
-            results.deal_metrics.irr >= institutional_irr_min
-            and results.deal_metrics.equity_multiple >= institutional_em_min
-        ):
-            print(f"\n🎉 INSTITUTIONAL VALIDATION SUCCESSFUL!")
-            print(
-                f"✅ ResidentialDevelopmentPattern produces strong institutional returns"
+        # === STEP 4: LEDGER VALIDATION (per model-validation.mdc) ===
+        print("\n--- Step 4: Ledger Math Validation ---")
+
+        comp_ledger_analysis = analyze_ledger_semantically(comp_ledger)
+        pattern_ledger_analysis = analyze_ledger_semantically(pattern_ledger)
+
+        comp_net_flow = comp_ledger_analysis["balance_checks"]["total_net_flow"]
+        pattern_net_flow = pattern_ledger_analysis["balance_checks"]["total_net_flow"]
+
+        print(f"Composition net flow: ${comp_net_flow:,.0f}")
+        print(f"Pattern net flow: ${pattern_net_flow:,.0f}")
+
+        if abs(comp_net_flow) < 1000 and abs(pattern_net_flow) < 1000:
+            print("✅ Both ledgers balanced")
+
+        # === PARITY VALIDATION ===
+        print("\n🎯 PARITY VALIDATION")
+        print("-" * 60)
+
+        if comp_results.deal_metrics and pattern_results.deal_metrics:
+            # Calculate differences
+            irr_diff = abs(
+                comp_results.deal_metrics.irr - pattern_results.deal_metrics.irr
             )
-            print(f"✅ Ready for production deployment")
-        else:
-            print(f"\n❌ BELOW INSTITUTIONAL BENCHMARKS")
+            em_diff = abs(
+                comp_results.deal_metrics.equity_multiple
+                - pattern_results.deal_metrics.equity_multiple
+            )
+            equity_diff = abs(
+                comp_results.deal_metrics.total_equity_invested
+                - pattern_results.deal_metrics.total_equity_invested
+            )
+
+            print(f"COMPOSITION RESULTS:")
+            print(f"   IRR: {comp_results.deal_metrics.irr:.4%}")
+            print(f"   EM: {comp_results.deal_metrics.equity_multiple:.4f}x")
+            print(f"   Equity: ${comp_results.deal_metrics.total_equity_invested:,.0f}")
+
+            print(f"\nPATTERN RESULTS:")
+            print(f"   IRR: {pattern_results.deal_metrics.irr:.4%}")
+            print(f"   EM: {pattern_results.deal_metrics.equity_multiple:.4f}x")
+            print(
+                f"   Equity: ${pattern_results.deal_metrics.total_equity_invested:,.0f}"
+            )
+
+            print(f"\nEQUIVALENCE CHECK:")
+            print(
+                f"   IRR Difference: {irr_diff:.4%} ({'✅ EQUIVALENT' if irr_diff < 0.0001 else '❌ DIFFERENT'})"
+            )
+            print(
+                f"   EM Difference: {em_diff:.4f}x ({'✅ EQUIVALENT' if em_diff < 0.0001 else '❌ DIFFERENT'})"
+            )
+            print(
+                f"   Equity Difference: ${equity_diff:,.0f} ({'✅ EQUIVALENT' if equity_diff < 1 else '❌ DIFFERENT'})"
+            )
+
+            # Overall parity assessment
+            perfect_parity = irr_diff < 0.0001 and em_diff < 0.0001 and equity_diff < 1
+
+            if perfect_parity:
+                print("\n🎉 ✅ PERFECT PARITY ACHIEVED!")
+                print(
+                    "   Pattern and composition approaches are mathematically equivalent"
+                )
+
+            # === RETURN VALIDATION (per model-validation.mdc) ===
+            print("\n📈 RETURN VALIDATION")
+            print("-" * 60)
+
+            irr = pattern_results.deal_metrics.irr
+            em = pattern_results.deal_metrics.equity_multiple
+
+            # Sniff tests for development deals (per model-validation.mdc)
+            irr_ok = 0.18 <= irr <= 0.28  # 18-28% IRR for development
+            em_ok = 2.5 <= em <= 4.0  # 2.5-4.0x EM for development
+
+            print(
+                f"IRR: {irr:.2%} ({'✅' if irr_ok else '⚠️'} Development range: 18-28%)"
+            )
+            print(
+                f"EM: {em:.2f}x ({'✅' if em_ok else '⚠️'} Development range: 2.5-4.0x)"
+            )
+
+            # Return results for assertion testing
+            return pattern_results, comp_results
+
+        print(f"\n🎯 APPROACH COMPARISON")
+        print("-" * 60)
+        print("Composition Approach:")
+        print("  ✅ Full implementation working")
+        print("  ✅ Complete analytical capability")
+        print("  ⚠️  High complexity (250+ lines)")
+        print("  ⚠️  Requires deep Performa expertise")
+
+        print("\nConvention Approach:")
+        print("  ✅ Interface complete and working")
+        print("  ✅ Minimal configuration (30 parameters)")
+        print("  ✅ Industry-standard defaults")
+        print("  ✅ Type safety and validation")
 
     except Exception as e:
-        print(f"❌ Pattern validation failed: {e}")
+        print(f"❌ Analysis failed: {e}")
         traceback.print_exc()
+
+
+def main():
+    """Run comprehensive residential development comparison."""
+    # Run the analysis and get results for assertion
+    pattern_results, composition_results = run_comparative_analysis()
+
+    # === GOLDEN VALUE ASSERTIONS ===
+    # These assertions ensure deal metrics remain stable over time
+    # If these fail, it indicates a regression in the calculation engine
+
+    expected_irr = 0.158954  # 15.8954%
+    expected_em = 2.5783  # 2.5783x
+    expected_equity = 17_876_363  # $17,876,363
+
+    # Allow small floating point tolerance
+    tolerance_percent = 0.0001  # 0.01% tolerance for percentages
+    tolerance_dollar = 10  # $10 tolerance for dollar amounts
+
+    # Assert pattern results (primary validation)
+    actual_irr = pattern_results.deal_metrics.irr
+    actual_em = pattern_results.deal_metrics.equity_multiple
+    actual_equity = pattern_results.deal_metrics.total_equity_invested
+
+    assert (
+        abs(actual_irr - expected_irr) < tolerance_percent
+    ), f"Pattern IRR {actual_irr:.6f} != expected {expected_irr:.6f}"
+    assert (
+        abs(actual_em - expected_em) < tolerance_percent
+    ), f"Pattern EM {actual_em:.4f} != expected {expected_em:.4f}"
+    assert (
+        abs(actual_equity - expected_equity) < tolerance_dollar
+    ), f"Pattern Equity ${actual_equity:,.0f} != expected ${expected_equity:,.0f}"
+
+    # Assert composition results match pattern (parity validation)
+    comp_irr = composition_results.deal_metrics.irr
+    comp_em = composition_results.deal_metrics.equity_multiple
+    comp_equity = composition_results.deal_metrics.total_equity_invested
+
+    assert (
+        abs(comp_irr - actual_irr) < tolerance_percent
+    ), f"Composition-Pattern IRR mismatch: {comp_irr:.6f} vs {actual_irr:.6f}"
+    assert (
+        abs(comp_em - actual_em) < tolerance_percent
+    ), f"Composition-Pattern EM mismatch: {comp_em:.4f} vs {actual_em:.4f}"
+    assert (
+        abs(comp_equity - actual_equity) < tolerance_dollar
+    ), f"Composition-Pattern Equity mismatch: ${comp_equity:,.0f} vs ${actual_equity:,.0f}"
+
+    print(f"\n🎉 RESIDENTIAL DEVELOPMENT COMPARISON COMPLETE!")
+    print("📋 Both approaches working with perfect mathematical parity")
+    print("✅ Golden value assertions passed - metrics remain stable")
+    print("🚀 Production-ready foundation for institutional deal modeling")
 
 
 if __name__ == "__main__":

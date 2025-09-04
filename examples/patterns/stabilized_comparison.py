@@ -545,6 +545,56 @@ def main():
             print("  🎯 Pattern approach enables rapid deal scenario generation")
             print("  🎯 Composition approach remains for advanced customization")
 
+    # === GOLDEN VALUE ASSERTIONS ===
+    # Add assertions if both approaches worked
+    if (
+        composition_deal
+        and pattern_deal
+        and "comp_results" in locals()
+        and "pattern_results" in locals()
+    ):
+        if comp_results and pattern_results:
+            # Golden values for stabilized comparison
+            expected_irr = 0.040779  # 4.0779%
+            expected_em = 1.1845  # 1.1845x
+            expected_equity = 15_310_368  # $15,310,368
+
+            # Allow small floating point tolerance
+            tolerance_percent = 0.0001  # 0.01% tolerance
+            tolerance_dollar = 10  # $10 tolerance
+
+            # Assert composition results
+            comp_irr = comp_results.deal_metrics.irr
+            comp_em = comp_results.deal_metrics.equity_multiple
+            comp_equity = comp_results.deal_metrics.total_equity_invested
+
+            assert (
+                abs(comp_irr - expected_irr) < tolerance_percent
+            ), f"Composition IRR {comp_irr:.6f} != expected {expected_irr:.6f}"
+            assert (
+                abs(comp_em - expected_em) < tolerance_percent
+            ), f"Composition EM {comp_em:.4f} != expected {expected_em:.4f}"
+            assert (
+                abs(comp_equity - expected_equity) < tolerance_dollar
+            ), f"Composition Equity ${comp_equity:,.0f} != expected ${expected_equity:,.0f}"
+
+            # Assert pattern results match composition (parity validation)
+            pattern_irr = pattern_results.deal_metrics.irr
+            pattern_em = pattern_results.deal_metrics.equity_multiple
+            pattern_equity = pattern_results.deal_metrics.total_equity_invested
+
+            assert (
+                abs(pattern_irr - expected_irr) < tolerance_percent
+            ), f"Pattern IRR {pattern_irr:.6f} != expected {expected_irr:.6f}"
+            assert (
+                abs(pattern_em - expected_em) < tolerance_percent
+            ), f"Pattern EM {pattern_em:.4f} != expected {expected_em:.4f}"
+            assert (
+                abs(pattern_equity - expected_equity) < tolerance_dollar
+            ), f"Pattern Equity ${pattern_equity:,.0f} != expected ${expected_equity:,.0f}"
+
+            print("\n✅ Golden value assertions passed - metrics remain stable")
+
     print("\n🎉 STABILIZED PATTERN COMPARISON COMPLETE!")
     print("📋 Interface proven equivalent and fully functional")
     print("🚀 Foundation for rapid institutional deal modeling established")

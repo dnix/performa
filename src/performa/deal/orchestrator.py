@@ -926,16 +926,38 @@ class DealCalculator:
             logger.debug("No partnership to add to ledger")
             return
 
-        # Calculate required equity (purchase price + closing costs - loan proceeds)
+        # Calculate required equity based on deal type
         try:
+            # For development deals: equity comes from funding cascade, not acquisition logic
+            if hasattr(self.deal, "asset") and hasattr(
+                self.deal.asset, "development_schedule"
+            ):
+                # Development deal: equity is calculated by funding cascade
+                # Skip this method - equity will be handled by funding cascade
+                logger.debug(
+                    "Development deal detected - equity handled by funding cascade"
+                )
+                return
+
+            # For stabilized deals: use acquisition + financing logic
             total_cost = self.deal.acquisition.value * (
                 1 + self.deal.acquisition.closing_costs_rate
             )
-            loan_amount = (
-                self.deal.acquisition.value * self.deal.financing.ltv_ratio
-                if self.deal.financing
-                else 0
-            )
+
+            # Handle different financing structures
+            loan_amount = 0
+            if self.deal.financing:
+                if hasattr(self.deal.financing, "ltv_ratio"):
+                    # Single facility with LTV
+                    loan_amount = (
+                        self.deal.acquisition.value * self.deal.financing.ltv_ratio
+                    )
+                elif hasattr(self.deal.financing, "facilities"):
+                    # Multiple facilities - sum their loan amounts
+                    for facility in self.deal.financing.facilities:
+                        if hasattr(facility, "loan_amount") and facility.loan_amount:
+                            loan_amount += facility.loan_amount
+
             required_equity = total_cost - loan_amount
             acquisition_date = self.deal.acquisition.acquisition_date
         except AttributeError as e:

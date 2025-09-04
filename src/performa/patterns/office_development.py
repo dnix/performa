@@ -13,6 +13,7 @@ from __future__ import annotations
 from datetime import date
 from typing import List
 
+from dateutil.relativedelta import relativedelta
 from pydantic import Field
 
 from ..asset.office import (
@@ -48,7 +49,6 @@ from ..debt import (
     DebtTranche,
     FixedRate,
     InterestRate,
-    PermanentFacility,
 )
 from ..debt.constructs import create_construction_to_permanent_plan
 from ..development import DevelopmentProject
@@ -273,6 +273,11 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
         # === STEP 3: VACANT OFFICE SPACE INVENTORY ===
         vacant_suites: List[OfficeVacantSuite] = []
 
+        # Calculate when space becomes available (after construction)
+        space_available_date = self.acquisition_date + relativedelta(
+            months=self.construction_start_months + self.construction_duration_months
+        )
+
         for floor_num in range(1, self.floors + 1):
             suite = OfficeVacantSuite(
                 suite=f"Floor {floor_num}",
@@ -282,6 +287,7 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
                 is_divisible=True,
                 subdivision_average_lease_area=self.average_lease_size_sf,
                 subdivision_minimum_lease_area=self.minimum_lease_size_sf,
+                available_date=space_available_date,  # CRITICAL: Set when space is ready
             )
             vacant_suites.append(suite)
 
@@ -363,34 +369,52 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
 
         # === STEP 9: PERMANENT FINANCING ===
         # Calculate expected stabilized value for loan sizing
-        # Assume stabilized rent = target_rent * NRA * occupancy
-        stabilized_rent = self.target_rent_psf * self.net_rentable_area * 0.95
-        # Assume OpEx = 35% of EGI
-        stabilized_noi = stabilized_rent * 0.65
+        # target_rent_psf is already annual, so no * 12 needed
+        annual_stabilized_rent = self.target_rent_psf * self.net_rentable_area * 0.95
+        # Assume OpEx = 35% of EGI for office
+        stabilized_noi = annual_stabilized_rent * 0.65
         stabilized_value = stabilized_noi / self.exit_cap_rate
+
+        # Calculate permanent loan amount based on stabilized value
         perm_loan_amount = stabilized_value * self.permanent_ltv_ratio
 
-        # Permanent loan should only trigger after construction period
-        # Construction is typically 18-24 months for office development
-        construction_period_months = (
-            self.construction_start_months + self.construction_duration_months
-        )
+        # === DEAL FEASIBILITY GUARD RAILS ===
+        construction_loan_amount = self.total_project_cost * self.construction_ltc_ratio
 
-        permanent_loan = PermanentFacility(
-            name="Permanent Facility",
-            loan_amount=perm_loan_amount,
-            interest_rate=InterestRate(
-                details=FixedRate(rate=self.permanent_interest_rate)
-            ),
-            loan_term_years=self.permanent_loan_term_years,
-            amortization_years=self.permanent_amortization_years,
-            ltv_ratio=self.permanent_ltv_ratio,
-            dscr_hurdle=1.25,
-            origination_fee_rate=0.005,
-            # TODO: Add refinance_month when available in PermanentFacility
-            # refinance_month=construction_period_months,
-        )
+        # Check 1: Value creation requirement
+        value_to_cost_ratio = stabilized_value / self.total_project_cost
+        if value_to_cost_ratio < 1.0:
+            raise ValueError(
+                f"❌ DEAL INFEASIBLE: Office project destroys value! "
+                f"Stabilized value ${stabilized_value:,.0f} < Project cost ${self.total_project_cost:,.0f} "
+                f"(ratio: {value_to_cost_ratio:.2f}). Increase rent PSF, reduce costs, or lower cap rate."
+            )
 
+        # Check 2: Cash-out feasibility
+        cash_out_potential = perm_loan_amount - construction_loan_amount
+        if cash_out_potential < 0:
+            raise ValueError(
+                f"❌ REFINANCING INFEASIBLE: Permanent loan ${perm_loan_amount:,.0f} < "
+                f"Construction loan ${construction_loan_amount:,.0f}. "
+                f"Cash shortfall: ${abs(cash_out_potential):,.0f}. "
+                f"Increase permanent LTV, increase rent PSF, or reduce construction debt."
+            )
+
+        # Check 3: DSCR validation
+        estimated_debt_service = (perm_loan_amount * self.permanent_interest_rate) / 12
+        if estimated_debt_service > 0 and stabilized_noi > 0:
+            estimated_annual_debt_service = estimated_debt_service * 12
+            estimated_dscr = stabilized_noi / estimated_annual_debt_service
+            required_dscr = 1.25
+
+            if estimated_dscr < required_dscr:
+                raise ValueError(
+                    f"❌ DSCR VIOLATION: Estimated DSCR {estimated_dscr:.2f}x below "
+                    f"required {required_dscr:.2f}x. Current capital structure cannot support "
+                    f"permanent financing. Reduce permanent LTV or increase rent PSF."
+                )
+
+        # Calculate construction period for refinance timing
         construction_period_months = (
             self.construction_start_months + self.construction_duration_months
         )
@@ -398,8 +422,8 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
         financing_plan = create_construction_to_permanent_plan(
             construction_terms={
                 "name": "Construction Facility",
-                "loan_amount": self.total_project_cost
-                * self.construction_ltc_ratio,  # Explicit sizing
+                "debt_ratio": self.construction_ltc_ratio,  # Use debt_ratio like residential pattern
+                "ltc_max": 0.80,  # Standard construction LTC cap
                 "interest_rate": self.construction_interest_rate,
                 "loan_term_months": 24,  # 2 years construction
                 "interest_reserve_rate": self.interest_reserve_rate,

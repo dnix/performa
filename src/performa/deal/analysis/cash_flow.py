@@ -237,9 +237,7 @@ class CashFlowEngine:
 
         # === Step 4: Calculate disposition proceeds if not provided ===
         if disposition_proceeds is None:
-            disposition_proceeds = self._calculate_disposition_proceeds(
-                ledger
-            )
+            disposition_proceeds = self._calculate_disposition_proceeds(ledger)
 
         # === Step 4.5: Add disposition to ledger ===
         self._add_disposition_records_to_ledger(ledger, disposition_proceeds)
@@ -366,10 +364,11 @@ class CashFlowEngine:
                 "Ledger is empty - CashFlowEngine requires a populated ledger from asset analysis"
             )
 
-        # Query for all capital uses and financing service transactions
+        # Query for capital uses ONLY - exclude financing service to avoid circular funding
+        # CRITICAL FIX: Financing service (debt service) should NOT be treated as uses
+        # that require additional funding - this creates circular explosion
         uses_filter = current_ledger["flow_purpose"].isin([
             TransactionPurpose.CAPITAL_USE.value,
-            TransactionPurpose.FINANCING_SERVICE.value,
         ])
         uses_transactions = current_ledger[uses_filter]
 
@@ -611,7 +610,9 @@ class CashFlowEngine:
                 # Calculate dynamic equity target based on current working uses
                 # This ensures equity target adjusts as interest compounds
                 current_total_uses = working_uses.sum()
-                equity_target = self._calculate_equity_target(current_total_uses)
+                equity_target = self._calculate_equity_target(
+                    current_total_uses, ledger
+                )
 
                 # Calculate funding for this period's uses
                 period_equity, period_debt = self._fund_period_uses(
@@ -651,7 +652,7 @@ class CashFlowEngine:
 
         # Calculate final equity target based on total uses with interest
         final_total_uses = working_uses.sum()
-        final_equity_target = self._calculate_equity_target(final_total_uses)
+        final_equity_target = self._calculate_equity_target(final_total_uses, ledger)
 
         # Compile interest details
         interest_details = self._compile_interest_details(funding_components)
@@ -669,14 +670,63 @@ class CashFlowEngine:
             "interest_details": interest_details,
         }
 
-    def _calculate_equity_target(self, total_project_cost: float) -> float:
+    def _calculate_equity_target(self, total_project_cost: float, ledger=None) -> float:
         """Calculate equity target based on financing structure."""
         if not self.deal.financing:
             return total_project_cost  # All equity deal
 
-        # For construction financing, use the first tranche's LTC as equity target
+        # For construction financing, calculate equity based on debt structure
         for facility in self.deal.financing.facilities:
             if hasattr(facility, "kind") and facility.kind == "construction":
+                # If facility has debt_ratio, use it to calculate FIXED equity target
+                if hasattr(facility, "debt_ratio") and facility.debt_ratio is not None:
+                    # CRITICAL: Use initial uses to fix equity target
+                    # This prevents interest compounding from inflating equity needs
+                    # The debt_ratio determines capital structure at inception
+                    # Interest is funded by the debt facility itself (interest reserve)
+
+                    # Get initial capital uses (before interest)
+                    if ledger:
+                        ledger_df = ledger.ledger_df()
+                        if not ledger_df.empty and "flow_purpose" in ledger_df.columns:
+                            capital_uses = ledger_df[
+                                ledger_df["flow_purpose"] == "Capital Use"
+                            ]
+                        else:
+                            capital_uses = pd.DataFrame()
+                    else:
+                        capital_uses = pd.DataFrame()
+
+                    if not capital_uses.empty:
+                        # Sum only the land and hard costs (exclude financing costs)
+                        base_uses = capital_uses[
+                            ~capital_uses["subcategory"].str.contains(
+                                "Financing", na=False
+                            )
+                        ]["amount"].sum()
+                        base_project_cost = (
+                            abs(base_uses) if base_uses else total_project_cost
+                        )
+                    else:
+                        # Fallback to total if no breakdown available
+                        base_project_cost = total_project_cost
+
+                    # Fixed equity based on debt ratio
+                    equity_target = base_project_cost * (1 - facility.debt_ratio)
+                    logger.debug(
+                        f"Fixed equity target: ${equity_target:,.0f} ({1 - facility.debt_ratio:.0%} of ${base_project_cost:,.0f} base costs)"
+                    )
+                    return max(equity_target, 0)
+
+                # If facility has explicit loan_amount, use it to derive equity
+                if hasattr(facility, "loan_amount") and facility.loan_amount:
+                    # Equity is total cost minus loan amount
+                    equity_target = total_project_cost - facility.loan_amount
+                    logger.debug(
+                        f"Equity target from loan_amount: ${equity_target:,.0f} (Cost ${total_project_cost:,.0f} - Loan ${facility.loan_amount:,.0f})"
+                    )
+                    return max(equity_target, 0)  # Ensure non-negative
+
                 # Check if facility actually has tranches and they're not None
                 if hasattr(facility, "tranches") and facility.tranches:
                     first_tranche_ltc = facility.tranches[0].ltc_threshold
@@ -684,6 +734,9 @@ class CashFlowEngine:
                     return equity_target
 
         # Fallback: 25% equity
+        logger.warning(
+            "Using fallback 25% equity target - no loan amount or tranches found"
+        )
         return total_project_cost * 0.25
 
     def _fund_period_uses(
@@ -874,7 +927,9 @@ class CashFlowEngine:
         # Start with project funding mechanics
         levered_cash_flows = (
             -funding_components["total_uses"]
-            + funding_components["equity_contributions"]
+            - funding_components[
+                "equity_contributions"
+            ]  # NEGATIVE: equity is investor outflow
             + funding_components["debt_draws"]
         )
 
@@ -1134,15 +1189,25 @@ class CashFlowEngine:
                                     == self.deal.exit_valuation.disposition_date
                                 ):
                                     loan_payoff[period] += balance
-                                elif (
-                                    hasattr(facility, "refinance_timing")
-                                    and facility.refinance_timing
-                                ):
-                                    refinance_period = self.timeline.period_index[
-                                        facility.refinance_timing - 1
-                                    ]
-                                    if period == refinance_period:
-                                        loan_payoff[period] += balance
+                                else:
+                                    # Check if ANY facility in the deal has refinance timing for this period
+                                    for (
+                                        refinancing_facility
+                                    ) in self.deal.financing.facilities:
+                                        if (
+                                            hasattr(
+                                                refinancing_facility, "refinance_timing"
+                                            )
+                                            and refinancing_facility.refinance_timing
+                                        ):
+                                            refinance_period = self.timeline.period_index[
+                                                refinancing_facility.refinance_timing
+                                                - 1
+                                            ]
+                                            if period == refinance_period:
+                                                # Pay off this facility when ANY facility refinances
+                                                loan_payoff[period] += balance
+                                                break
 
                 except Exception as e:
                     # Log warning but continue

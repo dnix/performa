@@ -131,7 +131,7 @@ class ConstructionFacility(DebtFacilityBase):
 
     # Enhanced interest calculation settings
     interest_calculation_method: InterestCalculationMethod = Field(
-        default=InterestCalculationMethod.NONE,
+        default=InterestCalculationMethod.SIMPLE,
         description="Method for handling construction interest calculation",
     )
     simple_reserve_rate: Optional[float] = Field(
@@ -139,6 +139,20 @@ class ConstructionFacility(DebtFacilityBase):
         ge=0,
         le=0.3,
         description="Reserve percentage when using SIMPLE method (required for SIMPLE method, typically 8-12%)",
+    )
+
+    # Debt sizing parameters (optional - for capital structure optimization)
+    debt_ratio: Optional[float] = Field(
+        None,
+        ge=0,
+        le=1.0,
+        description="Target debt ratio (loan ÷ total project cost) for capital structure optimization",
+    )
+    ltc_max: float = Field(
+        0.80,
+        ge=0,
+        le=0.85,
+        description="Maximum LTC threshold - lender's hard gate that cannot be exceeded",
     )
 
     @model_validator(mode="before")
@@ -208,8 +222,16 @@ class ConstructionFacility(DebtFacilityBase):
             else:
                 if values.get("name") is None:
                     raise ValueError("name is required for single-facility mode")
-                if values.get("loan_amount") is None:
-                    raise ValueError("loan_amount is required for single-facility mode")
+
+                # Either loan_amount OR debt_ratio must be provided
+                if (
+                    values.get("loan_amount") is None
+                    and values.get("debt_ratio") is None
+                ):
+                    raise ValueError(
+                        "Either loan_amount or debt_ratio is required for single-facility mode"
+                    )
+
                 if values.get("interest_rate") is None:
                     raise ValueError(
                         "interest_rate is required for single-facility mode"
@@ -352,14 +374,72 @@ class ConstructionFacility(DebtFacilityBase):
             # Only use loan_amount if it's a reasonable value (not a $1 placeholder)
             return self.loan_amount
 
-        # Simple mode: if explicit loan_amount provided and no tranches, use it
-        if self.loan_amount and not self.tranches:
+        # Simple mode: if explicit loan_amount provided and no tranches/debt_ratio, use it
+        if self.loan_amount and not self.tranches and not self.debt_ratio:
             return self.loan_amount
+
+        # Check if we're using debt_ratio sizing
+        if self.debt_ratio is not None and base_costs > 0:
+            # Size by debt ratio but still respect interest calculation method
+            ltc = min(self.debt_ratio, self.ltc_max)  # Apply ltc_max cap
+
+            # Apply interest calculation method to debt_ratio sizing as well
+            if self.interest_calculation_method == InterestCalculationMethod.NONE:
+                return base_costs * ltc
+
+            elif self.interest_calculation_method == InterestCalculationMethod.SIMPLE:
+                if self.simple_reserve_rate is None:
+                    raise ValueError(
+                        "simple_reserve_rate is required when using InterestCalculationMethod.SIMPLE. "
+                        "Provide a rate between 0.08-0.12 (8-12% is typical)."
+                    )
+
+                # Calculate interest based on actual interest rate and construction duration
+                construction_periods = self.loan_term_months or 24
+                annual_rate = self._get_effective_rate()
+
+                # Simple interest calculation: assume average balance during construction is 50% of final
+                construction_years = construction_periods / 12
+                base_loan = base_costs * ltc
+                estimated_interest = base_loan * annual_rate * construction_years * 0.5
+
+                # Size loan to cover both base costs and interest
+                total_project_with_interest = base_costs + estimated_interest
+                return total_project_with_interest * ltc
+
+            elif (
+                self.interest_calculation_method == InterestCalculationMethod.SCHEDULED
+            ):
+                # Sophisticated draw-based calculation using actual draw schedules
+                draw_schedule_total = (
+                    sum(self.draw_schedule.values())
+                    if self.draw_schedule
+                    else base_costs
+                )
+
+                # Calculate interest on draws using construction timeline
+                construction_periods = self.loan_term_months or 24
+                annual_rate = self._get_effective_rate()
+                monthly_rate = annual_rate / 12
+
+                # Estimate average outstanding balance during construction
+                avg_outstanding = (draw_schedule_total * ltc) * 0.5
+                total_interest = avg_outstanding * monthly_rate * construction_periods
+
+                # Add interest to project costs and apply LTC
+                total_project_with_interest = base_costs + total_interest
+                return total_project_with_interest * ltc
+
+            else:
+                # Default: use debt ratio without interest adjustment
+                return base_costs * ltc
 
         # Multi-tranche mode: requires project costs and tranches
         if not self.tranches:
+            if self.loan_amount:
+                return self.loan_amount
             raise ValueError(
-                "ConstructionFacility requires either explicit loan_amount or tranches for LTC calculation"
+                "ConstructionFacility requires either explicit loan_amount, debt_ratio, or tranches for sizing"
             )
 
         # Raise explicit error if we can't determine project costs
@@ -387,26 +467,39 @@ class ConstructionFacility(DebtFacilityBase):
         # Get maximum LTC across all tranches (multi-tranche facilities fund up to highest LTC)
         ltc = max(tranche.ltc_threshold for tranche in self.tranches)
 
+        # Apply ltc_max cap even in multi-tranche mode
+        ltc = min(ltc, self.ltc_max)
+
         # Calculate loan amount based on interest calculation method
         if self.interest_calculation_method == InterestCalculationMethod.NONE:
             # Simple LTC on base costs
             return base_costs * ltc
 
         elif self.interest_calculation_method == InterestCalculationMethod.SIMPLE:
-            # Algebraic solution with interest reserve (no iteration needed!)
-            # Loan = (Base × LTC) / (1 - Reserve% × LTC)
+            # Calculate construction interest and size loan to cover base costs + interest
+            # This method estimates total interest as percentage of loan amount
             if self.simple_reserve_rate is None:
                 raise ValueError(
                     "simple_reserve_rate is required when using InterestCalculationMethod.SIMPLE. "
                     "Provide a rate between 0.08-0.12 (8-12% is typical)."
                 )
-            denominator = 1 - (self.simple_reserve_rate * ltc)
-            if denominator <= 0:
-                raise ValueError(
-                    f"Simple reserve rate ({self.simple_reserve_rate:.1%}) and "
-                    f"LTC ({ltc:.1%}) combination is invalid - denominator is {denominator:.4f}"
-                )
-            return (base_costs * ltc) / denominator
+
+            # Calculate interest based on actual interest rate and construction duration
+            construction_periods = self.loan_term_months or 24
+            annual_rate = self._get_effective_rate()
+
+            # Simple interest calculation: assume average balance during construction is 50% of final
+            # Total interest = (base_loan * ltc) * (annual_rate * construction_years) * 50%
+            construction_years = construction_periods / 12
+            base_loan = base_costs * ltc
+            estimated_interest = base_loan * annual_rate * construction_years * 0.5
+
+            # Alternative: Use simple_reserve_rate as a percentage of loan amount if it's meant as total interest
+            # estimated_interest = base_loan * self.simple_reserve_rate
+
+            # Size loan to cover both base costs and interest
+            total_project_with_interest = base_costs + estimated_interest
+            return total_project_with_interest * ltc
 
         elif self.interest_calculation_method == InterestCalculationMethod.SCHEDULED:
             # Sophisticated draw-based calculation using actual draw schedules
@@ -474,12 +567,22 @@ class ConstructionFacility(DebtFacilityBase):
         # Calculate proper loan commitment using new method
         effective_loan_amount = self._calculate_loan_commitment(context)
 
+        # Store for refinancing payoff calculations
+        self._effective_loan_amount = effective_loan_amount
+
         # Write interest capitalization to ledger if using SIMPLE or SCHEDULED methods
         if self.interest_calculation_method in [
             InterestCalculationMethod.SIMPLE,
             InterestCalculationMethod.SCHEDULED,
         ]:
+            logger.debug(
+                f"Recording interest capitalization for {self.name} with method {self.interest_calculation_method}"
+            )
             self._record_interest_capitalization(context, effective_loan_amount)
+        else:
+            logger.debug(
+                f"Skipping interest capitalization for {self.name} - method is {self.interest_calculation_method}"
+            )
 
         # Generate debt service with calculated loan amount
         return self._generate_debt_service_with_amount(context, effective_loan_amount)
@@ -510,10 +613,16 @@ class ConstructionFacility(DebtFacilityBase):
         if base_costs == 0:
             return
 
-        # Get maximum LTC across all tranches
-        if not self.tranches or len(self.tranches) == 0:
-            return  # Can't calculate without tranche info
-        ltc = max(tranche.ltc_threshold for tranche in self.tranches)
+        # Calculate LTC for interest estimation
+        if self.tranches and len(self.tranches) > 0:
+            # Tranche-based facility: use maximum LTC
+            ltc = max(tranche.ltc_threshold for tranche in self.tranches)
+        elif self.debt_ratio is not None:
+            # Debt ratio facility: use the original debt ratio
+            ltc = min(self.debt_ratio, self.ltc_max)
+        else:
+            # Fallback: use a reasonable default
+            ltc = 0.70
 
         # Calculate interest component
         base_loan = base_costs * ltc
@@ -631,6 +740,40 @@ class ConstructionFacility(DebtFacilityBase):
             debt_service = draws
 
         return debt_service
+
+    def get_outstanding_balance(self, date, financing_cash_flows=None) -> float:
+        """
+        Calculate outstanding loan balance for refinancing payoff.
+
+        For construction loans, the outstanding balance is typically the full
+        loan amount since they are interest-only during construction.
+
+        Args:
+            date: Date for balance calculation
+            financing_cash_flows: Optional cash flow history
+
+        Returns:
+            Outstanding loan balance
+        """
+        # For construction loans, return the full commitment amount
+        # Construction loans are typically interest-only, so principal balance = loan amount
+        if hasattr(self, "_effective_loan_amount") and self._effective_loan_amount:
+            return self._effective_loan_amount
+        elif self.loan_amount and self.loan_amount > 0:
+            return self.loan_amount
+        elif self.debt_ratio is not None:
+            # Estimate loan amount as debt_ratio * typical project cost
+            # This is rough but better than $0 for payoff calculations
+            estimated_amount = 20_000_000 * self.debt_ratio  # Rough estimate
+            logger.warning(
+                f"Estimating outstanding balance for {self.name}: ${estimated_amount:,.0f}"
+            )
+            return estimated_amount
+        else:
+            logger.warning(
+                f"No loan amount available for {self.name} outstanding balance calculation"
+            )
+            return 0.0
 
     def _generate_draw_schedule(self, timeline: Timeline) -> pd.Series:
         """

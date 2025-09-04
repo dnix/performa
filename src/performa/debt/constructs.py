@@ -305,16 +305,18 @@ def create_construction_to_permanent_plan(
     # --- Process Construction Terms ---
     construction_params = construction_terms.copy()
 
-    # Convert ltc_threshold to explicit loan_amount if needed
-    if (
-        "ltc_threshold" in construction_params
-        and "loan_amount" not in construction_params
-    ):
-        if project_value is None:
-            raise ValueError("project_value required when using ltc_threshold")
-        construction_params["loan_amount"] = project_value * construction_params.pop(
-            "ltc_threshold"
-        )
+    # Handle different sizing methods for construction
+    if "loan_amount" not in construction_params:
+        if "debt_ratio" in construction_params:
+            # Keep debt_ratio for the facility to handle internally
+            # It will size based on project costs during compute_cf
+            pass  # debt_ratio stays in params
+        elif "ltc_threshold" in construction_params:
+            if project_value is None:
+                raise ValueError("project_value required when using ltc_threshold")
+            construction_params["loan_amount"] = (
+                project_value * construction_params.pop("ltc_threshold")
+            )
 
     # --- Process Permanent Terms ---
     permanent_params = permanent_terms.copy()

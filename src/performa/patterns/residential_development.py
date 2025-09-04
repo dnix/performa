@@ -47,11 +47,8 @@ from ..deal import (
     create_gp_lp_waterfall,
     create_simple_partnership,
 )
-from ..debt import (
-    ConstructionFacility,
-    DebtTranche,
-    PermanentFacility,
-)
+
+# No direct debt facility imports needed - using construct
 from ..debt.constructs import create_construction_to_permanent_plan
 from ..development import DevelopmentProject
 from ..valuation import DirectCapValuation
@@ -166,8 +163,19 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         default=0.01, description="Expected credit loss rate for collections"
     )
 
+    # === CONSTRUCTION CAPITAL STRUCTURE ===
+    construction_debt_ratio: FloatBetween0And1 = Field(
+        default=0.70,  # 70% debt, 30% equity for construction
+        description="Target debt ratio for construction financing (0.0=all equity, 1.0=all debt)",
+    )
+    construction_ltc_max: FloatBetween0And1 = Field(
+        default=0.80,
+        description="Maximum LTC threshold - lender's hard gate (typically 0.75-0.85)",
+    )
+
     def _derive_timeline(self) -> Timeline:
         """Override to add buffer for exit transaction."""
+        # FIXME: this needs to be fixed, what about lease up and stabilization??? can't we just derive this??
         return Timeline(
             start_date=self.acquisition_date,
             duration_months=self.hold_period_years * 12
@@ -233,6 +241,7 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
     def _derive_timeline(self) -> Timeline:
         """Derive timeline from construction duration and hold period."""
         # Use same approach as office development for consistency
+        # FIXME: this needs to be fixed, what about lease up and stabilization??? can't we just derive this??
         total_timeline_months = max(
             self.construction_start_months
             + self.construction_duration_months
@@ -385,62 +394,90 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         # Calculate stabilized value using exit cap rate
         stabilized_value = estimated_noi / self.exit_cap_rate
 
-        # Construction facility - properly configured for multi-tranche mode
-        construction_tranche = DebtTranche(
-            name="Senior Construction",
-            ltc_threshold=self.construction_ltc_ratio,
-            interest_rate=self.construction_interest_rate,
-            fee_rate=self.construction_fee_rate,
-        )
-
-        # Use multi-tranche mode - loan amount calculated from project costs and LTC
-        construction_facility = ConstructionFacility(
-            name=f"{self.project_name} Construction Loan",
-            tranches=[construction_tranche],
-            loan_term_months=18,  # 18 month construction period
-            # DO NOT specify loan_amount - let it be calculated from tranches and project costs
-            fund_interest_from_reserve=True,
-            interest_reserve_rate=0.10,  # 10% interest reserve
-            interest_calculation_method=InterestCalculationMethod.SIMPLE,
-        )
-
-        # Permanent facility - sized based on STABILIZED VALUE, not project cost
-        permanent_loan_amount = stabilized_value * self.permanent_ltv_ratio
-        permanent_facility = PermanentFacility(
-            name=f"{self.project_name} Permanent Loan",
-            loan_amount=permanent_loan_amount,
-            interest_rate=self.permanent_interest_rate,
-            loan_term_months=self.permanent_loan_term_years * 12,
-            amortization_months=self.permanent_amortization_years * 12,
-        )
-
+        # === STEP 7: CONSTRUCTION-TO-PERMANENT FINANCING ===
         construction_period_months = (
             self.construction_start_months + self.construction_duration_months
         )
 
+        # Calculate permanent loan amount based on LTV of stabilized value
+        permanent_loan_amount = stabilized_value * self.permanent_ltv_ratio
+
+        # === DEAL FEASIBILITY GUARD RAILS ===
+        construction_loan_amount = self.total_project_cost * self.construction_ltc_ratio
+
+        # Check 1: Value creation requirement
+        value_to_cost_ratio = stabilized_value / self.total_project_cost
+        if value_to_cost_ratio < 1.0:
+            raise ValueError(
+                f"❌ DEAL INFEASIBLE: Project destroys value! "
+                f"Stabilized value ${stabilized_value:,.0f} < Project cost ${self.total_project_cost:,.0f} "
+                f"(ratio: {value_to_cost_ratio:.2f}). Increase rents, reduce costs, or lower cap rate."
+            )
+
+        # Check 2: Cash-out feasibility
+        cash_out_potential = permanent_loan_amount - construction_loan_amount
+        if cash_out_potential < 0:
+            raise ValueError(
+                f"❌ REFINANCING INFEASIBLE: Permanent loan ${permanent_loan_amount:,.0f} < "
+                f"Construction loan ${construction_loan_amount:,.0f}. "
+                f"Cash shortfall: ${abs(cash_out_potential):,.0f}. "
+                f"Increase LTV, increase value, or reduce construction debt."
+            )
+
+        # Check 3: Minimum spread requirement (deal must generate returns)
+        if value_to_cost_ratio < 1.15:
+            raise ValueError(
+                f"⚠️ THIN MARGINS: Value/cost ratio {value_to_cost_ratio:.2f} below 1.15x "
+                f"minimum for institutional development. Deal may not generate adequate returns."
+            )
+
         financing = create_construction_to_permanent_plan(
             construction_terms={
                 "name": "Construction Facility",
-                "loan_amount": self.total_project_cost * self.construction_ltc_ratio,
+                "debt_ratio": self.construction_ltc_ratio,  # Use base class parameter (working scripts use this)
+                "ltc_max": self.construction_ltc_max,  # Lender's hard gate
                 "interest_rate": self.construction_interest_rate,
                 "loan_term_months": 24,
                 "interest_reserve_rate": self.interest_reserve_rate,
+                "interest_calculation_method": getattr(
+                    InterestCalculationMethod, self.interest_calculation_method
+                ),
+                "simple_reserve_rate": 0.10,  # Required for SIMPLE method
             },
             permanent_terms={
                 "name": "Permanent Facility",
-                "loan_amount": permanent_loan_amount,
+                "loan_amount": permanent_loan_amount,  # Explicit sizing based on stabilized value
                 "interest_rate": self.permanent_interest_rate,
                 "loan_term_months": self.permanent_loan_term_years * 12,
                 "amortization_months": self.permanent_amortization_years * 12,
-                "ltv_ratio": self.permanent_ltv_ratio,
                 "dscr_hurdle": 1.25,
                 "origination_fee_rate": 0.005,
-                "refinance_timing": construction_period_months,  # KEY FIX!
+                "refinance_timing": construction_period_months,  # FIXED!
             },
             project_value=self.total_project_cost,
         )
 
-        # === STEP 8: PARTNERSHIP STRUCTURE ===
+        # === STEP 8: DSCR VALIDATION (FAIL FAST) ===
+        # Validate permanent financing DSCR before creating partnership
+        # Use the NOI calculated earlier for stabilized value
+        estimated_debt_service = (
+            permanent_loan_amount * self.permanent_interest_rate
+        ) / 12
+
+        if estimated_debt_service > 0 and estimated_noi > 0:
+            estimated_annual_debt_service = estimated_debt_service * 12
+            estimated_dscr = estimated_noi / estimated_annual_debt_service
+            required_dscr = 1.25  # Standard requirement
+
+            if estimated_dscr < required_dscr:
+                raise ValueError(
+                    f"❌ DSCR VIOLATION: Estimated DSCR {estimated_dscr:.2f}x below "
+                    f"required {required_dscr:.2f}x. Current capital structure cannot support "
+                    f"permanent financing. Reduce permanent LTV from {self.permanent_ltv_ratio:.1%} "
+                    f"or increase NOI (currently ${estimated_noi:,.0f}/year)."
+                )
+
+        # === STEP 9: PARTNERSHIP STRUCTURE ===
         if self.distribution_method == "waterfall":
             partnership = create_gp_lp_waterfall(
                 gp_share=self.gp_share,
