@@ -90,7 +90,10 @@ class TestValueAddFinancialAccuracy:
             stabilized_expenses=ResidentialExpenses(),
             stabilized_losses=ResidentialLosses(
                 general_vacancy={"rate": 0.0, "method": "Potential Gross Revenue"},
-                credit_loss={"rate": 0.0, "basis": UnleveredAggregateLineKey.TENANT_REVENUE},
+                credit_loss={
+                    "rate": 0.0,
+                    "basis": UnleveredAggregateLineKey.TENANT_REVENUE,
+                },
             ),
             stabilized_misc_income=[],
         )

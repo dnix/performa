@@ -31,13 +31,15 @@ def sample_context() -> AnalysisContext:
     timeline = Timeline.from_dates(
         start_date=date(2023, 11, 1), end_date=date(2028, 12, 31)
     )
-    property_data = OfficeProperty.model_construct(net_rentable_area=1.0, uid="550e8400-e29b-41d4-a716-446655440031")
+    property_data = OfficeProperty.model_construct(
+        net_rentable_area=1.0, uid="550e8400-e29b-41d4-a716-446655440031"
+    )
     ledger = Ledger(settings=LedgerGenerationSettings())
     return AnalysisContext(
         timeline=timeline,
         settings=GlobalSettings(),
         property_data=property_data,
-        ledger=ledger
+        ledger=ledger,
     )
 
 

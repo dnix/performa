@@ -74,7 +74,7 @@ class RealisticLoanScenarios:
         Create a distressed retail scenario that SHOULD breach covenants.
 
         Based on actual calculation results:
-        - Property value: $5M (declining)  
+        - Property value: $5M (declining)
         - Annual NOI: $200k (4% yield - very low)
         - Monthly NOI: $16,667 (for covenant monitoring)
         - Outstanding loan: $4M (80% LTV)
@@ -114,7 +114,7 @@ class TestRealisticCovenantMonitoring:
             dscr_hurdle=1.25,
             loan_amount=scenario["loan_amount"],
             ongoing_ltv_max=0.75,  # 5% buffer above sizing LTV
-            ongoing_dscr_min=1.20,  # Covenant below sizing DSCR  
+            ongoing_dscr_min=1.20,  # Covenant below sizing DSCR
             ongoing_debt_yield_min=0.08,
         )
 

@@ -150,7 +150,6 @@ class TestSystematicValidation:
             expected_noi, rel=1e-6
         ), f"NOI must be exact: {jan_noi} vs {expected_noi}"
 
-
     def test_2_basic_recovery(self):
         """
         TEST 2: Basic Recovery Calculations
@@ -255,7 +254,9 @@ class TestSystematicValidation:
         expected_base_rent = 10000 * 25 / 12  # $20,833
         expected_opex = 10000 * 10 / 12  # $8,333
         expected_recovery = expected_opex  # 100% recovery
-        expected_pgr = expected_base_rent + expected_recovery  # $29,166 (industry standard: all revenue)
+        expected_pgr = (
+            expected_base_rent + expected_recovery
+        )  # $29,166 (industry standard: all revenue)
         expected_noi = expected_base_rent + expected_recovery - expected_opex  # $20,833
 
         # Validate with perfect precision
@@ -263,7 +264,6 @@ class TestSystematicValidation:
         assert jan_recovery == pytest.approx(expected_recovery, rel=1e-6)
         assert jan_opex == pytest.approx(expected_opex, rel=1e-6)
         assert jan_noi == pytest.approx(expected_noi, rel=1e-6)
-
 
     def test_3_multi_tenant_portfolio(self):
         """
@@ -386,20 +386,23 @@ class TestSystematicValidation:
         # Manual calculation
         tenant_a_rent = 10000 * 30 / 12  # $25,000
         tenant_b_rent = 8000 * 28 / 12  # $18,667
-        
+
         total_opex = 20000 * 8 / 12  # $13,333
         tenant_b_recovery = (8000 / 20000) * total_opex  # $5,333 (pro-rata share)
-        
-        total_pgr = tenant_a_rent + tenant_b_rent + tenant_b_recovery  # $49,000 (industry standard: all revenue)
 
-        expected_noi = total_pgr - total_opex  # $35,667 (recovery already included in PGR)
+        total_pgr = (
+            tenant_a_rent + tenant_b_rent + tenant_b_recovery
+        )  # $49,000 (industry standard: all revenue)
+
+        expected_noi = (
+            total_pgr - total_opex
+        )  # $35,667 (recovery already included in PGR)
 
         # Validate with perfect precision
         assert jan_pgr == pytest.approx(total_pgr, rel=1e-6)
         assert jan_recovery == pytest.approx(tenant_b_recovery, rel=1e-6)
         assert jan_opex == pytest.approx(total_opex, rel=1e-6)
         assert jan_noi == pytest.approx(expected_noi, rel=1e-6)
-
 
     def test_4_with_vacancy_collection_losses(self):
         """
@@ -417,7 +420,7 @@ class TestSystematicValidation:
         - EGI: $43,667 - $1,310 + $5,333 = $47,690
         - Collection Loss: $47,690 × 1% = $477 (based on EGI, industry standard)
         - NOI: $47,690 - $477 - $13,333 = $33,880
-        
+
         NOTE: Collection loss is correctly calculated on EGI (not PGR-Vacancy) per
         industry standards used by Argus, RockPort Val, and other professional tools.
         """
@@ -500,7 +503,7 @@ class TestSystematicValidation:
                 general_vacancy=OfficeGeneralVacancyLoss(rate=0.03),  # 3% vacancy
                 credit_loss=OfficeCreditLoss(
                     rate=0.01,  # 1% collection
-                    basis=UnleveredAggregateLineKey.TENANT_REVENUE  # Rent + recoveries
+                    basis=UnleveredAggregateLineKey.TENANT_REVENUE,  # Rent + recoveries
                 ),
             ),
         )
@@ -530,7 +533,7 @@ class TestSystematicValidation:
         ]
 
         # Manual calculation - CORRECTED TO INDUSTRY STANDARDS
-        # 
+        #
         # IMPORTANT: This test was corrected to follow proper real estate industry practices.
         # The original test incorrectly calculated collection loss as (PGR - Vacancy) × 1%,
         # but industry standard is to base collection loss on Effective Gross Income (EGI).
@@ -544,14 +547,20 @@ class TestSystematicValidation:
         base_pgr = (10000 * 30 + 8000 * 28) / 12  # $43,667 (base rent only)
         total_opex = 20000 * 8 / 12  # $13,333
         recovery = (8000 / 20000) * total_opex  # $5,333
-        
-        expected_pgr = base_pgr + recovery  # $49,000 (industry standard: all revenue at 100% occupancy)
-        vacancy_loss = expected_pgr * 0.03  # $1,470 (CORRECTED: should be based on full PGR)
-        
+
+        expected_pgr = (
+            base_pgr + recovery
+        )  # $49,000 (industry standard: all revenue at 100% occupancy)
+        vacancy_loss = (
+            expected_pgr * 0.03
+        )  # $1,470 (CORRECTED: should be based on full PGR)
+
         egi = expected_pgr - vacancy_loss  # $47,530 (EGI = PGR - vacancy)
         # CORRECTED: Collection loss based on tenant revenue (rent + recoveries) to avoid circular dependency
         tenant_revenue = base_pgr + recovery  # $49,000 (rent + recoveries)
-        collection_loss = tenant_revenue * 0.01  # $490 (collection loss based on tenant revenue)
+        collection_loss = (
+            tenant_revenue * 0.01
+        )  # $490 (collection loss based on tenant revenue)
         expected_noi = egi - collection_loss - total_opex  # $33,722
 
         # Validate with perfect precision - this tests our loss calculation fix!
@@ -573,7 +582,6 @@ class TestSystematicValidation:
         assert jan_noi == pytest.approx(
             expected_noi, rel=1e-6
         ), "NOI calculation must be exact"
-
 
     def test_5_lease_renewals(self):
         """
@@ -661,7 +669,6 @@ class TestSystematicValidation:
         assert jan_2025_pgr == pytest.approx(
             new_rent, rel=1e-6
         ), "Post-renewal rent must be exact"
-
 
     def test_6_full_market_scenario(self):
         """
@@ -794,7 +801,7 @@ class TestSystematicValidation:
                 general_vacancy=OfficeGeneralVacancyLoss(rate=0.03),  # 3% vacancy
                 credit_loss=OfficeCreditLoss(
                     rate=0.005,  # 0.5% collection
-                    basis=UnleveredAggregateLineKey.TENANT_REVENUE  # Rent + recoveries
+                    basis=UnleveredAggregateLineKey.TENANT_REVENUE,  # Rent + recoveries
                 ),
             ),
         )
@@ -822,7 +829,7 @@ class TestSystematicValidation:
         xyz_rent = 15000 * 28.50 / 12  # $35,625
         tech_rent = 8000 * 38.00 / 12  # $25,333
         total_base_rent = abc_rent + xyz_rent + tech_rent  # $114,291
-        
+
         # Industry standard: PGR = base rent + recoveries (all revenue at 100% occupancy)
         expected_pgr = total_base_rent + jan_recovery  # Base rent + recovery revenue
 
@@ -857,10 +864,14 @@ class TestSystematicValidation:
         ]
 
         expected_vacancy_loss = jan_pgr * 0.03
-        expected_egi = jan_pgr - jan_vacancy_loss  # EGI = PGR - vacancy (recovery already in PGR)
+        expected_egi = (
+            jan_pgr - jan_vacancy_loss
+        )  # EGI = PGR - vacancy (recovery already in PGR)
         # CORRECTED: Collection loss based on tenant revenue (rent + recoveries) to avoid circular dependency
         # In this complex scenario, PGR essentially equals tenant revenue since it includes base rent + recoveries
-        expected_collection_loss = jan_pgr * 0.005  # Collection loss based on tenant revenue (PGR = rent + recoveries)
+        expected_collection_loss = (
+            jan_pgr * 0.005
+        )  # Collection loss based on tenant revenue (PGR = rent + recoveries)
 
         assert jan_vacancy_loss == pytest.approx(
             expected_vacancy_loss, rel=1e-6
@@ -868,7 +879,6 @@ class TestSystematicValidation:
         assert jan_collection_loss == pytest.approx(
             expected_collection_loss, rel=1e-6
         ), "Collection loss calculation must be exact"
-
 
     def test_7_aggregate_line_key_references(self):
         """
@@ -982,7 +992,6 @@ class TestSystematicValidation:
         assert calculated_admin_fee == pytest.approx(
             expected_admin_fee, rel=1e-6
         ), f"Admin fee calculation: {calculated_admin_fee} vs {expected_admin_fee}"
-
 
     def test_8_dependency_complexity_validation(self):
         """
@@ -1279,8 +1288,7 @@ class TestSystematicValidation:
 
         # Create analysis scenario
         scenario = OfficeAnalysisScenario(
-            model=property_model, timeline=timeline, settings=settings,
-            ledger=Ledger()
+            model=property_model, timeline=timeline, settings=settings, ledger=Ledger()
         )
 
         # Test the pre-calculation logic
@@ -1423,7 +1431,6 @@ class TestSystematicValidation:
             f"   Serialization includes computed field: {'is_recoverable' in serialized}"
         )
 
-
     def test_12_simple_base_year_stop_recovery(self):
         """
         TEST 12: Simple Base Year Stop Recovery
@@ -1539,7 +1546,9 @@ class TestSystematicValidation:
         expected_recovery = (
             expected_current_opex - expected_base_year_2023
         )  # Excess only
-        expected_pgr = expected_base_rent + expected_recovery  # Industry standard: PGR includes all revenue
+        expected_pgr = (
+            expected_base_rent + expected_recovery
+        )  # Industry standard: PGR includes all revenue
         expected_noi = expected_base_rent + expected_recovery - expected_current_opex
 
         # Validate with perfect precision
@@ -1553,7 +1562,6 @@ class TestSystematicValidation:
         print(
             f"✅ Simple base year stop: ${jan_recovery:,.0f} monthly recovery (excess above base year)"
         )
-
 
     def test_13_base_year_larger_property(self):
         """
@@ -1669,7 +1677,9 @@ class TestSystematicValidation:
         expected_recovery = (
             expected_current_opex - expected_base_year_2023
         )  # Excess only
-        expected_pgr = expected_base_rent + expected_recovery  # Industry standard: PGR includes all revenue
+        expected_pgr = (
+            expected_base_rent + expected_recovery
+        )  # Industry standard: PGR includes all revenue
         expected_noi = expected_base_rent + expected_recovery - expected_current_opex
 
         # Validate with perfect precision
@@ -1688,7 +1698,6 @@ class TestSystematicValidation:
         print(
             f"✅ Base year recovery with larger property: ${jan_recovery:,.0f} monthly recovery"
         )
-
 
     def test_14_base_year_with_gross_up(self):
         """
@@ -1891,7 +1900,6 @@ class TestSystematicValidation:
         print(
             f"   Gross-up premium: {gross_up_premium:.1%} (proves gross-up is working)"
         )
-
 
     def test_15_multi_tenant_different_base_years(self):
         """
@@ -2116,8 +2124,10 @@ class TestSystematicValidation:
         ]
 
         # REAL ESTATE VALIDATION:
-        # 1. Basic calculations  
-        expected_pgr = total_rent + jan_recovery  # Industry standard: PGR includes base rent + recoveries
+        # 1. Basic calculations
+        expected_pgr = (
+            total_rent + jan_recovery
+        )  # Industry standard: PGR includes base rent + recoveries
         assert jan_pgr == pytest.approx(
             expected_pgr, rel=1e-6
         ), "PGR should equal base rent + recoveries per industry standard"
@@ -2170,7 +2180,6 @@ class TestSystematicValidation:
         )
         print(f"   Tenant C (gross): ${recovery_c:,.0f} monthly")
         print(f"   Total recovery: ${jan_recovery:,.0f} monthly")
-
 
     def test_16_base_year_expense_caps_and_exclusions(self):
         """
@@ -2443,7 +2452,6 @@ class TestSystematicValidation:
             f"   Capital expenses excluded: ${(jan_opex - jan_opex_no_capital) * 12:,.0f} annually"
         )
 
-
     def test_17_real_world_multi_year_expense_caps(self):
         """
         TEST 17: Real-World Multi-Year Expense Caps (Professional Validation)
@@ -2629,9 +2637,7 @@ class TestSystematicValidation:
         result_standard = run(
             model=property_standard, timeline=timeline, settings=settings
         )
-        result_market = run(
-            model=property_market, timeline=timeline, settings=settings
-        )
+        result_market = run(model=property_market, timeline=timeline, settings=settings)
 
         # Get results
         summary_conservative = result_conservative.summary_df
@@ -2774,7 +2780,6 @@ class TestSystematicValidation:
             f"   Standard tenant saves: ${(market_baseline - recovery_standard_psf) * 20000:.0f} annually"
         )
         print("   Multi-year compound caps working correctly over 3-year period")
-
 
     def test_18_global_settings_cap_integration_demo(self):
         """

@@ -32,7 +32,7 @@ from performa.core.primitives import (
 
 class TestTransactionRecord:
     """Test TransactionRecord functionality."""
-    
+
     def test_basic_creation(self):
         """Test basic TransactionRecord creation."""
         record = TransactionRecord(
@@ -44,14 +44,14 @@ class TestTransactionRecord:
             item_name="Base Rent - Unit 101",
             source_id=uuid4(),
             asset_id=uuid4(),
-            pass_num=1
+            pass_num=1,
         )
-        
+
         assert record.amount == 1000.0
         assert record.flow_purpose == TransactionPurpose.OPERATING
         assert record.pass_num == 1
         assert record.transaction_id is not None  # Auto-generated
-    
+
     def test_validation(self):
         """Test TransactionRecord validation."""
         with pytest.raises(ValueError, match="pass_num must be between 1 and 6"):
@@ -60,13 +60,13 @@ class TestTransactionRecord:
                 amount=1000.0,
                 flow_purpose=TransactionPurpose.OPERATING,
                 category="Revenue",
-                subcategory="Rent", 
+                subcategory="Rent",
                 item_name="Test",
                 source_id=uuid4(),
                 asset_id=uuid4(),
-                pass_num=7  # Invalid
+                pass_num=7,  # Invalid
             )
-        
+
         with pytest.raises(ValueError, match="item_name cannot be empty"):
             TransactionRecord(
                 date=date(2024, 1, 15),
@@ -77,13 +77,13 @@ class TestTransactionRecord:
                 item_name="",  # Empty
                 source_id=uuid4(),
                 asset_id=uuid4(),
-                pass_num=1
+                pass_num=1,
             )
 
 
 class TestSeriesMetadata:
     """Test SeriesMetadata functionality."""
-    
+
     def test_basic_creation(self):
         """Test basic SeriesMetadata creation."""
         metadata = SeriesMetadata(
@@ -92,13 +92,13 @@ class TestSeriesMetadata:
             item_name="Base Rent",
             source_id=uuid4(),
             asset_id=uuid4(),
-            pass_num=1
+            pass_num=1,
         )
-        
+
         assert metadata.category == "Revenue"
         assert metadata.pass_num == 1
         assert metadata.deal_id is None  # Optional field
-    
+
     def test_validation(self):
         """Test SeriesMetadata validation."""
         with pytest.raises(ValueError, match="category cannot be empty"):
@@ -108,35 +108,35 @@ class TestSeriesMetadata:
                 item_name="Base Rent",
                 source_id=uuid4(),
                 asset_id=uuid4(),
-                pass_num=1
+                pass_num=1,
             )
 
 
 class TestFlowPurposeMapper:
     """Test FlowPurposeMapper functionality."""
-    
+
     def test_basic_mapping(self):
         """Test basic category to purpose mapping."""
         # Revenue -> Operating
         purpose = FlowPurposeMapper.determine_purpose("Revenue", 1000.0)
         assert purpose == TransactionPurpose.OPERATING
-        
+
         # Expense -> Operating
         purpose = FlowPurposeMapper.determine_purpose("Expense", -500.0)
         assert purpose == TransactionPurpose.OPERATING
-        
+
         # Capital outflow -> Capital Use
         purpose = FlowPurposeMapper.determine_purpose("Capital", -50000.0)
         assert purpose == TransactionPurpose.CAPITAL_USE
-        
+
         # Capital inflow -> Capital Source
         purpose = FlowPurposeMapper.determine_purpose("Capital", 100000.0)
         assert purpose == TransactionPurpose.CAPITAL_SOURCE
-        
+
         # Financing -> Financing Service
         purpose = FlowPurposeMapper.determine_purpose("Financing", -1500.0)
         assert purpose == TransactionPurpose.FINANCING_SERVICE
-    
+
     def test_subcategory_mapping(self):
         """Test enhanced mapping with subcategories."""
         # TI should be Capital Use - use proper enum value
@@ -144,8 +144,8 @@ class TestFlowPurposeMapper:
             CashFlowCategoryEnum.CAPITAL, CapExCategoryEnum.TENANT, 1000.0
         )
         assert purpose == TransactionPurpose.CAPITAL_USE
-        
-        # LC should be Capital Use - use proper enum value  
+
+        # LC should be Capital Use - use proper enum value
         purpose = FlowPurposeMapper.determine_purpose_with_subcategory(
             CashFlowCategoryEnum.CAPITAL, CapExCategoryEnum.LEASING_COSTS, -2000.0
         )
@@ -154,69 +154,69 @@ class TestFlowPurposeMapper:
 
 class TestLedgerBuilder:
     """Test LedgerBuilder functionality."""
-    
+
     def test_empty_builder(self):
         """Test empty LedgerBuilder creation."""
         builder = Ledger()
         assert builder.record_count() == 0
         assert builder.series_count() == 0
-        
+
         # Empty ledger should have proper schema
         ledger = builder.ledger_df()
         assert ledger.empty
-        assert 'date' in ledger.columns
-        assert 'amount' in ledger.columns
-    
+        assert "date" in ledger.columns
+        assert "amount" in ledger.columns
+
     def test_add_series(self):
         """Test adding Series to builder."""
         builder = Ledger()
-        
+
         # Create test series
-        dates = pd.date_range('2024-01-01', periods=3, freq='M')
+        dates = pd.date_range("2024-01-01", periods=3, freq="M")
         series = pd.Series([1000.0, 1100.0, 1200.0], index=dates)
-        
+
         metadata = SeriesMetadata(
             category="Revenue",
             subcategory="Rent",
             item_name="Base Rent",
             source_id=uuid4(),
             asset_id=uuid4(),
-            pass_num=1
+            pass_num=1,
         )
-        
+
         builder.add_series(series, metadata)
         assert builder.series_count() == 1
-        
+
         # Building ledger should convert series to records
         ledger = builder.ledger_df()
         assert len(ledger) == 3  # 3 months of data
         assert builder.series_count() == 0  # Series batch cleared after conversion
-    
+
     def test_builder_ownership(self):
         """Test that builder owns the ledger."""
         builder = Ledger()
-        
+
         # First call creates ledger
         ledger1 = builder.ledger_df()
-        
+
         # Second call should return same DataFrame (cached)
         ledger2 = builder.ledger_df()
         assert ledger1 is ledger2
-        
+
         # Adding data should mark as dirty
-        dates = pd.date_range('2024-01-01', periods=2, freq='M')
+        dates = pd.date_range("2024-01-01", periods=2, freq="M")
         series = pd.Series([1000.0, 1100.0], index=dates)
         metadata = SeriesMetadata(
             category="Revenue",
-            subcategory="Rent", 
+            subcategory="Rent",
             item_name="Test",
             source_id=uuid4(),
             asset_id=uuid4(),
-            pass_num=1
+            pass_num=1,
         )
-        
+
         builder.add_series(series, metadata)
-        
+
         # Next call should rebuild (different DataFrame)
         ledger3 = builder.ledger_df()
         assert ledger3 is not ledger1
@@ -225,29 +225,31 @@ class TestLedgerBuilder:
 
 class TestSeriesBatchConverter:
     """Test SeriesBatchConverter functionality."""
-    
+
     def test_convert_series(self):
         """Test converting a single Series."""
-        dates = pd.date_range('2024-01-01', periods=3, freq='M')
+        dates = pd.date_range("2024-01-01", periods=3, freq="M")
         series = pd.Series([1000.0, 0.0, 1200.0], index=dates)
-        
+
         metadata = SeriesMetadata(
             category="Revenue",
             subcategory="Rent",
             item_name="Base Rent",
             source_id=uuid4(),
             asset_id=uuid4(),
-            pass_num=1
+            pass_num=1,
         )
-        
+
         # Convert with skip_zeros=True (default)
         records = SeriesBatchConverter.convert_series(series, metadata, skip_zeros=True)
         assert len(records) == 2  # Zero value skipped
-        
+
         # Convert with skip_zeros=False
-        records = SeriesBatchConverter.convert_series(series, metadata, skip_zeros=False)
+        records = SeriesBatchConverter.convert_series(
+            series, metadata, skip_zeros=False
+        )
         assert len(records) == 3  # All values included
-        
+
         # Check record content
         record = records[0]
         assert record.amount == 1000.0
@@ -257,77 +259,74 @@ class TestSeriesBatchConverter:
 
 class TestLedgerQueries:
     """Test LedgerQueries functionality."""
-    
+
     def test_empty_query(self):
         """Test LedgerQueries with empty DataFrame."""
-        empty_df = pd.DataFrame(columns=[
-            'date', 'amount', 'flow_purpose', 'category', 'subcategory'
-        ])
-        
+        empty_df = pd.DataFrame(
+            columns=["date", "amount", "flow_purpose", "category", "subcategory"]
+        )
+
         queries = LedgerQueries(empty_df)
-        
+
         noi = queries.noi()
         assert noi.empty
-    
+
     def test_schema_validation(self):
         """Test schema validation in LedgerQueries."""
         # Missing required column
-        bad_df = pd.DataFrame({'amount': [1000.0]})
-        
+        bad_df = pd.DataFrame({"amount": [1000.0]})
+
         with pytest.raises(ValueError, match="Ledger missing required columns"):
             LedgerQueries(bad_df)
-    
+
     def test_basic_queries(self):
         """Test basic query operations."""
         # Create test ledger
         data = {
-            'date': [date(2024, 1, 1), date(2024, 2, 1)],
-            'amount': [1000.0, -500.0],
-            'flow_purpose': ['Operating', 'Operating'],
-            'category': ['Revenue', 'Expense'],
-            'subcategory': ['Rent', 'Utilities'],
-            'item_name': ['Base Rent', 'Electric'],
+            "date": [date(2024, 1, 1), date(2024, 2, 1)],
+            "amount": [1000.0, -500.0],
+            "flow_purpose": ["Operating", "Operating"],
+            "category": ["Revenue", "Expense"],
+            "subcategory": ["Rent", "Utilities"],
+            "item_name": ["Base Rent", "Electric"],
         }
         df = pd.DataFrame(data)
-        
+
         queries = LedgerQueries(df)
-        
+
         # Test NOI calculation
         noi = queries.noi()
         assert len(noi) == 2
         assert noi.sum() == 500.0  # 1000 - 500
-        
+
         # Test basic functionality
         assert not queries.noi().empty
 
 
 class TestLedgerGenerationSettings:
     """Test LedgerGenerationSettings functionality."""
-    
+
     def test_default_settings(self):
         """Test default settings creation."""
         settings = LedgerGenerationSettings()
-        
+
         assert settings.skip_zero_values is True
         assert settings.validate_transactions is True
         assert settings.batch_size == 1000
         assert settings.large_ledger_threshold == 10000
-    
+
     def test_custom_settings(self):
         """Test custom settings validation."""
-        settings = LedgerGenerationSettings(
-            skip_zero_values=False,
-            batch_size=500
-        )
-        
+        settings = LedgerGenerationSettings(skip_zero_values=False, batch_size=500)
+
         assert settings.skip_zero_values is False
         assert settings.batch_size == 500
-    
+
     def test_validation(self):
         """Test settings validation."""
         with pytest.raises(ValueError):
             LedgerGenerationSettings(batch_size=50)  # Below minimum
-        
+
         with pytest.raises(ValueError):
             LedgerGenerationSettings(large_ledger_threshold=500)  # Below minimum
 
@@ -337,12 +336,12 @@ def test_full_integration():
     # Create builder with custom settings
     settings = LedgerGenerationSettings(skip_zero_values=True)
     builder = Ledger(settings=settings)
-    
+
     # Create test data
-    dates = pd.date_range('2024-01-01', periods=12, freq='M')
+    dates = pd.date_range("2024-01-01", periods=12, freq="M")
     rent_series = pd.Series([10000.0] * 12, index=dates)
     expense_series = pd.Series([-2000.0] * 12, index=dates)
-    
+
     # Create metadata
     rent_metadata = SeriesMetadata(
         category="Revenue",
@@ -350,33 +349,33 @@ def test_full_integration():
         item_name="Base Rent",
         source_id=uuid4(),
         asset_id=uuid4(),
-        pass_num=1
+        pass_num=1,
     )
-    
+
     expense_metadata = SeriesMetadata(
-        category="Expense", 
+        category="Expense",
         subcategory="Utilities",
         item_name="Electric",
         source_id=uuid4(),
         asset_id=uuid4(),
-        pass_num=1
+        pass_num=1,
     )
-    
+
     # Add to builder
     builder.add_series(rent_series, rent_metadata)
     builder.add_series(expense_series, expense_metadata)
-    
+
     # Get ledger
     ledger = builder.ledger_df()
     assert len(ledger) == 24  # 12 months * 2 series
-    
+
     # Query the ledger
     queries = LedgerQueries(ledger)
-    
+
     # Calculate NOI
     noi = queries.noi()
     assert len(noi) == 12
     assert all(noi == 8000.0)  # 10000 - 2000 each month
-    
+
     # Test functionality
     assert noi.sum() == 96000.0  # 8000 * 12 months

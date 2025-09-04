@@ -38,7 +38,6 @@ from performa.core.primitives import (
 class TestRolloverErrorHandling:
     """Test error handling for rollover scenarios."""
 
-
     def test_missing_target_absorption_plan_id(self):
         """Test REABSORB with missing target_absorption_plan_id."""
 
@@ -111,7 +110,6 @@ class TestRolloverErrorHandling:
         assert (
             month_6_revenue == 0
         ), "Should have no revenue later (unit didn't transform)"
-
 
     def test_nonexistent_target_absorption_plan_id(self):
         """Test REABSORB with target_absorption_plan_id that doesn't exist."""
@@ -195,7 +193,6 @@ class TestRolloverErrorHandling:
 
         # Should have no revenue from this unit after expiration
         assert month_6_revenue == 0
-
 
     def test_circular_reference_prevention(self):
         """Test that circular references are prevented or handled gracefully."""

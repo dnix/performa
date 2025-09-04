@@ -75,19 +75,18 @@ class TestAnalyzeDeal:
                 ),
             ),
             CapitalItem(
-                name="Site Work", 
+                name="Site Work",
                 value=Decimal("3000000"),
                 timeline=Timeline.from_dates(
                     datetime(2024, 1, 1), datetime(2024, 6, 30)
                 ),
             ),
         ]
-        
+
         construction_plan = CapitalPlan(
-            name="Construction Plan", 
-            capital_items=construction_items
+            name="Construction Plan", capital_items=construction_items
         )
-        
+
         return DevelopmentProject(
             uid="550e8400-e29b-41d4-a716-446655440004",  # Valid UUID format
             name="Test Office Development",

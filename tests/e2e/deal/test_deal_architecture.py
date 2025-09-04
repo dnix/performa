@@ -108,9 +108,7 @@ class TestDealCentricArchitectureIntegration:
         results = analyze(deal, timeline)
 
         # Validate 5-pass structure (pure ledger-based)
-        assert hasattr(
-            results, "asset_analysis"
-        )  # Pass 1: Ledger-based asset analysis
+        assert hasattr(results, "asset_analysis")  # Pass 1: Ledger-based asset analysis
         assert hasattr(results, "financing_analysis")  # Pass 2: Financing integration
         assert hasattr(results, "levered_cash_flows")  # Pass 3: Levered cash flows
         assert hasattr(

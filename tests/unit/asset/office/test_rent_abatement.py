@@ -108,7 +108,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -167,7 +167,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -228,7 +228,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -291,7 +291,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
         )
 
         property_data = OfficeProperty.model_construct(
-            net_rentable_area=10000.0, 
+            net_rentable_area=10000.0,
             uid="550e8400-e29b-41d4-a716-446655440001",
             capital_plans=[],
             unit_mix=None,
@@ -302,7 +302,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             settings=self.settings,
             property_data=property_data,
             # Will be populated below
-            ledger=ledger
+            ledger=ledger,
         )
 
         # Pre-populate expense cash flows and recovery states
@@ -389,7 +389,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             settings=self.settings,
             property_data=property_data,
             # Will be populated below
-            ledger=ledger
+            ledger=ledger,
         )
 
         # Pre-populate expense cash flows and recovery states
@@ -475,7 +475,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             settings=self.settings,
             property_data=property_data,
             # Will be populated below
-            ledger=ledger
+            ledger=ledger,
         )
 
         # Pre-populate expense cash flows and recovery states
@@ -557,7 +557,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             timeline=short_timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -606,7 +606,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             timeline=short_timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -652,7 +652,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -709,7 +709,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             settings=self.settings,
             property_data=property_data,
             # Will be populated below
-            ledger=ledger
+            ledger=ledger,
         )
 
         # Pre-populate expense cash flows and recovery states

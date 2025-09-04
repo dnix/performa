@@ -53,15 +53,11 @@ def sample_analysis_context(sample_global_settings: GlobalSettings) -> AnalysisC
         rent_roll=OfficeRentRoll(leases=[], vacant_suites=[]),
         losses=OfficeLosses(
             general_vacancy=OfficeGeneralVacancyLoss(
-                vacancy_rate=0.05,
-                applied_to_base_rent=True
+                vacancy_rate=0.05, applied_to_base_rent=True
             ),
-            credit_loss=OfficeCreditLoss(
-                loss_rate=0.01,
-                applied_to_base_rent=True
-            )
+            credit_loss=OfficeCreditLoss(loss_rate=0.01, applied_to_base_rent=True),
         ),
-        expenses=OfficeExpenses()
+        expenses=OfficeExpenses(),
     )
     return AnalysisContext(
         timeline=timeline,
@@ -247,8 +243,8 @@ def test_rollover_stops_at_analysis_end(sample_global_settings: GlobalSettings):
     """
     # Arrange
     # Analysis timeline is 24 months, from Jan 2024 to Dec 2025
-    analysis_timeline = Timeline(start_date=date(2024, 1, 1), duration_months=24)    
-    
+    analysis_timeline = Timeline(start_date=date(2024, 1, 1), duration_months=24)
+
     # Create proper property data with all required fields
     property_data = OfficeProperty(
         name="Test Property",
@@ -257,22 +253,18 @@ def test_rollover_stops_at_analysis_end(sample_global_settings: GlobalSettings):
         rent_roll=OfficeRentRoll(leases=[], vacant_suites=[]),
         losses=OfficeLosses(
             general_vacancy=OfficeGeneralVacancyLoss(
-                vacancy_rate=0.05,
-                applied_to_base_rent=True
+                vacancy_rate=0.05, applied_to_base_rent=True
             ),
-            credit_loss=OfficeCreditLoss(
-                loss_rate=0.01,
-                applied_to_base_rent=True
-            )
+            credit_loss=OfficeCreditLoss(loss_rate=0.01, applied_to_base_rent=True),
         ),
-        expenses=OfficeExpenses()
+        expenses=OfficeExpenses(),
     )
-    
+
     analysis_context = AnalysisContext(
-        timeline=analysis_timeline, 
-        settings=sample_global_settings, 
+        timeline=analysis_timeline,
+        settings=sample_global_settings,
         property_data=property_data,
-        ledger=Ledger()
+        ledger=Ledger(),
     )
 
     # Lease timeline is 20 months, expires Aug 2025.

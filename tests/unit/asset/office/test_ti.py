@@ -27,7 +27,7 @@ def sample_context() -> AnalysisContext:
         settings=GlobalSettings(),
         property_data=property_data,
         ledger=Ledger(settings=LedgerGenerationSettings()),
-        )
+    )
 
 
 def test_ti_compute_cf_upfront(sample_context: AnalysisContext):

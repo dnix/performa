@@ -38,7 +38,6 @@ from performa.core.primitives import (
 class TestZeroDowntimeScenarios:
     """Test zero downtime renovation scenarios (downtime_months=0)."""
 
-
     def test_zero_downtime_immediate_transition(self):
         """Test that zero downtime causes immediate lease transition without gaps."""
 
@@ -136,7 +135,6 @@ class TestZeroDowntimeScenarios:
 
 class TestExtendedDowntimeScenarios:
     """Test very long downtime scenarios (>12 months)."""
-
 
     def test_extended_downtime_major_renovation(self):
         """Test that very long downtime periods work correctly for major renovations."""
@@ -245,7 +243,6 @@ class TestExtendedDowntimeScenarios:
 class TestLeaseExpirationBeyondAnalysis:
     """Test lease expirations that occur beyond the analysis period."""
 
-
     def test_lease_expiration_beyond_analysis_period(self):
         """Test that leases expiring beyond analysis period are handled correctly."""
 
@@ -348,7 +345,6 @@ class TestLeaseExpirationBeyondAnalysis:
 
 class TestCircularReferenceDetection:
     """Test detection and handling of circular references in absorption plans."""
-
 
     def test_circular_reference_prevention_documentation(self):
         """Document the circular reference scenario and expected prevention."""
@@ -487,7 +483,6 @@ class TestCircularReferenceDetection:
 
 class TestEdgeCaseDocumentation:
     """Documentation and validation of other edge cases."""
-
 
     def test_capital_plan_timing_independence(self):
         """Document that capital plan timing is independent of lease timing."""

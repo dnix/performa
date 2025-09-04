@@ -39,7 +39,7 @@ def sample_context(sample_timeline: Timeline) -> AnalysisContext:
         timeline=sample_timeline,
         settings=GlobalSettings(),
         property_data=None,
-        ledger=Ledger(settings=LedgerGenerationSettings())
+        ledger=Ledger(settings=LedgerGenerationSettings()),
     )
 
 
@@ -145,10 +145,10 @@ def test_per_unit_residential_calculation_fix(sample_timeline: Timeline):
     # Create residential property context
     property_data = MockResidentialProperty(unit_count=120, net_rentable_area=96000.0)
     context = AnalysisContext(
-        timeline=sample_timeline, 
-        settings=GlobalSettings(), 
+        timeline=sample_timeline,
+        settings=GlobalSettings(),
         property_data=property_data,
-        ledger=Ledger(settings=LedgerGenerationSettings())
+        ledger=Ledger(settings=LedgerGenerationSettings()),
     )
 
     # Create per-unit expense (utilities example from multifamily)
@@ -194,10 +194,10 @@ def test_per_unit_office_calculation_unchanged(sample_timeline: Timeline):
     # Create office property context (no unit_count attribute)
     property_data = MockOfficeProperty(net_rentable_area=1000.0)
     context = AnalysisContext(
-        timeline=sample_timeline, 
-        settings=GlobalSettings(), 
+        timeline=sample_timeline,
+        settings=GlobalSettings(),
         property_data=property_data,
-        ledger=Ledger(settings=LedgerGenerationSettings())
+        ledger=Ledger(settings=LedgerGenerationSettings()),
     )
 
     # Create per-square-foot expense (insurance example from office)
@@ -241,10 +241,10 @@ def test_per_unit_edge_case_zero_unit_count(sample_timeline: Timeline):
     # Create residential property with zero units
     property_data = MockResidentialProperty(unit_count=0, net_rentable_area=50000.0)
     context = AnalysisContext(
-        timeline=sample_timeline, 
-        settings=GlobalSettings(), 
+        timeline=sample_timeline,
+        settings=GlobalSettings(),
         property_data=property_data,
-        ledger=Ledger(settings=LedgerGenerationSettings())
+        ledger=Ledger(settings=LedgerGenerationSettings()),
     )
 
     # In the new architecture, be explicit about what we want

@@ -70,7 +70,7 @@ class TestMultipleEscalations:
             timeline=timeline,
             settings=GlobalSettings(analysis_start_date=date(2024, 1, 1)),
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
     def test_multiple_escalations_chronological_order(self, base_spec, context):

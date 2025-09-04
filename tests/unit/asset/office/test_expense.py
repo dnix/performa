@@ -40,7 +40,7 @@ def sample_timeline() -> Timeline:
 
 
 @pytest.fixture
-def sample_context(sample_timeline: Timeline) -> AnalysisContext:    
+def sample_context(sample_timeline: Timeline) -> AnalysisContext:
     property_data = OfficeProperty(
         name="Test Property",
         gross_area=1200.0,
@@ -49,15 +49,11 @@ def sample_context(sample_timeline: Timeline) -> AnalysisContext:
         rent_roll=OfficeRentRoll(leases=[], vacant_suites=[]),
         losses=OfficeLosses(
             general_vacancy=OfficeGeneralVacancyLoss(
-                vacancy_rate=0.05,
-                applied_to_base_rent=True
+                vacancy_rate=0.05, applied_to_base_rent=True
             ),
-            credit_loss=OfficeCreditLoss(
-                loss_rate=0.01,
-                applied_to_base_rent=True
-            )
+            credit_loss=OfficeCreditLoss(loss_rate=0.01, applied_to_base_rent=True),
         ),
-        expenses=OfficeExpenses()
+        expenses=OfficeExpenses(),
     )
     ledger = Ledger(settings=LedgerGenerationSettings())
     return AnalysisContext(

@@ -40,14 +40,16 @@ class TestPartnershipIntegrationWithRealDeals:
             gross_area=250_000.0,
             net_rentable_area=225_000.0,
             construction_plan=CapitalPlan(
-                name="Mixed-Use Construction", 
+                name="Mixed-Use Construction",
                 capital_items=[
                     CapitalItem(
                         name="Mixed-Use Construction",
-                        value=50_000_000,  # $50M construction 
-                        timeline=Timeline.from_dates(datetime(2024, 1, 1), datetime(2025, 12, 31)),
+                        value=50_000_000,  # $50M construction
+                        timeline=Timeline.from_dates(
+                            datetime(2024, 1, 1), datetime(2025, 12, 31)
+                        ),
                     )
-                ]
+                ],
             ),
             blueprints=[],
         )

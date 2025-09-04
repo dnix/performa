@@ -70,7 +70,6 @@ class TestAllExpirationScenarios:
             miscellaneous_income=[],
         )
 
-
     def test_market_expiration_scenario(self):
         """Test MARKET expiration with typical settings."""
 
@@ -110,7 +109,6 @@ class TestAllExpirationScenarios:
         month_5_revenue = pgr_series.iloc[4]
         assert month_5_revenue > 0  # Should have some revenue from renewal/re-lease
 
-
     def test_renew_expiration_scenario(self):
         """Test RENEW expiration (100% renewal)."""
 
@@ -145,7 +143,6 @@ class TestAllExpirationScenarios:
         )  # Month 3 (renewal in March at renewal terms)
         assert pgr_series.iloc[3] == 2100.0  # Month 4 (continues renewal)
         assert pgr_series.iloc[4] == 2100.0  # Month 5 (continues renewal)
-
 
     def test_vacate_expiration_scenario(self):
         """Test VACATE expiration (tenant leaves, no re-lease)."""
@@ -185,7 +182,6 @@ class TestAllExpirationScenarios:
         assert pgr_series.iloc[4] == 2200.0  # Month 5 (May 2024) - continues at market
         assert pgr_series.iloc[5] == 2200.0  # Month 6 (Jun 2024) - continues at market
 
-
     def test_reabsorb_without_target_plan(self):
         """Test REABSORB expiration without target absorption plan (legacy behavior)."""
 
@@ -224,7 +220,6 @@ class TestAllExpirationScenarios:
         assert pgr_series.iloc[3] == 0.0  # Month 4 (Apr 2024) - stays vacant
         assert pgr_series.iloc[4] == 0.0  # Month 5 (May 2024) - stays vacant
         assert pgr_series.iloc[5] == 0.0  # Month 6 (Jun 2024) - stays vacant
-
 
     def test_reabsorb_with_target_plan(self):
         """Test REABSORB expiration with target absorption plan (value-add behavior)."""
@@ -287,7 +282,6 @@ class TestAllExpirationScenarios:
         assert pgr_series.iloc[4] == 2500.0  # Month 5 (May 2024) - premium lease starts
         assert pgr_series.iloc[5] == 2500.0  # Month 6 (Jun 2024) - continues
         assert pgr_series.iloc[6] == 2500.0  # Month 7 (Jul 2024) - continues
-
 
     def test_mixed_expiration_scenarios_same_property(self):
         """Test property with units having different expiration scenarios."""
@@ -414,7 +408,6 @@ class TestAllExpirationScenarios:
 class TestExpirationScenarioEdgeCases:
     """Test edge cases for expiration scenarios."""
 
-
     def test_zero_downtime_market_scenario(self):
         """Test MARKET scenario with zero downtime."""
 
@@ -481,7 +474,6 @@ class TestExpirationScenarioEdgeCases:
                     # With 50% renewal probability, we might have gaps, but not due to downtime
                     # This test mainly ensures the zero downtime logic works
                     pass
-
 
     def test_very_long_downtime_scenario(self):
         """Test scenario with very long downtime period."""

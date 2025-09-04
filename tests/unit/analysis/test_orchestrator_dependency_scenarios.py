@@ -54,11 +54,11 @@ class TestSystematicDependencyScenarios:
 
         ledger = Ledger(settings=LedgerGenerationSettings())
         return AnalysisContext(
-            timeline=timeline, 
-            settings=GlobalSettings(), 
+            timeline=timeline,
+            settings=GlobalSettings(),
             property_data=SimpleProperty(),
             # Add required field
-            ledger=ledger
+            ledger=ledger,
         )
 
     @pytest.fixture
@@ -130,7 +130,7 @@ class TestSystematicDependencyScenarios:
 
         # Validate management fee calculated correctly
         mgmt_result = context.resolved_lookups[mgmt_fee.uid]
-        expected_mgmt = 126000.0 * 0.04  # 4% of PGR = $5.04K  
+        expected_mgmt = 126000.0 * 0.04  # 4% of PGR = $5.04K
         assert mgmt_result.sum() == pytest.approx(expected_mgmt, abs=0.01)
 
         print(
@@ -219,19 +219,19 @@ class TestSystematicDependencyScenarios:
         """
         SCENARIO: Asset management fee based on NOI performance.
         REAL-WORLD: Asset managers often charge fees based on property NOI.
-        
+
         This tests proper property-level expense dependencies, NOT deal-level promotes.
         Deal-level promotes belong in the partnership/waterfall layer, not OpEx.
-        
+
         Manual Calculation (how the system actually works):
         - PGR: $120,000 (base lease)
         - Misc Income: $6,000 (parking)
         - EGI: $126,000
         - Base OpEx: $24,000 (property taxes)
-        
+
         Intermediate NOI (for dependent models): $126K - $24K = $102,000
         - Asset Mgmt Fee: 2% of intermediate NOI = $2,040
-        
+
         Final calculations:
         - Total OpEx: $24,000 + $2,040 = $26,040
         - Final NOI: $126,000 - $26,040 = $99,960
@@ -271,10 +271,10 @@ class TestSystematicDependencyScenarios:
         noi = context.resolved_lookups["Net Operating Income"]
         capex_total = context.resolved_lookups["Total Capital Expenditures"]
         ucf = context.resolved_lookups["Unlevered Cash Flow"]
-        
+
         # Get individual model results
         asset_mgmt_result = context.resolved_lookups[asset_mgmt_fee.uid]
-        
+
         # Debug: Show what NOI the asset mgmt fee saw
         print(f"\n=== UCF DEPENDENCY DEBUG ===")
         print(f"PGR: ${pgr.sum():,.0f}")
@@ -287,31 +287,33 @@ class TestSystematicDependencyScenarios:
         print(f"CapEx: ${capex_total.sum():,.0f}")
         print(f"UCF: ${ucf.sum():,.0f}")
         print(f"Implied NOI for fee calc: ${asset_mgmt_result.sum() / 0.02:,.0f}")
-        
+
         # Validate calculations match manual calculations
         # Revenue: $126K ($120K lease + $6K misc)
         assert pgr.sum() == pytest.approx(126000.0, abs=0.01)
         assert misc_income.sum() == pytest.approx(6000.0, abs=0.01)
         assert egi.sum() == pytest.approx(126000.0, abs=0.01)
-        
+
         # Asset mgmt fee is 2% of intermediate NOI ($102K)
         expected_asset_mgmt = 2040.0  # 2% of $102,000
         assert asset_mgmt_result.sum() == pytest.approx(expected_asset_mgmt, abs=1.0)
-        
+
         # Total OpEx: $24K base + $2.04K asset mgmt = $26,040
         assert opex.sum() == pytest.approx(26040.0, abs=1.0)
-        
+
         # Final NOI: $126K - $26,040 = $99,960
         assert noi.sum() == pytest.approx(99960.0, abs=1.0)
-        
+
         # CapEx: $12K (properly excluded from NOI as CAPITAL_USE)
         assert capex_total.sum() == pytest.approx(12000.0, abs=0.01)
-        
+
         # UCF: $99,960 - $12K = $87,960
         expected_ucf = 99960.0 - 12000.0
         assert ucf.sum() == pytest.approx(expected_ucf, abs=1.0)
 
-        print(f"✅ UCF Dependency: Asset mgmt fee ${asset_mgmt_result.sum():,.0f} based on NOI")
+        print(
+            f"✅ UCF Dependency: Asset mgmt fee ${asset_mgmt_result.sum():,.0f} based on NOI"
+        )
 
     def test_multiple_aggregate_dependencies(
         self, context, base_revenue_models, base_expense_models

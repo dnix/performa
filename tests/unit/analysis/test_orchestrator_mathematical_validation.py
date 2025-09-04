@@ -48,11 +48,11 @@ class TestCashFlowOrchestratorMathematical:
 
         ledger = Ledger(settings=LedgerGenerationSettings())
         return AnalysisContext(
-            timeline=timeline, 
-            settings=GlobalSettings(), 
+            timeline=timeline,
+            settings=GlobalSettings(),
             property_data=SimpleProperty(),
             # Add required field
-            ledger=ledger
+            ledger=ledger,
         )
 
     def test_orchestrator_calculates_effective_gross_income_for_dependent_models(
@@ -414,10 +414,10 @@ def test_effective_gross_income_bug_reproduction():
 
     ledger = Ledger(settings=LedgerGenerationSettings())
     context = AnalysisContext(
-        timeline=timeline, 
-        settings=GlobalSettings(), 
+        timeline=timeline,
+        settings=GlobalSettings(),
         property_data=SimpleProperty(),
-        ledger=ledger
+        ledger=ledger,
     )
 
     # Exact models from the original validation script

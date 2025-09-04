@@ -46,9 +46,9 @@ def sample_global_settings() -> GlobalSettings:
 @pytest.fixture
 def sample_analysis_context(sample_global_settings: GlobalSettings) -> AnalysisContext:
     """Fixture for a basic AnalysisContext."""
-    
+
     timeline = Timeline(start_date=date(2024, 1, 1), duration_months=60)  # 5 years
-    
+
     # Create minimal rollover profile for unit spec
     renewal_terms = ResidentialRolloverLeaseTerms(market_rent=2000.0)
     market_terms = ResidentialRolloverLeaseTerms(market_rent=2200.0)
@@ -57,7 +57,7 @@ def sample_analysis_context(sample_global_settings: GlobalSettings) -> AnalysisC
         market_terms=market_terms,
         renewal_terms=renewal_terms,
     )
-    
+
     # Create minimal required unit spec for ResidentialProperty
     unit_spec = ResidentialUnitSpec(
         unit_type_name="1BR",
@@ -67,31 +67,31 @@ def sample_analysis_context(sample_global_settings: GlobalSettings) -> AnalysisC
         rollover_profile=rollover_profile,
         lease_start_date=date(2024, 1, 1),
     )
-    
+
     # Create rent roll with the unit spec
     rent_roll = ResidentialRentRoll(unit_specs=[unit_spec])
-    
+
     # Create required losses structure
     general_vacancy = ResidentialGeneralVacancyLoss(
         name="General Vacancy",
         rate=0.05,  # 5% vacancy
     )
     collection_loss = ResidentialCreditLoss(
-        name="Collection Loss", 
+        name="Collection Loss",
         rate=0.02,  # 2% collection loss
     )
     losses = ResidentialLosses(
         general_vacancy=general_vacancy,
         credit_loss=collection_loss,
     )
-    
+
     property_data = ResidentialProperty(
         name="Test Property",
         gross_area=900.0,  # Adjusted to be reasonable relative to net rentable
         net_rentable_area=750.0,  # Match total unit area (1 unit × 750 SF)
         unit_mix=rent_roll,
         losses=losses,
-        expenses=ResidentialExpenses()
+        expenses=ResidentialExpenses(),
     )
     return AnalysisContext(
         timeline=timeline,
@@ -309,7 +309,7 @@ def test_rollover_multiple_periods_iterative(sample_analysis_context: AnalysisCo
     )
 
     # Create 30-year analysis context
-    
+
     # Create minimal rollover profile for unit spec
     renewal_terms = ResidentialRolloverLeaseTerms(market_rent=2000.0)
     market_terms = ResidentialRolloverLeaseTerms(market_rent=2200.0)
@@ -318,7 +318,7 @@ def test_rollover_multiple_periods_iterative(sample_analysis_context: AnalysisCo
         market_terms=market_terms,
         renewal_terms=renewal_terms,
     )
-    
+
     # Create minimal required unit spec for ResidentialProperty
     unit_spec = ResidentialUnitSpec(
         unit_type_name="1BR",
@@ -328,31 +328,31 @@ def test_rollover_multiple_periods_iterative(sample_analysis_context: AnalysisCo
         rollover_profile=rollover_profile,
         lease_start_date=date(2024, 1, 1),
     )
-    
+
     # Create rent roll with the unit spec
     rent_roll = ResidentialRentRoll(unit_specs=[unit_spec])
-    
+
     # Create required losses structure
     general_vacancy = ResidentialGeneralVacancyLoss(
         name="General Vacancy",
         rate=0.05,  # 5% vacancy
     )
     collection_loss = ResidentialCreditLoss(
-        name="Collection Loss", 
+        name="Collection Loss",
         rate=0.02,  # 2% collection loss
     )
     losses = ResidentialLosses(
         general_vacancy=general_vacancy,
         credit_loss=collection_loss,
     )
-    
+
     property_data = ResidentialProperty(
         name="Test Property",
         gross_area=900.0,  # Adjusted to be reasonable relative to net rentable
         net_rentable_area=750.0,  # Match total unit area (1 unit × 750 SF)
         unit_mix=rent_roll,
         losses=losses,
-        expenses=ResidentialExpenses()
+        expenses=ResidentialExpenses(),
     )
     long_context = AnalysisContext(
         timeline=Timeline(start_date=date(2024, 1, 1), duration_months=360),

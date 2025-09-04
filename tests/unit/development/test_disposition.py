@@ -52,15 +52,15 @@ def empty_timeline() -> Timeline:
     return Timeline(start_date=date(2024, 1, 1), duration_months=0)
 
 
-@pytest.fixture  
+@pytest.fixture
 def sample_context(sample_timeline: Timeline) -> AnalysisContext:
     """Standard analysis context for testing."""
     ledger = Ledger(settings=LedgerGenerationSettings())
     return AnalysisContext(
-        timeline=sample_timeline, 
-        settings=GlobalSettings(), 
+        timeline=sample_timeline,
+        settings=GlobalSettings(),
         property_data=None,
-        ledger=ledger
+        ledger=ledger,
     )
 
 
@@ -184,7 +184,7 @@ class TestDispositionCashFlowComputation:
             timeline=single_period_timeline,
             settings=GlobalSettings(),
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         disposition = DispositionCashFlow(
@@ -204,10 +204,10 @@ class TestDispositionCashFlowComputation:
         """Test computation with empty timeline (edge case)."""
         ledger = Ledger(settings=LedgerGenerationSettings())
         context = AnalysisContext(
-            timeline=empty_timeline, 
-            settings=GlobalSettings(), 
+            timeline=empty_timeline,
+            settings=GlobalSettings(),
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         disposition = DispositionCashFlow(
@@ -287,10 +287,10 @@ class TestDispositionCashFlowIntegration:
         # Test with proper context
         ledger = Ledger(settings=LedgerGenerationSettings())
         context = AnalysisContext(
-            timeline=sample_timeline, 
-            settings=GlobalSettings(), 
+            timeline=sample_timeline,
+            settings=GlobalSettings(),
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
         cash_flow_with_context = disposition.compute_cf(context)
 

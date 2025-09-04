@@ -87,7 +87,7 @@ def pre_populated_context(
         settings=GlobalSettings(),
         property_data=property_data,
         ledger=Ledger(settings=LedgerGenerationSettings()),
-        )
+    )
     for item in sample_opex_items.values():
         context.resolved_lookups[item.uid] = item.compute_cf(context=context)
     return context

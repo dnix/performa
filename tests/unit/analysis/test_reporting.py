@@ -18,16 +18,16 @@ def test_fluent_pro_forma_summary():
     # Create periods and timeline
     periods = pd.period_range("2024-01", periods=12, freq="M")
     timeline = Timeline(start_date=periods[0], duration_months=12)
-    
+
     # Create a minimal property object
     class MockProperty:
         uid = "test-property-id"
         name = "Test Property"
-        
-    # Create a minimal scenario object  
+
+    # Create a minimal scenario object
     class MockScenario:
         pass
-    
+
     # Create AssetAnalysisResult with ledger (new architecture)
     summary_df = pd.DataFrame(
         {
@@ -42,18 +42,18 @@ def test_fluent_pro_forma_summary():
         },
         index=periods,
     )
-    
+
     asset_analysis = AssetAnalysisResult(
         ledger=Ledger(),
         property=MockProperty(),
         timeline=timeline,
         scenario=MockScenario(),
-        models=[]
+        models=[],
     )
-    
+
     # Create backward compatibility layer
     unlev = UnleveredAnalysisResult(cash_flows=summary_df)
-    
+
     levered = LeveredCashFlowResult(levered_cash_flows=pd.Series(600.0, index=periods))
     results = DealAnalysisResult(
         deal_summary={},

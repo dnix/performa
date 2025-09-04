@@ -491,7 +491,6 @@ def test_property_with_vacant_units():
     )
 
 
-
 def test_vacant_units_analysis_integration():
     """Test that vacant units work correctly in analysis scenarios"""
 

@@ -319,7 +319,6 @@ def test_e2e_institutional_scale_residential():
     print(f"   📋 Total models: {len(scenario.models)}")
 
 
-
 def test_e2e_performance_stress_test():
     """
     E2E Test: Performance validation on large property (500 units)
@@ -399,14 +398,11 @@ def test_e2e_performance_stress_test():
 
     # Validate correct model creation
     lease_models = [
-        m
-        for m in scenario.models
-        if m.__class__.__name__ == "ResidentialLease"
+        m for m in scenario.models if m.__class__.__name__ == "ResidentialLease"
     ]
     assert len(lease_models) == 500
 
     print(f"   ✅ Performance test PASSED - {units_per_second:.0f} units/sec")
-
 
 
 def test_e2e_value_add_positioning_strategy():
@@ -625,7 +621,6 @@ def test_e2e_test_discovery_validation():
     print("   ✅ Framework integration complete")
 
 
-
 def test_e2e_vacant_units_lease_up_scenario():
     """
     E2E Test: Comprehensive vacant units scenario - Lease-up stabilization
@@ -799,9 +794,7 @@ def test_e2e_vacant_units_lease_up_scenario():
             general_vacancy=ResidentialGeneralVacancyLoss(
                 rate=0.04
             ),  # 4% ongoing vacancy
-            credit_loss=ResidentialCreditLoss(
-                rate=0.015
-            ),  # 1.5% collection loss
+            credit_loss=ResidentialCreditLoss(rate=0.015),  # 1.5% collection loss
         ),
         miscellaneous_income=[
             ResidentialMiscIncome(

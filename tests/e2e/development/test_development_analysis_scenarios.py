@@ -114,8 +114,7 @@ def test_development_analysis_scenario_instantiation():
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=timeline, settings=global_settings,
-        ledger=Ledger()
+        model=project, timeline=timeline, settings=global_settings, ledger=Ledger()
     )
 
     assert scenario.model == project
@@ -198,8 +197,7 @@ def test_development_analysis_scenario_prepare_models():
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=timeline, settings=global_settings,
-        ledger=Ledger()
+        model=project, timeline=timeline, settings=global_settings, ledger=Ledger()
     )
 
     # Execute the orchestrator
@@ -216,7 +214,6 @@ def test_development_analysis_scenario_prepare_models():
         if hasattr(m, "name") and "Construction" in getattr(m, "name", "")
     ]
     assert len(construction_models) > 0
-
 
 
 def test_development_analysis_scenario_mixed_use():
@@ -248,9 +245,9 @@ def test_development_analysis_scenario_mixed_use():
         name="Office Component",
         vacant_inventory=[
             OfficeVacantSuite(
-                suite="Office Floors", 
-                floor="1-15", 
-                area=150000.0, 
+                suite="Office Floors",
+                floor="1-15",
+                area=150000.0,
                 use_type="office",
                 is_divisible=True,  # Allow subdivision for phased leasing
                 subdivision_average_lease_area=25000.0,  # Target ~25k SF leases
@@ -323,8 +320,7 @@ def test_development_analysis_scenario_mixed_use():
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=timeline, settings=global_settings,
-        ledger=Ledger()
+        model=project, timeline=timeline, settings=global_settings, ledger=Ledger()
     )
 
     # Execute polymorphic orchestration
@@ -379,8 +375,7 @@ def test_development_analysis_scenario_empty_blueprints():
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=timeline, settings=global_settings,
-        ledger=Ledger()
+        model=project, timeline=timeline, settings=global_settings, ledger=Ledger()
     )
 
     # Should still work (construction + financing only)
@@ -445,7 +440,7 @@ def test_development_analysis_scenario_with_disposition():
         cap_rate=0.055,
         transaction_costs_rate=0.025,
         hold_period_months=60,  # Changed from disposition_date
-        noi_basis_kind="LTM",   # Added NOI basis
+        noi_basis_kind="LTM",  # Added NOI basis
     )
 
     project = DevelopmentProject(
@@ -465,8 +460,7 @@ def test_development_analysis_scenario_with_disposition():
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=timeline, settings=global_settings,
-        ledger=Ledger()
+        model=project, timeline=timeline, settings=global_settings, ledger=Ledger()
     )
 
     # Execute with disposition
@@ -588,7 +582,6 @@ def test_development_analysis_scenario_polymorphic_iteration():
     assert "ResidentialProperty" in asset_types
 
 
-
 def test_development_analysis_end_to_end():
     """Test complete end-to-end development analysis."""
     construction_plan = CapitalPlan(
@@ -642,10 +635,10 @@ def test_development_analysis_end_to_end():
     )
 
     disposition_plan = DirectCapValuation(
-        name="Complete Sale", 
-        cap_rate=0.055, 
+        name="Complete Sale",
+        cap_rate=0.055,
         transaction_costs_rate=0.025,
-        noi_basis_kind="LTM"  # Added NOI basis
+        noi_basis_kind="LTM",  # Added NOI basis
     )
 
     project = DevelopmentProject(

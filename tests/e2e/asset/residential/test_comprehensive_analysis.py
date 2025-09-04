@@ -50,7 +50,6 @@ from performa.core.primitives.growth_rates import PercentageGrowthRate
 class TestLargeScaleProperties:
     """Test large multifamily properties (200+ units) for scale and performance."""
 
-    
     def test_institutional_scale_property(self):
         """
         Test a realistic institutional-scale multifamily property.
@@ -208,9 +207,7 @@ class TestLargeScaleProperties:
             general_vacancy=ResidentialGeneralVacancyLoss(
                 rate=0.04
             ),  # 4% for well-managed property
-            credit_loss=ResidentialCreditLoss(
-                rate=0.015
-            ),  # 1.5% collection loss
+            credit_loss=ResidentialCreditLoss(rate=0.015),  # 1.5% collection loss
         )
 
         # Multiple income streams
@@ -322,7 +319,6 @@ class TestLargeScaleProperties:
         print("   - 60-month projection generated")
         print("   - Complex unit mix with 6 unit types processed")
 
-    
     def test_performance_stress_test(self):
         """
         Stress test with a very large property to validate performance.
@@ -461,7 +457,6 @@ class TestLargeScaleProperties:
 class TestComplexScenarios:
     """Test complex real-world scenarios with sophisticated market assumptions."""
 
-    
     def test_value_add_positioning_strategy(self):
         """
         Test a value-add property with mixed unit positioning.

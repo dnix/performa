@@ -206,7 +206,7 @@ def disposition_plan() -> DirectCapValuation:
         cap_rate=0.055,
         transaction_costs_rate=0.025,
         hold_period_months=60,  # Changed from disposition_date to hold_period_months
-        noi_basis_kind="LTM",   # Added required NOI basis
+        noi_basis_kind="LTM",  # Added required NOI basis
     )
 
 

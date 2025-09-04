@@ -46,7 +46,7 @@ class TestStabilizedAcquisitionPattern:
         )
 
         deal = pattern.create()
-        
+
         # Verify deal structure
         assert "Maple Ridge Apartments" in deal.name  # Pattern adds suffix
         assert deal.acquisition.value == 10_000_000
@@ -82,7 +82,7 @@ class TestStabilizedAcquisitionPattern:
             exit_cap_rate=0.06,
             exit_costs_rate=0.02,
         )
-        
+
         deal = pattern.create()
 
         # Create analysis timeline
@@ -120,9 +120,9 @@ class TestStabilizedAcquisitionPattern:
             gp_share=0.1,
             lp_share=0.9,
         )
-        
+
         deal = pattern.create()
-        
+
         # Verify the deal was created successfully
         assert "Test Office" in deal.name  # Pattern adds suffix
         assert deal.asset is not None

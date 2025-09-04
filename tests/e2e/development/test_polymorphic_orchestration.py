@@ -126,8 +126,8 @@ def office_blueprint() -> OfficeDevelopmentBlueprint:
                 area=50000.0,
                 use_type="office",
                 is_divisible=True,  # Allow subdivision for phased leasing
-                subdivision_average_lease_area=20000.0,  # Target ~20k SF leases  
-                subdivision_minimum_lease_area=5000.0,   # Minimum viable size
+                subdivision_average_lease_area=20000.0,  # Target ~20k SF leases
+                subdivision_minimum_lease_area=5000.0,  # Minimum viable size
             )
         ],
         absorption_plan=OfficeAbsorptionPlan.with_typical_assumptions(
@@ -296,7 +296,7 @@ def comprehensive_project() -> DevelopmentProject:
         cap_rate=0.055,
         transaction_costs_rate=0.025,
         hold_period_months=60,  # Changed from disposition_date
-        noi_basis_kind="LTM",   # Added NOI basis
+        noi_basis_kind="LTM",  # Added NOI basis
     )
 
     return DevelopmentProject(
@@ -334,8 +334,10 @@ def test_orchestrator_basic_structure(
 
     # Create analysis scenario
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=analysis_timeline, settings=global_settings,
-        ledger=Ledger()
+        model=project,
+        timeline=analysis_timeline,
+        settings=global_settings,
+        ledger=Ledger(),
     )
 
     # Validate basic structure
@@ -365,8 +367,10 @@ def test_orchestrator_prepare_models_basic(
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=analysis_timeline, settings=global_settings,
-        ledger=Ledger()
+        model=project,
+        timeline=analysis_timeline,
+        settings=global_settings,
+        ledger=Ledger(),
     )
 
     # Execute the simplified orchestrator
@@ -403,8 +407,10 @@ def test_orchestrator_polymorphic_blueprint_processing(
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=analysis_timeline, settings=global_settings,
-        ledger=Ledger()
+        model=project,
+        timeline=analysis_timeline,
+        settings=global_settings,
+        ledger=Ledger(),
     )
 
     # Execute polymorphic orchestration
@@ -444,8 +450,10 @@ def test_orchestrator_asset_factory_integration(
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=analysis_timeline, settings=global_settings,
-        ledger=Ledger()
+        model=project,
+        timeline=analysis_timeline,
+        settings=global_settings,
+        ledger=Ledger(),
     )
 
     # Test asset factory integration manually
@@ -482,8 +490,10 @@ def test_orchestrator_no_blueprints(
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=analysis_timeline, settings=global_settings,
-        ledger=Ledger()
+        model=project,
+        timeline=analysis_timeline,
+        settings=global_settings,
+        ledger=Ledger(),
     )
 
     # Should still work (construction + financing only)
@@ -517,8 +527,10 @@ def test_orchestrator_performance_no_conditionals(
     )
 
     scenario = DevelopmentAnalysisScenario(
-        model=project, timeline=analysis_timeline, settings=global_settings,
-        ledger=Ledger()
+        model=project,
+        timeline=analysis_timeline,
+        settings=global_settings,
+        ledger=Ledger(),
     )
 
     # Time the polymorphic iteration (simulating the core loop)
@@ -595,7 +607,7 @@ def test_complete_development_lifecycle(
         model=comprehensive_project,
         timeline=analysis_timeline,
         settings=global_settings,
-        ledger=Ledger()
+        ledger=Ledger(),
     )
 
     # Execute full preparation
@@ -634,7 +646,6 @@ def test_complete_development_lifecycle(
 
     assert office_asset.name == "Premium Office Space"
     assert residential_asset.name == "Luxury Residential Tower"
-
 
 
 def test_end_to_end_cash_flow_generation(

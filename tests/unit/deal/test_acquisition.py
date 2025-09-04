@@ -169,7 +169,7 @@ class TestAcquisitionTermsCashFlowComputation:
             timeline=timeline,
             settings=GlobalSettings(),
             property_data=mock_property,
-            ledger=ledger
+            ledger=ledger,
         )
 
     def test_single_payment_cash_flow(self, mock_context):
@@ -193,7 +193,9 @@ class TestAcquisitionTermsCashFlowComputation:
         # Payment should occur in February 2024
         feb_2024 = pd.Period("2024-02", freq="M")
         expected_total = 10_000_000 + (10_000_000 * 0.025)  # Purchase + closing costs
-        expected_cost = expected_total  # Positive for cost (orchestrator handles outflow sign)
+        expected_cost = (
+            expected_total  # Positive for cost (orchestrator handles outflow sign)
+        )
 
         assert cash_flow[feb_2024] == expected_cost
 
@@ -411,13 +413,13 @@ class TestAcquisitionTermsEdgeCases:
         mock_property = Mock()
         mock_property.net_rentable_area = 100_000
         mock_property.uid = "550e8400-e29b-41d4-a716-446655440098"
-        
+
         ledger = Ledger(settings=LedgerGenerationSettings())
         mock_context = AnalysisContext(
             timeline=timeline,
             settings=GlobalSettings(),
             property_data=mock_property,
-            ledger=ledger
+            ledger=ledger,
         )
 
         with pytest.raises(

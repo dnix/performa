@@ -238,7 +238,6 @@ class TestLargeScaleRollingRenovation:
             0.7 <= revenue_ratio <= 1.1
         ), f"Revenue seems incorrect: {revenue_ratio:.2%} of expected"
 
-
     def test_very_large_scale_stress_test(self):
         """Stress test with 1000+ units (if system can handle it)."""
 
@@ -263,7 +262,6 @@ class TestLargeScaleRollingRenovation:
             pytest.skip(f"System cannot handle {unit_count} units: {e}")
         except Exception as e:
             pytest.fail(f"Unexpected error with {unit_count} units: {e}")
-
 
     def test_rolling_completion_rate_at_scale(self):
         """Test that rolling renovation completes properly at scale."""
@@ -306,7 +304,6 @@ class TestLargeScaleRollingRenovation:
 
 class TestScalabilityLimits:
     """Test system limits and edge cases at scale."""
-
 
     def test_many_absorption_plans(self):
         """Test property with many different absorption plans."""
@@ -409,7 +406,6 @@ class TestScalabilityLimits:
         print(f"   Initial Revenue: ${initial_revenue:,.0f}")
         print(f"   Final Revenue: ${final_revenue:,.0f}")
         print(f"   Growth: {((final_revenue / initial_revenue) - 1):.1%}")
-
 
     def test_memory_efficiency(self):
         """Test memory efficiency by creating and destroying large scenarios."""

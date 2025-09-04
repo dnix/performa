@@ -8,10 +8,13 @@ These tests verify that all enhanced debt features work together correctly,
 including refinancing orchestration, covenant monitoring, and deal integration.
 """
 
+from unittest.mock import Mock
+
 import numpy as np
 import pandas as pd
 import pytest
 
+from performa.core.ledger import Ledger, LedgerGenerationSettings
 from performa.core.primitives import Timeline
 from performa.debt import DebtTranche
 from performa.debt.amortization import LoanAmortization
@@ -24,7 +27,9 @@ from performa.debt.rates import FixedRate, FloatingRate, InterestRate, RateIndex
 class TestEnhancedDebtServiceIntegration:
     """Test enhanced debt service calculations with institutional features."""
 
-    @pytest.mark.filterwarnings("ignore:PermanentFacility.*development deal:UserWarning")
+    @pytest.mark.filterwarnings(
+        "ignore:PermanentFacility.*development deal:UserWarning"
+    )
     def test_interest_only_debt_service_integration(self):
         """Test that interest-only periods are properly integrated into debt service."""
         # Create permanent facility with interest-only periods
@@ -43,15 +48,10 @@ class TestEnhancedDebtServiceIntegration:
 
         # Create timeline and context for new architecture
         timeline = Timeline.from_dates("2024-01-01", "2034-01-01")
-        
-        # Create DealContext (required for new ledger-based architecture)
-        from unittest.mock import Mock
 
-        from performa.core.ledger import Ledger, LedgerGenerationSettings
-        
         mock_deal = Mock()
         mock_deal.name = "Interest Only Test Deal"
-        
+
         context = Mock()
         context.timeline = timeline
         context.deal = mock_deal
@@ -220,7 +220,7 @@ class TestRefinancingOrchestrationIntegration:
 
     def test_refinancing_with_covenant_monitoring_setup(self):
         """Test that refinancing properly sets up covenant monitoring."""
-        # Create permanent facility  
+        # Create permanent facility
         permanent_facility = PermanentFacility(
             name="Permanent Loan",
             kind="permanent",
@@ -344,9 +344,11 @@ class TestCovenantMonitoringIntegration:
         assert "Max_LTV" in breach_summary_bad
         assert "Min_DSCR" in breach_summary_bad
         assert "Min_Debt_Yield" in breach_summary_bad
-        
+
         # Verify the breach scenario actually has breaches
-        assert breach_summary_bad["Breach_Periods"] > 0, "Should have some breach periods"
+        assert (
+            breach_summary_bad["Breach_Periods"] > 0
+        ), "Should have some breach periods"
 
         print(
             f"✓ Compliant scenario breach rate: {breach_summary_good['Breach_Rate']:.1%}"

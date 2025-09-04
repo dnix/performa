@@ -168,18 +168,18 @@ def complex_property_fixture() -> dict:
             # Since REABSORB space (7,500 SF from departing tenant) is NOT available to
             # absorption plans in current implementation, we need 10,000+ SF here
             OfficeVacantSuite(
-                suite="400", 
-                floor="4", 
+                suite="400",
+                floor="4",
                 area=10000,  # Increased from 2,500 to match absorption pace
                 use_type="office",
                 is_divisible=True,  # Allow subdivision for phased absorption
                 subdivision_average_lease_area=5000,
-                subdivision_minimum_lease_area=2500
+                subdivision_minimum_lease_area=2500,
             )
         ],
     )
 
-    # --- Define Absorption Plan ---    
+    # --- Define Absorption Plan ---
     absorption_plan = OfficeAbsorptionPlan.with_typical_assumptions(
         name="Lease Up Vacancy",
         space_filter=SpaceFilter(use_types=["office"]),
@@ -226,82 +226,128 @@ def test_full_scenario_kitchen_sink(complex_property_fixture):
     E2E test validating complex office property lifecycle with multiple integrated features:
     - Multiple tenants with different lease terms
     - Tenant renewal (Renewing Tenant renews Dec 2024)
-    - Tenant departure (Departing Tenant leaves Jan 2026)  
+    - Tenant departure (Departing Tenant leaves Jan 2026)
     - Absorption of vacant space (starts Jan 2026)
     - Expense recovery with gross-up mechanics
     - Losses (vacancy and credit)
-    
+
     This test validates that all these features work together correctly by checking
     key behaviors and relationships rather than hard-coded magic numbers.
     """
     # ACT - Run the full analysis
     result = run(**complex_property_fixture)
     summary_df = result.summary_df
-    
+
     # ASSERT - Validate key behaviors and relationships
-    
+
     # === 1. VALIDATE INITIAL STATE (All 3 tenants active) ===
     # June 2024: Should have all 3 tenants generating revenue
-    pgr_2024_06 = summary_df.loc["2024-06", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-    noi_2024_06 = summary_df.loc["2024-06", UnleveredAggregateLineKey.NET_OPERATING_INCOME.value]
-    
+    pgr_2024_06 = summary_df.loc[
+        "2024-06", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value
+    ]
+    noi_2024_06 = summary_df.loc[
+        "2024-06", UnleveredAggregateLineKey.NET_OPERATING_INCOME.value
+    ]
+
     # PGR should include base rent from all 3 tenants plus recoveries
     # Base rents: 10000*62 + 5000*58 + 7500*60 = 1,360,000/year = 113,333/month
     # Plus recoveries (CAM + taxes)
-    assert pgr_2024_06 > 113000, f"PGR should include all tenant rent plus recoveries, got {pgr_2024_06}"
-    assert noi_2024_06 > 0, f"NOI should be positive with 90% occupancy, got {noi_2024_06}"
-    
+    assert (
+        pgr_2024_06 > 113000
+    ), f"PGR should include all tenant rent plus recoveries, got {pgr_2024_06}"
+    assert (
+        noi_2024_06 > 0
+    ), f"NOI should be positive with 90% occupancy, got {noi_2024_06}"
+
     # === 2. VALIDATE RENEWAL OCCURRED (Dec 2024) ===
     # In Jan 2025, Renewing Tenant should be at new rate ($60/SF instead of $58/SF)
-    pgr_2025_01 = summary_df.loc["2025-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-    pgr_2024_11 = summary_df.loc["2024-11", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-    
+    pgr_2025_01 = summary_df.loc[
+        "2025-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value
+    ]
+    pgr_2024_11 = summary_df.loc[
+        "2024-11", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value
+    ]
+
     # PGR should increase slightly due to renewal at higher rate
     # Increase = 5000 SF * ($60-$58) / 12 = $833/month
     assert pgr_2025_01 > pgr_2024_11, "PGR should increase after renewal at higher rate"
-    
+
     # === 3. VALIDATE DEPARTURE AND GROSS-UP (Jan 2026) ===
-    pgr_2026_01 = summary_df.loc["2026-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-    pgr_2025_12 = summary_df.loc["2025-12", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-    reimb_2026_02 = summary_df.loc["2026-02", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
-    reimb_2025_06 = summary_df.loc["2025-06", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
-    
+    pgr_2026_01 = summary_df.loc[
+        "2026-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value
+    ]
+    pgr_2025_12 = summary_df.loc[
+        "2025-12", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value
+    ]
+    reimb_2026_02 = summary_df.loc[
+        "2026-02", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value
+    ]
+    reimb_2025_06 = summary_df.loc[
+        "2025-06", UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value
+    ]
+
     # PGR should drop when Departing Tenant leaves (loses 7500 SF * $60 = $37,500/month)
-    assert pgr_2026_01 < pgr_2025_12 - 30000, f"PGR should drop significantly after departure"
-    
+    assert (
+        pgr_2026_01 < pgr_2025_12 - 30000
+    ), f"PGR should drop significantly after departure"
+
     # Expense reimbursements should increase due to gross-up (occupancy drops to 60%, below 95% threshold)
-    assert reimb_2026_02 > reimb_2025_06 * 1.2, "Reimbursements should increase with gross-up at low occupancy"
-    
+    assert (
+        reimb_2026_02 > reimb_2025_06 * 1.2
+    ), "Reimbursements should increase with gross-up at low occupancy"
+
     # === 4. VALIDATE ABSORPTION WORKS ===
     # Absorption should start absorbing vacant space after tenant departure (Jan 2026)
     # FixedQuantityPace: 5000 SF every 6 months starting Jan 2026
-    pgr_2026_06 = summary_df.loc["2026-06", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-    pgr_2027_01 = summary_df.loc["2027-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-    pgr_2028_06 = summary_df.loc["2028-06", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-    
+    pgr_2026_06 = summary_df.loc[
+        "2026-06", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value
+    ]
+    pgr_2027_01 = summary_df.loc[
+        "2027-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value
+    ]
+    pgr_2028_06 = summary_df.loc[
+        "2028-06", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value
+    ]
+
     # PGR should increase over time as absorption occurs
     # By June 2026 (6 months after departure), first 5,000 SF should be absorbed
-    assert pgr_2026_06 > pgr_2026_01, "PGR should increase by June 2026 due to absorption (5k SF)"
-    
+    assert (
+        pgr_2026_06 > pgr_2026_01
+    ), "PGR should increase by June 2026 due to absorption (5k SF)"
+
     # By Jan 2027 (12 months after departure), second 5,000 SF should be absorbed
-    assert pgr_2027_01 > pgr_2026_06, "PGR should continue increasing as more space is absorbed"
-    
+    assert (
+        pgr_2027_01 > pgr_2026_06
+    ), "PGR should continue increasing as more space is absorbed"
+
     # By June 2028, significant absorption should have occurred (up to 10k+ SF)
-    assert pgr_2028_06 > pgr_2026_01 + 25000, "PGR should show significant recovery from absorption over time"
-    
+    assert (
+        pgr_2028_06 > pgr_2026_01 + 25000
+    ), "PGR should show significant recovery from absorption over time"
+
     # === 5. VALIDATE FINANCIAL RELATIONSHIPS ===
     # Throughout the analysis, basic financial relationships should hold
     for period in ["2024-06", "2025-06", "2026-06", "2027-06", "2028-06"]:
-        pgr = summary_df.loc[period, UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value]
-        egi = summary_df.loc[period, UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME.value]
-        noi = summary_df.loc[period, UnleveredAggregateLineKey.NET_OPERATING_INCOME.value]
-        opex = summary_df.loc[period, UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value]
-        
+        pgr = summary_df.loc[
+            period, UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value
+        ]
+        egi = summary_df.loc[
+            period, UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME.value
+        ]
+        noi = summary_df.loc[
+            period, UnleveredAggregateLineKey.NET_OPERATING_INCOME.value
+        ]
+        opex = summary_df.loc[
+            period, UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value
+        ]
+
         # Basic relationships
         assert egi <= pgr, f"{period}: EGI should be ≤ PGR (due to losses)"
         assert noi < egi, f"{period}: NOI should be < EGI (due to expenses)"
         assert opex > 0, f"{period}: Operating expenses should be positive"
-        assert noi == pytest.approx(egi - opex, rel=0.01), f"{period}: NOI should equal EGI - OpEx"
+        assert noi == pytest.approx(
+            egi - opex, rel=0.01
+        ), f"{period}: NOI should equal EGI - OpEx"
 
 
 def test_e2e_recovery_gross_up_proves_phased_execution(complex_property_fixture):
@@ -354,7 +400,9 @@ def test_pgr_calculation_for_jan_2025(complex_property_fixture):
     #
     # PLUS expense recoveries (CAM $5/SF + Taxes $150K annually with gross-up):
     # PGR includes all revenue streams per industry standards
-    EXPECTED_PGR_2025_01 = 125252.98  # Base rent + recoveries (validated from ledger calculation)
+    EXPECTED_PGR_2025_01 = (
+        125252.98  # Base rent + recoveries (validated from ledger calculation)
+    )
 
     # ACT
     result = run(**complex_property_fixture)

@@ -161,9 +161,7 @@ def test_unit_mix_unrolling(
     lease_models = [
         m for m in result.models if m.__class__.__name__ == "ResidentialLease"
     ]
-    expense_models = [
-        m for m in result.models if "ExItem" in m.__class__.__name__
-    ]
+    expense_models = [m for m in result.models if "ExItem" in m.__class__.__name__]
 
     # Verify correct number of lease instances (one per unit)
     expected_lease_count = sample_residential_property.unit_count
@@ -217,12 +215,12 @@ def test_analysis_scenario_properties(
     sample_residential_property, analysis_timeline, global_settings
 ):
     """Test that the analysis scenario has the expected properties and methods."""
-    
+
     scenario = ResidentialAnalysisScenario(
         model=sample_residential_property,
         timeline=analysis_timeline,
         settings=global_settings,
-        ledger=Ledger()
+        ledger=Ledger(),
     )
 
     context = AnalysisContext(
@@ -309,7 +307,7 @@ def test_minimal_property_analysis():
 
     # Should complete without errors
     assert isinstance(result.scenario, ResidentialAnalysisScenario)
-    
+
     # Verify ledger was built
     assert result.ledger is not None
     assert not result.ledger.ledger_df().empty

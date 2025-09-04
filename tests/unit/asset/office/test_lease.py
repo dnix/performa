@@ -131,7 +131,7 @@ class TestOfficeLease(unittest.TestCase):
             timeline=lease_timeline,
             settings=self.settings,
             property_data=None,  # Not needed for this simple test
-            ledger=ledger
+            ledger=ledger,
         )
         cash_flows = lease.compute_cf(context=context)
         # Base rent is $60k/yr -> $5k/mo
@@ -139,8 +139,12 @@ class TestOfficeLease(unittest.TestCase):
         self.assertTrue(all(cash_flows["base_rent"] == expected_base_rent))
         # In the ledger architecture, revenue and net are computed by the ledger system
         # Test the actual components that are returned
-        self.assertTrue(all(cash_flows["recoveries"] == 0.0))  # No recoveries in basic test
-        self.assertTrue(all(cash_flows["abatement"] == 0.0))   # No abatement in basic test
+        self.assertTrue(
+            all(cash_flows["recoveries"] == 0.0)
+        )  # No recoveries in basic test
+        self.assertTrue(
+            all(cash_flows["abatement"] == 0.0)
+        )  # No abatement in basic test
         self.assertEqual(len(cash_flows["base_rent"]), 12)
 
     def test_project_future_cash_flows_market_rollover(self):
@@ -189,7 +193,7 @@ class TestOfficeLease(unittest.TestCase):
             timeline=short_analysis_timeline,
             settings=self.settings,
             property_data=None,  # Not needed for this test
-            ledger=ledger
+            ledger=ledger,
         )
         future_df = lease.project_future_cash_flows(context=context)
 
@@ -250,7 +254,7 @@ class TestOfficeLease(unittest.TestCase):
             timeline=short_analysis_timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
         future_df = lease.project_future_cash_flows(context=context)
 
@@ -317,7 +321,7 @@ class TestOfficeLease(unittest.TestCase):
             timeline=short_analysis_timeline,
             settings=self.settings,
             property_data=mock_property,
-            ledger=ledger
+            ledger=ledger,
         )
 
         future_df = lease.project_future_cash_flows(context=context)
@@ -366,10 +370,10 @@ class TestOfficeLease(unittest.TestCase):
         )
         ledger = Ledger(settings=LedgerGenerationSettings())
         context = AnalysisContext(
-            timeline=short_analysis_timeline, 
-            settings=self.settings, 
+            timeline=short_analysis_timeline,
+            settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         future_df = lease.project_future_cash_flows(context=context)
@@ -473,7 +477,7 @@ class TestOfficeLease(unittest.TestCase):
             timeline=Timeline(start_date=date(2023, 12, 1), duration_months=12),
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         # Should raise error when trying to use signing timing without signing_date

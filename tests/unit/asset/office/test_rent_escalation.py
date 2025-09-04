@@ -90,7 +90,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -149,7 +149,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -218,7 +218,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -276,7 +276,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -334,7 +334,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -403,7 +403,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -461,7 +461,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -507,7 +507,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -554,7 +554,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -637,7 +637,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -710,7 +710,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -809,7 +809,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -886,7 +886,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -958,7 +958,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             timeline=self.timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)
@@ -1008,7 +1008,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             timeline=short_timeline,
             settings=self.settings,
             property_data=None,
-            ledger=ledger
+            ledger=ledger,
         )
 
         cash_flows = lease.compute_cf(context)

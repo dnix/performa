@@ -203,7 +203,6 @@ def test_absorption_plan_generates_progressive_specs(progressive_development_pro
     print("✅ Absorption plan generates progressive unit specs correctly")
 
 
-
 def test_development_framework_progressive_revenue(progressive_development_project):
     """
     Test that development framework produces progressive revenue patterns.
@@ -269,7 +268,6 @@ def test_development_framework_progressive_revenue(progressive_development_proje
     print("✅ Development framework produces correct progressive revenue pattern")
 
 
-
 def test_stabilized_revenue_reaches_expected_level(progressive_development_project):
     """
     Test that once fully absorbed, revenue reaches expected stabilized level.
@@ -300,7 +298,6 @@ def test_stabilized_revenue_reaches_expected_level(progressive_development_proje
         print(
             f"✅ Stabilized revenue: ${month9_revenue:,.0f} (expected: ${expected_stabilized:,.0f})"
         )
-
 
 
 def test_backward_compatibility_with_stabilized_properties():

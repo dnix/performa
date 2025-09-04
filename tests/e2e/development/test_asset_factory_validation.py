@@ -275,9 +275,7 @@ def stabilized_residential_baseline(analysis_timeline) -> ResidentialProperty:
     expenses = ResidentialExpenses()  # Default expenses
     losses = ResidentialLosses(
         general_vacancy=ResidentialGeneralVacancyLoss(rate=0.05),  # Default 5% vacancy
-        credit_loss=ResidentialCreditLoss(
-            rate=0.01
-        ),  # Default 1% collection loss
+        credit_loss=ResidentialCreditLoss(rate=0.01),  # Default 1% collection loss
     )
 
     return ResidentialProperty(
@@ -582,7 +580,6 @@ def test_residential_development_matches_baseline(
         assert len(development_stabilized) > 0
 
 
-
 def test_mixed_use_polymorphic_pattern(
     mixed_use_development_project, analysis_timeline, global_settings
 ):
@@ -619,7 +616,6 @@ def test_mixed_use_polymorphic_pattern(
     print("✅ MIXED-USE POLYMORPHIC PATTERN VALIDATED!")
     print("✅ Multiple asset types combined successfully")
     print("✅ No conditionals needed in development orchestrator")
-
 
 
 def test_end_to_end_asset_factory_workflow(

@@ -171,11 +171,12 @@ class TestVectorizedCovenantMonitoring:
         property_values = pd.Series(
             [1_200_000] * 12, index=timeline.period_index
         )  # Low value = high LTV ($1M / $1.2M = 0.83 > 0.70)
-        
+
         # Use monthly NOI that will cause actual DSCR breach for $1M loan
-        # Need DSCR < 1.50, so use NOI that gives DSCR ≈ 1.40  
+        # Need DSCR < 1.50, so use NOI that gives DSCR ≈ 1.40
         noi_values = pd.Series(
-            [8_000] * 12, index=timeline.period_index  # $8k monthly = $96k annual (will cause DSCR breach)
+            [8_000] * 12,
+            index=timeline.period_index,  # $8k monthly = $96k annual (will cause DSCR breach)
         )
 
         results = facility.calculate_covenant_monitoring(
@@ -188,9 +189,11 @@ class TestVectorizedCovenantMonitoring:
         # Should detect LTV breaches (outstanding balance / low property value > 0.70)
         assert results["LTV_Breach"].any(), "Should detect LTV breaches"
 
-        # Should detect DSCR breaches with corrected calculations  
+        # Should detect DSCR breaches with corrected calculations
         # Note: For permanent loan with constant NOI/debt service, DSCR is constant across periods
-        assert results["DSCR_Breach"].any(), "Should detect DSCR breaches with corrected math"
+        assert results[
+            "DSCR_Breach"
+        ].any(), "Should detect DSCR breaches with corrected math"
 
         # Should detect debt yield breaches ($96k annual NOI / $1M loan = 0.096 < 0.10 min - breach!)
         assert results["Debt_Yield_Breach"].any(), "Should detect debt yield breaches"

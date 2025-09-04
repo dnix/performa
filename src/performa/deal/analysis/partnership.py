@@ -637,7 +637,9 @@ class PartnershipAnalyzer:
                         )
 
                         # Use the structured fee breakdown format
-                        fee_details_list = fee_details["detailed_fee_breakdown"].get(payee_name, [])
+                        fee_details_list = fee_details["detailed_fee_breakdown"].get(
+                            payee_name, []
+                        )
                         partner_results[payee_name]["fee_details"] = {
                             fee["fee_name"]: fee["amount"] for fee in fee_details_list
                         }

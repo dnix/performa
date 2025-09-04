@@ -428,19 +428,23 @@ class TestCovenantMonitoring:
         # With $5M loan at 6.5% for 5 years: annual debt service ≈ $1,148,798
         # For DSCR breach (< 1.20): need NOI < $1,378,558 (1.20 * $1,148,798)
         prop_values = pd.Series(
-            [5_500_000] * 12, index=timeline.period_index  
+            [5_500_000] * 12, index=timeline.period_index
         )  # Property value for LTV calculation
-        
+
         # Use NOI that will actually cause DSCR breach: $35k monthly = $420k annual
         # This will give DSCR ≈ 1.10, breaching the 1.20 minimum
-        noi_values = pd.Series([35_000] * 12, index=timeline.period_index)  # Monthly NOI for DSCR breach
+        noi_values = pd.Series(
+            [35_000] * 12, index=timeline.period_index
+        )  # Monthly NOI for DSCR breach
 
         results = facility.calculate_covenant_monitoring(
             timeline, prop_values, noi_values
         )
 
         # Should detect breaches with corrected calculations
-        assert any(results["Covenant_Status"] == "BREACH"), "Should detect covenant breaches"
+        assert any(
+            results["Covenant_Status"] == "BREACH"
+        ), "Should detect covenant breaches"
 
         # LTV calculation: $5M loan / $5.5M value ≈ 0.91 (should breach 0.80 max)
         assert results["LTV"].iloc[0] > 0.80, "Should breach LTV covenant (> 0.80)"
@@ -448,46 +452,57 @@ class TestCovenantMonitoring:
         # DSCR calculation: $420k annual NOI / debt service ≈ 1.10 (should breach 1.20 min)
         # Note: DSCR is constant across all periods for permanent loan with constant NOI/debt service
         assert results["DSCR"].iloc[0] < 1.20, "Should breach DSCR covenant (< 1.20)"
-        assert (results["DSCR"] < 1.20).all(), "All periods should breach DSCR (constant series)"
+        assert (
+            results["DSCR"] < 1.20
+        ).all(), "All periods should breach DSCR (constant series)"
 
     def test_dscr_varies_with_noi_changes(self):
         """Test that DSCR actually changes when NOI changes over time."""
         facility = self.create_test_facility()
         timeline = self.create_mock_timeline(12)
-        
+
         # Create property values (constant)
         prop_values = pd.Series([7_000_000] * 12, index=timeline.period_index)
-        
+
         # Create varying NOI over time - start low, end high
         base_noi = 50_000
-        noi_values = pd.Series([
-            base_noi + (i * 5_000) for i in range(12)  # NOI grows $5k per month
-        ], index=timeline.period_index)
-        
+        noi_values = pd.Series(
+            [
+                base_noi + (i * 5_000)
+                for i in range(12)  # NOI grows $5k per month
+            ],
+            index=timeline.period_index,
+        )
+
         results = facility.calculate_covenant_monitoring(
             timeline, prop_values, noi_values
         )
-        
+
         # DSCR should change over time as NOI changes
         dscr_series = results["DSCR"]
-        
+
         # Verify DSCR is NOT constant
-        assert not (dscr_series == dscr_series.iloc[0]).all(), \
+        assert not (
+            dscr_series == dscr_series.iloc[0]
+        ).all(), (
             f"DSCR should vary over time, but all values are {dscr_series.iloc[0]:.3f}"
-            
+        )
+
         # Verify DSCR increases as NOI increases (should be monotonic or close to it)
         dscr_first = dscr_series.iloc[0]
         dscr_last = dscr_series.iloc[-1]
-        assert dscr_last > dscr_first, \
-            f"DSCR should increase as NOI grows: first={dscr_first:.3f}, last={dscr_last:.3f}"
-            
+        assert (
+            dscr_last > dscr_first
+        ), f"DSCR should increase as NOI grows: first={dscr_first:.3f}, last={dscr_last:.3f}"
+
         # Verify DSCR changes are proportional to NOI changes
         noi_growth = noi_values.iloc[-1] / noi_values.iloc[0]  # NOI ratio
         dscr_growth = dscr_series.iloc[-1] / dscr_series.iloc[0]  # DSCR ratio
-        
+
         # DSCR growth should approximately equal NOI growth (since debt service is constant)
-        assert abs(dscr_growth - noi_growth) < 0.01, \
-            f"DSCR growth {dscr_growth:.3f} should ≈ NOI growth {noi_growth:.3f}"
+        assert (
+            abs(dscr_growth - noi_growth) < 0.01
+        ), f"DSCR growth {dscr_growth:.3f} should ≈ NOI growth {noi_growth:.3f}"
 
     def test_breach_summary_statistics(self):
         """Test covenant breach summary generation."""

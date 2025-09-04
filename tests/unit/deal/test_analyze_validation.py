@@ -29,17 +29,17 @@ from performa.deal.acquisition import AcquisitionTerms
 
 class TestDealAnalyzeValidation:
     """Test validation logic for deal.analyze() parameters."""
-    
+
     @pytest.fixture
     def timeline(self):
         """Standard test timeline."""
         return Timeline.from_dates("2024-01-01", "2024-12-31")
-    
+
     @pytest.fixture
     def settings(self):
         """Standard test settings."""
         return GlobalSettings()
-    
+
     @pytest.fixture
     def simple_office_property(self):
         """Create a minimal office property for testing."""
@@ -47,11 +47,13 @@ class TestDealAnalyzeValidation:
             name="Test Office",
             gross_area=100000,
             net_rentable_area=90000,
-            rent_roll=OfficeRentRoll(leases=[], vacant_suites=[]),  # Empty for simplicity
+            rent_roll=OfficeRentRoll(
+                leases=[], vacant_suites=[]
+            ),  # Empty for simplicity
             expenses=OfficeExpenses(opex_psf=15.0),
             losses=OfficeLosses(),
         )
-    
+
     @pytest.fixture
     def simple_deal(self, simple_office_property, timeline):
         """Create a simple deal for testing."""
@@ -66,7 +68,7 @@ class TestDealAnalyzeValidation:
                 acquisition_date=date(2024, 1, 1),
             ),
         )
-    
+
     def test_case_1_neither_provided(self, simple_deal, timeline, settings):
         """Test Case 1: Neither asset_analysis nor ledger provided."""
         # Should create new ledger builder internally
@@ -75,27 +77,27 @@ class TestDealAnalyzeValidation:
             timeline=timeline,
             settings=settings,
         )
-        
+
         # Should succeed without error
         assert result is not None
         assert result.deal_summary is not None
-    
+
     def test_case_2_only_ledger_provided(self, simple_deal, timeline, settings):
         """Test Case 2: Only ledger provided."""
         custom_ledger = Ledger(settings=LedgerGenerationSettings())
-        
+
         result = analyze_deal(
             deal=simple_deal,
             timeline=timeline,
             settings=settings,
             ledger=custom_ledger,
         )
-        
+
         # Should succeed and use the custom ledger
         assert result is not None
         # Verify the custom ledger was used (has transactions)
         assert len(custom_ledger.ledger_df()) > 0
-    
+
     def test_case_3_only_asset_analysis_provided(self, simple_deal, timeline, settings):
         """Test Case 3: Only asset_analysis provided."""
         # First run asset analysis
@@ -104,7 +106,7 @@ class TestDealAnalyzeValidation:
             timeline=timeline,
             settings=settings,
         )
-        
+
         # Then use it in deal analysis
         result = analyze_deal(
             deal=simple_deal,
@@ -112,11 +114,11 @@ class TestDealAnalyzeValidation:
             settings=settings,
             asset_analysis=asset_result,
         )
-        
+
         # Should succeed and reuse the asset analysis
         assert result is not None
         assert result.asset_analysis is asset_result
-    
+
     def test_case_4a_both_provided_same_instance(self, simple_deal, timeline, settings):
         """Test Case 4a: Both provided with SAME ledger instance - should succeed."""
         # Run asset analysis first
@@ -125,10 +127,10 @@ class TestDealAnalyzeValidation:
             timeline=timeline,
             settings=settings,
         )
-        
+
         # Use the SAME ledger builder instance
         same_ledger = asset_result.ledger
-        
+
         # This should succeed (explicit validation)
         result = analyze_deal(
             deal=simple_deal,
@@ -137,11 +139,13 @@ class TestDealAnalyzeValidation:
             asset_analysis=asset_result,
             ledger=same_ledger,  # Same instance
         )
-        
+
         assert result is not None
         assert result.asset_analysis is asset_result
-    
-    def test_case_4b_both_provided_different_instances(self, simple_deal, timeline, settings):
+
+    def test_case_4b_both_provided_different_instances(
+        self, simple_deal, timeline, settings
+    ):
         """Test Case 4b: Both provided with DIFFERENT ledger instances - should raise ValueError."""
         # Run asset analysis first
         asset_result = analyze_asset(
@@ -149,10 +153,10 @@ class TestDealAnalyzeValidation:
             timeline=timeline,
             settings=settings,
         )
-        
+
         # Create a DIFFERENT ledger builder instance
         different_ledger = Ledger(settings=LedgerGenerationSettings())
-        
+
         # This should raise ValueError
         with pytest.raises(ValueError, match="Conflicting ledgers provided"):
             analyze_deal(
@@ -162,7 +166,7 @@ class TestDealAnalyzeValidation:
                 asset_analysis=asset_result,
                 ledger=different_ledger,  # Different instance
             )
-    
+
     def test_error_message_clarity(self, simple_deal, timeline, settings):
         """Test that error message provides clear guidance."""
         # Run asset analysis first
@@ -171,10 +175,10 @@ class TestDealAnalyzeValidation:
             timeline=timeline,
             settings=settings,
         )
-        
+
         # Create different ledger
         different_ledger = Ledger(settings=LedgerGenerationSettings())
-        
+
         # Verify error message content
         with pytest.raises(ValueError) as exc_info:
             analyze_deal(
@@ -184,7 +188,7 @@ class TestDealAnalyzeValidation:
                 asset_analysis=asset_result,
                 ledger=different_ledger,
             )
-        
+
         error_msg = str(exc_info.value)
         assert "Conflicting ledgers" in error_msg
         assert "same instance" in error_msg

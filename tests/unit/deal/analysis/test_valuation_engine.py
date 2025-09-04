@@ -430,7 +430,7 @@ class TestDispositionProceeds:
 
         # Create a simple ledger for the test
         ledger = Ledger(settings=LedgerGenerationSettings())
-        
+
         with patch("performa.analysis.AnalysisContext") as mock_context_class:
             # Mock the context creation
             mock_context = Mock()
@@ -463,7 +463,7 @@ class TestDispositionProceeds:
 
         # Create a simple ledger for the test
         ledger = Ledger(settings=LedgerGenerationSettings())
-        
+
         proceeds = engine.calculate_disposition_proceeds(
             ledger, sample_unlevered_analysis_with_noi
         )
@@ -496,7 +496,7 @@ class TestDispositionProceeds:
 
             # Create a simple ledger for the test
             ledger = Ledger(settings=LedgerGenerationSettings())
-            
+
             proceeds = engine.calculate_disposition_proceeds(ledger, None)
 
         assert isinstance(proceeds, pd.Series)
@@ -525,7 +525,7 @@ class TestDispositionProceeds:
         # Should handle the error gracefully and return zeros
         # Create a simple ledger for the test
         ledger = Ledger(settings=LedgerGenerationSettings())
-        
+
         proceeds = engine.calculate_disposition_proceeds(
             ledger, sample_unlevered_analysis_with_noi
         )
@@ -554,7 +554,7 @@ class TestDispositionProceeds:
 
         # Create a simple ledger for the test
         ledger = Ledger(settings=LedgerGenerationSettings())
-        
+
         with patch("performa.analysis.AnalysisContext") as mock_context_class:
             mock_context = Mock()
             mock_context.resolved_lookups = {}
@@ -590,7 +590,7 @@ class TestIntegrationScenarios:
 
         # Create a simple ledger for the test
         ledger = Ledger(settings=LedgerGenerationSettings())
-        
+
         # Extract NOI series
         noi_series = engine.extract_noi_series(sample_unlevered_analysis_with_noi)
 
@@ -606,7 +606,7 @@ class TestIntegrationScenarios:
             mock_deal_with_exit_valuation.exit_valuation.compute_cf.return_value = (
                 disposition_cf
             )
-            
+
             disposition_proceeds = engine.calculate_disposition_proceeds(
                 ledger, sample_unlevered_analysis_with_noi
             )
@@ -647,7 +647,7 @@ class TestIntegrationScenarios:
             timeline=sample_timeline,
             settings=sample_settings,
         )
-        
+
         property_values = engine.extract_property_value_series(growth_analysis)
         noi_series = engine.extract_noi_series(growth_analysis)
 
@@ -791,7 +791,7 @@ class TestEdgeCasesAndErrorHandling:
         ):
             # Create a simple ledger for the test
             ledger = Ledger(settings=LedgerGenerationSettings())
-            
+
             proceeds = engine.calculate_disposition_proceeds(ledger)
 
         # Should handle the error gracefully
@@ -828,7 +828,7 @@ class TestEdgeCasesAndErrorHandling:
 
             # Create a simple ledger for the test
             ledger = Ledger(settings=LedgerGenerationSettings())
-            
+
             proceeds = engine.calculate_disposition_proceeds(ledger, mock_analysis)
 
         # Should continue despite NOI extraction failure and return the disposition proceeds
