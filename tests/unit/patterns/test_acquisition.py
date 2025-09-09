@@ -29,10 +29,7 @@ class TestStabilizedAcquisitionPattern:
             total_units=80,
             avg_unit_sf=775,  # (650*50 + 900*30) / 80
             current_avg_rent=1900,  # Approximate average
-            initial_vacancy_rate=0.05,
-            annual_rent_growth=0.03,
-            annual_expense_growth=0.025,
-            operating_expense_ratio=0.35,
+            occupancy_rate=0.95,  # Use occupancy_rate instead of initial_vacancy_rate
             ltv_ratio=0.75,
             interest_rate=0.06,
             loan_term_years=10,
@@ -67,10 +64,7 @@ class TestStabilizedAcquisitionPattern:
             total_units=40,
             avg_unit_sf=600,
             current_avg_rent=1500,
-            initial_vacancy_rate=0.05,
-            annual_rent_growth=0.03,
-            annual_expense_growth=0.025,
-            operating_expense_ratio=0.35,
+            occupancy_rate=0.95,  # Use occupancy_rate instead of initial_vacancy_rate
             ltv_ratio=0.70,
             interest_rate=0.055,
             loan_term_years=10,
@@ -106,9 +100,8 @@ class TestStabilizedAcquisitionPattern:
             acquisition_price=5_000_000,
             closing_costs_rate=0.025,
             net_rentable_area=50_000,
-            current_occupancy=0.85,
+            occupancy_rate=0.85,  # Use occupancy_rate instead of current_occupancy
             current_rent_psf=30.0,  # Add required current rent
-            market_rent_psf=35.0,
             operating_expense_psf=12.0,
             hold_period_years=5,
             exit_cap_rate=0.055,

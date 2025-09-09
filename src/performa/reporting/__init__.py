@@ -19,18 +19,32 @@ from .base import BaseReport, ReportTemplate
 from .debug import (
     analyze_configuration_intentionality,
     analyze_ledger_semantically,
+    # Advanced debug utilities  
+    analyze_ledger_shape,
     compare_configuration_intentionality,
     compare_deal_configs,
+    compare_deal_configurations,
+    compare_deal_timelines,
+    compare_ledger_shapes,
     create_actionable_config_summary,
     dump_deal_config,
     dump_performa_object,
+    extract_component_timelines,
     format_config_analysis,
     format_ledger_analysis,
+    format_ledger_shape_comparison,
+    format_parity_validation,
     format_performa_object,
+    format_timeline_comparison,
     generate_configuration_report,
     ledger_sanity_check,
+    quick_parity_check,
+    validate_aggregate_flows,
+    validate_deal_parity,
+    validate_flow_reasonableness,
 )
 from .interface import ReportingInterface
+from .pivot_report import PivotTableReport
 
 __all__ = [
     # Base classes for custom reports
@@ -38,19 +52,33 @@ __all__ = [
     "ReportTemplate",
     # Fluent interface (exposed via DealAnalysisResult.reporting)
     "ReportingInterface",
+    # Core reports
+    "PivotTableReport",
     # Model assumptions reporting
     "generate_assumptions_report",
     # Debug utilities
     "analyze_configuration_intentionality",
     "analyze_ledger_semantically",
+    "analyze_ledger_shape",
     "compare_configuration_intentionality",
     "compare_deal_configs",
+    "compare_deal_configurations",
+    "compare_deal_timelines",
+    "compare_ledger_shapes",
     "create_actionable_config_summary",
     "dump_deal_config",
     "dump_performa_object",
+    "extract_component_timelines",
     "format_config_analysis",
     "format_ledger_analysis",
+    "format_ledger_shape_comparison",
+    "format_parity_validation",
     "format_performa_object",
+    "format_timeline_comparison",
     "generate_configuration_report",
     "ledger_sanity_check",
+    "quick_parity_check",
+    "validate_aggregate_flows",
+    "validate_deal_parity",
+    "validate_flow_reasonableness",
 ]

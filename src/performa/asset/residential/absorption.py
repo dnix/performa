@@ -41,6 +41,7 @@ from ...core.base import (
     SpaceFilter,
 )
 from ...core.primitives import (
+    CashFlowCategoryEnum,
     GlobalSettings,
     PercentageGrowthRate,
     PropertyAttributeKey,
@@ -273,7 +274,7 @@ class ResidentialAbsorptionPlan(
             operating_expenses=[
                 ResidentialOpExItem(
                     name="Property Management",
-                    category="Expense",
+                    category=CashFlowCategoryEnum.EXPENSE,
                     timeline=timeline,
                     value=150.0,
                     reference=PropertyAttributeKey.UNIT_COUNT,
@@ -283,7 +284,7 @@ class ResidentialAbsorptionPlan(
                 ),
                 ResidentialOpExItem(
                     name="Maintenance & Repairs",
-                    category="Expense",
+                    category=CashFlowCategoryEnum.EXPENSE,
                     timeline=timeline,
                     value=100.0,
                     reference=PropertyAttributeKey.UNIT_COUNT,
@@ -293,7 +294,7 @@ class ResidentialAbsorptionPlan(
                 ),
                 ResidentialOpExItem(
                     name="Utilities",
-                    category="Expense",
+                    category=CashFlowCategoryEnum.EXPENSE,
                     timeline=timeline,
                     value=75.0,
                     reference=PropertyAttributeKey.UNIT_COUNT,
@@ -305,7 +306,7 @@ class ResidentialAbsorptionPlan(
             capital_expenses=[
                 ResidentialCapExItem(
                     name="Maintenance Reserve",
-                    category="Expense",
+                    category=CashFlowCategoryEnum.EXPENSE,
                     timeline=timeline,
                     value=300.0,
                     reference=PropertyAttributeKey.UNIT_COUNT,
@@ -325,7 +326,7 @@ class ResidentialAbsorptionPlan(
 
         typical_misc_income = ResidentialMiscIncome(
             name="Ancillary Income",
-            category="Revenue",
+            category=CashFlowCategoryEnum.REVENUE,
             timeline=timeline,
             value=50.0,  # $50/unit/month (parking, laundry, etc.)
             reference=PropertyAttributeKey.UNIT_COUNT,

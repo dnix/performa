@@ -90,6 +90,10 @@ import pandas as pd
 from pyxirr import xirr
 
 from performa.core.ledger import Ledger, SeriesMetadata
+from performa.core.primitives import (
+    CashFlowCategoryEnum,
+    FinancingSubcategoryEnum,
+)
 from performa.deal.results import FeeAccountingDetails
 
 if TYPE_CHECKING:
@@ -320,8 +324,8 @@ class PartnershipAnalyzer:
                     and partner_metrics.cash_flows.sum() != 0
                 ):
                     metadata = SeriesMetadata(
-                        category="Financing",
-                        subcategory="Distribution",
+                        category=CashFlowCategoryEnum.FINANCING,
+                        subcategory=FinancingSubcategoryEnum.EQUITY_DISTRIBUTION,
                         item_name=f"Distribution to {partner_name}",
                         source_id=getattr(partner_metrics.partner_info, "uid", None),
                         asset_id=self.deal.asset.uid,
@@ -332,9 +336,21 @@ class PartnershipAnalyzer:
                         else "LP",
                         pass_num=3,  # TODO: Check this: Partnership is pass 3
                     )
-                    # Note: Use negative cash flows since distributions are outflows from project perspective
-                    distribution_flows = -1 * partner_metrics.cash_flows
-                    ledger.add_series(distribution_flows, metadata)
+                    # CRITICAL FIX: Only flip positive cash flows (distributions)
+                    # Initial investments (negative in partner cash flows) should NOT be flipped
+                    # as they're already recorded separately as equity contributions
+                    cash_flows = partner_metrics.cash_flows
+                    
+                    # Only record actual distributions (positive values in partner perspective)
+                    # Skip initial investments (negative values) as they're recorded elsewhere
+                    if (cash_flows > 0).any():
+                        # Flip only the positive values to negative (outflows from project)
+                        distribution_flows = pd.Series(0.0, index=cash_flows.index)
+                        distribution_flows[cash_flows > 0] = -cash_flows[cash_flows > 0]
+                        
+                        # Only add if there are actual distributions
+                        if distribution_flows.sum() != 0:
+                            ledger.add_series(distribution_flows, metadata)
 
     def _calculate_single_entity_distributions(
         self, cash_flows: pd.Series

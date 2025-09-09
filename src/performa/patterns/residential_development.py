@@ -32,13 +32,14 @@ from ..asset.residential.absorption import (
 from ..core.capital import CapitalItem, CapitalPlan
 from ..core.primitives import (
     AssetTypeEnum,
-    FirstOnlyDrawSchedule,
     FloatBetween0And1,
     InterestCalculationMethod,
     PositiveFloat,
     PositiveInt,
+    SCurveDrawSchedule,
     StartDateAnchorEnum,
     Timeline,
+    UniformDrawSchedule,
     UponExpirationEnum,
 )
 from ..deal import (
@@ -154,6 +155,9 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
     soft_costs_rate: FloatBetween0And1 = Field(
         default=0.15, description="Soft costs as percentage of hard construction costs"
     )
+    developer_fee_rate: FloatBetween0And1 = Field(
+        default=0.05, description="Developer fee as percentage of total construction cost"
+    )
 
     # === OPERATING ASSUMPTIONS ===
     stabilized_vacancy_rate: FloatBetween0And1 = Field(
@@ -164,10 +168,6 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
     )
 
     # === CONSTRUCTION CAPITAL STRUCTURE ===
-    construction_debt_ratio: FloatBetween0And1 = Field(
-        default=0.70,  # 70% debt, 30% equity for construction
-        description="Target debt ratio for construction financing (0.0=all equity, 1.0=all debt)",
-    )
     construction_ltc_max: FloatBetween0And1 = Field(
         default=0.80,
         description="Maximum LTC threshold - lender's hard gate (typically 0.75-0.85)",
@@ -175,11 +175,11 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
 
     def _derive_timeline(self) -> Timeline:
         """Override to add buffer for exit transaction."""
-        # FIXME: this needs to be fixed, what about lease up and stabilization??? can't we just derive this??
         return Timeline(
             start_date=self.acquisition_date,
             duration_months=self.hold_period_years * 12
             + 6,  # Add 6 months buffer for exit and wind-down
+            # NOTE: hold period includes construction, lease up, stabilization
         )
 
     @field_validator("unit_mix")
@@ -234,14 +234,19 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         return hard_costs + soft_costs
 
     @property
+    def developer_fee(self) -> float:
+        """Calculate developer fee based on total construction cost."""
+        return self.total_construction_cost * self.developer_fee_rate
+
+    @property
     def total_project_cost(self) -> float:
-        """Calculate total project cost including land (excluding closing costs for development cost comparison)."""
-        return self.land_cost + self.total_construction_cost
+        """Calculate total project cost including land and developer fee (excluding closing costs for development cost comparison)."""
+        return self.land_cost + self.total_construction_cost + self.developer_fee
 
     def _derive_timeline(self) -> Timeline:
         """Derive timeline from construction duration and hold period."""
         # Use same approach as office development for consistency
-        # FIXME: this needs to be fixed, what about lease up and stabilization??? can't we just derive this??
+        # TODO: Factor in lease-up and stabilization timing
         total_timeline_months = max(
             self.construction_start_months
             + self.construction_duration_months
@@ -271,12 +276,23 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
                 start_date=self.acquisition_date,
                 duration_months=18,  # Typical residential construction timeline
             ),
-            draw_schedule=FirstOnlyDrawSchedule(),  # Simplified for pattern
+            draw_schedule=SCurveDrawSchedule(sigma=1.0),  # Realistic S-curve construction draws over 18 months
+        )
+
+        developer_fee_item = CapitalItem(
+            name=f"{self.project_name} Developer Fee",
+            work_type="developer",
+            value=self.developer_fee,
+            timeline=Timeline(
+                start_date=self.acquisition_date,
+                duration_months=18,  # Same timeline as construction
+            ),
+            draw_schedule=UniformDrawSchedule(),  # Flat monthly payments (industry standard)
         )
 
         capital_plan = CapitalPlan(
             name=f"{self.project_name} Construction Plan",
-            capital_items=[construction_item],
+            capital_items=[construction_item, developer_fee_item],
         )
 
         # === STEP 2: VACANT INVENTORY ===
@@ -373,7 +389,7 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
             ),
             value=self.land_cost,
             acquisition_date=self.acquisition_date,
-            closing_costs=self.land_cost * 0.03,  # 3% default closing costs
+            closing_costs_rate=0.03,  # 3% default closing costs
         )
 
         # === STEP 7: CONSTRUCTION-TO-PERMANENT FINANCING ===
@@ -399,8 +415,15 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
             self.construction_start_months + self.construction_duration_months
         )
 
-        # Calculate permanent loan amount based on LTV of stabilized value
-        permanent_loan_amount = stabilized_value * self.permanent_ltv_ratio
+        # Calculate maximum permanent loan based on LTV of stabilized value
+        max_perm_loan_ltv = stabilized_value * self.permanent_ltv_ratio
+        
+        # Calculate construction loan balance to be paid off
+        construction_loan_balance = self.total_project_cost * self.construction_ltc_ratio
+        
+        # Permanent loan should be the lesser of LTV limit or construction balance
+        # This prevents unintended cash-out refinancing in development deals
+        permanent_loan_amount = min(max_perm_loan_ltv, construction_loan_balance)
 
         # === DEAL FEASIBILITY GUARD RAILS ===
         construction_loan_amount = self.total_project_cost * self.construction_ltc_ratio
@@ -434,7 +457,7 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         financing = create_construction_to_permanent_plan(
             construction_terms={
                 "name": "Construction Facility",
-                "debt_ratio": self.construction_ltc_ratio,  # Use base class parameter (working scripts use this)
+                "ltc_ratio": self.construction_ltc_ratio,  # Use base class LTC parameter for loan sizing
                 "ltc_max": self.construction_ltc_max,  # Lender's hard gate
                 "interest_rate": self.construction_interest_rate,
                 "loan_term_months": 24,

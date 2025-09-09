@@ -73,6 +73,7 @@ from ...core.base import (
 )
 from ...core.base.absorption import AnchorLogic
 from ...core.primitives import (
+    CashFlowCategoryEnum,
     GlobalSettings,
     LeaseTypeEnum,
     PercentageGrowthRate,
@@ -819,7 +820,7 @@ class OfficeAbsorptionPlan(
             operating_expenses=[
                 OfficeOpExItem(
                     name="Property Management",
-                    category="Expense",
+                    category=CashFlowCategoryEnum.EXPENSE,
                     timeline=timeline,
                     value=5.0 / 12,  # $5/SF annually = $0.417/SF monthly
                     reference=PropertyAttributeKey.NET_RENTABLE_AREA,
@@ -829,7 +830,7 @@ class OfficeAbsorptionPlan(
                 ),
                 OfficeOpExItem(
                     name="Operating Costs",
-                    category="Expense",
+                    category=CashFlowCategoryEnum.EXPENSE,
                     timeline=timeline,
                     value=8.0 / 12,  # $8/SF annually = $0.667/SF monthly
                     reference=PropertyAttributeKey.NET_RENTABLE_AREA,
@@ -837,7 +838,7 @@ class OfficeAbsorptionPlan(
                 ),
                 OfficeOpExItem(
                     name="Taxes & Insurance",
-                    category="Expense",
+                    category=CashFlowCategoryEnum.EXPENSE,
                     timeline=timeline,
                     value=2.0 / 12,  # $2/SF annually = $0.167/SF monthly
                     reference=PropertyAttributeKey.NET_RENTABLE_AREA,

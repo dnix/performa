@@ -12,7 +12,13 @@ deal-level financial structuring.
 
 from .acquisition import AcquisitionTerms
 from .api import analyze
-from .constructs import create_gp_lp_waterfall, create_simple_partnership
+from .constructs import (
+    create_gp_lp_waterfall,
+    create_institutional_waterfall_from_capital,
+    create_partnership_from_capital,
+    create_simple_capital_partnership,
+    create_simple_partnership,
+)
 from .deal import Deal
 from .distribution_calculator import (
     DistributionCalculator,
@@ -51,8 +57,12 @@ __all__ = [
     "PromoteStructure",
     # Constructs
     "create_gp_lp_waterfall",
+    "create_simple_partnership",
+    # Capital-based constructs (pro-rata ownership)
+    "create_partnership_from_capital",
+    "create_simple_capital_partnership", 
+    "create_institutional_waterfall_from_capital",
     # Distribution calculations
     "DistributionCalculator",
     "calculate_partner_distributions_with_structure",
-    "create_simple_partnership",
 ]

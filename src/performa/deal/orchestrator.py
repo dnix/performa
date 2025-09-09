@@ -71,7 +71,6 @@ from performa.core.primitives import (
     CalculationPhase,
     CapitalSubcategoryEnum,
     CashFlowCategoryEnum,
-    FinancingSubcategoryEnum,
     GlobalSettings,
     Timeline,
     TransactionPurpose,
@@ -439,7 +438,8 @@ class DealCalculator:
 
             # === PASS 5: Add Remaining Deal Transactions to Ledger ===
             # NOTE: Financing records are handled by DebtAnalyzer._process_facilities()
-            self._add_partnership_records(ledger)
+            # NOTE: Partnership equity contributions are handled by CashFlowEngine (Pass 7)
+            # NOTE: Partnership fees are handled by PartnershipAnalyzer (Pass 8)
 
             # === PASS 6: Create Funding Cascade Summary ===
             # Create funding cascade details functionally (no mutation)
@@ -919,68 +919,3 @@ class DealCalculator:
                     logger.warning(f"Failed to add deal fee: {e}")
         else:
             logger.debug("No deal fees to add")
-
-    def _add_partnership_records(self, ledger: "Ledger") -> None:
-        """Add partnership transactions to ledger."""
-        if not self.deal.equity_partners:
-            logger.debug("No partnership to add to ledger")
-            return
-
-        # Calculate required equity based on deal type
-        try:
-            # For development deals: equity comes from funding cascade, not acquisition logic
-            if hasattr(self.deal, "asset") and hasattr(
-                self.deal.asset, "development_schedule"
-            ):
-                # Development deal: equity is calculated by funding cascade
-                # Skip this method - equity will be handled by funding cascade
-                logger.debug(
-                    "Development deal detected - equity handled by funding cascade"
-                )
-                return
-
-            # For stabilized deals: use acquisition + financing logic
-            total_cost = self.deal.acquisition.value * (
-                1 + self.deal.acquisition.closing_costs_rate
-            )
-
-            # Handle different financing structures
-            loan_amount = 0
-            if self.deal.financing:
-                if hasattr(self.deal.financing, "ltv_ratio"):
-                    # Single facility with LTV
-                    loan_amount = (
-                        self.deal.acquisition.value * self.deal.financing.ltv_ratio
-                    )
-                elif hasattr(self.deal.financing, "facilities"):
-                    # Multiple facilities - sum their loan amounts
-                    for facility in self.deal.financing.facilities:
-                        if hasattr(facility, "loan_amount") and facility.loan_amount:
-                            loan_amount += facility.loan_amount
-
-            required_equity = total_cost - loan_amount
-            acquisition_date = self.deal.acquisition.acquisition_date
-        except AttributeError as e:
-            logger.error(f"Failed to access partnership attributes: {e}")
-            return
-
-        # ARCHITECTURAL CONSISTENCY: Use PeriodIndex like all other models
-        acquisition_period = pd.Period(acquisition_date, freq="M")
-        equity_contribution_series = pd.Series(
-            [required_equity],
-            index=pd.PeriodIndex([acquisition_period], freq="M"),
-            name="Partner Capital Contributions",
-        )
-
-        metadata = SeriesMetadata(
-            category=CashFlowCategoryEnum.FINANCING,  # Partnership contributions are financing
-            subcategory=FinancingSubcategoryEnum.EQUITY_CONTRIBUTION,  # Use proper enum
-            item_name="Initial Equity Investment",
-            source_id=str(self.deal.uid),
-            asset_id=self.deal.asset.uid,
-            pass_num=CalculationPhase.PARTNERSHIP.value,  # Partnership phase
-        )
-        ledger.add_series(equity_contribution_series, metadata)
-        logger.debug(f"Added equity contribution: ${required_equity:,.0f}")
-        # TODO: Add partnership flows after they're calculated
-        pass

@@ -12,4 +12,6 @@ class Model(BaseModel):
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         frozen=True,  # Decision: Stick with frozen=True. Mutable state for specific processes (e.g., absorption, recovery pre-calcs) will be handled by external state objects.
+        # TODO: Add extra="forbid" after fixing existing parameter validation issues throughout codebase
+        # extra="forbid",  # Prevent silent parameter failures in financial models
     )

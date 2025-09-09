@@ -58,18 +58,23 @@ def generate_assumptions_report(
     # Object identification
     obj_info = dump_performa_object(deal_or_object)["_object_info"]
 
-    if title is None:
-        title = f"{obj_info['class_name']} Assumptions Report"
+    output = []
 
-    output = [
-        f"# {title}",
-        f"*Generated {date.today().strftime('%B %d, %Y')}*\n",
+    # Add title only if explicitly provided
+    if title:
+        output.extend([
+            f"# {title}",
+            f"*Generated {date.today().strftime('%B %d, %Y')}*",
+            "",
+        ])
+
+    output.extend([
         "## Object Information",
         f"- **Class**: `{obj_info['class_name']}`",
         f"- **Type**: {obj_info['object_type']}",
         f"- **Module**: `{obj_info['module']}`",
         "",
-    ]
+    ])
 
     # Configuration analysis
     critical_params = _get_critical_params_for_object(deal_or_object)
@@ -104,16 +109,22 @@ def generate_assumptions_report(
             )
             output.append("")
 
-    # Key user assumptions
+    # Parameter configuration tables
     user_config = dump_performa_object(
         deal_or_object, exclude_defaults=True, exclude_unset=True
     )["config"]
-    key_assumptions = _format_key_assumptions(user_config, obj_info["object_type"])
+    full_config = dump_performa_object(
+        deal_or_object, exclude_defaults=False, exclude_unset=False
+    )["config"]
 
-    if key_assumptions:
-        output.append("## Key Assumptions (User-Specified)")
-        output.extend(key_assumptions)
-        output.append("")
+    # Create unified parameter display
+    _add_parameters_section(
+        output,
+        user_config,
+        full_config,
+        obj_info["object_type"],
+        include_defaults_detail,
+    )
 
     # Component breakdown (for Deal objects)
     if obj_info["object_type"] == "Deal" and hasattr(deal_or_object, "asset"):
@@ -133,26 +144,6 @@ def generate_assumptions_report(
                     for assumption in comp_data["key_assumptions"][:3]:  # Top 3
                         output.append(f"  - {assumption}")
                 output.append("")
-
-    # Defaults detail (optional)
-    if include_defaults_detail:
-        defaulted = analysis["defaulted_parameters"]
-        if defaulted:
-            output.append("## Parameters Using Defaults")
-            output.append("*Review these for market/deal appropriateness*")
-            output.append("")
-
-            # Group by component if possible
-            grouped_defaults = _group_defaults_by_component(defaulted)
-
-            for group_name, params in grouped_defaults.items():
-                if params:
-                    output.append(f"### {group_name}")
-                    for param in params[:8]:  # Limit for readability
-                        output.append(f"- `{param}`")
-                    if len(params) > 8:
-                        output.append(f"- *... and {len(params) - 8} more*")
-                    output.append("")
 
     # Recommendations
     if analysis["recommendations"]:
@@ -226,12 +217,15 @@ def _format_key_assumptions(config: Dict[str, Any], obj_type: str) -> List[str]:
 def _format_assumption_value(param: str, value: Any) -> str:
     """Format assumption value based on parameter type."""
     if isinstance(value, (int, float)):
-        if "rate" in param.lower() or "ratio" in param.lower():
+        # Check time units FIRST (before rate/ratio check)
+        if "months" in param.lower():
+            return f"{value:.0f} months"
+        elif "years" in param.lower():
+            return f"{value:.1f} years"
+        elif "rate" in param.lower() or "ratio" in param.lower():
             return f"{value:.1%}"
         elif any(keyword in param.lower() for keyword in ["price", "cost", "amount"]):
             return f"${value:,.0f}"
-        elif "months" in param.lower() or "years" in param.lower():
-            return str(value)
         else:
             return f"{value:,.0f}"
     elif isinstance(value, str):
@@ -328,6 +322,150 @@ def _group_defaults_by_component(defaulted_params: List[str]) -> Dict[str, List[
     return {k: v for k, v in groups.items() if v}
 
 
+def _add_parameters_section(
+    output: List[str],
+    user_config: Dict[str, Any],
+    full_config: Dict[str, Any],
+    obj_type: str,
+    include_defaults_detail: bool = True,
+) -> None:
+    """Add unified parameters section showing user-specified and optionally default values."""
+
+    # Collect all parameters
+    user_params = {k: v for k, v in user_config.items() if not k.startswith("_")}
+    all_params = {k: v for k, v in full_config.items() if not k.startswith("_")}
+    default_params = {k: v for k, v in all_params.items() if k not in user_params}
+
+    # Create user-specified table
+    if user_params:
+        output.append("## ✏️ User-Specified Parameters")
+        output.append("*These parameters have been explicitly configured:*")
+        output.append("")
+        output.append("| Parameter | Value | Type |")
+        output.append("|:----------|-------|------|")
+
+        for param, value in sorted(user_params.items()):
+            formatted_value = _format_assumption_value(param, value)
+            param_display = param.replace("_", " ").title()
+            value_type = "User Set"
+            output.append(f"| {param_display} | {formatted_value} | {value_type} |")
+        output.append("")
+
+    # Create defaults table (only if requested)
+    if include_defaults_detail and default_params:
+        output.append("## 🔧 Parameters Using Defaults")
+        output.append("*Review these defaults for market/deal appropriateness:*")
+        output.append("")
+        output.append("| Parameter | Default Value | Category |")
+        output.append("|:----------|---------------|----------|")
+
+        # Group defaults by category for better organization
+        categorized_defaults = _categorize_default_parameters(default_params)
+
+        for category, params in sorted(categorized_defaults.items()):
+            for param, value in sorted(params.items()):
+                formatted_value = _format_assumption_value(param, value)
+                param_display = param.replace("_", " ").title()
+                output.append(f"| {param_display} | {formatted_value} | {category} |")
+        output.append("")
+
+    # Configuration summary
+    total_params = len(all_params)
+    user_count = len(user_params)
+    default_count = len(default_params)
+
+    if total_params > 0:
+        output.append("## 📊 Configuration Summary")
+        output.append(f"- **Total Parameters**: {total_params}")
+        output.append(
+            f"- **User-Specified**: {user_count} ({user_count / total_params:.1%})"
+        )
+        output.append(
+            f"- **Using Defaults**: {default_count} ({default_count / total_params:.1%})"
+        )
+
+        quality = (
+            "🟢 Excellent"
+            if user_count / total_params > 0.7
+            else "🟡 Good"
+            if user_count / total_params > 0.4
+            else "🔴 Review Recommended (Default Heavy)"
+        )
+        output.append(f"- **Configuration Quality**: {quality}")
+        output.append("")
+
+
+def _categorize_default_parameters(
+    default_params: Dict[str, Any],
+) -> Dict[str, Dict[str, Any]]:
+    """Categorize default parameters for better organization in tables."""
+    categories = {
+        "Asset & Property": {},
+        "Financing & Debt": {},
+        "Timeline & Schedule": {},
+        "Costs & Fees": {},
+        "Returns & Valuation": {},
+        "Other": {},
+    }
+
+    for param, value in default_params.items():
+        param_lower = param.lower()
+
+        if any(
+            keyword in param_lower
+            for keyword in [
+                "rent",
+                "area",
+                "occupancy",
+                "vacancy",
+                "property",
+                "tenant",
+            ]
+        ):
+            categories["Asset & Property"][param] = value
+        elif any(
+            keyword in param_lower
+            for keyword in ["loan", "debt", "ltv", "interest", "facility", "financing"]
+        ):
+            categories["Financing & Debt"][param] = value
+        elif any(
+            keyword in param_lower
+            for keyword in [
+                "date",
+                "month",
+                "duration",
+                "timeline",
+                "period",
+                "start",
+                "end",
+            ]
+        ):
+            categories["Timeline & Schedule"][param] = value
+        elif any(
+            keyword in param_lower
+            for keyword in ["cost", "fee", "expense", "price", "closing"]
+        ):
+            categories["Costs & Fees"][param] = value
+        elif any(
+            keyword in param_lower
+            for keyword in [
+                "rate",
+                "cap",
+                "yield",
+                "return",
+                "multiple",
+                "irr",
+                "valuation",
+            ]
+        ):
+            categories["Returns & Valuation"][param] = value
+        else:
+            categories["Other"][param] = value
+
+    # Remove empty categories
+    return {k: v for k, v in categories.items() if v}
+
+
 class AssumptionsReport(BaseReport):
     """
     Comprehensive assumptions report for due diligence and analysis.
@@ -340,7 +478,7 @@ class AssumptionsReport(BaseReport):
     def generate(
         self,
         include_risk_assessment: bool = True,
-        include_defaults_detail: bool = False,
+        include_defaults_detail: bool = True,
         focus_components: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """

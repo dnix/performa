@@ -125,13 +125,13 @@ class ConstructionFacility(DebtFacilityBase):
     fund_interest_from_reserve: bool = Field(
         False, description="Whether to fund interest payments from loan proceeds"
     )
-    interest_reserve_rate: float = Field(
-        0.0, ge=0, le=0.5, description="Interest reserve as percentage of loan amount"
+    interest_reserve_rate: Optional[float] = Field(
+        default=None, ge=0, le=0.5, description="Interest reserve as percentage of loan amount (only used with SIMPLE method)"
     )
 
     # Enhanced interest calculation settings
     interest_calculation_method: InterestCalculationMethod = Field(
-        default=InterestCalculationMethod.SIMPLE,
+        default=InterestCalculationMethod.SCHEDULED,
         description="Method for handling construction interest calculation",
     )
     simple_reserve_rate: Optional[float] = Field(
@@ -141,19 +141,23 @@ class ConstructionFacility(DebtFacilityBase):
         description="Reserve percentage when using SIMPLE method (required for SIMPLE method, typically 8-12%)",
     )
 
-    # Debt sizing parameters (optional - for capital structure optimization)
-    debt_ratio: Optional[float] = Field(
+    # Loan sizing parameters (agnostic to capital structure)
+    ltc_ratio: Optional[float] = Field(
         None,
         ge=0,
         le=1.0,
-        description="Target debt ratio (loan ÷ total project cost) for capital structure optimization",
+        description="Loan-to-cost ratio for sizing the construction loan (e.g., 0.70 = 70% of project costs)",
     )
     ltc_max: float = Field(
         0.80,
         ge=0,
         le=0.85,
-        description="Maximum LTC threshold - lender's hard gate that cannot be exceeded",
+        description="Maximum LTC threshold - lender's covenant that cannot be exceeded",
     )
+    
+    # TODO: Add funding cascade strategy (equity-first vs pro-rata vs debt-first)
+    # This determines the ORDER of draws, not the SIZE of the loan
+    # Currently hardcoded to equity-first in CashFlowEngine
 
     @model_validator(mode="before")
     def convert_years_to_months(cls, values):
@@ -223,13 +227,13 @@ class ConstructionFacility(DebtFacilityBase):
                 if values.get("name") is None:
                     raise ValueError("name is required for single-facility mode")
 
-                # Either loan_amount OR debt_ratio must be provided
+                # Either loan_amount OR ltc_ratio must be provided
                 if (
                     values.get("loan_amount") is None
-                    and values.get("debt_ratio") is None
+                    and values.get("ltc_ratio") is None
                 ):
                     raise ValueError(
-                        "Either loan_amount or debt_ratio is required for single-facility mode"
+                        "Either loan_amount or ltc_ratio is required for single-facility mode"
                     )
 
                 if values.get("interest_rate") is None:
@@ -374,16 +378,16 @@ class ConstructionFacility(DebtFacilityBase):
             # Only use loan_amount if it's a reasonable value (not a $1 placeholder)
             return self.loan_amount
 
-        # Simple mode: if explicit loan_amount provided and no tranches/debt_ratio, use it
-        if self.loan_amount and not self.tranches and not self.debt_ratio:
+        # Simple mode: if explicit loan_amount provided and no tranches/ltc_ratio, use it
+        if self.loan_amount and not self.tranches and not self.ltc_ratio:
             return self.loan_amount
 
-        # Check if we're using debt_ratio sizing
-        if self.debt_ratio is not None and base_costs > 0:
-            # Size by debt ratio but still respect interest calculation method
-            ltc = min(self.debt_ratio, self.ltc_max)  # Apply ltc_max cap
+        # Check if we're using ltc_ratio sizing
+        if self.ltc_ratio is not None and base_costs > 0:
+            # Size by LTC ratio but still respect interest calculation method
+            ltc = min(self.ltc_ratio, self.ltc_max)  # Apply ltc_max cap
 
-            # Apply interest calculation method to debt_ratio sizing as well
+            # Apply interest calculation method to ltc_ratio sizing as well
             if self.interest_calculation_method == InterestCalculationMethod.NONE:
                 return base_costs * ltc
 
@@ -439,7 +443,7 @@ class ConstructionFacility(DebtFacilityBase):
             if self.loan_amount:
                 return self.loan_amount
             raise ValueError(
-                "ConstructionFacility requires either explicit loan_amount, debt_ratio, or tranches for sizing"
+                "ConstructionFacility requires either explicit loan_amount, ltc_ratio, or tranches for sizing"
             )
 
         # Raise explicit error if we can't determine project costs
@@ -617,9 +621,9 @@ class ConstructionFacility(DebtFacilityBase):
         if self.tranches and len(self.tranches) > 0:
             # Tranche-based facility: use maximum LTC
             ltc = max(tranche.ltc_threshold for tranche in self.tranches)
-        elif self.debt_ratio is not None:
-            # Debt ratio facility: use the original debt ratio
-            ltc = min(self.debt_ratio, self.ltc_max)
+        elif self.ltc_ratio is not None:
+            # LTC-based facility: use the LTC ratio
+            ltc = min(self.ltc_ratio, self.ltc_max)
         else:
             # Fallback: use a reasonable default
             ltc = 0.70
@@ -716,28 +720,43 @@ class ConstructionFacility(DebtFacilityBase):
         if periods == 0:
             return debt_service
 
-        # Generate draw schedule
+        # CRITICAL FIX: Respect loan_term_months to stop debt service after term
+        # This ensures construction loans stop when refinanced
+        max_periods = periods
+        if self.loan_term_months:
+            max_periods = min(self.loan_term_months, periods)
+            logger.debug(f"{self.name}: Limiting debt service to {max_periods} months (loan term)")
+
+        # Generate draw schedule (limited to loan term)
         draws = self._generate_draw_schedule(timeline)
 
         if self.interest_only:
             # Interest-only payments on outstanding balance
+            # CRITICAL FIX: Debt service should be ONLY the interest payment, not net of draws
             outstanding_balance = 0.0
             monthly_rate = self._get_effective_rate() / 12
 
             for i, period in enumerate(timeline.period_index):
+                # Stop generating debt service after loan term
+                if i >= max_periods:
+                    break
+                    
                 if i < len(draws):
                     # Add this period's draw to outstanding balance
                     outstanding_balance += draws.iloc[i]
 
-                    # Calculate interest on average balance during period
-                    # (approximation: interest on balance after draw)
-                    interest_payment = outstanding_balance * monthly_rate
-
-                    # Net cash flow = draw - interest
-                    debt_service.iloc[i] = draws.iloc[i] - interest_payment
+                # Calculate interest payment on outstanding balance
+                # For interest-only loans, we only pay interest, not principal
+                interest_payment = outstanding_balance * monthly_rate
+                
+                # CRITICAL FIX: Return only the interest payment as debt service
+                # Draws are handled separately as loan proceeds
+                debt_service.iloc[i] = interest_payment
         else:
             # Simple case: just the draws (no interest during construction)
-            debt_service = draws
+            # But still limit to loan term
+            for i in range(min(len(draws), max_periods)):
+                debt_service.iloc[i] = draws.iloc[i]
 
         return debt_service
 
@@ -761,10 +780,10 @@ class ConstructionFacility(DebtFacilityBase):
             return self._effective_loan_amount
         elif self.loan_amount and self.loan_amount > 0:
             return self.loan_amount
-        elif self.debt_ratio is not None:
-            # Estimate loan amount as debt_ratio * typical project cost
+        elif self.ltc_ratio is not None:
+            # Estimate loan amount as ltc_ratio * typical project cost
             # This is rough but better than $0 for payoff calculations
-            estimated_amount = 20_000_000 * self.debt_ratio  # Rough estimate
+            estimated_amount = 20_000_000 * self.ltc_ratio  # Rough estimate
             logger.warning(
                 f"Estimating outstanding balance for {self.name}: ${estimated_amount:,.0f}"
             )
@@ -787,17 +806,22 @@ class ConstructionFacility(DebtFacilityBase):
         """
         draws = pd.Series(0.0, index=timeline.period_index)
 
+        # CRITICAL FIX: Limit draws to loan term to prevent zombie loans
+        max_draw_periods = len(timeline.period_index)
+        if self.loan_term_months:
+            max_draw_periods = min(self.loan_term_months, len(timeline.period_index))
+
         if self.draw_schedule:
-            # Use explicit draw schedule
+            # Use explicit draw schedule (but still respect loan term)
             for period_str, amount in self.draw_schedule.items():
                 # Convert period string to timeline index if possible
-                # For now, assume period_str matches timeline format
                 try:
                     if period_str in draws.index.astype(str):
-                        period_idx = draws.index[draws.index.astype(str) == period_str][
-                            0
-                        ]
-                        draws.loc[period_idx] = amount
+                        period_idx = draws.index[draws.index.astype(str) == period_str][0]
+                        # Only add draw if within loan term
+                        period_num = draws.index.get_loc(period_idx)
+                        if period_num < max_draw_periods:
+                            draws.loc[period_idx] = amount
                 except:
                     # Fallback: distribute evenly if period matching fails
                     pass
@@ -805,8 +829,8 @@ class ConstructionFacility(DebtFacilityBase):
         # If no explicit schedule or matching failed, distribute evenly
         loan_amount_for_draws = self._get_effective_loan_amount_for_draws()
         if draws.sum() == 0 and loan_amount_for_draws and loan_amount_for_draws > 0:
-            # Uniform distribution over loan term
-            draw_periods = min(len(timeline.period_index), self.loan_term_months)
+            # Uniform distribution over loan term (respecting term limit)
+            draw_periods = max_draw_periods
             monthly_draw = loan_amount_for_draws / draw_periods
             draws.iloc[:draw_periods] = monthly_draw
 

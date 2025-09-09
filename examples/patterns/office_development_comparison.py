@@ -22,11 +22,11 @@ This example demonstrates two approaches to modeling the same office development
    - Future approach for rapid deal modeling
 
 Both approaches model the identical development project:
-- Metro Office Tower: $23.5M development cost
-- Office building: 45,000 SF rentable, $35/SF rent
-- Construction-to-permanent financing at 70% LTC/LTV
-- GP/LP partnership with 8% preferred return + 20% promote
-- 7-year hold period with 6.5% exit cap rate
+- Metro Office Tower: $16.7M development cost
+- Office building: 45,000 SF rentable, $65/SF rent
+- Construction-to-permanent financing at 65% LTC/LTV
+- GP/LP partnership with 8% preferred return + 20% promote  
+- 5-year hold period with 6.5% exit cap rate (realistic market)
 
 The example demonstrates the evolution from manual composition to
 pattern-driven conventions while maintaining full analytical capability.
@@ -52,7 +52,7 @@ pattern-driven conventions while maintaining full analytical capability.
 - Integration with external systems
 
 Note: The DevelopmentPattern interface is established and the underlying
-construction financing mechanics have been enhanced with sophisticated
+construction financing mechanics have been updated with
 loan sizing and draw-based interest calculations. The example demonstrates
 both working approaches with unified construction financing architecture.
 """
@@ -73,11 +73,12 @@ from performa.asset.office import (
 from performa.core.capital import CapitalItem, CapitalPlan
 from performa.core.primitives import (
     AssetTypeEnum,
-    FirstOnlyDrawSchedule,
     GlobalSettings,
     ProgramUseEnum,
     PropertyAttributeKey,
+    SCurveDrawSchedule,
     Timeline,
+    UniformDrawSchedule,
     UponExpirationEnum,
 )
 from performa.deal import (
@@ -120,36 +121,30 @@ def create_deal_via_composition():
     start_date = date(2024, 1, 1)
     timeline = Timeline(
         start_date=start_date, duration_months=60
-    )  # EXACT script pattern match
+    )  # 5 year timeline
 
     # === STEP 2: CAPITAL EXPENDITURE PLAN ===
     capital_items = [
-        CapitalItem(
-            name="Land Acquisition",
-            work_type="land",
-            value=5_000_000,
-            draw_schedule=FirstOnlyDrawSchedule(),
-            timeline=timeline,
-        ),
+        # REMOVED: Land Acquisition CapitalItem (double-counting with AcquisitionTerms)
         CapitalItem(
             name="Construction - Core & Shell",
             work_type="construction",
-            value=10_400_000,  # EXACT script pattern match: $10,400,000
-            draw_schedule=FirstOnlyDrawSchedule(),
+            value=10_400_000,  # Core construction costs
+            draw_schedule=SCurveDrawSchedule(sigma=1.0),  # Realistic S-curve construction draws
             timeline=timeline,
         ),
         CapitalItem(
             name="Professional Fees",
-            work_type="soft_costs",
-            value=624_000,  # EXACT script pattern match: $624,000
-            draw_schedule=FirstOnlyDrawSchedule(),
+            work_type="soft_costs", 
+            value=624_000,  # Professional fees
+            draw_schedule=SCurveDrawSchedule(sigma=1.2),  # Slightly more gradual for soft costs
             timeline=timeline,
         ),
         CapitalItem(
             name="Developer Fee",
             work_type="developer",
-            value=630_573,  # EXACT script pattern match: $630,572.8
-            draw_schedule=FirstOnlyDrawSchedule(),
+            value=630_573,  # Developer fee
+            draw_schedule=UniformDrawSchedule(),  # Flat monthly payments (industry standard)
             timeline=timeline,
         ),
     ]
@@ -168,7 +163,7 @@ def create_deal_via_composition():
             is_divisible=True,
             subdivision_average_lease_area=5000.0,
             subdivision_minimum_lease_area=2500.0,
-            available_date=date(2025, 10, 1),  # EXACT pattern match: month 21
+            available_date=date(2025, 10, 1),  # Available at month 21
         ),
         OfficeVacantSuite(
             suite="Floor 2",
@@ -178,7 +173,7 @@ def create_deal_via_composition():
             is_divisible=True,
             subdivision_average_lease_area=5000.0,
             subdivision_minimum_lease_area=2500.0,
-            available_date=date(2025, 10, 1),  # EXACT pattern match: month 21
+            available_date=date(2025, 10, 1),  # Available at month 21
         ),
         OfficeVacantSuite(
             suite="Floor 3",
@@ -188,7 +183,7 @@ def create_deal_via_composition():
             is_divisible=True,
             subdivision_average_lease_area=5000.0,
             subdivision_minimum_lease_area=2500.0,
-            available_date=date(2025, 10, 1),  # EXACT pattern match: month 21
+            available_date=date(2025, 10, 1),  # Available at month 21
         ),
     ]
 
@@ -240,30 +235,27 @@ def create_deal_via_composition():
 
     # === STEP 8: CONSTRUCTION-TO-PERMANENT FINANCING ===
     # Use the construct for proper debt timing (replaces manual facility creation)
-
-    total_project_cost = sum(item.value for item in capital_items)
-
     financing_plan = create_construction_to_permanent_plan(
         construction_terms={
             "name": "Construction Facility",
-            "debt_ratio": 0.65,  # 65% LTC (EXACT pattern match)
-            "interest_rate": 0.060,  # 6.0% construction rate (EXACT script match)
-            "loan_term_months": 24,  # EXACT script facility match (includes buffer)
-            "interest_reserve_rate": 0.15,  # EXACT script match: 15% interest reserve
-            "interest_calculation_method": "simple",  # EXACT script match: simple not scheduled
+            "ltc_ratio": 0.65,  # 65% LTC (matches pattern)
+            "interest_rate": 0.060,  # 6.0% construction rate
+            "loan_term_months": 24,  # 24 months
+            # REMOVED: interest_reserve_rate (pattern has none)
+            # REMOVED: interest_calculation_method (pattern uses default SCHEDULED)
         },
         permanent_terms={
-            "name": "Permanent Facility",
-            "loan_amount": 23_480_437.5,  # EXACT pattern match: $23,480,437.50
-            "ltv_ratio": 0.65,  # EXACT pattern match: 65% LTV
-            "interest_rate": 0.050,  # 5.0% permanent rate (matches pattern)
-            "loan_term_months": 120,  # 10 years (matches pattern)
-            "amortization_months": 360,  # EXACT script pattern match: 360 months
+            "name": "Permanent Facility", 
+            "loan_amount": 10_825_472.32,  # Permanent loan amount
+            "ltv_ratio": 0.65,  # 65% LTV (matches pattern)
+            "interest_rate": 0.050,  # 5.0% permanent rate
+            "loan_term_months": 120,  # 10 years
+            "amortization_months": 360,  # 30 years amortization
             "dscr_hurdle": 1.25,
             "origination_fee_rate": 0.005,
-            "refinance_timing": 21,  # EXACT pattern match: 21 months
+            "refinance_timing": 21,  # 21 months refinancing timing
         },
-        project_value=16_654_573,  # EXACT composition capital items total matches script pattern
+        project_value=11_654_573,  # Total project value excluding land
     )
 
     # === STEP 10: PARTNERSHIP STRUCTURE ===
@@ -288,8 +280,8 @@ def create_deal_via_composition():
     # === STEP 11: EXIT STRATEGY ===
     exit_valuation = DirectCapValuation(
         name="Stabilized Disposition",
-        cap_rate=0.050,  # Premium exit cap rate for new building (matches pattern)
-        transaction_costs_rate=0.02,  # Lower transaction costs
+        cap_rate=0.065,  # 6.5% exit cap rate (realistic office market - matches pattern)
+        transaction_costs_rate=0.025,  # 2.5% transaction costs (realistic - matches pattern)
         hold_period_months=60,  # 5-year hold period
         noi_basis_kind="LTM",  # Use trailing 12 months (realistic)
     )
@@ -305,11 +297,11 @@ def create_deal_via_composition():
         equity_partners=partnership,
     )
 
-    print(f"✅ Deal created: {deal.name}")
+    print(f"Deal created: {deal.name}")
     print(f"   Total Development Cost: ${deal.asset.construction_plan.total_cost:,.0f}")
     print(f"   Net Rentable Area: {deal.asset.net_rentable_area:,.0f} SF")
     print(f"   Components assembled: 12 major steps, ~200 lines of code")
-    print(f"   ✅ Enhanced: Sophisticated draw-based construction financing")
+    print(f"   Includes: Draw-based construction financing")
 
     return deal
 
@@ -359,21 +351,21 @@ def demonstrate_pattern_interface():
             total_leasing_deals=9,  # 9 leases total
             leasing_frequency_months=1,  # New lease every 1 month (faster absorption)
             stabilized_occupancy_rate=0.95,  # 95% stabilized occupancy
-            # Construction cost model - MATCHED TO COMPOSITION FOR EXACT PARITY
+            # Construction cost model
             construction_cost_psf=208.0,  # $208/SF (exact parity with composition)
             soft_costs_rate=0.06,  # 6% soft costs
-            developer_fee_rate=0.0572,  # 5.72% developer fee (exact parity)
-            # Construction timeline (EXACT MATCH to composition)
-            construction_start_months=1,  # Start immediately after land (like composition)
+            developer_fee_rate=0.0572,  # 5.72% developer fee
+            # Construction timeline configuration
+            construction_start_months=1,  # Start immediately after land acquisition
             construction_duration_months=20,  # 20 months construction (faster)
-            # Construction financing - EXACT MATCH TO COMPOSITION
+            # Construction financing parameters
             construction_ltc_ratio=0.65,  # 65% loan-to-cost
-            construction_interest_rate=0.060,  # 6.0% construction rate (EXACT MATCH)
+            construction_interest_rate=0.060,  # 6.0% construction rate
             construction_fee_rate=0.01,  # 1% origination fee
             interest_calculation_method="SCHEDULED",  # Sophisticated interest calculation
-            # Permanent financing - EXACT MATCH TO COMPOSITION
+            # Permanent financing parameters
             permanent_ltv_ratio=0.65,  # 65% loan-to-value
-            permanent_interest_rate=0.050,  # 5.0% permanent rate (EXACT MATCH)
+            permanent_interest_rate=0.050,  # 5.0% permanent rate
             permanent_loan_term_years=10,  # 10-year loan term
             permanent_amortization_years=30,  # 30-year amortization
             # Partnership structure
@@ -382,10 +374,10 @@ def demonstrate_pattern_interface():
             lp_share=0.90,  # 90% LP ownership
             preferred_return=0.08,  # 8% preferred return
             promote_tier_1=0.20,  # 20% promote above pref
-            # Exit strategy - OPTIMIZED FOR DEVELOPMENT RETURNS
-            hold_period_years=5,  # 5-year hold period (faster exit)
-            exit_cap_rate=0.050,  # 5.0% exit cap rate (premium market for new building)
-            exit_costs_rate=0.02,  # 2.0% transaction costs
+            # Exit strategy - REALISTIC MARKET ASSUMPTIONS
+            hold_period_years=5,  # 5-year hold period (standard)
+            exit_cap_rate=0.065,  # 6.5% exit cap rate (realistic office market)
+            exit_costs_rate=0.025,  # 2.5% transaction costs (realistic)
         )
 
         print(f"✅ Pattern created: {pattern.project_name}")
@@ -416,7 +408,7 @@ def demonstrate_pattern_interface():
             print(f"   Implementation: ✅ Fully Working")
             print(f"   Deal Creation: ✅ {deal.name}")
             print(
-                f"   Construction Finance: ✅ Enhanced with sophisticated calculations"
+                f"   Construction Finance: ✅ Includes draw-based calculations"
             )
 
         except Exception as e:
@@ -712,47 +704,34 @@ def main():
         and "pattern_results" in locals()
     ):
         if composition_results and pattern_results:
-            # Golden values for office development comparison
-            expected_irr = 0.205244  # 20.5244%
-            expected_em = 2.4862  # 2.4862x
-            expected_equity_comp = 16_174_505  # Composition equity
-            expected_equity_pattern = 16_174_504  # Pattern equity (has $1 difference)
+            # Expected values for office development comparison with realistic market assumptions
+            # Both approaches produce identical results with realistic 6.5% exit cap rate and 2.5% transaction costs
+            expected_irr = 0.16132702259868625  # 16.13% - exact parity for both approaches
+            expected_em = 1.89839210322396  # 1.898x - exact parity for both approaches
+            expected_equity_comp = 6920011.156925966  # Composition equity - exact parity
+            expected_equity_pattern = 6920011.156925966  # Pattern equity - exact parity
 
-            # Allow small floating point tolerance
-            tolerance_percent = 0.0001  # 0.01% tolerance
-            tolerance_dollar = 10  # $10 tolerance
-
-            # Assert composition results
+            # Assert composition results (100% exact parity - no tolerances needed)
             comp_irr = composition_results.deal_metrics.irr or 0
             comp_em = composition_results.deal_metrics.equity_multiple
             comp_equity = composition_results.deal_metrics.total_equity_invested
+            
+            # Validate composition results match expected values (100% mathematical parity within financial precision)
+            assert abs(comp_irr - expected_irr) < 1e-6, f"Composition IRR {comp_irr} != expected {expected_irr}"
+            assert abs(comp_em - expected_em) < 1e-6, f"Composition EM {comp_em} != expected {expected_em}"
+            assert abs(comp_equity - expected_equity_comp) < 1.0, f"Composition Equity ${comp_equity} != expected ${expected_equity_comp}"
 
-            assert (
-                abs(comp_irr - expected_irr) < tolerance_percent
-            ), f"Composition IRR {comp_irr:.6f} != expected {expected_irr:.6f}"
-            assert (
-                abs(comp_em - expected_em) < tolerance_percent
-            ), f"Composition EM {comp_em:.4f} != expected {expected_em:.4f}"
-            assert (
-                abs(comp_equity - expected_equity_comp) < tolerance_dollar
-            ), f"Composition Equity ${comp_equity:,.0f} != expected ${expected_equity_comp:,.0f}"
-
-            # Assert pattern results
+            # Assert pattern results match composition exactly (100% mathematical parity)
             pattern_irr = pattern_results.deal_metrics.irr or 0
             pattern_em = pattern_results.deal_metrics.equity_multiple
             pattern_equity = pattern_results.deal_metrics.total_equity_invested
+            
+            # Pattern should match composition within financial calculation precision  
+            assert abs(pattern_irr - comp_irr) < 1e-6, f"Pattern IRR {pattern_irr} != composition {comp_irr}"
+            assert abs(pattern_em - comp_em) < 1e-6, f"Pattern EM {pattern_em} != composition {comp_em}"
+            assert abs(pattern_equity - comp_equity) < 1.0, f"Pattern Equity ${pattern_equity} != composition ${comp_equity}"
 
-            assert (
-                abs(pattern_irr - expected_irr) < tolerance_percent
-            ), f"Pattern IRR {pattern_irr:.6f} != expected {expected_irr:.6f}"
-            assert (
-                abs(pattern_em - expected_em) < tolerance_percent
-            ), f"Pattern EM {pattern_em:.4f} != expected {expected_em:.4f}"
-            assert (
-                abs(pattern_equity - expected_equity_pattern) < tolerance_dollar
-            ), f"Pattern Equity ${pattern_equity:,.0f} != expected ${expected_equity_pattern:,.0f}"
-
-            print("\n✅ Golden value assertions passed - metrics remain stable")
+            print("\n✅ Expected value assertions passed - metrics remain stable")
 
     print("\n🎉 DEVELOPMENT PATTERN EXAMPLE COMPLETE!")
     print("📋 Interface established, ready for full implementation")

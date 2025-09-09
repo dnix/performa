@@ -307,10 +307,10 @@ def create_construction_to_permanent_plan(
 
     # Handle different sizing methods for construction
     if "loan_amount" not in construction_params:
-        if "debt_ratio" in construction_params:
-            # Keep debt_ratio for the facility to handle internally
+        if "ltc_ratio" in construction_params:
+            # Keep ltc_ratio for the facility to handle internally
             # It will size based on project costs during compute_cf
-            pass  # debt_ratio stays in params
+            pass  # ltc_ratio stays in params
         elif "ltc_threshold" in construction_params:
             if project_value is None:
                 raise ValueError("project_value required when using ltc_threshold")

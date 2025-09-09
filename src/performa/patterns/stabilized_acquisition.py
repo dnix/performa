@@ -183,7 +183,7 @@ class StabilizedAcquisitionPattern(PatternBase):
                 value=0.03,  # 3% annual growth
             ),
             renewal_rent_increase_percent=0.04,  # 4% renewal increase
-            concession_months=0,  # No concessions for stabilized property
+            concessions_months=0,  # No concessions for stabilized property
         )
 
         # Renewal terms (typically same as market for stabilized properties)
@@ -193,7 +193,7 @@ class StabilizedAcquisitionPattern(PatternBase):
                 name="Renewal Rent Growth", value=0.03
             ),
             renewal_rent_increase_percent=0.04,
-            concession_months=0,
+            concessions_months=0,
         )
 
         # Create rollover profile
@@ -332,12 +332,16 @@ class StabilizedAcquisitionPattern(PatternBase):
             ),
             value=self.acquisition_price,
             acquisition_date=self.acquisition_date,
-            closing_costs=self.acquisition_price * self.closing_costs_rate,
+            closing_costs_rate=self.closing_costs_rate,
         )
 
         # === Step 3: Create Financing Plan ===
+        # Calculate loan amount based on LTV of acquisition price
+        loan_amount = self.acquisition_price * self.ltv_ratio
+        
         permanent_facility = PermanentFacility(
             name=f"{self.property_name} Permanent Loan",
+            loan_amount=loan_amount,  # Explicit sizing based on acquisition price
             ltv_ratio=self.ltv_ratio,
             interest_rate={
                 "details": {"rate_type": "fixed", "rate": self.interest_rate}

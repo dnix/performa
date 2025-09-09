@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 from pydantic import Field, field_validator
 
 from ..core.primitives.model import Model
+from ..core.primitives.types import PositiveFloat
 
 
 class Entity(Model):
@@ -40,10 +41,20 @@ class Entity(Model):
 
 
 class Partner(Entity):
-    """Equity partner in a deal with ownership share."""
+    """Equity partner in a deal with ownership share and optional capital commitment."""
 
+    # General partner or limited partner
     kind: Literal["GP", "LP"] = Field(..., description="Partner type")
+
+    # Equity ownership percentage
     share: float = Field(..., description="Equity ownership percentage")
+    
+    # Capital commitment (drives funding contributions)
+    capital_commitment: Optional[PositiveFloat] = Field(
+        None,
+        description="Explicit capital commitment in dollars. "
+                    "If None for ALL partners, funding is derived pro-rata from shares."
+    )
 
     @field_validator("share")
     @classmethod

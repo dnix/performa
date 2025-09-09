@@ -98,7 +98,7 @@ class TestPolymorphicDebugUtility:
         assert "_computed" in result["config"]
         computed = result["config"]["_computed"]
         assert "total_project_cost" in computed
-        assert computed["total_project_cost"] == 30_080_000  # Expected calculation
+        assert computed["total_project_cost"] == 31_184_000  # Updated: includes developer fee (5% of construction)
         assert "derived_timeline" in computed
         assert computed["derived_timeline"]["duration_months"] == 84
 
@@ -113,7 +113,7 @@ class TestPolymorphicDebugUtility:
             current_avg_rent=1000,
             hold_period_years=5,
             exit_cap_rate=0.065,
-            loan_amount=9_000_000,
+            ltv_ratio=0.75,  # Fixed: Use ltv_ratio instead of loan_amount (9M / 12M = 75%)
             interest_rate=0.055,
         )
 

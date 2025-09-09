@@ -398,8 +398,18 @@ class DistributionCalculator:
             cf_value = cash_flows.iloc[period_idx]
 
             if cf_value < 0:
-                # Negative cash flow: equity contribution distributed pro-rata
-                contributions = cf_value * partner_shares
+                # Negative cash flow: equity contribution allocated by capital mode
+                if hasattr(self.partnership, 'has_explicit_commitments') and self.partnership.has_explicit_commitments:
+                    # Use capital shares for explicit commitments
+                    capital_shares_array = np.array([
+                        self.partnership.capital_shares[p.name] 
+                        for p in self.partnership.partners
+                    ])
+                    contributions = cf_value * capital_shares_array
+                else:
+                    # Use ownership shares (current behavior)
+                    contributions = cf_value * partner_shares
+                    
                 partner_flows[period_idx, :] += contributions
                 # Track capital contributions (as positive amounts)
                 partner_capital_contributions += -contributions  # Convert to positive

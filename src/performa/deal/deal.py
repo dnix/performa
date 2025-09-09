@@ -10,7 +10,7 @@ complete investment strategy including acquisition, financing, disposition, and 
 
 from __future__ import annotations
 
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 from uuid import UUID, uuid4
 
 from pydantic import Field
@@ -86,6 +86,7 @@ class Deal(Model):
         default=None, description="Debt facilities sequence"
     )
 
+    # Exit/Disposition/Terminal Valuation - Exit strategy and valuation assumptions
     exit_valuation: Optional[AnyValuation] = Field(
         default=None, description="Exit strategy and valuation assumptions"
     )
@@ -94,6 +95,12 @@ class Deal(Model):
     equity_partners: Optional[PartnershipStructure] = Field(
         default=None,
         description="Partnership structure for equity waterfall and distributions",
+    )
+
+    # Funding Strategy - Order of capital deployment during development
+    funding_cascade: Literal["equity_first", "pro_rata", "debt_first"] = Field(
+        "equity_first",
+        description="Order of capital deployment during development"
     )
 
     # Deal Fees - Optional deal fee structures (developer, management, etc.)

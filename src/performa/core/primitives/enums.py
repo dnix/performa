@@ -62,22 +62,26 @@ class CapitalSubcategoryEnum(str, Enum):
     Subcategories for capital expenditure transactions.
 
     These subcategories provide detailed classification of capital outflows
-    for acquisition, construction, and other capital deployment activities.
+    for acquisition, construction, disposition, and other capital activities.
 
     Attributes:
-        PURCHASE_PRICE (str): Property acquisition purchase price
-        CLOSING_COSTS (str): Acquisition closing costs and fees
-        DUE_DILIGENCE (str): Due diligence and inspection costs
-        HARD_COSTS (str): Direct construction costs (materials, labor)
-        SOFT_COSTS (str): Indirect construction costs (permits, professional fees)
-        SITE_WORK (str): Site preparation and infrastructure work
-        OTHER (str): Miscellaneous capital expenditures
+        PURCHASE_PRICE: Property acquisition purchase price (negative outflow)
+        CLOSING_COSTS: Acquisition closing costs and fees (negative outflow)
+        DUE_DILIGENCE: Due diligence and inspection costs (negative outflow)
+        TRANSACTION_COSTS: Disposition broker fees, legal costs (negative outflow)
+        HARD_COSTS: Direct construction costs - materials, labor (negative outflow)
+        SOFT_COSTS: Indirect construction costs - permits, professional fees (negative)
+        SITE_WORK: Site preparation and infrastructure work (negative outflow)
+        OTHER: Miscellaneous capital expenditures (negative outflow)
     """
 
     # Acquisition subcategories
     PURCHASE_PRICE = "Purchase Price"
     CLOSING_COSTS = "Closing Costs"
     DUE_DILIGENCE = "Due Diligence"
+    
+    # Disposition subcategories
+    TRANSACTION_COSTS = "Transaction Costs"
 
     # Construction subcategories
     HARD_COSTS = "Hard Costs"
@@ -164,14 +168,14 @@ class FinancingSubcategoryEnum(str, Enum):
     these subcategories when writing to the ledger.
 
     Debt Flow Subcategories:
-        LOAN_PROCEEDS: Initial loan funding (positive inflow)
-        DEBT_SERVICE: Combined principal and interest payments (negative outflow)
-        PRINCIPAL_PAYMENT: Principal-only portion of debt service
-        INTEREST_PAYMENT: Interest-only portion of debt service
+        LOAN_PROCEEDS: Initial loan funding at origination (positive inflow)
+        DEBT_SERVICE: Combined P&I for simple facilities without amortization
+        PRINCIPAL_PAYMENT: Principal portion for balance tracking (not net cash flow)
+        INTEREST_PAYMENT: Interest portion, actual cash expense (negative outflow)
         INTEREST_RESERVE: Interest reserve funding or draws
-        PREPAYMENT: Early loan payoff (negative outflow)
-        REFINANCING_PROCEEDS: New loan proceeds from refinancing (positive inflow)
-        REFINANCING_PAYOFF: Payoff of existing loan during refinancing (negative outflow)
+        PREPAYMENT: Loan payoff at property sale/disposition (negative outflow)
+        REFINANCING_PROCEEDS: New loan proceeds replacing old loan (positive inflow)
+        REFINANCING_PAYOFF: Old loan payoff in refinancing transaction (negative outflow)
 
     Equity Flow Subcategories:
         EQUITY_CONTRIBUTION: Partner capital contributions (positive inflow)
@@ -183,6 +187,11 @@ class FinancingSubcategoryEnum(str, Enum):
         ORIGINATION_FEE: Loan origination fees (negative outflow)
         EXIT_FEE: Loan exit fees (negative outflow)
         PREPAYMENT_PENALTY: Early repayment penalties (negative outflow)
+    
+    Usage Notes:
+        - Use PREPAYMENT for disposition, REFINANCING_PAYOFF for refinancing
+        - PRINCIPAL_PAYMENT tracks balance but isn't a net cash outflow
+        - DEBT_SERVICE only for facilities without detailed amortization
     """
 
     # Core debt flows

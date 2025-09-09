@@ -9,6 +9,7 @@ a parallel hierarchy for financing instruments that write to the ledger
 without inheriting asset-level concerns from CashFlowModel.
 """
 
+import logging
 import warnings
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Union
@@ -30,6 +31,8 @@ if TYPE_CHECKING:
     from performa.deal.orchestrator import DealContext
 
 from .rates import InterestRate
+
+logger = logging.getLogger(__name__)
 
 
 class DebtFacilityBase(Model):
@@ -129,6 +132,7 @@ class DebtFacilityBase(Model):
             pd.Series: Debt service schedule for aggregation
         """
         # Validate context for development deals
+        # FIXME: does this go here in the base class or in the permanent class?
         if hasattr(self, "kind") and self.kind == "permanent":
             if context.deal and hasattr(context.deal, "is_development_deal"):
                 if context.deal.is_development_deal:
@@ -175,17 +179,87 @@ class DebtFacilityBase(Model):
             )
             context.ledger.add_series(proceeds_series, proceeds_metadata)
 
-        # Write debt service to ledger (negative outflows)
+        # Split debt service into interest (expense) and principal (balance reduction)
         if not debt_service.empty and debt_service.sum() != 0:
-            service_metadata = SeriesMetadata(
-                category=CashFlowCategoryEnum.FINANCING,
-                subcategory=FinancingSubcategoryEnum.DEBT_SERVICE,
-                item_name=f"{self.name} - Debt Service",
-                source_id=self.uid,
-                asset_id=context.deal.asset.uid,  # Clean access via DealContext
-                pass_num=CalculationPhase.FINANCING.value,
-            )
-            # Debt service is outflow (negative in ledger)
-            context.ledger.add_series(-debt_service, service_metadata)
+            
+            # Check if this facility supports detailed amortization
+            # (PermanentFacility has generate_amortization method)
+            if hasattr(self, 'generate_amortization') and hasattr(self, 'amortization_months'):
+                try:
+                    # Get detailed amortization schedule
+                    amortization_schedule = self.generate_amortization(
+                        self.loan_amount, timeline.period_index[0]
+                    )
+                    
+                    # Truncate to analysis timeline length
+                    analysis_periods = len(timeline.period_index)
+                    truncated_periods = min(len(amortization_schedule), analysis_periods)
+                    
+                    # Record interest component (actual cash expense)
+                    if 'Interest' in amortization_schedule.columns:
+                        interest_series = pd.Series(
+                            amortization_schedule['Interest'].values[:truncated_periods],
+                            index=timeline.period_index[:truncated_periods]
+                        )
+                        
+                        interest_metadata = SeriesMetadata(
+                            category=CashFlowCategoryEnum.FINANCING,
+                            subcategory=FinancingSubcategoryEnum.INTEREST_PAYMENT,
+                            item_name=f"{self.name} - Interest",
+                            source_id=self.uid,
+                            asset_id=context.deal.asset.uid,
+                            pass_num=CalculationPhase.FINANCING.value,
+                        )
+                        context.ledger.add_series(-interest_series, interest_metadata)
+                    
+                    # Record principal component (for balance tracking only)
+                    if 'Principal' in amortization_schedule.columns:
+                        principal_series = pd.Series(
+                            amortization_schedule['Principal'].values[:truncated_periods],
+                            index=timeline.period_index[:truncated_periods]
+                        )
+                        
+                        principal_metadata = SeriesMetadata(
+                            category=CashFlowCategoryEnum.FINANCING,
+                            subcategory=FinancingSubcategoryEnum.PRINCIPAL_PAYMENT,
+                            item_name=f"{self.name} - Principal",
+                            source_id=self.uid,
+                            asset_id=context.deal.asset.uid,
+                            pass_num=CalculationPhase.FINANCING.value,
+                        )
+                        context.ledger.add_series(-principal_series, principal_metadata)
+                    
+                except Exception as e:
+                    # If amortization fails, fall back to simple debt service recording
+                    logger.warning(f"Could not split debt service for {self.name}: {e}")
+                    self._record_simple_debt_service(context, debt_service, timeline)
+            else:
+                # For facilities without amortization (e.g., ConstructionFacility)
+                # Record as simple debt service
+                self._record_simple_debt_service(context, debt_service, timeline)
 
         return debt_service
+    
+    def _record_simple_debt_service(
+        self, context: "DealContext", debt_service: pd.Series, timeline: Timeline
+    ) -> None:
+        """
+        Helper method to record debt service as a simple combined payment.
+        
+        Used for facilities without detailed amortization schedules
+        (e.g., ConstructionFacility with interest-only payments).
+        
+        Args:
+            context: Deal context with ledger
+            debt_service: Combined debt service series
+            timeline: Analysis timeline
+        """
+        service_metadata = SeriesMetadata(
+            category=CashFlowCategoryEnum.FINANCING,
+            subcategory=FinancingSubcategoryEnum.DEBT_SERVICE,
+            item_name=f"{self.name} - Debt Service",
+            source_id=self.uid,
+            asset_id=context.deal.asset.uid,
+            pass_num=CalculationPhase.FINANCING.value,
+        )
+        context.ledger.add_series(-debt_service, service_metadata)

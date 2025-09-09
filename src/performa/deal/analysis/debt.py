@@ -72,7 +72,12 @@ from typing import TYPE_CHECKING, Any, Dict, List
 import numpy as np
 import pandas as pd
 
-from performa.core.primitives import Timeline, UnleveredAggregateLineKey
+from performa.core.ledger.records import SeriesMetadata
+from performa.core.primitives import (
+    CalculationPhase,
+    Timeline,
+    UnleveredAggregateLineKey,
+)
 from performa.core.primitives.enums import (
     CashFlowCategoryEnum,
     FinancingSubcategoryEnum,
@@ -194,7 +199,7 @@ class DebtAnalyzer:
 
         # Step 2: Handle refinancing transactions if the plan supports them
         if self.deal.financing.has_refinancing:
-            self._process_refinancing_transactions(property_value_series, noi_series)
+            self._process_refinancing_transactions(property_value_series, noi_series, ledger)
 
         # Step 3: Calculate DSCR metrics (critical for institutional deals)
         self.calculate_dscr_metrics(unlevered_analysis)
@@ -244,7 +249,7 @@ class DebtAnalyzer:
                     try:
                         current_ledger = ledger.ledger_df()
                         logger.info(
-                            f"DEBUG: Ledger size after compute_cf: {len(current_ledger)}"
+                            f"Ledger size after compute_cf: {len(current_ledger)}"
                         )
 
                         if not current_ledger.empty:
@@ -253,12 +258,12 @@ class DebtAnalyzer:
                                 current_ledger["category"]
                                 == CashFlowCategoryEnum.FINANCING
                             ]
-                            logger.info(
-                                f"DEBUG: Found {len(financing_entries)} financing entries"
+                            logger.debug(
+                                f"Found {len(financing_entries)} financing entries"
                             )
 
                             if not financing_entries.empty:
-                                logger.info(f"DEBUG: Financing entries:")
+                                logger.debug(f"Financing entries:")
                                 for idx, row in financing_entries.iterrows():
                                     logger.info(
                                         f"  - {row['item_name']}: ${row['amount']:,.0f} ({row['category']}/{row.get('subcategory', 'N/A')})"
@@ -281,8 +286,8 @@ class DebtAnalyzer:
                                 )
                             )
                             facility_proceeds = current_ledger[financing_mask]
-                            logger.info(
-                                f"DEBUG: Found {len(facility_proceeds)} facility proceeds for '{facility_name}'"
+                            logger.debug(
+                                f"Found {len(facility_proceeds)} facility proceeds for '{facility_name}'"
                             )
 
                             if not facility_proceeds.empty:
@@ -490,7 +495,7 @@ class DebtAnalyzer:
         return pd.Series(rates, index=self.timeline.period_index)
 
     def _process_refinancing_transactions(
-        self, property_value_series: pd.Series, noi_series: pd.Series
+        self, property_value_series: pd.Series, noi_series: pd.Series, ledger: "Ledger"
     ) -> None:
         """
         Process refinancing transactions and integrate cash flow impacts.
@@ -503,7 +508,10 @@ class DebtAnalyzer:
         Args:
             property_value_series: Property value time series for refinancing analysis
             noi_series: NOI time series for covenant monitoring
+            ledger: Ledger instance for recording refinancing transactions
         """
+        # Store ledger for use in _process_refinancing_cash_flows
+        self.ledger = ledger
         try:
             # Calculate refinancing transactions with enhanced data
             refinancing_transactions = (
@@ -515,12 +523,22 @@ class DebtAnalyzer:
                 )
             )
             self.financing_analysis.refinancing_transactions = refinancing_transactions
+            
+            # Log refinancing transactions
+            if refinancing_transactions:
+                logger.info(f"Found {len(refinancing_transactions)} refinancing transactions")
+                for trans in refinancing_transactions:
+                    logger.info(f"  - {trans.get('transaction_type')}: payoff=${trans.get('payoff_amount', 0):,.0f}, new=${trans.get('new_loan_amount', 0):,.0f}")
+            else:
+                logger.info("No refinancing transactions found")
 
             # Process refinancing cash flow impacts
             self._process_refinancing_cash_flows(refinancing_transactions)
 
-        except Exception:
+        except Exception as e:
             # Log the error but continue with empty transactions
+            logger.error(f"ERROR in refinancing: {str(e)}")
+            logger.error(traceback.format_exc())
             self.financing_analysis.refinancing_transactions = []
 
     def _process_refinancing_cash_flows(
@@ -538,11 +556,14 @@ class DebtAnalyzer:
         Args:
             refinancing_transactions: List of refinancing transaction dictionaries
         """
+        logger.info(f"_process_refinancing_cash_flows called with {len(refinancing_transactions) if refinancing_transactions else 0} transactions")
+        
         if not refinancing_transactions:
+            logger.info("No transactions to process")
             return
 
-        # Initialize refinancing cash flow tracking
-        self.financing_analysis.refinancing_cash_flows = {
+        # Initialize refinancing cash flow tracking (store locally, not on result)
+        refinancing_cash_flows = {
             "loan_payoffs": pd.Series(0.0, index=self.timeline.period_index),
             "new_loan_proceeds": pd.Series(0.0, index=self.timeline.period_index),
             "closing_costs": pd.Series(0.0, index=self.timeline.period_index),
@@ -562,18 +583,93 @@ class DebtAnalyzer:
                 net_proceeds = transaction.get("net_proceeds", 0.0)
 
                 # Update cash flow series
-                self.financing_analysis.refinancing_cash_flows["loan_payoffs"][
+                refinancing_cash_flows["loan_payoffs"][
                     transaction_date
                 ] = -payoff_amount
-                self.financing_analysis.refinancing_cash_flows["new_loan_proceeds"][
+                refinancing_cash_flows["new_loan_proceeds"][
                     transaction_date
                 ] = new_loan_amount
-                self.financing_analysis.refinancing_cash_flows["closing_costs"][
+                refinancing_cash_flows["closing_costs"][
                     transaction_date
                 ] = -closing_costs
-                self.financing_analysis.refinancing_cash_flows[
+                refinancing_cash_flows[
                     "net_refinancing_proceeds"
                 ][transaction_date] = net_proceeds
+
+                # Log payoff amount
+                logger.info(f"Initial payoff_amount for {transaction_date}: ${payoff_amount:,.0f}")
+                
+                # Handle construction loan repayment
+                # If payoff_amount is -1, we need to get it from the ledger
+                if payoff_amount == -1.0 and hasattr(self, 'ledger'):
+                    # Get actual construction loan amount from ledger
+                    ledger_df = self.ledger.ledger_df()
+                    const_proceeds = ledger_df[
+                        (ledger_df['item_name'].str.contains('Construction', na=False)) &
+                        (ledger_df['subcategory'] == FinancingSubcategoryEnum.LOAN_PROCEEDS)
+                    ]
+                    if not const_proceeds.empty:
+                        payoff_amount = const_proceeds['amount'].sum()
+                        logger.info(f"Got construction loan amount from ledger: ${payoff_amount:,.0f}")
+                        # Update the transaction record
+                        transaction['payoff_amount'] = payoff_amount
+                
+                # REAL LOAN PAYOFF APPROACH FOR REFINANCING
+                # Actually pay off the old loan instead of just adjusting
+                if payoff_amount > 0 and hasattr(self, 'ledger'):
+
+                    # Record the actual loan PAYOFF as debt service (negative)
+                    # This truly eliminates the old loan liability
+                    payoff_series = pd.Series(
+                        [-payoff_amount],  # Negative debt service (outflow)
+                        index=[transaction_date]
+                    )
+                    
+                    # Find the construction facility being paid off
+                    construction_facility_name = "Construction Loan"
+                    for facility in self.deal.financing.facilities:
+                        if "Construction" in facility.name or "Renovation" in facility.name:
+                            construction_facility_name = facility.name
+                            break
+                    
+                    # Record as refinancing payoff for the construction loan
+                    payoff_metadata = SeriesMetadata(
+                        category=CashFlowCategoryEnum.FINANCING,
+                        subcategory=FinancingSubcategoryEnum.REFINANCING_PAYOFF,
+                        item_name=f"{construction_facility_name} - Refinancing Payoff",
+                        source_id=self.deal.uid,
+                        asset_id=self.deal.asset.uid,
+                        pass_num=CalculationPhase.FINANCING.value,
+                    )
+                    
+                    # Add payoff to ledger
+                    self.ledger.add_series(payoff_series, payoff_metadata)
+                    logger.info(
+                        f"✅ Recorded loan payoff: ${payoff_amount:,.0f} "
+                        f"for {construction_facility_name} via refinancing"
+                    )
+                    
+                    # Record new loan proceeds from refinancing
+                    if new_loan_amount > 0:
+                        proceeds_series = pd.Series(
+                            [new_loan_amount], 
+                            index=[transaction_date]
+                        )
+                        
+                        proceeds_metadata = SeriesMetadata(
+                            category=CashFlowCategoryEnum.FINANCING,
+                            subcategory=FinancingSubcategoryEnum.REFINANCING_PROCEEDS,
+                            item_name=f"{transaction.get('new_facility', 'Permanent Loan')} - Refinancing Proceeds",
+                            source_id=self.deal.uid,
+                            asset_id=self.deal.asset.uid,
+                            pass_num=CalculationPhase.FINANCING.value,
+                        )
+                        
+                        self.ledger.add_series(proceeds_series, proceeds_metadata)
+                        logger.info(
+                            f"✅ Recorded refinancing proceeds: ${new_loan_amount:,.0f} "
+                            f"for {transaction.get('new_facility', 'permanent loan')}"
+                        )
 
                 # Setup covenant monitoring for new permanent loans
                 covenant_monitoring = transaction.get("covenant_monitoring", {})

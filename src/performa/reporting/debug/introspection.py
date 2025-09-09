@@ -15,6 +15,7 @@ for any Performa object type, with specialized handling for different domains:
 
 from typing import Any, Dict, List, Optional
 
+import pandas as pd
 from pydantic import BaseModel
 
 from ...core.primitives import GlobalSettings, Timeline
@@ -305,9 +306,31 @@ def _handle_pydantic_object(
         - total_units: For residential objects with unit calculations
         - derived_timeline: For pattern objects with timeline derivation
     """
-    config = obj.model_dump(
-        exclude_defaults=exclude_defaults, exclude_unset=exclude_unset
-    )
+    try:
+        config = obj.model_dump(
+            exclude_defaults=exclude_defaults, exclude_unset=exclude_unset
+        )
+    except (ValueError, TypeError) as e:
+        if "ambiguous" in str(e) or "Series" in str(e):
+            # Handle pandas Series edge case by using mode='python' for safer serialization
+            try:
+                config = obj.model_dump(
+                    exclude_defaults=exclude_defaults,
+                    exclude_unset=exclude_unset,
+                    mode="python",
+                )
+            except Exception:
+                # Final fallback: dump only simple fields
+                config = {
+                    field_name: getattr(obj, field_name)
+                    for field_name in obj.model_fields.keys()
+                    if hasattr(obj, field_name)
+                    and not isinstance(
+                        getattr(obj, field_name), (pd.Series, pd.DataFrame)
+                    )
+                }
+        else:
+            raise
 
     # Add computed properties for specific object types
     if include_computed:

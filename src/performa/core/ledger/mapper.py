@@ -146,9 +146,14 @@ class FlowPurposeMapper:
 
         # Use enum values for robust classification (OPTIMIZED: cached enum lists)
         try:
-            # Capital subcategories (acquisition, construction costs)
+            # Capital subcategories - check amount sign like base logic
+            # Must check amount sign for capital subcategories
+            # Positive amounts (like Exit Sale) are SOURCES, not USES
             if subcategory in FlowPurposeMapper._get_capital_subcategory_values():
-                return TransactionPurpose.CAPITAL_USE
+                if amount < 0:
+                    return TransactionPurpose.CAPITAL_USE
+                else:
+                    return TransactionPurpose.CAPITAL_SOURCE
 
             # CapEx subcategories (tenant improvements, leasing costs, renovations)
             if subcategory in FlowPurposeMapper._get_capex_category_values():

@@ -14,7 +14,7 @@ from abc import ABC, abstractmethod
 from datetime import date
 from typing import Optional, Tuple
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from ...core.primitives import GlobalSettings, Model, Timeline
 from ...core.primitives.types import PositiveInt
@@ -40,6 +40,13 @@ class PatternBase(Model, ABC):
     - create(): Build the Deal object from pattern parameters
     - _derive_timeline(): Calculate timeline from business parameters
     """
+
+    # Override base Model config to add strict parameter validation for user-facing patterns
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        frozen=True,
+        extra="forbid",  # Prevent silent parameter failures in Patterns abstractions
+    )
 
     # Optional timeline parameters for explicit control
     analysis_start_date: Optional[date] = Field(

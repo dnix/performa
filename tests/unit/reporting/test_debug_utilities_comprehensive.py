@@ -26,8 +26,14 @@ from performa.reporting.debug import (
     _handle_generic_object,  # noqa: PLC2701
     _handle_primitive_object,  # noqa: PLC2701
     _handle_pydantic_object,  # noqa: PLC2701
+    analyze_ledger_shape,
+    compare_deal_configurations,
+    # New debug utilities
+    compare_deal_timelines,
     dump_performa_object,
+    extract_component_timelines,
     format_performa_object,
+    validate_deal_parity,
 )
 from performa.valuation import DirectCapValuation
 
@@ -98,7 +104,7 @@ class TestPolymorphicDebugUtility:
         assert "_computed" in result["config"]
         computed = result["config"]["_computed"]
         assert "total_project_cost" in computed
-        assert computed["total_project_cost"] == 30_080_000  # Expected calculation
+        assert computed["total_project_cost"] == 31_184_000  # Updated: includes developer fee (5% of construction)
         assert "derived_timeline" in computed
         assert computed["derived_timeline"]["duration_months"] == 84
 
@@ -113,7 +119,7 @@ class TestPolymorphicDebugUtility:
             current_avg_rent=1000,
             hold_period_years=5,
             exit_cap_rate=0.065,
-            loan_amount=9_000_000,
+            ltv_ratio=0.75,  # Fixed: Use ltv_ratio instead of loan_amount (9M / 12M = 75%)
             interest_rate=0.055,
         )
 
@@ -706,6 +712,156 @@ class TestCashOutRefinancingValidation:
         assert "PermanentFacility" in formatted_result
         assert "$30,000,000" in formatted_result  # Construction amount
         assert "$40,000,000" in formatted_result  # Permanent amount
+
+    def test_compare_deal_timelines(self):
+        """Test timeline comparison utility."""
+        # Create two patterns with different hold periods
+        pattern1 = StabilizedAcquisitionPattern(
+            property_name="Timeline Test A",
+            acquisition_date=date(2024, 1, 1),
+            acquisition_price=10_000_000,
+            total_units=100,
+            avg_unit_sf=800,
+            current_avg_rent=1200,
+            hold_period_years=5,
+        )
+        
+        pattern2 = StabilizedAcquisitionPattern(
+            property_name="Timeline Test B", 
+            acquisition_date=date(2024, 1, 1),
+            acquisition_price=10_000_000,
+            total_units=100,
+            avg_unit_sf=800,
+            current_avg_rent=1200,
+            hold_period_years=7,  # Different hold period
+        )
+        
+        deal1 = pattern1.create()
+        deal2 = pattern2.create()
+        
+        result = compare_deal_timelines(deal1, deal2)
+        
+        # Should detect timeline differences
+        assert isinstance(result, dict)
+        assert 'has_mismatches' in result
+        assert 'differences' in result
+        assert 'summary' in result
+
+    def test_compare_deal_configurations(self):
+        """Test configuration comparison utility."""
+        pattern1 = StabilizedAcquisitionPattern(
+            property_name="Config Test A",
+            acquisition_date=date(2024, 1, 1),
+            acquisition_price=10_000_000,
+            total_units=100,
+            avg_unit_sf=800,
+            current_avg_rent=1200,
+            exit_cap_rate=0.065,
+        )
+        
+        pattern2 = StabilizedAcquisitionPattern(
+            property_name="Config Test B",
+            acquisition_date=date(2024, 1, 1), 
+            acquisition_price=10_000_000,
+            total_units=100,
+            avg_unit_sf=800,
+            current_avg_rent=1200,
+            exit_cap_rate=0.070,  # Different exit cap rate
+        )
+        
+        deal1 = pattern1.create()
+        deal2 = pattern2.create()
+        
+        result = compare_deal_configurations(deal1, deal2)
+        
+        assert isinstance(result, dict)
+        assert 'differences' in result
+        assert 'all_differences' in result  # Backward compatibility alias
+        assert 'has_differences' in result
+        assert 'impact_assessment' in result
+
+    def test_deal_parity_validation(self):
+        """Test deal parity validation utility."""
+        # Create two similar patterns
+        pattern1 = StabilizedAcquisitionPattern(
+            property_name="Parity Test A",
+            acquisition_date=date(2024, 1, 1),
+            acquisition_price=10_000_000,
+            total_units=100,
+            avg_unit_sf=800,
+            current_avg_rent=1200,
+        )
+        
+        pattern2 = StabilizedAcquisitionPattern(
+            property_name="Parity Test B",
+            acquisition_date=date(2024, 1, 1),
+            acquisition_price=10_000_000,
+            total_units=100,
+            avg_unit_sf=800,
+            current_avg_rent=1200,
+        )
+        
+        # Should be identical - test perfect parity
+        results1 = pattern1.analyze()
+        results2 = pattern2.analyze()
+        
+        parity = validate_deal_parity(results1, results2)
+        
+        assert isinstance(parity, dict)
+        assert 'passes' in parity
+        assert 'parity_level' in parity
+        assert 'summary' in parity
+        assert 'recommended_fixes' in parity
+        
+        # Should achieve parity
+        assert parity['passes'] or parity['parity_level'] in ['perfect', 'excellent']
+
+    def test_ledger_shape_analysis(self):
+        """Test ledger shape analysis utility."""
+        pattern = StabilizedAcquisitionPattern(
+            property_name="Shape Test",
+            acquisition_date=date(2024, 1, 1),
+            acquisition_price=10_000_000,
+            total_units=100,
+            avg_unit_sf=800,
+            current_avg_rent=1200,
+        )
+        
+        results = pattern.analyze()
+        shape = analyze_ledger_shape(results)
+        
+        assert isinstance(shape, dict)
+        assert 'transaction_summary' in shape
+        assert 'flow_summary' in shape
+        assert 'timeline_coverage' in shape
+        assert 'warnings' in shape
+        
+        # Should have reasonable transaction counts
+        assert shape['transaction_summary']['total_count'] > 100
+
+    def test_component_timeline_extraction(self):
+        """Test component timeline extraction utility."""
+        pattern = StabilizedAcquisitionPattern(
+            property_name="Timeline Extract Test",
+            acquisition_date=date(2024, 1, 1),
+            acquisition_price=10_000_000,
+            total_units=100,
+            avg_unit_sf=800,
+            current_avg_rent=1200,
+            hold_period_years=5,
+        )
+        
+        deal = pattern.create()
+        timelines = extract_component_timelines(deal)
+        
+        assert isinstance(timelines, dict)
+        assert 'misalignment_warnings' in timelines
+        assert 'summary' in timelines
+        
+        # Should extract multiple component timelines
+        timeline_components = [k for k, v in timelines.items() 
+                             if isinstance(v, dict) and 'duration_months' in v]
+        assert len(timeline_components) > 0
 
 
 if __name__ == "__main__":

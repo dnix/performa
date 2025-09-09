@@ -32,9 +32,9 @@ Example:
     ```
 """
 
-from typing import List, Literal, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
-from pydantic import Field, field_validator
+from pydantic import Field, computed_field, field_validator
 
 from ..core.primitives import FloatBetween0And1, Model, PositiveFloat
 from .entities import Partner
@@ -257,6 +257,52 @@ class PartnershipStructure(Model):
             if partner.name == name:
                 return partner
         return None
+
+    @computed_field
+    @property
+    def has_explicit_commitments(self) -> bool:
+        """Check if using explicit capital commitments (inferred from data)."""
+        # All partners must have commitments or none (no mixed mode)
+        has_any = any(p.capital_commitment is not None for p in self.partners)
+        has_all = all(p.capital_commitment is not None for p in self.partners)
+        
+        if has_any and not has_all:
+            raise ValueError(
+                "Mixed capital commitment mode not supported. "
+                "Either all partners must have explicit commitments or none."
+            )
+        return has_all
+
+    @computed_field
+    @property
+    def total_committed_capital(self) -> Optional[float]:
+        """Total committed capital from all partners."""
+        if not self.has_explicit_commitments:
+            return None  # Will be derived at runtime
+        
+        return sum(p.capital_commitment for p in self.partners)
+
+    @computed_field
+    @property
+    def capital_shares(self) -> Dict[str, float]:
+        """Each partner's share of total capital (different from ownership share)."""
+        if not self.has_explicit_commitments:
+            # When derived, capital shares = ownership shares
+            return {p.name: p.share for p in self.partners}
+        
+        total = self.total_committed_capital
+        return {p.name: p.capital_commitment / total for p in self.partners}
+
+    def validate_commitments(self, required_equity: float) -> None:
+        """Validate that commitments meet or exceed requirements."""
+        if self.has_explicit_commitments:
+            total = self.total_committed_capital
+            if total < required_equity:
+                shortfall = required_equity - total
+                raise ValueError(
+                    f"Capital commitments (${total:,.0f}) fall short of "
+                    f"required equity (${required_equity:,.0f}) by ${shortfall:,.0f}"
+                )
 
     def __str__(self) -> str:
         gp_count = len(self.gp_partners)

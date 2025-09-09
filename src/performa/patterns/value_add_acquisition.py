@@ -142,8 +142,8 @@ class ValueAddAcquisitionPattern(PatternBase):
         le=0.70,  # Realistic for value-add deals
         description="Loan-to-value ratio (realistic for value-add)",
     )
-    bridge_rate: PositiveFloat = Field(
-        default=0.08, gt=0, le=0.15, description="Bridge loan interest rate"
+    renovation_loan_rate: PositiveFloat = Field(
+        default=0.08, gt=0, le=0.15, description="Renovation loan interest rate"
     )
     permanent_rate: PositiveFloat = Field(
         default=0.06, gt=0, le=0.15, description="Permanent loan interest rate"
@@ -252,7 +252,7 @@ class ValueAddAcquisitionPattern(PatternBase):
             timeline=acquisition_timeline,
             value=self.acquisition_price,
             acquisition_date=self.acquisition_date,
-            closing_costs=self.acquisition_price * self.closing_costs_rate,
+            closing_costs_rate=self.closing_costs_rate,
         )
 
         # === Step 2: Create Renovation Capital Plan ===
@@ -445,15 +445,21 @@ class ValueAddAcquisitionPattern(PatternBase):
         total_project_cost = self.acquisition_price + self.renovation_budget
         loan_amount = total_project_cost * self.ltv_ratio
 
+        # Calculate when renovation loan should mature (at refinancing)
+        renovation_loan_term_months = (self.renovation_start_year + self.renovation_duration_years) * 12
+        
         financing_plan = create_construction_to_permanent_plan(
             construction_terms={
-                "name": "Bridge Loan",
-                "loan_amount": loan_amount,  # Explicit loan amount for construction facility
+                "name": "Renovation Loan",
+                "loan_amount": loan_amount,  # Explicit loan amount for renovation facility
+                # CRITICAL FIX: Set loan term to match refinancing timing
+                # This ensures renovation loan stops charging interest when permanent loan takes over
+                "loan_term_months": renovation_loan_term_months,
                 "tranches": [
                     {
-                        "name": "Bridge Financing",
+                        "name": "Renovation Financing",
                         "interest_rate": {
-                            "details": {"rate_type": "fixed", "rate": self.bridge_rate}
+                            "details": {"rate_type": "fixed", "rate": self.renovation_loan_rate}
                         },
                         "fee_rate": 0.015,
                         "ltc_threshold": self.ltv_ratio,
@@ -472,6 +478,10 @@ class ValueAddAcquisitionPattern(PatternBase):
                 "loan_amount": loan_amount,  # Explicit loan amount to fix debt service calculation
                 "ltv_ratio": self.ltv_ratio,
                 "dscr_hurdle": 1.25,
+                # CRITICAL FIX: Set refinance timing to after renovation completion
+                # This prevents double-funding by ensuring permanent loan refinances renovation loan
+                # rather than both funding on day 1
+                "refinance_timing": (self.renovation_start_year + self.renovation_duration_years) * 12,
             },
         )
 

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from datetime import date
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
 
@@ -84,8 +84,9 @@ class DevelopmentPatternBase(PatternBase):
             description="Construction loan interest calculation method",
         )
     )
-    interest_reserve_rate: FloatBetween0And1 = Field(
-        default=0.15, description="Interest reserve as percentage of loan amount"
+    interest_reserve_rate: Optional[FloatBetween0And1] = Field(
+        default=None, 
+        description="Interest reserve as percentage of loan amount (only used with SIMPLE method)"
     )
 
     # === PERMANENT FINANCING ===
@@ -130,7 +131,7 @@ class DevelopmentPatternBase(PatternBase):
         description="Investment hold period in years (from land acquisition)",
     )
     exit_cap_rate: FloatBetween0And1 = Field(
-        default=0.065, description="Exit capitalization rate for sale valuation"
+        default=0.065, description="Exit capitalization rate for sale valuation (typical market: 6-7%)"
     )
     exit_costs_rate: FloatBetween0And1 = Field(
         default=0.025, description="Exit transaction costs as percentage of sale price"
