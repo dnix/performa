@@ -198,21 +198,51 @@ def __(slider, mo):
 **CRITICAL**: Always validate model assumptions and ledger math when developing:
 
 ```python
-# Step 1: Document assumptions for analysis  
+# Step 1: Document assumptions for analysis
 from performa.reporting import generate_assumptions_report
 assumptions_doc = generate_assumptions_report(deal, include_risk_assessment=True)
 
-# Step 2: Validate configuration quality
-from performa.reporting import analyze_configuration_intentionality  
+# Step 2: Validate configuration quality (context-aware scoring)
+from performa.reporting import analyze_configuration_intentionality
 analysis = analyze_configuration_intentionality(deal)
-quality_score = analysis['intentionality_metrics']['completeness_score']
+quality_score = analysis['intentionality_metrics']['quality_score']  # Context-aware scoring
+is_pattern = analysis['intentionality_metrics']['is_pattern_based']
 
-# Step 3: Validate ledger math (single source of truth)
+# Step 3: Validate ledger math (single source of truth)  
 from performa.reporting import analyze_ledger_semantically
-ledger_analysis = analyze_ledger_semantically(results.ledger) 
+ledger_analysis = analyze_ledger_semantically(results.ledger)
 net_flow = ledger_analysis['balance_checks']['total_net_flow']
 
-# Step 4: Generate analysis reports
+# Step 4: Deal comparison and parity validation
+from performa.reporting import (
+    compare_deal_timelines, compare_deal_configurations, 
+    validate_deal_parity, compare_ledger_shapes
+)
+
+# For deal comparison (e.g., composition vs pattern)
+if comparing_multiple_deals:
+    # Check timeline alignment first (common issue)
+    timeline_diff = compare_deal_timelines(deal1, deal2)
+    if timeline_diff['has_mismatches']:
+        print(f"🎯 Timeline issues: {timeline_diff['summary']}")
+    
+    # Check configuration differences (ALL differences shown - no filtering)
+    config_diff = compare_deal_configurations(deal1, deal2)
+    if config_diff['has_differences']:
+        print(f"❌ Config differences: {config_diff['impact_assessment']}")
+    
+    # Validate results parity after analysis
+    parity = validate_deal_parity(results1, results2, 
+                                tolerance={'irr': 0.01, 'em': 0.05, 'equity': 10000})
+    if not parity['passes']:
+        print(f"Parity issues: {parity['summary']}")
+
+# Step 5: Flow validation and reasonableness checks
+from performa.reporting import validate_flow_reasonableness, analyze_ledger_shape
+flow_check = validate_flow_reasonableness(results, deal_type="stabilized")
+ledger_shape = analyze_ledger_shape(results)
+
+# Step 6: Generate analysis reports
 pro_forma = results.reporting.pro_forma_summary()
 assumptions_summary = results.reporting.assumptions_summary()
 ```
