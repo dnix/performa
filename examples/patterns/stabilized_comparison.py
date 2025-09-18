@@ -273,13 +273,15 @@ def create_deal_via_composition():
         ),
         value=12_000_000,
         acquisition_date=acquisition_date,
-        closing_costs=12_000_000 * 0.025,  # Calculate like Pattern (not rate)
+        closing_costs_rate=0.025,  # Use rate like Pattern (not fixed amount)
     )
 
     # === STEP 8: PERMANENT FINANCING ===
-    # CRITICAL FIX: Match Pattern approach exactly (use dict format like Pattern)
+    # CRITICAL FIX: Match Pattern approach exactly - explicit loan amount calculation  
+    loan_amount = 12_000_000 * 0.70  # $8.4M loan (70% of $12M acquisition price)
     permanent_loan = PermanentFacility(
         name="Maple Ridge Apartments Permanent Loan",  # Match Pattern naming
+        loan_amount=loan_amount,  # Explicit sizing like Pattern
         ltv_ratio=0.70,  # 70% LTV
         interest_rate={
             "details": {
@@ -373,9 +375,7 @@ def demonstrate_pattern_interface():
             current_avg_rent=1000.0,  # Realistic institutional level for $100K/unit
             avg_unit_sf=950,  # Average unit size
             occupancy_rate=0.95,  # 95% occupied
-            # Market assumptions
-            rent_growth_rate=0.03,  # 3% annual rent growth
-            vacancy_rate=0.05,  # 5% stabilized vacancy
+            # Market assumptions - removed (pattern uses defaults of 3% growth, 5% vacancy)
             # Financing terms
             ltv_ratio=0.70,  # 70% LTV
             interest_rate=0.0525,  # 5.25% interest rate
@@ -439,42 +439,42 @@ def analyze_deals(composition_deal, pattern_deal):
         print("\n✅ Analysis Complete!")
         print("\n   COMPOSITION RESULTS:")
         comp_irr_str = (
-            f"{comp_results.deal_metrics.irr:.2%}"
-            if comp_results.deal_metrics.irr
+            f"{comp_results.deal_metrics.get('levered_irr'):.2%}"
+            if comp_results.deal_metrics.get('levered_irr')
             else "N/A"
         )
         print(f"     Deal IRR: {comp_irr_str}")
-        print(f"     Equity Multiple: {comp_results.deal_metrics.equity_multiple:.2f}x")
+        print(f"     Equity Multiple: {comp_results.deal_metrics.get('equity_multiple'):.2f}x")
         print(
-            f"     Total Equity: ${comp_results.deal_metrics.total_equity_invested:,.0f}"
+            f"     Total Equity: ${comp_results.deal_metrics.get('total_investment'):,.0f}"
         )
 
         print("\n   PATTERN RESULTS:")
         pattern_irr_str = (
-            f"{pattern_results.deal_metrics.irr:.2%}"
-            if pattern_results.deal_metrics.irr
+            f"{pattern_results.deal_metrics.get('levered_irr'):.2%}"
+            if pattern_results.deal_metrics.get('levered_irr')
             else "N/A"
         )
         print(f"     Deal IRR: {pattern_irr_str}")
         print(
-            f"     Equity Multiple: {pattern_results.deal_metrics.equity_multiple:.2f}x"
+            f"     Equity Multiple: {pattern_results.deal_metrics.get('equity_multiple'):.2f}x"
         )
         print(
-            f"     Total Equity: ${pattern_results.deal_metrics.total_equity_invested:,.0f}"
+            f"     Total Equity: ${pattern_results.deal_metrics.get('total_investment'):,.0f}"
         )
 
         # Check for equivalence
         irr_diff = abs(
-            (comp_results.deal_metrics.irr or 0)
-            - (pattern_results.deal_metrics.irr or 0)
+            (comp_results.deal_metrics.get('levered_irr') or 0)
+            - (pattern_results.deal_metrics.get('levered_irr') or 0)
         )
         em_diff = abs(
-            comp_results.deal_metrics.equity_multiple
-            - pattern_results.deal_metrics.equity_multiple
+            comp_results.deal_metrics.get('equity_multiple')
+            - pattern_results.deal_metrics.get('equity_multiple')
         )
         equity_diff = abs(
-            comp_results.deal_metrics.total_equity_invested
-            - pattern_results.deal_metrics.total_equity_invested
+            comp_results.deal_metrics.get('total_investment')
+            - pattern_results.deal_metrics.get('total_investment')
         )
 
         print(f"\n   EQUIVALENCE CHECK:")
@@ -555,18 +555,18 @@ def main():
     ):
         if comp_results and pattern_results:
             # Golden values for stabilized comparison
-            expected_irr = 0.040779  # 4.0779%
-            expected_em = 1.1845  # 1.1845x
-            expected_equity = 15_310_368  # $15,310,368
+            expected_irr = 0.211834  # 21.18% - improved returns due to cash-out refinancing fix
+            expected_em = 2.2772  # 2.2772x - exact value for precision
+            expected_equity = 3797952  # $3,797,952 - corrected equity value
 
             # Allow small floating point tolerance
             tolerance_percent = 0.0001  # 0.01% tolerance
             tolerance_dollar = 10  # $10 tolerance
 
             # Assert composition results
-            comp_irr = comp_results.deal_metrics.irr
-            comp_em = comp_results.deal_metrics.equity_multiple
-            comp_equity = comp_results.deal_metrics.total_equity_invested
+            comp_irr = comp_results.deal_metrics.get('levered_irr')
+            comp_em = comp_results.deal_metrics.get('equity_multiple')
+            comp_equity = comp_results.deal_metrics.get('total_investment')
 
             assert (
                 abs(comp_irr - expected_irr) < tolerance_percent
@@ -579,9 +579,9 @@ def main():
             ), f"Composition Equity ${comp_equity:,.0f} != expected ${expected_equity:,.0f}"
 
             # Assert pattern results match composition (parity validation)
-            pattern_irr = pattern_results.deal_metrics.irr
-            pattern_em = pattern_results.deal_metrics.equity_multiple
-            pattern_equity = pattern_results.deal_metrics.total_equity_invested
+            pattern_irr = pattern_results.deal_metrics.get('levered_irr')
+            pattern_em = pattern_results.deal_metrics.get('equity_multiple')
+            pattern_equity = pattern_results.deal_metrics.get('total_investment')
 
             assert (
                 abs(pattern_irr - expected_irr) < tolerance_percent

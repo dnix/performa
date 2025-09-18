@@ -195,9 +195,9 @@ class TestCarryPromote:
         promote = CarryPromote(pref_hurdle_rate=0.08, promote_rate=0.20)
         tiers, final_rate = promote.all_tiers
 
-        # Should have one tier (preferred return) with 0% promote
+        # Should have one tier at the pref hurdle with the promote rate
         assert len(tiers) == 1
-        assert tiers[0] == (0.08, 0.0)
+        assert tiers[0] == (0.08, 0.20)  # Hurdle at 8%, promote at 20%
         assert final_rate == 0.20
 
     def test_carry_promote_string_representation(self):
@@ -275,9 +275,9 @@ class TestWaterfallPromote:
 
         # Should have preferred return tier plus the defined tiers
         assert len(tiers) == 3
-        assert tiers[0] == (0.08, 0.0)  # Preferred return with 0% promote
-        assert tiers[1] == (0.12, 0.10)
-        assert tiers[2] == (0.15, 0.20)
+        assert tiers[0] == (0.08, 0.0)   # Preferred return tier with 0% promote
+        assert tiers[1] == (0.12, 0.10)  # First tier at 12% with 10% promote
+        assert tiers[2] == (0.15, 0.20)  # Second tier at 15% with 20% promote
         assert final_rate == 0.30
 
 

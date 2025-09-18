@@ -169,8 +169,8 @@ class FinancingSubcategoryEnum(str, Enum):
 
     Debt Flow Subcategories:
         LOAN_PROCEEDS: Initial loan funding at origination (positive inflow)
-        DEBT_SERVICE: Combined P&I for simple facilities without amortization
-        PRINCIPAL_PAYMENT: Principal portion for balance tracking (not net cash flow)
+        DEBT_SERVICE: **DEPRECATED** - Use INTEREST_PAYMENT + PRINCIPAL_PAYMENT instead
+        PRINCIPAL_PAYMENT: Principal portion for balance tracking (negative outflow)
         INTEREST_PAYMENT: Interest portion, actual cash expense (negative outflow)
         INTEREST_RESERVE: Interest reserve funding or draws
         PREPAYMENT: Loan payoff at property sale/disposition (negative outflow)
@@ -190,13 +190,13 @@ class FinancingSubcategoryEnum(str, Enum):
     
     Usage Notes:
         - Use PREPAYMENT for disposition, REFINANCING_PAYOFF for refinancing
-        - PRINCIPAL_PAYMENT tracks balance but isn't a net cash outflow
-        - DEBT_SERVICE only for facilities without detailed amortization
+        - PRINCIPAL_PAYMENT tracks balance and is a cash outflow
+        - All facilities should use disaggregated I&P approach for consistency
     """
 
     # Core debt flows
     LOAN_PROCEEDS = "Loan Proceeds"
-    DEBT_SERVICE = "Debt Service"
+    # DEBT_SERVICE = "Debt Service"  # DEPRECATED: Use INTEREST_PAYMENT + PRINCIPAL_PAYMENT
     PRINCIPAL_PAYMENT = "Principal Payment"
     INTEREST_PAYMENT = "Interest Payment"
     INTEREST_RESERVE = "Interest Reserve"
@@ -737,6 +737,7 @@ class TransactionPurpose(str, Enum):
     """
 
     VALUATION = "Valuation"
+    # FIXME: are we sure this should be a transaction purpose? is this the right name?
     """
     Asset valuation and appraisal records for ledger-based analytics.
     - Property appraisals and market valuations

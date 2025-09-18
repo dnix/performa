@@ -15,13 +15,13 @@ import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
-    from performa.deal.results import DealAnalysisResult
+    from performa.deal.results import DealResults
 
 logger = logging.getLogger(__name__)
 
 
 def validate_flow_reasonableness(
-    results: "DealAnalysisResult", 
+    results: "DealResults", 
     deal_type: Optional[str] = None,
     property_type: Optional[str] = None
 ) -> Dict[str, Any]:
@@ -32,7 +32,7 @@ def validate_flow_reasonableness(
     flows that may indicate configuration errors or unrealistic assumptions.
     
     Args:
-        results: DealAnalysisResult to validate
+        results: DealResults to validate
         deal_type: Type of deal ('stabilized', 'development', 'value_add')
         property_type: Type of property ('office', 'multifamily', 'retail')
         
@@ -53,7 +53,7 @@ def validate_flow_reasonableness(
                 print(f"  - {warning['message']}")
         ```
     """
-    ledger_queries = results.asset_analysis.get_ledger_queries()
+    ledger_queries = results.queries
     ledger_df = ledger_queries.ledger
     
     validation = {
@@ -85,7 +85,7 @@ def validate_flow_reasonableness(
     return validation
 
 
-def validate_aggregate_flows(results: "DealAnalysisResult") -> Dict[str, Any]:
+def validate_aggregate_flows(results: "DealResults") -> Dict[str, Any]:
     """
     Validate aggregate flow patterns and balances.
     
@@ -93,7 +93,7 @@ def validate_aggregate_flows(results: "DealAnalysisResult") -> Dict[str, Any]:
     and identifies potential double-counting or missing flows.
     
     Args:
-        results: DealAnalysisResult to validate
+        results: DealResults to validate
         
     Returns:
         Dict containing aggregate flow validation results
@@ -105,7 +105,7 @@ def validate_aggregate_flows(results: "DealAnalysisResult") -> Dict[str, Any]:
             print(f"⚠️ Balance issues: {validation['balance_summary']}")
         ```
     """
-    ledger_queries = results.asset_analysis.get_ledger_queries()
+    ledger_queries = results.queries
     ledger_df = ledger_queries.ledger
     
     # Calculate aggregate flows
@@ -290,39 +290,41 @@ def _validate_capital_flows(ledger_df, deal_type: str) -> Dict[str, Any]:
     return analysis
 
 
-def _validate_overall_flows(results: "DealAnalysisResult", deal_type: str) -> Dict[str, Any]:
+def _validate_overall_flows(results: "DealResults", deal_type: str) -> Dict[str, Any]:
     """Validate overall deal flow patterns."""
     metrics = results.deal_metrics
     
     analysis = {
-        'irr': metrics.irr,
-        'equity_multiple': metrics.equity_multiple,
+        'irr': metrics.get('levered_irr'),
+        'equity_multiple': metrics.get('equity_multiple'),
         'warnings': []
     }
     
     # IRR reasonableness by deal type
-    if deal_type == 'stabilized' and metrics.irr:
-        if metrics.irr < 0.05:  # < 5%
+    levered_irr = metrics.get('levered_irr')
+    if deal_type == 'stabilized' and levered_irr:
+        if levered_irr < 0.05:  # < 5%
             analysis['warnings'].append({
                 'type': 'low_irr',
-                'message': f'Low IRR for stabilized deal: {metrics.irr:.1%}'
+                'message': f'Low IRR for stabilized deal: {levered_irr:.1%}'
             })
-        elif metrics.irr > 0.40:  # > 40%
+        elif levered_irr > 0.40:  # > 40%
             analysis['warnings'].append({
                 'type': 'unrealistic_irr',
-                'message': f'Unrealistically high IRR: {metrics.irr:.1%}'
+                'message': f'Unrealistically high IRR: {levered_irr:.1%}'
             })
     
     # Equity multiple reasonableness
-    if metrics.equity_multiple < 0.5:
+    equity_multiple = metrics.get('equity_multiple')
+    if equity_multiple and equity_multiple < 0.5:
         analysis['warnings'].append({
             'type': 'low_equity_multiple',
-            'message': f'Low equity multiple: {metrics.equity_multiple:.2f}x'
+            'message': f'Low equity multiple: {equity_multiple:.2f}x'
         })
-    elif metrics.equity_multiple > 10.0:
+    elif equity_multiple and equity_multiple > 10.0:
         analysis['warnings'].append({
             'type': 'high_equity_multiple', 
-            'message': f'Very high equity multiple: {metrics.equity_multiple:.2f}x'
+            'message': f'Very high equity multiple: {equity_multiple:.2f}x'
         })
     
     return analysis

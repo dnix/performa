@@ -4,7 +4,7 @@
 """
 Reporting Interface
 
-Provides the fluent API for accessing reports from DealAnalysisResult objects.
+Provides the fluent API for accessing reports from DealResults objects.
 This is the primary user-facing interface for the reporting system.
 """
 
@@ -18,16 +18,17 @@ import pandas as pd
 from .assumptions import AssumptionsReport
 from .development_reports import SourcesAndUsesReport
 from .financial_reports import ProFormaReport
+from .pivot_report import PivotTableReport
 
 if TYPE_CHECKING:
-    from ..deal.results import DealAnalysisResult
+    from ..deal.results import DealResults
 
 
 class ReportingInterface:
     """
     Fluent interface for accessing standardized reports.
 
-    This class is exposed via the `reporting` property on DealAnalysisResult
+    This class is exposed via the `reporting` property on DealResults
     and provides access to various report formatters.
 
     Example:
@@ -36,12 +37,12 @@ class ReportingInterface:
         sources_uses_dict = results.reporting.sources_and_uses()
     """
 
-    def __init__(self, results: "DealAnalysisResult"):
+    def __init__(self, results: "DealResults"):
         """
         Initialize with analysis results.
 
         Args:
-            results: Complete DealAnalysisResult from performa.deal.analyze()
+            results: Complete DealResults from performa.deal.analyze()
         """
         self._results = results
 
@@ -141,5 +142,62 @@ class ReportingInterface:
                 include_defaults_detail=include_defaults_detail,
                 focus_components=focus_components,
             )
+
+    def pivot_table(
+        self,
+        frequency: str = "M",
+        include_subtotals: bool = True,
+        include_totals_column: bool = True,
+        currency_format: bool = True,
+        categories: Optional[List[str]] = None,
+        subcategories: Optional[List[str]] = None,
+    ) -> pd.DataFrame:
+        """
+        Generate Excel-style pivot table from ledger data.
+
+        Transforms the transactional ledger into familiar Excel pro forma format
+        with periods as columns and financial line items as rows. This provides
+        "Glass Box" transparency by showing every transaction.
+
+        Args:
+            frequency: Period frequency ('M' monthly, 'Q' quarterly, 'A' annual)
+            include_subtotals: Add subtotal rows for each category
+            include_totals_column: Add total column on right
+            currency_format: Apply currency formatting to values
+            categories: Filter to specific categories (Revenue, Expense, etc.)
+            subcategories: Filter to specific subcategories
+
+        Returns:
+            DataFrame in Excel pro forma format with periods as columns
+
+        Example:
+            ```python
+            results = analyze(deal, timeline)
+
+            # Monthly detail for operations teams
+            monthly_detail = results.reporting.pivot_table(frequency="M")
+
+            # Quarterly summary for board presentations
+            quarterly_summary = results.reporting.pivot_table(
+                frequency="Q",
+                include_subtotals=True
+            )
+
+            # Annual for investment committee
+            annual_view = results.reporting.pivot_table(
+                frequency="A",
+                categories=["Revenue", "Expense"]
+            )
+            ```
+        """
+        report = PivotTableReport(self._results)
+        return report.generate(
+            frequency=frequency,
+            include_subtotals=include_subtotals,
+            include_totals_column=include_totals_column,
+            currency_format=currency_format,
+            categories=categories,
+            subcategories=subcategories,
+        )
 
     # Additional report methods can be added here as needed

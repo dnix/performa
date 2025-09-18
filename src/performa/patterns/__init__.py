@@ -19,6 +19,9 @@ from .residential_development import ResidentialDevelopmentPattern
 from .stabilized_acquisition import StabilizedAcquisitionPattern
 from .value_add_acquisition import ValueAddAcquisitionPattern
 
+# Compatibility aliases
+StabilizedOfficePattern = OfficeStabilizedAcquisitionPattern  # For old tests
+
 __all__ = [
     # Base classes
     "PatternBase",
@@ -31,4 +34,6 @@ __all__ = [
     "StabilizedAcquisitionPattern",  # Residential only
     # General patterns
     "ValueAddAcquisitionPattern",
+    # Compatibility aliases
+    "StabilizedOfficePattern",  # Alias for OfficeStabilizedAcquisitionPattern
 ]

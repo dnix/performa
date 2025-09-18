@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Dict, List
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
-    from ..deal.results import DealAnalysisResult
+    from ..deal.results import DealResults
 
 
 class ReportTemplate(BaseModel):
@@ -48,23 +48,23 @@ class BaseReport(ABC):
     """
     Abstract base class for all report formatters.
 
-    Reports operate on final DealAnalysisResult objects and transform
+    Reports operate on final DealResults objects and transform
     them into presentation-ready formats. Reports should only format
     and present data, never perform calculations.
     """
 
-    def __init__(self, results: "DealAnalysisResult"):
+    def __init__(self, results: "DealResults"):
         """
         Initialize report with analysis results.
 
         Args:
-            results: Complete DealAnalysisResult from performa.deal.analyze()
+            results: Complete DealResults from performa.deal.analyze()
         """
         # Import at runtime to avoid circular dependencies
-        from ..deal.results import DealAnalysisResult  # noqa: PLC0415
+        from ..deal.results import DealResults  # noqa: PLC0415
 
-        if not isinstance(results, DealAnalysisResult):
-            raise TypeError("BaseReport requires a DealAnalysisResult object")
+        if not isinstance(results, DealResults):
+            raise TypeError("BaseReport requires a DealResults object")
         self._results = results
 
     @abstractmethod

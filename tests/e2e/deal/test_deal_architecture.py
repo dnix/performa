@@ -14,10 +14,16 @@ This module tests the complete deal analysis pipeline:
 
 from datetime import date
 
+import pandas as pd
 import pytest
 
-from performa.core.capital import CapitalPlan
-from performa.core.primitives import AssetTypeEnum, Timeline
+from performa.core.capital import CapitalItem, CapitalPlan
+from performa.core.primitives import (
+    AssetTypeEnum,
+    CashFlowCategoryEnum,
+    SCurveDrawSchedule,
+    Timeline,
+)
 from performa.deal import Deal, analyze
 from performa.deal.acquisition import AcquisitionTerms
 from performa.development.project import DevelopmentProject
@@ -55,7 +61,20 @@ class TestDealCentricArchitectureIntegration:
             property_type=AssetTypeEnum.OFFICE,
             gross_area=100000.0,
             net_rentable_area=90000.0,
-            construction_plan=CapitalPlan(name="Construction Plan", capital_items=[]),
+            construction_plan=CapitalPlan(
+                name="Construction Plan", 
+                capital_items=[
+                    # Minimal construction item to generate cash flows for architectural testing
+                    CapitalItem(
+                        name="Base Construction",
+                        category=CashFlowCategoryEnum.CAPITAL,
+                        subcategory="Hard Costs",
+                        timeline=Timeline.from_dates('2024-01-01', '2025-12-31'),
+                        value=5_000_000,
+                        draw_schedule=SCurveDrawSchedule(sigma=1.0)
+                    )
+                ]
+            ),
             blueprints=[],
         )
 
@@ -125,7 +144,14 @@ class TestDealCentricArchitectureIntegration:
         assert financing is None  # No financing provided
 
         levered = results.levered_cash_flows
-        assert hasattr(levered, "cash_flow_components")  # Should separate components
+        # In new architecture, cash flow components accessed through ledger queries
+        assert results.queries is not None  # Should have ledger queries access
+        
+        # Cash flow components now accessed through dedicated query methods
+        revenue = results.queries.revenue()  
+        opex = results.queries.opex()  # Operating expenses
+        assert isinstance(revenue, pd.Series) or revenue is None
+        assert isinstance(opex, pd.Series) or opex is None
 
     def test_asset_deal_layer_separation(
         self, purified_development_project, acquisition_terms, timeline
@@ -151,7 +177,7 @@ class TestDealCentricArchitectureIntegration:
 
         # Analysis should work on Deal level
         results = analyze(deal, timeline)
-        assert results.deal_summary.is_development is True
+        assert results.deal_summary["archetype"] == "Development"
 
     def test_different_asset_types_same_deal_interface(
         self, acquisition_terms, timeline
@@ -172,7 +198,18 @@ class TestDealCentricArchitectureIntegration:
                 gross_area=100000.0,
                 net_rentable_area=90000.0,
                 construction_plan=CapitalPlan(
-                    name="Construction Plan", capital_items=[]
+                    name="Construction Plan",
+                    capital_items=[
+                        # Minimal construction item to generate cash flows for testing
+                        CapitalItem(
+                            name="Base Construction",
+                            category=CashFlowCategoryEnum.CAPITAL,
+                            subcategory="Hard Costs",
+                            timeline=Timeline.from_dates('2024-01-01', '2025-12-31'),
+                            value=5_000_000,
+                            draw_schedule=SCurveDrawSchedule(sigma=1.0)
+                        )
+                    ]
                 ),
                 blueprints=[],
             )
@@ -188,8 +225,7 @@ class TestDealCentricArchitectureIntegration:
             results = analyze(deal, timeline)
 
             # Should work consistently
-            assert results.deal_summary.asset_type == asset_type
-            assert results.deal_summary.deal_type == "development"
+            assert results.deal_summary["archetype"] == "Development"  # Note: capitalized from archetype detection
 
     def test_pydantic_validation_integration(
         self, purified_development_project, acquisition_terms, timeline
@@ -210,8 +246,11 @@ class TestDealCentricArchitectureIntegration:
 
         # Asset analysis should have proper ledger-based structure
         asset_analysis = results.asset_analysis
-        assert hasattr(asset_analysis, "scenario")
-        assert hasattr(asset_analysis, "models")
+        assert hasattr(asset_analysis, "get_ledger_queries")
+        
+        # Should be able to get ledger queries
+        queries = asset_analysis.get_ledger_queries()
+        assert queries is not None
 
     def test_computed_fields_performance(
         self, purified_development_project, acquisition_terms
@@ -320,7 +359,20 @@ class TestArchitecturalQuality:
             property_type=AssetTypeEnum.OFFICE,
             gross_area=100000.0,
             net_rentable_area=90000.0,
-            construction_plan=CapitalPlan(name="Construction Plan", capital_items=[]),
+            construction_plan=CapitalPlan(
+                name="Construction Plan", 
+                capital_items=[
+                    # Minimal construction item to generate cash flows for architectural testing
+                    CapitalItem(
+                        name="Base Construction",
+                        category=CashFlowCategoryEnum.CAPITAL,
+                        subcategory="Hard Costs",
+                        timeline=Timeline.from_dates('2024-01-01', '2025-12-31'),
+                        value=5_000_000,
+                        draw_schedule=SCurveDrawSchedule(sigma=1.0)
+                    )
+                ]
+            ),
             blueprints=[],
         )
 

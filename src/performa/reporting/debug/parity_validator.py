@@ -15,14 +15,14 @@ import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
-    from performa.deal.results import DealAnalysisResult
+    from performa.deal.results import DealResults
 
 logger = logging.getLogger(__name__)
 
 
 def validate_deal_parity(
-    results1: "DealAnalysisResult", 
-    results2: "DealAnalysisResult",
+    results1: "DealResults", 
+    results2: "DealResults",
     tolerance: Optional[Dict[str, float]] = None,
     label1: str = "Deal 1",
     label2: str = "Deal 2"
@@ -70,20 +70,20 @@ def validate_deal_parity(
     metrics2 = results2.deal_metrics
     
     # Calculate differences
-    irr1 = metrics1.irr or 0
-    irr2 = metrics2.irr or 0
+    irr1 = metrics1.get("levered_irr") or 0
+    irr2 = metrics2.get("levered_irr") or 0
     irr_diff = abs(irr1 - irr2)
     
-    em1 = metrics1.equity_multiple
-    em2 = metrics2.equity_multiple  
+    em1 = metrics1.get("equity_multiple") or 0
+    em2 = metrics2.get("equity_multiple") or 0
     em_diff = abs(em1 - em2)
     
-    equity1 = metrics1.total_equity_invested
-    equity2 = metrics2.total_equity_invested
+    equity1 = metrics1.get("total_investment") or 0
+    equity2 = metrics2.get("total_investment") or 0
     equity_diff = abs(equity1 - equity2)
     
-    profit1 = metrics1.net_profit
-    profit2 = metrics2.net_profit
+    profit1 = metrics1.get("net_profit") or 0
+    profit2 = metrics2.get("net_profit") or 0
     profit_diff = abs(profit1 - profit2)
     
     # Check each metric against tolerance
@@ -191,7 +191,7 @@ def _recommend_parity_fixes(checks: Dict[str, Any], all_pass: bool) -> List[str]
     return recommendations
 
 
-def quick_parity_check(results1: "DealAnalysisResult", results2: "DealAnalysisResult") -> bool:
+def quick_parity_check(results1: "DealResults", results2: "DealResults") -> bool:
     """
     Quick boolean parity check with default tolerances.
     

@@ -34,7 +34,7 @@ from .partnership import (
     WaterfallPromote,
     WaterfallTier,
 )
-from .results import DealAnalysisResult
+from .results import DealResults
 
 __all__ = [
     # Core deal components
@@ -43,7 +43,7 @@ __all__ = [
     "DealFee",
     # Analysis API
     "analyze",
-    "DealAnalysisResult",
+    "DealResults",
     "DealCalculator",
     "DealContext",
     # Partnership structures

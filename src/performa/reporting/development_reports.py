@@ -19,7 +19,7 @@ from .base import BaseReport
 
 class SourcesAndUsesReport(BaseReport):
     """
-    Sources & Uses report operating on DealAnalysisResult.
+    Sources & Uses report operating on DealResults.
 
     This report extracts final uses breakdown and funding sources from
     the completed analysis results, ensuring accuracy and consistency

@@ -17,12 +17,12 @@ from typing import TYPE_CHECKING, Any, Dict
 import pandas as pd
 
 if TYPE_CHECKING:
-    from performa.deal.results import DealAnalysisResult
+    from performa.deal.results import DealResults
 
 logger = logging.getLogger(__name__)
 
 
-def analyze_ledger_shape(results: "DealAnalysisResult") -> Dict[str, Any]:
+def analyze_ledger_shape(results: "DealResults") -> Dict[str, Any]:
     """
     Analyze the shape and structure of a ledger for debugging.
     
@@ -30,7 +30,7 @@ def analyze_ledger_shape(results: "DealAnalysisResult") -> Dict[str, Any]:
     counts, timing, and flow characteristics to identify potential issues.
     
     Args:
-        results: DealAnalysisResult containing ledger data
+        results: DealResults containing ledger data
         
     Returns:
         Dict containing comprehensive ledger shape analysis
@@ -44,7 +44,7 @@ def analyze_ledger_shape(results: "DealAnalysisResult") -> Dict[str, Any]:
         ```
     """
     # Get ledger data
-    ledger_queries = results.asset_analysis.get_ledger_queries()
+    ledger_queries = results.queries
     ledger_df = ledger_queries.ledger
     
     analysis = {
@@ -62,7 +62,7 @@ def analyze_ledger_shape(results: "DealAnalysisResult") -> Dict[str, Any]:
     return analysis
 
 
-def compare_ledger_shapes(results1: "DealAnalysisResult", results2: "DealAnalysisResult") -> Dict[str, Any]:
+def compare_ledger_shapes(results1: "DealResults", results2: "DealResults") -> Dict[str, Any]:
     """
     Compare ledger shapes between two deal analysis results.
     
@@ -86,8 +86,8 @@ def compare_ledger_shapes(results1: "DealAnalysisResult", results2: "DealAnalysi
     shape1 = analyze_ledger_shape(results1)
     shape2 = analyze_ledger_shape(results2)
     
-    ledger1 = results1.asset_analysis.get_ledger_queries().ledger
-    ledger2 = results2.asset_analysis.get_ledger_queries().ledger
+    ledger1 = results1.ledger_df
+    ledger2 = results2.ledger_df
     
     comparison = {
         'shape1': shape1,

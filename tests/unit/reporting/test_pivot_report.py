@@ -166,5 +166,5 @@ class TestPivotTableReport:
         mock_results = MockResults()
 
         # BaseReport now has proper type checking (improvement!)
-        with pytest.raises(TypeError, match="BaseReport requires a DealAnalysisResult object"):
+        with pytest.raises(TypeError, match="BaseReport requires a DealResults object"):
             report = PivotTableReport(mock_results)

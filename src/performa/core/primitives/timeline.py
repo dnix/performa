@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import pandas as pd
 from pydantic import field_validator, model_validator
@@ -123,33 +123,46 @@ class Timeline(Model):
         """Generate a DatetimeIndex for the timeline (only for absolute timelines)."""
         return self.period_index.to_timestamp()
 
-    def align_series(self, series: pd.Series) -> pd.Series:
+    def align_series(self, series: pd.Series, fill_value: float = 0.0) -> pd.Series:
         """
         Align a series to this timeline's period index (only for absolute timelines).
 
-        Validates that the input series has a monthly PeriodIndex before aligning.
-        For DatetimeIndex, converts to monthly PeriodIndex first.
+        Enhanced with efficient pandas operations and configurable fill values.
+        Automatically converts datetime.date and DatetimeIndex to PeriodIndex before aligning.
 
         Args:
-            series: Series to align (must have monthly frequency)
+            series: Series to align (any date-like index)
+            fill_value: Value to use for missing periods (default: 0.0)
 
         Returns:
-            Series aligned to timeline's period index
+            Series aligned to timeline's period index with specified fill value
 
         Raises:
             ValueError: If series doesn't have appropriate monthly frequency
         """
         period_index = self.period_index  # Will raise ValueError if relative
 
-        # Handle DatetimeIndex by converting to PeriodIndex
-        if isinstance(series.index, pd.DatetimeIndex):
+        # Fast path for empty series
+        if series.empty:
+            return pd.Series(fill_value, index=period_index, name=series.name, dtype=float)
+
+        # Handle datetime.date index (most common case in our system)
+        if hasattr(series.index, '__getitem__') and len(series.index) > 0:
+            import datetime
+            if isinstance(series.index[0], datetime.date):
+                series = series.copy()
+                series.index = pd.PeriodIndex([pd.Period(d, 'M') for d in series.index], freq='M')
+
+        # Handle DatetimeIndex by converting to PeriodIndex (pandas built-in)
+        elif isinstance(series.index, pd.DatetimeIndex):
             series = series.copy()
             series.index = series.index.to_period(freq="M")
 
         # Validate monthly PeriodIndex
         validate_monthly_period_index(series, field_name="series to align")
 
-        return series.reindex(period_index)
+        # Use pandas reindex with fill_value for efficiency
+        return series.reindex(period_index, fill_value=fill_value)
 
     def resample(self, freq: str) -> pd.PeriodIndex:
         """Resample timeline to a different frequency (only for absolute timelines)."""
@@ -161,14 +174,17 @@ class Timeline(Model):
         start_date: Union[date, pd.Period],
         end_date: Union[date, pd.Period],
     ) -> "Timeline":
-        """Create an absolute timeline from start and end dates."""
+        """
+        Create an absolute timeline from start and end dates.
+        
+        Uses pandas built-in period arithmetic for more robust calculation.
+        """
         start_period = pd.Period(start_date, freq="M")
         end_period = pd.Period(end_date, freq="M")
-        duration = (
-            (end_period.year - start_period.year) * 12
-            + (end_period.month - start_period.month)
-            + 1
-        )
+        
+        # Use pandas period arithmetic - more robust than manual calculation
+        duration = len(pd.period_range(start=start_period, end=end_period, freq="M"))
+        
         return cls(start_date=start_period, duration_months=duration)
 
     @classmethod
@@ -241,3 +257,143 @@ class Timeline(Model):
 
         # Create new timeline from intersection
         return Timeline.from_dates(intersection[0], intersection[-1])
+
+    def align_multiple(self, series_dict: Dict[str, pd.Series], fill_value: float = 0.0) -> pd.DataFrame:
+        """
+        Efficiently align multiple series to this timeline in one operation.
+        
+        This is more efficient than calling align_series multiple times
+        when you have many series to align (common in DealResults).
+        
+        Args:
+            series_dict: Dictionary mapping column names to Series
+            fill_value: Value to use for missing periods (default: 0.0)
+            
+        Returns:
+            DataFrame with all series aligned to timeline's period index
+            
+        Example:
+            ```python
+            timeline = Timeline.from_dates('2024-01-01', '2025-12-31')
+            series_dict = {
+                'NOI': noi_series,
+                'CapEx': capex_series,
+                'Debt Service': debt_service_series
+            }
+            aligned_df = timeline.align_multiple(series_dict)
+            ```
+        """
+        period_index = self.period_index  # Will raise ValueError if relative
+        
+        # Fast path for empty input
+        if not series_dict:
+            return pd.DataFrame(index=period_index)
+        
+        # Use pandas concat for efficient alignment
+        aligned_series = {}
+        for name, series in series_dict.items():
+            aligned_series[name] = self.align_series(series, fill_value=fill_value)
+        
+        return pd.DataFrame(aligned_series, index=period_index)
+
+    @classmethod
+    def for_deal_analysis(
+        cls,
+        start_date: Union[date, pd.Period],
+        hold_period_years: Union[int, float],
+    ) -> "Timeline":
+        """
+        Create a timeline optimized for deal analysis.
+        
+        Convenience method that handles common deal analysis timeline patterns.
+        Uses month-end periods which are standard for real estate analysis.
+        
+        Args:
+            start_date: Deal analysis start date
+            hold_period_years: Hold period in years (can be fractional)
+            
+        Returns:
+            Timeline configured for deal analysis
+            
+        Example:
+            ```python
+            # 5-year hold starting January 2024
+            timeline = Timeline.for_deal_analysis('2024-01-01', 5.0)
+            
+            # 3.5-year hold for development deal  
+            timeline = Timeline.for_deal_analysis('2024-06-01', 3.5)
+            ```
+        """
+        start_period = pd.Period(start_date, freq="M")
+        duration_months = int(hold_period_years * 12)
+        
+        return cls(start_date=start_period, duration_months=duration_months)
+
+    @property
+    def years_duration(self) -> float:
+        """
+        Duration in years (fractional).
+        
+        Useful for annualized calculations and IRR computations.
+        
+        Returns:
+            Duration as fractional years (e.g., 2.5 for 30 months)
+        """
+        return self.duration_months / 12.0
+
+    def contains_period(self, period: Union[pd.Period, date]) -> bool:
+        """
+        Check if a specific period falls within this timeline.
+        
+        Args:
+            period: Period or date to check
+            
+        Returns:
+            True if period is within timeline bounds
+            
+        Example:
+            ```python
+            timeline = Timeline.from_dates('2024-01-01', '2024-12-31')
+            assert timeline.contains_period('2024-06-15')  # True
+            assert not timeline.contains_period('2025-01-01')  # False
+            ```
+        """
+        if self.is_relative:
+            raise ValueError("Cannot check period containment for relative timeline")
+            
+        period_to_check = pd.Period(period, freq="M")
+        return period_to_check in self.period_index
+
+
+# =============================================================================
+# FREQUENCY MAPPING UTILITIES
+# =============================================================================
+
+# Simple frequency mapping - works for all pandas operations
+# Note: Deprecation warnings for Y/Q/M in resample are red herrings 
+# (pandas team has no current plans to remove them)
+FREQUENCY_MAPPING = {
+    "A": "Y",   # Annual
+    "Q": "Q",   # Quarterly
+    "M": "M",   # Monthly
+}
+
+# Legacy alias (for backward compatibility)
+PANDAS_FREQUENCY_MAPPING = FREQUENCY_MAPPING
+
+
+def normalize_frequency(frequency: str) -> str:
+    """
+    Convert user-friendly frequency to pandas frequency alias.
+    
+    Args:
+        frequency: User-friendly frequency ('A', 'Q', 'M')
+        
+    Returns:
+        Pandas-compatible frequency string
+        
+    Note:
+        Uses Y/Q/M forms which work for both resample and period operations.
+        Resample operations may show deprecation warnings, but these are red herrings.
+    """
+    return FREQUENCY_MAPPING.get(frequency, frequency)

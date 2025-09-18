@@ -88,7 +88,7 @@ class TestStabilizedAcquisitionPattern:
         # Verify we get results
         assert results is not None
         assert results.deal_summary is not None
-        assert results.deal_summary.deal_name == deal.name
+        assert results.deal_summary["deal_name"] == deal.name
         assert results.asset_analysis is not None
         assert results.levered_cash_flows is not None
 

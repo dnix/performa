@@ -32,43 +32,115 @@ Example:
     ```
 """
 
-from typing import Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import Field, computed_field, field_validator
 
 from ..core.primitives import FloatBetween0And1, Model, PositiveFloat
 from .entities import Partner
 
+# =============================================================================
+# WATERFALL TIERS
+# =============================================================================
 
-class WaterfallTier(Model):
+
+class BaseWaterfallTier(Model):
     """
-    Represents a tier in a waterfall promote structure.
-
-    Each tier defines an IRR hurdle rate and the promote percentage
-    that GPs receive above that hurdle.
-
-    TODO: Add support for equity multiple hurdles in addition to IRR hurdles
-    Currently only IRR hurdles are supported, but industry practice also uses
-    equity multiple hurdles (e.g., 2.0x equity multiple hurdle). This would
-    require:
-    - Adding back `metric: Literal["IRR", "EM"]` field
-    - Updating waterfall algorithm to handle EM-based hurdles
-    - Adding validation for EM hurdle values (should be > 1.0)
-    - Testing both IRR and EM hurdle scenarios
-    See also: WaterfallPromote.all_tiers property for integration points
+    Abstract base class for waterfall tiers.
+    
+    All tier types (IRR, EM, etc.) share a promote rate but have different
+    hurdle metrics.
     """
-
-    tier_hurdle_rate: PositiveFloat = Field(
-        ..., description="IRR hurdle rate for this tier (e.g., 0.15 for 15%)"
-    )
+    
     promote_rate: FloatBetween0And1 = Field(
         ..., description="Percentage of distributions above hurdle going to GP"
     )
+    
+    class Config:
+        """Pydantic configuration."""
+        extra = "forbid"  # No extra fields allowed
 
 
-class WaterfallPromote(Model):
+class IRRWaterfallTier(BaseWaterfallTier):
     """
-    Multi-tier waterfall promote structure.
+    IRR-based waterfall tier.
+    
+    Defines an IRR hurdle rate and the promote percentage that GPs receive
+    above that hurdle.
+    """
+    
+    tier_hurdle_rate: PositiveFloat = Field(
+        ..., description="IRR hurdle rate for this tier (e.g., 0.15 for 15%)"
+    )
+
+
+class EMWaterfallTier(BaseWaterfallTier):
+    """
+    Equity Multiple-based waterfall tier.
+    
+    Defines an equity multiple hurdle and the promote percentage that GPs
+    receive above that hurdle.
+    """
+    
+    tier_hurdle_multiple: float = Field(
+        ..., 
+        ge=1.0,
+        description="Equity multiple hurdle for this tier (e.g., 1.5 for 1.5x)"
+    )
+    
+    @field_validator("tier_hurdle_multiple")
+    @classmethod
+    def validate_multiple(cls, v: float) -> float:
+        """Ensure equity multiple is at least 1.0x (return of capital)."""
+        if v < 1.0:
+            raise ValueError("Equity multiple hurdle must be at least 1.0x")
+        return v
+
+
+# Legacy alias for backward compatibility
+WaterfallTier = IRRWaterfallTier
+
+
+# =============================================================================
+# WATERFALL PROMOTE STRUCTURES
+# =============================================================================
+
+class BaseWaterfallPromote(Model):
+    """
+    Abstract base class for waterfall promote structures.
+    
+    All waterfall types share a final promote rate but differ in their
+    tier definitions and hurdle metrics.
+    """
+    
+    final_promote_rate: FloatBetween0And1 = Field(
+        ..., description="Promote rate for distributions above all tiers"
+    )
+    
+    @property
+    def promote_type(self) -> Literal["IRR", "EM", "Hybrid"]:
+        """Get the type of promote structure for polymorphic handling."""
+        if isinstance(self, IRRWaterfallPromote):
+            return "IRR"
+        elif isinstance(self, EMWaterfallPromote):
+            return "EM"
+        elif isinstance(self, HybridWaterfallPromote):
+            return "Hybrid"
+        else:
+            raise ValueError(f"Unknown promote type: {type(self).__name__}")
+    
+    @property
+    def all_tiers(self) -> tuple[List[tuple[float, float]], float]:
+        """
+        Get all tiers formatted for distribution calculation.
+        Must be implemented by subclasses.
+        """
+        raise NotImplementedError("Subclasses must implement all_tiers property")
+
+
+class IRRWaterfallPromote(BaseWaterfallPromote):
+    """
+    IRR-based multi-tier waterfall promote structure.
 
     This structure defines multiple IRR hurdles with different promote rates,
     allowing for sophisticated institutional-grade waterfall distributions.
@@ -77,16 +149,13 @@ class WaterfallPromote(Model):
     pref_hurdle_rate: PositiveFloat = Field(
         ..., description="Preferred return hurdle rate (e.g., 0.08 for 8%)"
     )
-    tiers: List[WaterfallTier] = Field(
+    tiers: List[IRRWaterfallTier] = Field(
         ..., description="List of promote tiers with increasing hurdle rates"
-    )
-    final_promote_rate: FloatBetween0And1 = Field(
-        ..., description="Promote rate for distributions above all tiers"
     )
 
     @field_validator("tiers")
     @classmethod
-    def validate_tier_ordering(cls, v: List[WaterfallTier]) -> List[WaterfallTier]:
+    def validate_tier_ordering(cls, v: List[IRRWaterfallTier]) -> List[IRRWaterfallTier]:
         """Validate that tiers are in ascending order of hurdle rates."""
         if len(v) > 1:
             hurdle_rates = [tier.tier_hurdle_rate for tier in v]
@@ -113,6 +182,125 @@ class WaterfallPromote(Model):
         return tier_list, self.final_promote_rate
 
 
+class EMWaterfallPromote(BaseWaterfallPromote):
+    """
+    Equity Multiple-based multi-tier waterfall promote structure.
+    
+    This structure uses equity multiple hurdles instead of IRR hurdles,
+    which is simpler to calculate and more predictable.
+    """
+    
+    return_of_capital_multiple: float = Field(
+        default=1.0,
+        ge=1.0, 
+        le=1.0,
+        description="Return of capital multiple (always 1.0x)"
+    )
+    tiers: List[EMWaterfallTier] = Field(
+        ..., description="List of promote tiers with increasing equity multiples"
+    )
+    
+    @field_validator("tiers")
+    @classmethod
+    def validate_tier_ordering(cls, v: List[EMWaterfallTier]) -> List[EMWaterfallTier]:
+        """Validate that tiers are in ascending order of equity multiples."""
+        if len(v) > 1:
+            multiples = [tier.tier_hurdle_multiple for tier in v]
+            if multiples != sorted(multiples):
+                raise ValueError(
+                    "Waterfall tiers must be in ascending order of equity multiples"
+                )
+            # Ensure all tiers are above 1.0x
+            if any(m <= 1.0 for m in multiples):
+                raise ValueError(
+                    "All tier multiples must be greater than 1.0x (return of capital)"
+                )
+        return v
+    
+    @property
+    def all_tiers(self) -> tuple[List[tuple[float, float]], float]:
+        """
+        Get all tiers formatted for distribution calculation.
+        
+        Returns:
+            Tuple of (tier_list, final_promote_rate) where tier_list contains
+            (equity_multiple, promote_rate) tuples in ascending order
+        """
+        sorted_tiers = sorted(self.tiers, key=lambda x: x.tier_hurdle_multiple)
+        tier_list = [
+            (1.0, 0.0)  # Return of capital with 0% promote
+        ]
+        tier_list.extend((t.tier_hurdle_multiple, t.promote_rate) for t in sorted_tiers)
+        return tier_list, self.final_promote_rate
+
+
+class HybridWaterfallPromote(BaseWaterfallPromote):
+    """
+    Hybrid waterfall that combines IRR and EM hurdles.
+    
+    Can apply either the more restrictive (min) or less restrictive (max)
+    of the two hurdle types at each tier.
+    """
+    
+    irr_waterfall: IRRWaterfallPromote = Field(
+        ..., description="IRR-based waterfall component"
+    )
+    em_waterfall: EMWaterfallPromote = Field(
+        ..., description="Equity multiple-based waterfall component"
+    )
+    logic: Literal["min", "max"] = Field(
+        default="min",
+        description="How to combine hurdles: 'min' = more restrictive, 'max' = less restrictive"
+    )
+    
+    @property
+    def all_tiers(self) -> tuple[List[tuple[float, float]], float]:
+        """
+        Returns a combined view of both waterfall structures.
+        
+        Note: This is primarily for compatibility. The distribution calculator
+        handles hybrid logic by calculating both waterfalls and applying the
+        min/max logic to determine which result to use.
+        
+        Returns:
+            IRR tiers as the primary structure since they're time-sensitive,
+            but the actual distribution uses both waterfalls.
+        """
+        # Return IRR tiers as the primary structure
+        # The distribution calculator will evaluate both waterfalls separately
+        return self.irr_waterfall.all_tiers
+    
+    @property
+    def hybrid_tiers(self) -> Dict[str, Any]:
+        """
+        Get complete tier information for hybrid waterfall.
+        
+        Returns:
+            Dictionary containing both IRR and EM tier structures:
+            {
+                "irr_tiers": (tier_list, final_promote_rate),
+                "em_tiers": (tier_list, final_promote_rate),
+                "logic": "min" or "max"
+            }
+        """
+        irr_tiers, irr_final = self.irr_waterfall.all_tiers
+        em_tiers, em_final = self.em_waterfall.all_tiers
+        
+        return {
+            "irr_tiers": (irr_tiers, irr_final),
+            "em_tiers": (em_tiers, em_final),
+            "logic": self.logic
+        }
+
+
+# NOTE: Backward compatibility alias
+WaterfallPromote = IRRWaterfallPromote
+
+
+# =============================================================================
+# CARRY PROMOTE STRUCTURE
+# =============================================================================
+
 class CarryPromote(Model):
     """
     Simple carry promote structure.
@@ -136,14 +324,18 @@ class CarryPromote(Model):
     def all_tiers(self) -> tuple[List[tuple[float, float]], float]:
         """
         Get all tiers formatted for distribution calculation.
+        
+        For carry promote:
+        - A single tier at the pref hurdle where carry kicks in
+        - Carry applies immediately at the preferred return hurdle
 
         Returns:
             Tuple of (tier_list, final_promote_rate) where tier_list contains
             (hurdle_rate, promote_rate) tuples
         """
         tier_list = [
-            (self.pref_hurdle_rate, 0.0)
-        ]  # Preferred return tier with 0% promote
+            (self.pref_hurdle_rate, self.promote_rate)
+        ]  # Carry kicks in at preferred return hurdle
         return tier_list, self.promote_rate
 
 
@@ -152,7 +344,13 @@ class CarryPromote(Model):
 
 
 # Union type for all promote structures
-PromoteStructure = Union[WaterfallPromote, CarryPromote]
+# Type alias for all supported promote structures
+PromoteStructure = Union[
+    IRRWaterfallPromote,
+    EMWaterfallPromote, 
+    HybridWaterfallPromote,
+    CarryPromote,
+]
 
 
 class PartnershipStructure(Model):

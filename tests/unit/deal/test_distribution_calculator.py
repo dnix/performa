@@ -8,7 +8,7 @@ This module tests the partnership distribution calculator logic.
 """
 
 from datetime import datetime
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import numpy as np
 import pandas as pd
@@ -418,7 +418,7 @@ class TestEdgeCases:
         # Should raise ValueError when no GP partners exist
         calculator = DistributionCalculator(partnership)
         with pytest.raises(
-            ValueError, match="Waterfall distribution requires at least one GP partner"
+            ValueError, match="Carry promote requires at least one GP partner"
         ):
             calculator.calculate_waterfall_distribution(cash_flows, timeline)
 
@@ -504,41 +504,6 @@ class TestEdgeCases:
         )
         assert result4 is not None
         assert "partner_distributions" in result4
-
-    def test_irr_calculation_exception_handling(self):
-        """Test IRR calculation with forced exception to cover exception handling."""
-        # Create partnership for waterfall testing
-        gp = Partner(name="GP", kind="GP", share=0.20)
-        lp = Partner(name="LP", kind="LP", share=0.80)
-        partnership = PartnershipStructure(
-            partners=[gp, lp],
-            distribution_method="waterfall",
-            promote=CarryPromote(pref_hurdle_rate=0.08, promote_rate=0.20),
-        )
-
-        # Create timeline
-        timeline = Timeline(start_date=datetime(2024, 1, 1), duration_months=3)
-
-        # Create normal cash flows that would normally work
-        normal_flows = pd.Series(
-            [-1000000, 500000, 600000], index=timeline.period_index
-        )
-
-        calculator = DistributionCalculator(partnership)
-
-        # Mock the xirr function to raise an exception
-        with patch(
-            "performa.deal.distribution_calculator.xirr",
-            side_effect=Exception("Forced IRR failure"),
-        ):
-            # This should complete without error even when XIRR throws an exception
-            result = calculator.calculate_waterfall_distribution(normal_flows, timeline)
-            assert result is not None
-            assert "partner_distributions" in result
-
-            # The calculation should still complete but IRR values might be None or 0
-            gp_results = result["partner_distributions"]["GP"]
-            assert gp_results is not None
 
     def test_zero_cash_flows(self):
         """Test handling of zero cash flows."""
@@ -646,8 +611,8 @@ class TestWaterfallDistributions:
         calculator = DistributionCalculator(partnership)
         results = calculator.calculate_distributions(cash_flows, timeline)
 
-        # Validate results structure
-        assert results["distribution_method"] == "waterfall"
+        # Validate results structure - CarryPromote returns 'carry_promote' method
+        assert results["distribution_method"] == "carry_promote"
         assert "partner_distributions" in results
         assert "total_metrics" in results
 
@@ -762,8 +727,8 @@ class TestWaterfallDistributions:
         assert gp_results["equity_multiple"] > 1.0
         assert lp_results["equity_multiple"] > 1.0
 
-        # Validate waterfall details
-        assert results["waterfall_details"]["promote_structure"] == "WaterfallPromote"
+        # Validate waterfall details - Now returns the new polymorphic class name
+        assert results["waterfall_details"]["promote_structure"] == "IRRWaterfallPromote"
         assert len(results["waterfall_details"]["tiers_used"]) == 3  # Pref + 2 tiers
         assert results["waterfall_details"]["final_promote_rate"] == 0.30
 
@@ -796,8 +761,8 @@ class TestWaterfallDistributions:
         calculator = DistributionCalculator(partnership)
         results = calculator.calculate_distributions(cash_flows, timeline)
 
-        # Validate results structure
-        assert results["distribution_method"] == "waterfall"
+        # Validate results structure - CarryPromote returns 'carry_promote' method
+        assert results["distribution_method"] == "carry_promote"
 
         # Validate total metrics
         total_metrics = results["total_metrics"]
@@ -897,8 +862,8 @@ class TestWaterfallDistributions:
         # Validate that all cash flows sum correctly
         assert gp_cash_flows.sum() + lp_cash_flows.sum() == cash_flows.sum()
 
-        # Validate waterfall details
-        assert results["waterfall_details"]["promote_structure"] == "WaterfallPromote"
+        # Validate waterfall details - Now returns the new polymorphic class name
+        assert results["waterfall_details"]["promote_structure"] == "IRRWaterfallPromote"
 
     def test_carry_vs_waterfall_promote_comparison(self):
         """Test comparing carry vs waterfall promote structures."""
@@ -979,11 +944,11 @@ class TestWaterfallDistributions:
             == waterfall_results["total_metrics"]["total_distributions"]
         )
 
-        # Validate promote structure types
+        # Validate promote structure types - using new polymorphic class names
         assert carry_results["waterfall_details"]["promote_structure"] == "CarryPromote"
         assert (
             waterfall_results["waterfall_details"]["promote_structure"]
-            == "WaterfallPromote"
+            == "IRRWaterfallPromote"
         )
 
     def test_waterfall_vs_pari_passu_comparison(self):
@@ -1083,8 +1048,8 @@ class TestWaterfallDistributions:
         calculator = DistributionCalculator(partnership)
         results = calculator.calculate_distributions(cash_flows, timeline)
 
-        # Validate that waterfall method is properly handled
-        assert results["distribution_method"] == "waterfall"
+        # Validate that waterfall method is properly handled - CarryPromote returns 'carry_promote'
+        assert results["distribution_method"] == "carry_promote"
         assert "partner_distributions" in results
         assert "total_metrics" in results
 

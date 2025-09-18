@@ -72,6 +72,11 @@ class DevelopmentPatternBase(PatternBase):
         le=0.85,
         description="Loan-to-cost ratio for construction financing",
     )
+    construction_ltc_max: FloatBetween0And1 = Field(
+        default=0.80,
+        le=0.85, 
+        description="Maximum LTC threshold - lender's covenant that cannot be exceeded",
+    )
     construction_interest_rate: FloatBetween0And1 = Field(
         default=0.065, description="Interest rate for construction loan"
     )

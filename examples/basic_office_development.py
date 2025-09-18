@@ -166,6 +166,7 @@ def main():
 
     # Comprehensive Deal Analysis
     print("\n📈 Running Comprehensive Deal Analysis...")
+    results = None  # Initialize results
     try:
         # Use pattern's own timeline for consistent analysis
         timeline = pattern._derive_timeline()
@@ -174,45 +175,42 @@ def main():
         results = analyze(deal, timeline, settings)
 
         print("✅ Deal Analysis Complete!")
-        print(f"   Deal IRR: {results.deal_metrics.irr:.2%}")
-        print(f"   Equity Multiple: {results.deal_metrics.equity_multiple:.2f}x")
-        print(
-            f"   Total Equity Invested: ${results.deal_metrics.total_equity_invested:,.0f}"
-        )
-        print(f"   Net Profit: ${results.deal_metrics.net_profit:,.0f}")
+        irr_str = f"{results.levered_irr:.2%}" if results.levered_irr is not None else "N/A"
+        em_str = f"{results.equity_multiple:.2f}x" if results.equity_multiple is not None else "N/A"
+        print(f"   Deal IRR: {irr_str}")
+        print(f"   Equity Multiple: {em_str}")
+        
+        # Calculate total equity invested from ledger
+        equity_contributions = results._queries.equity_contributions()
+        total_equity_invested = abs(equity_contributions.sum()) if not equity_contributions.empty else 0
+        print(f"   Total Equity Invested: ${total_equity_invested:,.0f}")
+        
+        print(f"   Net Profit: ${results.levered_cash_flow.sum():,.0f}")
 
         # Partnership Results
-        if (
-            results.partner_distributions
-            and results.partner_distributions.distribution_method == "waterfall"
-        ):
-            waterfall_details = results.partner_distributions.waterfall_details
+        if len(results.partners) > 1:
+            waterfall_details = results.partners
             print("\n👥 Partnership Results:")
-            for (
-                partner_name,
-                partner_result,
-            ) in waterfall_details.partner_results.items():
+            for partner_name, partner_metrics in waterfall_details.items():
                 print(f"   {partner_name}:")
                 print(
-                    f"     IRR: {partner_result.irr:.2%}"
-                    if partner_result.irr
+                    f"     IRR: {partner_metrics.irr:.2%}"
+                    if partner_metrics.irr
                     else "     IRR: N/A"
                 )
-                print(f"     Equity Multiple: {partner_result.equity_multiple:.2f}x")
-                print(f"     Total Return: ${partner_result.total_distributions:,.0f}")
+                print(f"     Equity Multiple: {partner_metrics.equity_multiple:.2f}x")
+                
+                # Calculate total distributions from cash flow
+                positive_flows = partner_metrics.cash_flow[partner_metrics.cash_flow > 0]
+                total_distributions = positive_flows.sum() if not positive_flows.empty else 0
+                print(f"     Total Return: ${total_distributions:,.0f}")
 
         # Financing Results
-        if results.financing_analysis and results.financing_analysis.dscr_summary:
+        if results.minimum_dscr is not None:
             print("\n💰 Financing Analysis:")
-            print(
-                f"   Minimum DSCR: {results.financing_analysis.dscr_summary.minimum_dscr:.2f}x"
-            )
-            print(
-                f"   Average DSCR: {results.financing_analysis.dscr_summary.average_dscr:.2f}x"
-            )
-            print(
-                f"   Number of Facilities: {len(results.financing_analysis.facilities)}"
-            )
+            print(f"   Minimum DSCR: {results.minimum_dscr:.2f}x")
+            if results.average_dscr is not None:
+                print(f"   Average DSCR: {results.average_dscr:.2f}x")
         else:
             print("\n💰 Financing Analysis: No DSCR data available")
 
@@ -254,6 +252,8 @@ def main():
     print("\n🎉 Complete development deal analysis working!")
     print("📋 All Deal components and reporting functionality demonstrated!")
     print("🚀 New fluent reporting interface (results.reporting.*) validated!")
+    
+    return results
 
 
 if __name__ == "__main__":

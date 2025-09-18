@@ -15,6 +15,7 @@ from performa.debt import (
 def test_create_construction_to_permanent_plan_happy_path():
     construction_terms = {
         "name": "Construction Loan",
+        "loan_term_months": 24,  # Add construction duration for smart timing
         "tranches": [
             {
                 "name": "Senior",
@@ -54,7 +55,10 @@ def test_create_construction_to_permanent_plan_happy_path():
 
 
 def test_create_construction_to_permanent_plan_requires_tranches():
-    construction_terms = {"name": "Construction Loan"}
+    construction_terms = {
+        "name": "Construction Loan", 
+        "loan_term_months": 18  # Add construction duration for smart timing
+    }
     permanent_terms = {
         "name": "Permanent Loan",
         "interest_rate": {"details": {"rate_type": "fixed", "rate": 0.065}},

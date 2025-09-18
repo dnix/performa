@@ -97,8 +97,8 @@ Each identified difference was traced to its root cause:
 ### 3. Validation Verification
 ```python
 # Confirm 0.0000% differences achieved
-assert abs(comp_results.deal_metrics.irr - pattern_results.deal_metrics.irr) < 0.000001
-assert abs(comp_results.deal_metrics.total_equity_invested - pattern_results.deal_metrics.total_equity_invested) < 1
+assert abs(comp_results.deal_metrics.get('levered_irr') - pattern_results.deal_metrics.get('levered_irr')) < 0.000001
+assert abs(comp_results.deal_metrics.get('total_investment') - pattern_results.deal_metrics.get('total_investment')) < 1
 ```
 
 This methodology ensures patterns are mathematically identical to composition.

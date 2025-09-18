@@ -221,15 +221,19 @@ class ValuationSettings(Model):
         default=None, description="Annual discount rate used for DCF analysis."
     )
     exit_valuation_method: Literal["cap_rate", "dcf_only", "none"] = Field(
-        default="cap_rate", description="Method for determining exit/terminal value."
+        default="none", description="Method for determining exit/terminal value."
     )
     exit_cap_rate: Optional[PositiveFloat] = Field(
         default=None, description="Cap rate applied to forward NOI for exit valuation."
     )
-    exit_cap_rate_basis_noi_year_offset: PositiveInt = Field(
-        default=1,
-        gt=0,
-        description="Offset from the final analysis year to determine NOI for cap rate application (e.g., 1 means Year N+1 NOI).",
+    refinancing_cap_rate: PositiveFloat = Field(
+        default=0.065, description="Cap rate for refinancing property valuations."
+    )
+    refinancing_noi_method: Literal["ltm", "ntm", "current"] = Field(
+        default="ltm", description="NOI calculation method for refinancing: ltm=trailing 12mo avg, ntm=forward 12mo, current=current period."
+    )
+    exit_noi_method: Literal["ltm", "ntm"] = Field(
+        default="ltm", description="NOI calculation method for exit valuation: ltm=trailing 12mo avg, ntm=forward-looking NOI."
     )
     costs_of_sale_percentage: FloatBetween0And1 = Field(
         default=0.03, description="Transaction costs as a percentage of exit value."

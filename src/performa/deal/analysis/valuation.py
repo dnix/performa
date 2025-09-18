@@ -27,11 +27,12 @@ Example:
     # Create valuation engine
     engine = ValuationEngine(deal, timeline, settings)
 
-    # Extract property values using intelligent estimation
-    property_values = engine.extract_property_value_series(unlevered_analysis)
-
-    # Calculate disposition proceeds with polymorphic dispatch
-    disposition_proceeds = engine.calculate_disposition_proceeds(unlevered_analysis)
+    # Process valuation with settings-driven assumptions
+    result = ValuationEngine.process(context)
+    
+    # Access computed values
+    property_values = result["property_value"]
+    disposition_proceeds = result["gross_proceeds"]
     ```
 
 Architecture:
@@ -45,24 +46,15 @@ Architecture:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
 
 import pandas as pd
 
-from performa.analysis import AnalysisContext
-from performa.core.ledger import Ledger
-
-if TYPE_CHECKING:
-    from performa.core.primitives import GlobalSettings, Timeline
-    from performa.deal.deal import Deal
-
-from performa.core.primitives import UnleveredAggregateLineKey
-from performa.deal.results import UnleveredAnalysisResult
+from .base import AnalysisSpecialist
 
 
 @dataclass
-class ValuationEngine:
+class ValuationEngine(AnalysisSpecialist):
     """
     Specialist service for handling property valuation calculations with polymorphic dispatch.
 
@@ -89,328 +81,170 @@ class ValuationEngine:
         ```python
         engine = ValuationEngine(deal, timeline, settings)
 
-        # Extract property values with intelligent estimation
-        property_values = engine.extract_property_value_series(unlevered_analysis)
+        # Process valuation with settings
+        result = ValuationEngine.process(context)
+        
+        # Access computed values
+        property_values = result["property_value"]
         print(f"Property value range: {property_values.min():.0f} - {property_values.max():.0f}")
 
-        # Extract NOI series with type-safe access
-        noi_series = engine.extract_noi_series(unlevered_analysis)
+        noi_series = result["noi_series"]
         print(f"Average NOI: {noi_series.mean():.0f}")
 
-        # Calculate disposition proceeds
-        disposition_proceeds = engine.calculate_disposition_proceeds(unlevered_analysis)
+        disposition_proceeds = result["gross_proceeds"]
         print(f"Total disposition proceeds: {disposition_proceeds.sum():.0f}")
         ```
     """
 
-    # Input parameters - injected dependencies
-    deal: Deal
-    timeline: Timeline
-    settings: GlobalSettings
+    # Fields inherited from AnalysisSpecialist base class:
+    # - context (DealContext)
+    # - deal, timeline, settings, ledger (via properties)
+    # - queries (LedgerQueries)
 
-    # Runtime state (populated during analysis) - internal caching
-    property_value_series: pd.Series = field(init=False, repr=False, default=None)
-    noi_series: pd.Series = field(init=False, repr=False, default=None)
-
-    def extract_property_value_series(
-        self, unlevered_analysis: UnleveredAnalysisResult
-    ) -> pd.Series:
+    def process(self) -> None:
         """
-        Extract property value time series using intelligent estimation with multiple fallback strategies.
+        Settings-driven valuation using ledger data.
+        Always run - provides data for debt and disposition.
 
-        Property values are typically not included in cash flow statements, so this method
-        implements a sophisticated estimation approach that prioritizes accuracy while
-        providing robust fallbacks for various data availability scenarios.
+        Updates context with refinancing and exit valuations for downstream passes.
+        """
+        # Query NOI directly from ledger - already have queries from base class
+        noi_series = self.queries.noi()
 
-        Estimation hierarchy:
-        1. **Direct extraction**: Look for value columns in cash flow data
-        2. **NOI-based valuation**: Calculate from NOI using market cap rates
-        3. **Cost-based appreciation**: Use acquisition cost with market appreciation
-        4. **Zero fallback**: Prevent downstream errors with zero values
+        # REFINANCING VALUATION: Conservative cap rate on stabilized NOI (for DebtAnalyzer)
+        refi_property_value = self._calculate_refi_property_value(noi_series)
 
+        # EXIT VALUATION: User-defined method or cap rate fallback (for DispositionAnalyzer)
+        exit_gross_proceeds = self._calculate_exit_gross_proceeds(noi_series)
+
+        # Ferry specific values to context for downstream passes
+        self.context.refi_property_value = refi_property_value  # ← For DebtAnalyzer LTV calculations
+        self.context.exit_gross_proceeds = exit_gross_proceeds  # ← For DispositionAnalyzer
+        self.context.noi_series = noi_series                   # ← For both analysts
+
+    # DELETED: extract_property_value_series() - Replaced by _calculate_property_value()
+    # This method extracted from asset_result which is no longer needed
+    # Use ValuationEngine.process() instead
+
+    # DELETED: extract_noi_series() - NOI now queried directly from ledger
+    # This method extracted from asset_result which is no longer needed
+    # Use ValuationEngine.process() instead
+
+    # DELETED: _extract_noi_from_ledger() - Redundant pre-refactor cruft
+    # Use self.queries.noi() directly in process() method instead
+    
+    # DELETED: calculate_disposition_proceeds() - Replaced by _calculate_disposition_proceeds()
+    # This method took unlevered_analysis which is no longer needed
+    # Use ValuationEngine.process() instead
+    
+    def _calculate_refi_property_value(self, noi_series: pd.Series) -> pd.Series:
+        """
+        Calculate property value for refinancing based on user-defined NOI methodology.
+        
+        This valuation is used by DebtAnalyzer for LTV calculations and loan sizing.
+        Supports LTM (trailing 12mo), NTM (forward-looking), or current period methods.
+        
         Args:
-            unlevered_analysis: Results from unlevered asset analysis containing cash flows
-                               and other operational metrics
-
+            noi_series: NOI from ledger (monthly)
+            
         Returns:
-            pd.Series containing property values over time, indexed by timeline periods.
-            Values represent estimated property values at each period.
-
-        Raises:
-            ValueError: If unlevered_analysis is None or contains invalid data
-
-        Example:
-            ```python
-            engine = ValuationEngine(deal, timeline, settings)
-            property_values = engine.extract_property_value_series(unlevered_analysis)
-
-            # Analyze value trends
-            print(f"Initial value: ${property_values.iloc[0]:,.0f}")
-            print(f"Final value: ${property_values.iloc[-1]:,.0f}")
-            print(f"Appreciation: {(property_values.iloc[-1] / property_values.iloc[0] - 1):.1%}")
-            ```
+            Property value time series for refinancing
         """
+        # Get refinancing settings
+        refi_cap_rate = self.context.settings.valuation.refinancing_cap_rate
+        noi_method = self.context.settings.valuation.refinancing_noi_method
+        
+        if noi_series.empty or noi_series.sum() <= 0:
+            return pd.Series(0.0, index=self.context.timeline.period_index)
+        
+        if refi_cap_rate <= 0:
+            return pd.Series(0.0, index=self.context.timeline.period_index)
+        
+        # Align NOI series with timeline
+        aligned_noi = self.context.timeline.align_series(noi_series, fill_value=0.0)
+        
+        # Calculate property values based on NOI methodology
+        property_values = []
+        
+        for i, period in enumerate(self.context.timeline.period_index):
+            if noi_method == "ltm":
+                # Trailing 12-month average (conservative, lender-friendly)
+                start_idx = max(0, i - 11)  # Look back 12 months (including current)
+                period_noi = aligned_noi.iloc[start_idx:i + 1].mean() if i > 0 else aligned_noi.iloc[i]
+            elif noi_method == "ntm":  
+                # Forward-looking 12-month average (optimistic)
+                end_idx = min(len(aligned_noi), i + 12)  # Look forward 12 months
+                period_noi = aligned_noi.iloc[i:end_idx].mean()
+            else:  # current
+                # Current period NOI (most volatile)
+                period_noi = aligned_noi.iloc[i]
+            
+            # Annualize and apply cap rate
+            annual_noi = period_noi * 12
+            property_value = annual_noi / refi_cap_rate
+            property_values.append(property_value)
+        
+        return pd.Series(property_values, index=self.context.timeline.period_index)
 
-        # Strategy 1: Direct extraction from cash flow data
-        # Check if cash flows contain any property value columns using explicit search
-        # This would be uncommon but some analyses might include asset value calculations
-        if unlevered_analysis.cash_flows is not None and hasattr(
-            unlevered_analysis.cash_flows, "columns"
-        ):
-            # Search for value-related columns in the actual data
-            value_columns = [
-                col
-                for col in unlevered_analysis.cash_flows.columns
-                if any(
-                    term in col.lower()
-                    for term in ["value", "asset_value", "property_value"]
-                )
-            ]
-            if value_columns:
-                # Use the first available value column
-                self.property_value_series = unlevered_analysis.cash_flows[
-                    value_columns[0]
-                ].reindex(self.timeline.period_index, method="ffill")
-                return self.property_value_series
+    # DELETED: _calculate_property_value() - Replaced by _calculate_refi_property_value()
+    # This method contained legacy logic with hidden defaults and complex fallbacks.
+    # The new approach separates refinancing (conservative) and exit (user-defined) valuations.
 
-        # Strategy 2: NOI-based valuation using market cap rates
-        # This is the primary approach for most institutional analyses
+    def _calculate_exit_gross_proceeds(self, noi_series: pd.Series) -> pd.Series:
+        """
+        Calculate gross disposition proceeds using exit_valuation.compute_cf() or cap rate fallback.
+        
+        This valuation is used by DispositionAnalyzer for exit cash flows.
+        Uses user-defined exit strategy with sophisticated fallback options.
+        
+        Args:
+            noi_series: NOI from ledger
+            
+        Returns:
+            Gross proceeds time series from exit strategy
+        """
+        gross_proceeds = pd.Series(0.0, index=self.context.timeline.period_index)
+        
+        if not self.context.deal.exit_valuation:
+            return gross_proceeds
+            
+        # Use exit_valuation.compute_cf() - all AnyValuation types have this method
         try:
-            # Use the type-safe NOI accessor for robust data extraction
-            noi_series = unlevered_analysis.get_series(
-                UnleveredAggregateLineKey.NET_OPERATING_INCOME, self.timeline
-            )
-
-            # Only proceed if we have meaningful NOI data
-            if not noi_series.empty and noi_series.sum() > 0:
-                # Determine appropriate cap rate for valuation
-                # Priority: exit valuation cap rate > default market rate
-                cap_rate = (
-                    0.065  # 6.5% default market cap rate (institutional standard)
-                )
-
-                if self.deal.exit_valuation and hasattr(
-                    self.deal.exit_valuation, "cap_rate"
-                ):
-                    cap_rate = self.deal.exit_valuation.cap_rate
-
-                # Calculate property value using direct capitalization: Value = NOI / Cap Rate
-                estimated_values = noi_series / cap_rate
-
-                # Forward fill to handle any zero NOI periods gracefully
-                # This ensures continuous valuation even during lease-up or renovation periods
-                self.property_value_series = estimated_values.reindex(
-                    self.timeline.period_index, method="ffill"
-                )
-                return self.property_value_series
-
-        except Exception:
-            # Continue to fallback approaches if NOI extraction fails
-            # This maintains robustness in the face of data issues
-            pass
-
-        # Strategy 3: Cost-based appreciation using acquisition cost
-        # This provides a reasonable baseline when operational data is unavailable
-        if self.deal.acquisition and hasattr(self.deal.acquisition, "acquisition_cost"):
-            base_value = self.deal.acquisition.acquisition_cost
-
-            # Use market appreciation rate (institutional standard: 2-4% annually)
-            appreciation_rate = 0.03  # 3% annual appreciation assumption
-
-            # Calculate escalated values over time
-            values = []
-            for i, period in enumerate(self.timeline.period_index):
-                years_elapsed = i / 12.0  # Convert periods to years
-                escalated_value = base_value * (1 + appreciation_rate) ** years_elapsed
-                values.append(escalated_value)
-
-            self.property_value_series = pd.Series(
-                values, index=self.timeline.period_index
-            )
-            return self.property_value_series
-
-        # Strategy 4: Ultimate fallback to prevent downstream errors
-        # Return zeros rather than failing, allowing analysis to continue
-        self.property_value_series = pd.Series(0.0, index=self.timeline.period_index)
-        return self.property_value_series
-
-    def extract_noi_series(
-        self,
-        unlevered_analysis: UnleveredAnalysisResult,
-    ) -> pd.Series:
-        """
-        Extract Net Operating Income time series using type-safe enum access.
-
-        This method implements the "Don't Ask, Tell" principle by using the new
-        get_series method for robust, enum-based data access that eliminates
-        brittle string matching and provides consistent data extraction.
-
-        The type-safe approach ensures that:
-        - Data access is consistent across different analysis scenarios
-        - Enum keys prevent typos and mismatches
-        - Future refactoring is safer with compile-time checking
-        - Error handling is centralized and consistent
-
-        Args:
-            unlevered_analysis: Results from unlevered asset analysis containing
-                               cash flows and operational metrics
-
-        Returns:
-            pd.Series containing NOI values over time, indexed by timeline periods.
-            Values represent net operating income for each period.
-
-        Example:
-            ```python
-            engine = ValuationEngine(deal, timeline, settings)
-            noi_series = engine.extract_noi_series(unlevered_analysis)
-
-            # Analyze NOI trends
-            print(f"Average NOI: ${noi_series.mean():,.0f}")
-            print(f"NOI growth: {(noi_series.iloc[-1] / noi_series.iloc[0] - 1):.1%}")
-            print(f"Stabilized NOI: ${noi_series.iloc[-12:].mean():,.0f}")  # Last 12 months
-            ```
-        """
-
-        # Use the new type-safe accessor method for robust data extraction
-        # This approach eliminates the brittle string matching that was used previously
-        self.noi_series = unlevered_analysis.get_series(
-            UnleveredAggregateLineKey.NET_OPERATING_INCOME, self.timeline
-        )
-        return self.noi_series
-
-    def _extract_noi_from_ledger(self, ledger: Ledger) -> pd.Series:
-        """
-        Extract NOI from ledger transactions.
-
-        This method queries the ledger for operating transactions and calculates
-        NOI by summing revenue and expense flows.
-
-        Args:
-            ledger: The ledger containing transactions
-
-        Returns:
-            pd.Series with NOI by period, or None if no data available
-        """
-        try:
-            current_ledger = ledger.ledger_df()
-
-            if current_ledger.empty:
-                return None
-
-            # Query for operating transactions (revenues and expenses)
-            operating_txns = current_ledger[
-                current_ledger["flow_purpose"] == "Operating"
-            ]
-
-            if operating_txns.empty:
-                return None
-
-            # Group by date and sum amounts (revenues positive, expenses negative)
-            noi_series = operating_txns.groupby("date")["amount"].sum()
-
-            # Reindex to full timeline
-            return noi_series.reindex(self.timeline.period_index, fill_value=0.0)
-
-        except Exception:
-            # Fall back to None if ledger extraction fails
-            return None
-
-    def calculate_disposition_proceeds(
-        self,
-        ledger: Ledger,
-        unlevered_analysis: UnleveredAnalysisResult = None,
-    ) -> pd.Series:
-        """
-        Calculate disposition proceeds using polymorphic dispatch across valuation models.
-
-        This method implements sophisticated polymorphic dispatch that works with any
-        valuation model that implements the compute_cf interface. It handles the complexity
-        of different valuation methodologies while providing a consistent interface.
-
-        Supported valuation models:
-        - ReversionValuation: Terminal value based on NOI and cap rates
-        - DCFValuation: Discounted cash flow with terminal value
-        - DirectCapValuation: Direct capitalization approach
-        - SalesCompValuation: Sales comparison methodology
-
-        The method also provides comprehensive context management, ensuring that
-        valuation models have access to all necessary data for accurate calculations.
-
-        Args:
-            ledger: The analysis ledger (Pass-the-Builder pattern).
-                           Must be the same instance used throughout the analysis.
-            unlevered_analysis: Results from unlevered asset analysis containing NOI data
-                               and other operational metrics (optional)
-
-        Returns:
-            pd.Series containing disposition proceeds aligned with timeline periods.
-            Values represent cash inflows from property disposition.
-
-        Example:
-            ```python
-            engine = ValuationEngine(deal, timeline, settings)
-            disposition_proceeds = engine.calculate_disposition_proceeds(unlevered_analysis)
-
-            # Analyze disposition
-            total_proceeds = disposition_proceeds.sum()
-            disposition_date = disposition_proceeds[disposition_proceeds > 0].index[0]
-            print(f"Disposition proceeds: ${total_proceeds:,.0f}")
-            print(f"Disposition date: {disposition_date}")
-            ```
-        """
-        # Initialize with zero proceeds across all periods
-        disposition_proceeds = pd.Series(0.0, index=self.timeline.period_index)
-
-        # Only proceed if deal has an exit valuation model
-        if self.deal.exit_valuation:
-            try:
-                # Step 1: Create analysis context for valuation model
-                # This provides the valuation model with all necessary data and configuration
-                # ledger is required parameter (Pass-the-Builder pattern)
-                context = AnalysisContext(
-                    timeline=self.timeline,
-                    settings=self.settings,
-                    property_data=self.deal.asset,
-                    ledger=ledger,
-                )
-
-                # Step 2: Populate context with unlevered analysis data
-                # This ensures valuation models have access to NOI and other operational data
-                if unlevered_analysis:
-                    context.unlevered_analysis = unlevered_analysis
-
-                    # CRITICAL: Set NOI series for ReversionValuation
-                    try:
-                        noi_series = unlevered_analysis.get_series(
-                            UnleveredAggregateLineKey.NET_OPERATING_INCOME,
-                            self.timeline,
-                        )
-                        context.noi_series = (
-                            noi_series  # ReversionValuation requires this!
-                        )
-                    except Exception as e:
-                        # Log but continue - some valuations may not need NOI
-                        logging.warning(f"Could not extract NOI for valuation: {e}")
-                        pass
-
-                # Step 3: Execute polymorphic dispatch
-                # Call compute_cf based on valuation type - works for any valuation model
-                # that implements the compute_cf interface
-                disposition_cf = self.deal.exit_valuation.compute_cf(context)
-
-                # Step 4: Align with timeline and ensure positive values
-                disposition_proceeds = disposition_cf.reindex(
-                    self.timeline.period_index, fill_value=0.0
-                )
-
-                # Disposition proceeds should be positive (cash inflow to equity)
-                disposition_proceeds = disposition_proceeds.abs()
-
-            except Exception as e:
-                # Robust error handling: log warning but continue with zeros
-                # This ensures that disposition errors don't break the entire analysis
-                logger = logging.getLogger(__name__)
-                logger.warning(f"Could not calculate disposition proceeds: {e}")
-                logger.debug("Disposition calculation stack trace:", exc_info=True)
-
-        return disposition_proceeds
+            exit_cf = self.context.deal.exit_valuation.compute_cf(self.context)
+            if exit_cf is not None and not exit_cf.empty and exit_cf.sum() > 0:
+                return exit_cf  # Use computed exit cash flows directly
+        except Exception as e:
+            # Log the exception for debugging (but continue to fallback)
+            logging.warning(f"Exit valuation compute_cf() failed: {e}")
+            pass  # Fall back to cap rate calculation
+                
+        # Fallback: Cap rate calculation using NOI
+        if noi_series.empty or noi_series.sum() <= 0:
+            return gross_proceeds
+            
+        exit_period = self.context.timeline.period_index[-1]
+        
+        # Calculate exit NOI using user-defined methodology (LTM or NTM)
+        noi_method = self.context.settings.valuation.exit_noi_method
+        
+        if noi_method == "ltm":
+            # Trailing 12-month average (conservative, industry standard)
+            # Smooths monthly volatility and reflects recent operational performance
+            if len(noi_series) >= 12:
+                exit_noi = noi_series.iloc[-12:].mean()
+            else:
+                exit_noi = noi_series.mean()  # Fallback for shorter series
+        else:  # ntm
+            # Forward-looking/current month NOI (optimistic for growth properties)
+            # Uses most recent month as basis for forward projections
+            exit_noi = noi_series.iloc[-1] if not noi_series.empty else 0.0
+            
+        # Get exit cap rate - fail fast if not available
+        exit_cap_rate = self.context.deal.exit_valuation.cap_rate
+        
+        if exit_cap_rate > 0 and exit_noi > 0:
+            # Convert monthly NOI to annual NOI for cap rate valuation
+            annual_noi = exit_noi * 12  # NOI series is monthly, need annual for cap rate
+            gross_proceeds[exit_period] = annual_noi / exit_cap_rate
+            
+        return gross_proceeds

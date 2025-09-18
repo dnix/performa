@@ -13,7 +13,7 @@ from performa.core.ledger import Ledger, LedgerGenerationSettings
 from performa.core.primitives import GlobalSettings, Timeline
 from performa.deal.deal import Deal
 from performa.deal.orchestrator import DealCalculator
-from performa.deal.results import DealAnalysisResult
+from performa.deal.results import DealResults
 
 if TYPE_CHECKING:
     from performa.analysis.results import AssetAnalysisResult
@@ -26,7 +26,7 @@ def analyze(
     settings: Optional[GlobalSettings] = None,
     asset_analysis: Optional["AssetAnalysisResult"] = None,
     ledger: Optional["Ledger"] = None,
-) -> DealAnalysisResult:
+) -> DealResults:
     """
     Analyze a complete real estate deal with strongly-typed results.
 
@@ -49,7 +49,7 @@ def analyze(
             This enables maximum flexibility for testing and complex workflows.
 
     Returns:
-        DealAnalysisResult containing strongly-typed analysis components:
+        DealResults containing strongly-typed analysis components:
         - deal_summary: Deal metadata and characteristics
         - unlevered_analysis: Asset-level analysis results
         - financing_analysis: Debt service and facility information

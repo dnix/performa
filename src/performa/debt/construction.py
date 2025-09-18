@@ -50,6 +50,10 @@ class ConstructionFacility(DebtFacilityBase):
     - Flexible draw scheduling (uniform or custom)
     - Interest-only payment structure during construction
     - Integration with ledger-based cash flow analysis
+    
+    Assumptions:
+    - Interest-only payments throughout construction term
+    - Future: milestone-based amortization after stabilization
 
     Example:
         # Simple construction loan
@@ -685,18 +689,35 @@ class ConstructionFacility(DebtFacilityBase):
             )
             context.ledger.add_series(proceeds_series, proceeds_metadata)
 
-        # Write debt service to ledger (negative outflows)
+        # Write disaggregated debt service to ledger for architectural consistency
         if not debt_service.empty and debt_service.sum() != 0:
-            service_metadata = SeriesMetadata(
+            # For construction loans (interest-only), write as separate I&P for consistency
+            # Interest payment = debt_service amount, Principal payment = $0
+            
+            # Record interest payment (actual cash expense)
+            interest_metadata = SeriesMetadata(
                 category=CashFlowCategoryEnum.FINANCING,
-                subcategory=FinancingSubcategoryEnum.DEBT_SERVICE,
-                item_name=f"{self.name} - Debt Service",
+                subcategory=FinancingSubcategoryEnum.INTEREST_PAYMENT,
+                item_name=f"{self.name} - Interest",
                 source_id=self.uid,
                 asset_id=context.deal.asset.uid,
                 pass_num=CalculationPhase.FINANCING.value,
             )
-            # Debt service is outflow (negative in ledger)
-            context.ledger.add_series(-debt_service, service_metadata)
+            # Interest payment is outflow (negative in ledger)
+            context.ledger.add_series(-debt_service, interest_metadata)
+            
+            # Record principal payment as $0 (interest-only assumption)
+            # TODO: Future enhancement - milestone-based amortization after construction/stabilization
+            zero_principal = pd.Series(0.0, index=debt_service.index)
+            principal_metadata = SeriesMetadata(
+                category=CashFlowCategoryEnum.FINANCING,
+                subcategory=FinancingSubcategoryEnum.PRINCIPAL_PAYMENT,
+                item_name=f"{self.name} - Principal",
+                source_id=self.uid,
+                asset_id=context.deal.asset.uid,
+                pass_num=CalculationPhase.FINANCING.value,
+            )
+            context.ledger.add_series(-zero_principal, principal_metadata)  # $0 outflow (current assumption)
 
         return debt_service
 

@@ -240,22 +240,19 @@ def create_deal_via_composition():
             "name": "Construction Facility",
             "ltc_ratio": 0.65,  # 65% LTC (matches pattern)
             "interest_rate": 0.060,  # 6.0% construction rate
-            "loan_term_months": 24,  # 24 months
-            # REMOVED: interest_reserve_rate (pattern has none)
-            # REMOVED: interest_calculation_method (pattern uses default SCHEDULED)
+            "loan_term_months": 20,  # 20 months (match Month 21 space availability)
         },
         permanent_terms={
             "name": "Permanent Facility", 
-            "loan_amount": 10_825_472.32,  # Permanent loan amount
-            "ltv_ratio": 0.65,  # 65% LTV (matches pattern)
+            "ltv_ratio": 0.65,  # 65% LTV - auto-sizing based on completed property value
+            "sizing_method": "auto",  # Enable sophisticated auto-sizing
             "interest_rate": 0.050,  # 5.0% permanent rate
-            "loan_term_months": 120,  # 10 years
-            "amortization_months": 360,  # 30 years amortization
+            "loan_term_years": 10,  # 10 years (use years form for construct)
+            "amortization_years": 30,  # 30 years amortization (use years form)
             "dscr_hurdle": 1.25,
             "origination_fee_rate": 0.005,
-            "refinance_timing": 21,  # 21 months refinancing timing
         },
-        project_value=11_654_573,  # Total project value excluding land
+        project_value=16_654_573,  # Total project value including land (match pattern)
     )
 
     # === STEP 10: PARTNERSHIP STRUCTURE ===
@@ -357,7 +354,7 @@ def demonstrate_pattern_interface():
             developer_fee_rate=0.0572,  # 5.72% developer fee
             # Construction timeline configuration
             construction_start_months=1,  # Start immediately after land acquisition
-            construction_duration_months=20,  # 20 months construction (faster)
+            construction_duration_months=20,  # 20 months construction (match composition Month 21)
             # Construction financing parameters
             construction_ltc_ratio=0.65,  # 65% loan-to-cost
             construction_interest_rate=0.060,  # 6.0% construction rate
@@ -440,8 +437,8 @@ def analyze_composition_deal(deal):
 
         print("✅ Analysis Complete!")
 
-        irr = results.deal_metrics.irr
-        em = results.deal_metrics.equity_multiple
+        irr = results.deal_metrics.get('levered_irr')
+        em = results.deal_metrics.get('equity_multiple')
 
         if irr is not None:
             print(f"   Deal IRR: {irr:.2%}")
@@ -453,13 +450,13 @@ def analyze_composition_deal(deal):
         else:
             print("   Equity Multiple: None")
 
-        if results.deal_metrics.total_equity_invested:
+        if results.deal_metrics.get('total_investment'):
             print(
-                f"   Total Equity Invested: ${results.deal_metrics.total_equity_invested:,.0f}"
+                f"   Total Equity Invested: ${results.deal_metrics.get('total_investment'):,.0f}"
             )
 
-        if results.deal_metrics.net_profit:
-            print(f"   Net Profit: ${results.deal_metrics.net_profit:,.0f}")
+        if results.deal_metrics.get('net_profit'):
+            print(f"   Net Profit: ${results.deal_metrics.get('net_profit'):,.0f}")
 
         # Partnership results
         if (
@@ -472,9 +469,9 @@ def analyze_composition_deal(deal):
                 partner_name,
                 partner_result,
             ) in waterfall_details.partner_results.items():
-                irr_str = f"{partner_result.irr:.2%}" if partner_result.irr else "N/A"
+                irr_str = f"{partner_result.get('irr'):.2%}" if partner_result.get('irr') else "N/A"
                 print(
-                    f"     {partner_name}: {irr_str} IRR, {partner_result.equity_multiple:.2f}x EM"
+                    f"     {partner_name}: {irr_str} IRR, {partner_result.get('equity_multiple'):.2f}x EM"
                 )
 
         # Financing results
@@ -539,32 +536,32 @@ def main():
 
             print("✅ Pattern Analysis Complete!")
             pattern_irr_str = (
-                f"{pattern_results.deal_metrics.irr:.2%}"
-                if pattern_results.deal_metrics.irr
+                f"{pattern_results.deal_metrics.get('levered_irr'):.2%}"
+                if pattern_results.deal_metrics.get('levered_irr')
                 else "N/A"
             )
             print(f"   Deal IRR: {pattern_irr_str}")
             print(
-                f"   Equity Multiple: {pattern_results.deal_metrics.equity_multiple:.2f}x"
+                f"   Equity Multiple: {pattern_results.deal_metrics.get('equity_multiple'):.2f}x"
             )
             print(
-                f"   Total Equity Invested: ${pattern_results.deal_metrics.total_equity_invested:,.0f}"
+                f"   Total Equity Invested: ${pattern_results.deal_metrics.get('total_investment'):,.0f}"
             )
-            print(f"   Net Profit: ${pattern_results.deal_metrics.net_profit:,.0f}")
+            print(f"   Net Profit: ${pattern_results.deal_metrics.get('net_profit'):,.0f}")
 
             # Compare results
             if composition_results:
                 irr_diff = abs(
-                    (composition_results.deal_metrics.irr or 0)
-                    - (pattern_results.deal_metrics.irr or 0)
+                    (composition_results.deal_metrics.get('levered_irr') or 0)
+                    - (pattern_results.deal_metrics.get('levered_irr') or 0)
                 )
                 em_diff = abs(
-                    composition_results.deal_metrics.equity_multiple
-                    - pattern_results.deal_metrics.equity_multiple
+                    composition_results.deal_metrics.get('equity_multiple')
+                    - pattern_results.deal_metrics.get('equity_multiple')
                 )
                 equity_diff = abs(
-                    composition_results.deal_metrics.total_equity_invested
-                    - pattern_results.deal_metrics.total_equity_invested
+                    composition_results.deal_metrics.get('total_investment')
+                    - pattern_results.deal_metrics.get('total_investment')
                 )
 
                 print(f"\n   EQUIVALENCE CHECK:")
@@ -712,9 +709,9 @@ def main():
             expected_equity_pattern = 6920011.156925966  # Pattern equity - exact parity
 
             # Assert composition results (100% exact parity - no tolerances needed)
-            comp_irr = composition_results.deal_metrics.irr or 0
-            comp_em = composition_results.deal_metrics.equity_multiple
-            comp_equity = composition_results.deal_metrics.total_equity_invested
+            comp_irr = composition_results.deal_metrics.get('levered_irr') or 0
+            comp_em = composition_results.deal_metrics.get('equity_multiple')
+            comp_equity = composition_results.deal_metrics.get('total_investment')
             
             # Validate composition results match expected values (100% mathematical parity within financial precision)
             assert abs(comp_irr - expected_irr) < 1e-6, f"Composition IRR {comp_irr} != expected {expected_irr}"
@@ -722,9 +719,9 @@ def main():
             assert abs(comp_equity - expected_equity_comp) < 1.0, f"Composition Equity ${comp_equity} != expected ${expected_equity_comp}"
 
             # Assert pattern results match composition exactly (100% mathematical parity)
-            pattern_irr = pattern_results.deal_metrics.irr or 0
-            pattern_em = pattern_results.deal_metrics.equity_multiple
-            pattern_equity = pattern_results.deal_metrics.total_equity_invested
+            pattern_irr = pattern_results.deal_metrics.get('levered_irr') or 0
+            pattern_em = pattern_results.deal_metrics.get('equity_multiple')
+            pattern_equity = pattern_results.deal_metrics.get('total_investment')
             
             # Pattern should match composition within financial calculation precision  
             assert abs(pattern_irr - comp_irr) < 1e-6, f"Pattern IRR {pattern_irr} != composition {comp_irr}"

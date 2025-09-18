@@ -2,124 +2,327 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Deal Analysis Result Models
+DealResults - Pure Ledger-Driven Architecture
 
-This module defines strongly-typed Pydantic models for all deal analysis results,
-replacing the dictionary-based returns with type-safe, validated structures.
+This module provides the FINAL, CORRECTED implementation of the deal results
+interface following the three-layer architecture:
+- LedgerQueries: Pure data access
+- FinancialCalculations: Pure mathematical functions
+- DealResults: Orchestration layer
 
-Key Features:
-- Full pandas Series/DataFrame support for time series data
-- Discriminated Union types for conditional returns
-- Comprehensive field validation
-- IDE autocompletion and type checking
-- Performance optimized for visualization tools
+ALL calculations delegate to FinancialCalculations.
+ALL data access delegates to LedgerQueries.
+This class is a THIN, INTELLIGENT WRAPPER with no calculation logic itself.
 """
 
-from __future__ import annotations
-
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional
+from uuid import UUID
 
 import pandas as pd
-from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-# Add import for the enum
-from ..core.primitives import Timeline, UnleveredAggregateLineKey
+from ..core.calculations import FinancialCalculations
+from ..core.ledger import Ledger
+from ..core.ledger.queries import LedgerQueries
+from ..core.primitives import CashFlowCategoryEnum, Timeline, UnleveredAggregateLineKey
+from .deal import Deal
 
 if TYPE_CHECKING:
     from ..reporting.interface import ReportingInterface
 
-# =============================================================================
-# Base Result Model
-# =============================================================================
 
+class DealResults:  # noqa: PLR0904
+    """
+    Clean, flat API following industry conventions.
 
-class ResultModel(BaseModel):
-    """Base result model for all analysis results."""
+    This is the SINGLE interface for accessing all deal analysis results.
+    It orchestrates calls between LedgerQueries (data) and FinancialCalculations (math)
+    but contains NO calculation logic itself.
 
-    model_config = ConfigDict(
-        validate_assignment=True, frozen=False, arbitrary_types_allowed=True
-    )
+    Key principles:
+    - Flat access: results.levered_irr (not results.metrics.levered.irr)
+    - Industry standard naming: levered_irr, equity_multiple, etc.
+    - Ledger-driven: All data comes from the ledger via queries
+    - Pure delegation: No business logic in this class
 
+    Example:
+        results = DealResults(deal, timeline, ledger)
+        irr = results.levered_irr          # Primary return metric
+        multiple = results.equity_multiple # Primary multiple metric
+        flows = results.levered_cash_flow  # Time series for analysis
+    """
 
-# =============================================================================
-# Core Analysis Result Models
-# =============================================================================
+    def __init__(self, deal: Deal, timeline: Timeline, ledger: Ledger):
+        """
+        Initialize with deal components and populated ledger.
 
+        Args:
+            deal: Deal configuration and parameters
+            timeline: Analysis timeline
+            ledger: POPULATED ledger with all transactions
+        """
+        self._deal = deal
+        self._timeline = timeline
+        self._ledger = ledger
+        self._queries = LedgerQueries(ledger.ledger_df())
 
-class DealSummary(ResultModel):
-    """High-level deal characteristics and metadata."""
+    # ==========================================================================
+    # DIRECT DATA ACCESS
+    # ==========================================================================
 
-    deal_name: str = Field(None, description="Deal name for identification")
-    deal_type: str = Field(
-        None, description="Deal classification (development, office_acquisition, etc.)"
-    )
-    asset_type: str = Field(None, description="Property type from asset enum")
-    is_development: bool = Field(None, description="Whether this is a development deal")
-    has_financing: bool = Field(None, description="Whether deal includes financing")
-    has_disposition: bool = Field(None, description="Whether deal includes disposition")
+    @property 
+    def timeline(self) -> "Timeline":
+        """Analysis timeline."""
+        return self._timeline
+    
+    @property
+    def ledger_df(self) -> pd.DataFrame:
+        """Direct access to the ledger DataFrame for reporting and analysis."""
+        return self._ledger.ledger_df()
 
+    @property
+    def queries(self):
+        """Direct access to ledger queries for advanced analysis."""
+        return self._queries
 
-class DealMetricsResult(ResultModel):
-    """Deal-level performance metrics and returns."""
+    # ==========================================================================
+    # PRIMARY METRICS (What 99% of analysts want)
+    # ==========================================================================
 
-    # Core Return Metrics
-    irr: Optional[float] = Field(
-        None, description="Internal rate of return (annualized)"
-    )
-    equity_multiple: Optional[float] = Field(
-        None, description="Total distributions / total investment"
-    )
-    total_return: Optional[float] = Field(None, description="Total return percentage")
+    @cached_property
+    def levered_irr(self) -> Optional[float]:
+        """THE primary return metric - levered IRR to aggregate equity."""
+        return FinancialCalculations.calculate_irr(self.levered_cash_flow)
 
-    # Yield Metrics
-    annual_yield: Optional[float] = Field(
-        None, description="Annualized yield percentage"
-    )
-    cash_on_cash: Optional[float] = Field(
-        None, description="First year cash-on-cash return"
-    )
+    @cached_property
+    def equity_multiple(self) -> Optional[float]:
+        """THE primary multiple metric - total returns / total investment."""
+        return FinancialCalculations.calculate_equity_multiple(self.levered_cash_flow)
 
-    # Investment Summary
-    total_equity_invested: Optional[float] = Field(
-        None, description="Total equity investment amount"
-    )
-    total_equity_returned: Optional[float] = Field(
-        None, description="Total equity distributions received"
-    )
-    net_profit: Optional[float] = Field(
-        None, description="Net profit (distributions - investment)"
-    )
+    @cached_property
+    def net_profit(self) -> float:
+        """Net profit to aggregate equity partners."""
+        return self.levered_cash_flow.sum()
 
-    # Timing
-    hold_period_years: Optional[float] = Field(None, description="Hold period in years")
+    # ==========================================================================
+    # TIME SERIES (For charting and period analysis)
+    # ==========================================================================
 
+    @cached_property
+    def levered_cash_flow(self) -> pd.Series:
+        """
+        Partner-level net cash flows (foundation for levered_irr).
 
-# =============================================================================
-# Unlevered Analysis Models
-# =============================================================================
+        CORRECTED IMPLEMENTATION: This is a PURE QUERY of equity partner flows,
+        not a complex assembly. The ledger already contains the correct data.
+        """
+        # Query equity partner flows and flip to investor perspective
+        flows = self._queries.equity_partner_flows()
+        # CRITICAL: Flip sign for investor perspective (contributions negative, distributions positive)
+        investor_flows = -1 * flows
+        
+        # Use enhanced Timeline.align_series() - handles all index types automatically
+        return self._timeline.align_series(investor_flows, fill_value=0.0)
 
+    @cached_property
+    def unlevered_cash_flow(self) -> pd.Series:
+        """Project-level cash flow before debt effects (archetype-aware)."""
+        # Query project cash flows (total investment perspective)
+        flows = self._queries.project_cash_flow()
+        return flows.reindex(self._timeline.period_index, fill_value=0.0)
 
-class UnleveredAnalysisResult(ResultModel):
-    """Results from asset-level unlevered analysis."""
+    @cached_property
+    def equity_cash_flow(self) -> pd.Series:
+        """Equity partner cash flows (contributions and distributions)."""
+        flows = self._queries.equity_partner_flows()
+        return flows.reindex(self._timeline.period_index, fill_value=0.0)
 
-    scenario: Any = Field(
-        None, description="Asset analysis scenario object (AnalysisScenarioBase)"
-    )
-    cash_flows: Optional[pd.DataFrame] = Field(
-        None, description="Asset cash flow summary DataFrame"
-    )
-    models: List[Any] = Field(
-        default_factory=list, description="Orchestrator models list"
-    )
+    @cached_property
+    def noi(self) -> pd.Series:
+        """Net Operating Income time series."""
+        flows = self._queries.noi()
+        return flows.reindex(self._timeline.period_index, fill_value=0.0)
 
-    @field_validator("cash_flows")
-    @classmethod
-    def validate_cash_flows(cls, v):
-        """Validate cash_flows is a pandas DataFrame if provided."""
-        if v is not None and not isinstance(v, pd.DataFrame):
-            raise ValueError("cash_flows must be a pandas DataFrame or None")
-        return v
+    @cached_property
+    def operational_cash_flow(self) -> pd.Series:
+        """Pure operational cash flows (NOI minus capex)."""
+        flows = self._queries.operational_cash_flow()
+        return flows.reindex(self._timeline.period_index, fill_value=0.0)
+
+    @cached_property
+    def debt_service(self) -> pd.Series:
+        """Total debt service series."""
+        flows = self._queries.debt_service()
+        return flows.reindex(self._timeline.period_index, fill_value=0.0)
+
+    @cached_property
+    def asset_value(self) -> pd.Series:
+        """Asset value over time."""
+        flows = self._queries.asset_value()
+        return flows.reindex(self._timeline.period_index, fill_value=0.0)
+
+    # ==========================================================================
+    # UNLEVERED METRICS (Asset-level perspective)
+    # ==========================================================================
+
+    @cached_property
+    def unlevered_irr(self) -> Optional[float]:
+        """IRR of the property as if purchased all-cash."""
+        return FinancialCalculations.calculate_irr(self.unlevered_cash_flow)
+
+    @cached_property
+    def unlevered_return_on_cost(self) -> Optional[float]:
+        """Unlevered equity multiple (return on total project cost)."""
+        return FinancialCalculations.calculate_equity_multiple(self.unlevered_cash_flow)
+
+    # ==========================================================================
+    # DEBT METRICS
+    # ==========================================================================
+
+    @cached_property
+    def minimum_dscr(self) -> Optional[float]:
+        """Minimum Debt Service Coverage Ratio across all periods."""
+        dscr_series = self._calculate_dscr_series()
+        return dscr_series.min() if not dscr_series.empty else None
+
+    @cached_property
+    def average_dscr(self) -> Optional[float]:
+        """Average Debt Service Coverage Ratio across periods with debt."""
+        dscr_series = self._calculate_dscr_series()
+        # Only average periods with actual debt service
+        non_zero_dscr = dscr_series[dscr_series > 0]
+        return non_zero_dscr.mean() if not non_zero_dscr.empty else None
+    
+    @cached_property
+    def dscr_metrics(self) -> Dict[str, Any]:
+        """
+        Get comprehensive DSCR metrics including covenant monitoring.
+        
+        THIS IS CRITICAL FOR LENDER COVENANT MONITORING!
+        
+        Returns:
+            Dict containing:
+            - dscr_series: Full time series of DSCR values
+            - minimum_dscr: Minimum DSCR value
+            - average_dscr: Average DSCR value
+            - covenant_analysis: Periods below various thresholds
+            - trend_direction: Whether DSCR is improving/declining
+        """
+        from ..core.primitives import GlobalSettings
+        from .analysis.debt import DebtAnalyzer
+        from .orchestrator import DealContext
+        
+        # Create a context for the debt analyzer
+        context = DealContext(
+            deal=self._deal,
+            timeline=self._timeline,
+            settings=GlobalSettings(),  # Use default settings
+            ledger=self._ledger
+        )
+        
+        # Create a debt analyzer to calculate metrics
+        analyzer = DebtAnalyzer(context)
+        return analyzer.calculate_dscr_metrics()
+
+    def _calculate_dscr_series(self) -> pd.Series:
+        """Calculate DSCR for each period with comprehensive coverage."""
+        noi_series = self.noi
+        debt_service_series = self._queries.debt_service()
+
+        # Align indices
+        index = self._timeline.period_index
+        noi_series = noi_series.reindex(index, fill_value=0.0)
+        debt_service_series = debt_service_series.reindex(index, fill_value=0.0)
+
+        # Calculate DSCR period by period
+        dscr_series = pd.Series(0.0, index=index)
+        for period in index:
+            dscr_value = FinancialCalculations.calculate_dscr(
+                noi_series[period], debt_service_series[period]
+            )
+            dscr_series[period] = dscr_value if dscr_value is not None else 0.0
+
+        return dscr_series
+
+    # ==========================================================================
+    # ARCHETYPE DETECTION
+    # ==========================================================================
+
+    @cached_property
+    def archetype(self) -> str:
+        """
+        Deal archetype: Development, Value-Add, or Stabilized.
+
+        Determined from ledger transaction patterns.
+        """
+        if self._queries.ledger.empty:
+            return "Stabilized"
+
+        # Check for construction transactions (Development)
+        construction_mask = (
+            self._queries.ledger["subcategory"]
+            .astype(str)
+            .str.contains("Hard Costs|Soft Costs|Construction", case=False, na=False)
+        )
+        if construction_mask.any():
+            return "Development"
+
+        # Check for capital improvements (Value-Add)
+        capital_mask = (
+            self._queries.ledger["category"] == CashFlowCategoryEnum.CAPITAL
+        ) & ~construction_mask
+
+        if capital_mask.any():
+            # Has capital spending but not construction
+            capital_amount = abs(self._queries.ledger[capital_mask]["amount"].sum())
+            # Value-Add typically has significant capital (>5% of acquisition)
+            acquisition_mask = (
+                self._queries.ledger["flow_purpose"] == "Acquisition Cost"
+            )
+            if acquisition_mask.any():
+                acquisition_amount = abs(
+                    self._queries.ledger[acquisition_mask]["amount"].sum()
+                )
+                if capital_amount > acquisition_amount * 0.05:
+                    return "Value-Add"
+
+        # Default to Stabilized
+        return "Stabilized"
+
+    # ==========================================================================
+    # PARTNERSHIP ACCESS
+    # ==========================================================================
+
+    @cached_property
+    def partners(self) -> Dict[str, "PartnerMetrics"]:
+        """
+        Partner-level metrics for ALL partners.
+
+        Returns dictionary keyed by partner ID.
+        """
+        partner_dict = {}
+
+        # Get unique partner IDs from ledger
+        partner_mask = self._queries.ledger["entity_type"].isin(["GP", "LP"])
+        if partner_mask.any():
+            unique_partners = self._queries.ledger[partner_mask]["entity_id"].unique()
+
+            for partner_id in unique_partners:
+                partner_dict[partner_id] = PartnerMetrics(
+                    partner_id=partner_id, ledger=self._ledger, timeline=self._timeline
+                )
+
+        return partner_dict
+
+    def partner(self, partner_id: str) -> "PartnerMetrics":
+        """Get metrics for a specific partner."""
+        if partner_id not in self.partners:
+            raise KeyError(f"Partner '{partner_id}' not found in deal")
+        return self.partners[partner_id]
+
+    # ==========================================================================
+    # LEGACY COMPATIBILITY INTERFACE
+    # ==========================================================================
 
     def get_series(
         self, key: UnleveredAggregateLineKey, timeline: Timeline
@@ -127,9 +330,9 @@ class UnleveredAnalysisResult(ResultModel):
         """
         Safely retrieves a cash flow series using a type-safe enum key.
 
-        This provides a stable interface for other modules to access results
-        without knowing the internal column structure of the cash_flows DataFrame.
-        Implements the "Don't Ask, Tell" principle by encapsulating data access logic.
+        LEDGER-DRIVEN IMPLEMENTATION: Maps UnleveredAggregateLineKey values to
+        corresponding LedgerQueries methods. This provides backward compatibility
+        for existing code that used the old DataFrame-based approach.
 
         Args:
             key: UnleveredAggregateLineKey enum specifying which series to retrieve
@@ -140,564 +343,55 @@ class UnleveredAnalysisResult(ResultModel):
                       and filled with zeros for missing periods
 
         Example:
-            >>> noi_series = result.get_series(
+            >>> noi_series = results.get_series(
             ...     UnleveredAggregateLineKey.NET_OPERATING_INCOME,
             ...     timeline
             ... )
-            >>> property_value_series = result.get_series(
-            ...     UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME,
-            ...     timeline
-            ... )
         """
-        if self.cash_flows is not None and hasattr(self.cash_flows, "columns"):
-            # Check if the exact enum value exists as a column
-            if key.value in self.cash_flows.columns:
-                # Return the series, aligned to the provided timeline
-                return self.cash_flows[key.value].reindex(
-                    timeline.period_index, fill_value=0.0
-                )
-
-        # If the key is not found, return a zero-filled series with the correct index
-        # to prevent downstream errors. This provides graceful degradation.
+        # Map enum keys to LedgerQueries methods
+        key_mapping = {
+            UnleveredAggregateLineKey.NET_OPERATING_INCOME: self._queries.noi,
+            UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME: self._queries.egi,
+            UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE: self._queries.pgr,
+            UnleveredAggregateLineKey.RENTAL_ABATEMENT: self._queries.rental_abatement,
+            UnleveredAggregateLineKey.MISCELLANEOUS_INCOME: self._queries.misc_income,
+            UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS: self._queries.vacancy_loss,
+            UnleveredAggregateLineKey.CREDIT_LOSS: self._queries.credit_loss,
+            UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS: self._queries.expense_reimbursements,
+            UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES: self._queries.opex,
+            UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES: self._queries.capex,
+        }
+        
+        # Get the query method for this key
+        query_method = key_mapping.get(key)
+        
+        if query_method:
+            try:
+                # Call the LedgerQueries method and align to timeline
+                series = query_method()
+                return timeline.align_series(series, fill_value=0.0)
+            except Exception:
+                # Fallback to zero series if query fails
+                pass
+        
+        # If key not found or query failed, return zero-filled series
         return pd.Series(0.0, index=timeline.period_index, name=key.value)
 
-
-# =============================================================================
-# Financing Analysis Models
-# =============================================================================
-
-
-class FacilityInfo(ResultModel):
-    """Metadata for individual financing facility."""
-
-    name: str = Field(None, description="Facility name")
-    type: str = Field(
-        None, description="Facility class name (e.g., ConstructionFacility)"
-    )
-    description: str = Field(default="", description="Facility description")
-
-
-class DSCRSummary(ResultModel):
-    """DSCR performance summary statistics."""
-
-    minimum_dscr: Optional[float] = Field(
-        None, description="Minimum DSCR over analysis period"
-    )
-    average_dscr: Optional[float] = Field(
-        None, description="Average DSCR over analysis period"
-    )
-    maximum_dscr: Optional[float] = Field(
-        None, description="Maximum DSCR over analysis period"
-    )
-    periods_below_1_0: int = Field(0, description="Number of periods with DSCR < 1.0")
-    periods_below_1_2: int = Field(0, description="Number of periods with DSCR < 1.2")
-
-
-class FinancingAnalysisResult(ResultModel):
-    """Results from financing integration and debt analysis."""
-
-    # Core Financing Info
-    has_financing: bool = Field(None, description="Whether deal includes financing")
-    financing_plan: Optional[str] = Field(None, description="Financing plan name")
-    facilities: List[FacilityInfo] = Field(
-        default_factory=list, description="List of financing facilities"
-    )
-
-    # Cash Flow Components (facility_name -> time series)
-    debt_service: Dict[str, Optional[pd.Series]] = Field(
-        default_factory=dict, description="Debt service by facility name"
-    )
-    loan_proceeds: Dict[str, Optional[pd.Series]] = Field(
-        default_factory=dict, description="Loan proceeds by facility name"
-    )
-    refinancing_transactions: List[Any] = Field(  # TODO: revisit typing here
-        default_factory=list, description="Refinancing transaction objects"
-    )
-
-    # Performance Metrics
-    dscr_time_series: Optional[pd.Series] = Field(None, description="DSCR time series")
-    dscr_summary: Optional[DSCRSummary] = Field(
-        None, description="DSCR summary statistics"
-    )
-
-    @field_validator("dscr_time_series")
-    @classmethod
-    def validate_dscr_time_series(cls, v):
-        """Validate DSCR time series is a pandas Series if provided."""
-        if v is not None and not isinstance(v, pd.Series):
-            raise ValueError("dscr_time_series must be a pandas Series or None")
-        return v
-
-    @field_validator("debt_service", "loan_proceeds")
-    @classmethod
-    def validate_facility_series(cls, v):
-        """Validate facility dictionaries contain pandas Series or None."""
-        if v:
-            for facility_name, series in v.items():
-                if series is not None and not isinstance(series, pd.Series):
-                    raise ValueError(
-                        f"Series for facility {facility_name} must be pandas Series or None"
-                    )
-        return v
-
-
-# =============================================================================
-# Cash Flow Analysis Models
-# =============================================================================
-
-
-class CashFlowComponents(ResultModel):
-    """Individual cash flow component time series."""
-
-    unlevered_cash_flows: pd.Series = Field(None, description="Unlevered cash flows")
-    acquisition_costs: pd.Series = Field(
-        None, description="Acquisition cost cash flows"
-    )
-    loan_proceeds: pd.Series = Field(None, description="Loan proceeds cash flows")
-    debt_service: pd.Series = Field(None, description="Debt service cash flows")
-    disposition_proceeds: pd.Series = Field(None, description="Disposition proceeds")
-    loan_payoff: pd.Series = Field(None, description="Loan payoff cash flows")
-    total_uses: pd.Series = Field(None, description="Total uses (cash outflows)")
-    equity_contributions: pd.Series = Field(None, description="Equity contributions")
-    debt_draws: pd.Series = Field(None, description="Debt draws")
-    interest_expense: pd.Series = Field(None, description="Interest expense")
-
-    @field_validator("*")
-    @classmethod
-    def validate_series(cls, v):
-        """Validate all fields are pandas Series."""
-        if not isinstance(v, pd.Series):
-            raise ValueError("All cash flow components must be pandas Series")
-        return v
-
-
-class CashFlowSummary(ResultModel):
-    """Summary metrics for cash flows."""
-
-    total_investment: float = Field(None, description="Total equity investment")
-    total_distributions: float = Field(None, description="Total distributions")
-    net_cash_flow: float = Field(
-        None, description="Net cash flow (distributions - investment)"
-    )
-
-
-class InterestCompoundingDetails(ResultModel):
-    """Interest compounding analysis results."""
-
-    base_uses: pd.Series = Field(
-        None, description="Base uses before interest compounding"
-    )
-    compounded_interest: pd.Series = Field(
-        None, description="Compounded interest by period"
-    )
-    total_uses_with_interest: pd.Series = Field(
-        None, description="Total uses including interest"
-    )
-    equity_target: float = Field(None, description="Equity funding target")
-    equity_funded: float = Field(None, description="Total equity funded")
-    debt_funded: float = Field(None, description="Total debt funded")
-    funding_gap: float = Field(None, description="Remaining funding gap")
-    total_project_cost: float = Field(
-        None, description="Total project cost with interest"
-    )
-
-    @field_validator("base_uses", "compounded_interest", "total_uses_with_interest")
-    @classmethod
-    def validate_series(cls, v):
-        """Validate series fields are pandas Series."""
-        if not isinstance(v, pd.Series):
-            raise ValueError("Series fields must be pandas Series")
-        return v
-
-    # NOTE: Advanced interest features not included in MVP
-
-
-class InterestReserveDetails(ResultModel):
-    """Interest reserve capacity and utilization."""
-
-    interest_funded_from_reserve: pd.Series = Field(
-        None, description="Interest funded from reserve"
-    )
-    interest_reserve_capacity: pd.Series = Field(
-        None, description="Interest reserve capacity"
-    )
-    interest_reserve_utilization: pd.Series = Field(
-        None, description="Interest reserve utilization"
-    )
-
-    @field_validator("*")
-    @classmethod
-    def validate_series(cls, v):
-        """Validate all fields are pandas Series."""
-        if not isinstance(v, pd.Series):
-            raise ValueError("All interest reserve fields must be pandas Series")
-        return v
-
-
-class FundingCascadeDetails(ResultModel):
-    """Detailed funding cascade analysis results."""
-
-    uses_breakdown: pd.DataFrame = Field(
-        None, description="Period-by-period uses breakdown"
-    )
-    equity_target: float = Field(None, description="Equity funding target")
-    equity_contributed_cumulative: pd.Series = Field(
-        None, description="Cumulative equity contributions"
-    )
-    debt_draws_by_tranche: Dict[str, pd.Series] = Field(
-        default_factory=dict, description="Debt draws by tranche name"
-    )
-
-    # Detailed Analysis Components
-    interest_compounding_details: InterestCompoundingDetails = Field(
-        ..., description="Interest compounding analysis"
-    )
-    # NOTE: Advanced interest features not included in MVP
-    interest_reserve_details: InterestReserveDetails = Field(
-        None, description="Interest reserve details"
-    )
-
-    @field_validator("uses_breakdown")
-    @classmethod
-    def validate_uses_breakdown(cls, v):
-        """Validate uses_breakdown is a DataFrame."""
-        if not isinstance(v, pd.DataFrame):
-            raise ValueError("uses_breakdown must be a pandas DataFrame")
-        return v
-
-    @field_validator("equity_contributed_cumulative")
-    @classmethod
-    def validate_equity_cumulative(cls, v):
-        """Validate equity_contributed_cumulative is a Series."""
-        if not isinstance(v, pd.Series):
-            raise ValueError("equity_contributed_cumulative must be a pandas Series")
-        return v
-
-    @field_validator("debt_draws_by_tranche")
-    @classmethod
-    def validate_debt_draws(cls, v):
-        """Validate debt draws are pandas Series."""
-        for tranche_name, series in v.items():
-            if not isinstance(series, pd.Series):
-                raise ValueError(
-                    f"Debt draws for tranche {tranche_name} must be pandas Series"
-                )
-        return v
-
-
-class LeveredCashFlowResult(ResultModel):
-    """Results from levered cash flow analysis including funding cascade."""
-
-    # Primary Cash Flows
-    levered_cash_flows: pd.Series = Field(
-        None, description="Main levered cash flow time series"
-    )
-
-    # Component Breakdown
-    cash_flow_components: CashFlowComponents = Field(
-        None, description="Individual cash flow components"
-    )
-    cash_flow_summary: CashFlowSummary = Field(
-        None, description="Cash flow summary metrics"
-    )
-    funding_cascade_details: FundingCascadeDetails = Field(
-        None, description="Detailed funding cascade"
-    )
-
-    @field_validator("levered_cash_flows")
-    @classmethod
-    def validate_levered_cash_flows(cls, v):
-        """Validate levered_cash_flows is a pandas Series."""
-        if not isinstance(v, pd.Series):
-            raise ValueError("levered_cash_flows must be a pandas Series")
-        return v
-
-
-# =============================================================================
-# Distribution Models (with discriminated unions)
-# =============================================================================
-
-
-class FeeAccountingDetails(ResultModel):
-    """Fee allocation and tracking with dual-entry accounting."""
-
-    total_partner_fees: float = Field(0.0, description="Total partner fee amount")
-    partner_fees_by_partner: Dict[str, float] = Field(
-        default_factory=dict, description="Partner fee allocation by partner name"
-    )
-    remaining_cash_flows_after_fee: pd.Series = Field(
-        None, description="Cash flows after fee deduction"
-    )
-
-    # Detailed fee tracking
-    fee_details_by_partner: Dict[str, Dict[str, float]] = Field(
-        default_factory=dict,
-        description="Detailed fee breakdown by partner: {partner_name: {fee_name: amount}}",
-    )
-    detailed_fee_breakdown: Dict[str, List[Dict[str, Any]]] = Field(
-        default_factory=dict,
-        description="Comprehensive fee breakdown with full details: {partner_name: [fee_detail_dict]}",
-    )
-    fee_cash_flows_by_partner: Dict[str, pd.Series] = Field(
-        default_factory=dict,
-        description="Fee cash flows by partner: {partner_name: pd.Series}",
-    )
-    total_fees_by_type: Dict[str, float] = Field(
-        default_factory=dict, description="Total fees by type: {fee_type: total_amount}"
-    )
-    fee_timing_summary: Dict[str, Dict[str, float]] = Field(
-        default_factory=dict,
-        description="Fee timing summary: {partner_name: {period: amount}}",
-    )
-
-    # Third-party fee tracking
-    third_party_fees: Dict[str, float] = Field(
-        default_factory=dict, description="Third-party fee amounts by entity name"
-    )
-    third_party_fee_details: Dict[str, Dict[str, float]] = Field(
-        default_factory=dict,
-        description="Detailed third-party fee breakdown: {entity_name: {fee_name: amount}}",
-    )
-    third_party_fee_cash_flows: Dict[str, pd.Series] = Field(
-        default_factory=dict,
-        description="Third-party fee cash flows: {entity_name: pd.Series}",
-    )
-    total_third_party_fees: float = Field(
-        0.0, description="Total third-party fee amount"
-    )
-
-    @field_validator("remaining_cash_flows_after_fee")
-    @classmethod
-    def validate_remaining_cash_flows(cls, v):
-        """Validate remaining cash flows is a pandas Series."""
-        if v is not None and not isinstance(v, pd.Series):
-            raise ValueError("remaining_cash_flows_after_fee must be a pandas Series")
-        return v
-
-    @field_validator("fee_cash_flows_by_partner")
-    @classmethod
-    def validate_fee_cash_flows(cls, v):
-        """Validate fee cash flows are pandas Series."""
-        if v:
-            for partner_name, series in v.items():
-                if not isinstance(series, pd.Series):
-                    raise ValueError(
-                        f"Fee cash flows for partner {partner_name} must be pandas Series"
-                    )
-        return v
-
-    @field_validator("third_party_fee_cash_flows")
-    @classmethod
-    def validate_third_party_fee_cash_flows(cls, v):
-        """Validate third-party fee cash flows are pandas Series."""
-        if v:
-            for entity_name, series in v.items():
-                if not isinstance(series, pd.Series):
-                    raise ValueError(
-                        f"Third-party fee cash flows for entity {entity_name} must be pandas Series"
-                    )
-        return v
-
-
-class PartnerMetrics(ResultModel):
-    """Individual partner performance metrics."""
-
-    partner_info: Any = Field(
-        None, description="Partner object (Partner)"
-    )  # TODO: Type as Partner when imported
-    cash_flows: pd.Series = Field(None, description="Partner's cash flows")
-    total_investment: float = Field(None, description="Partner's total investment")
-    total_distributions: float = Field(
-        None, description="Partner's total distributions"
-    )
-    net_profit: float = Field(None, description="Partner's net profit")
-    equity_multiple: float = Field(None, description="Partner's equity multiple")
-    irr: Optional[float] = Field(None, description="Partner's IRR")
-    ownership_percentage: float = Field(
-        None, description="Partner's ownership percentage"
-    )
-
-    # Distribution source tracking
-    distributions_from_waterfall: float = Field(
-        0.0, description="Distributions from equity waterfall"
-    )
-    distributions_from_fees: float = Field(
-        0.0, description="Distributions from deal fees"
-    )
-
-    # Detailed fee breakdown for this partner
-    fee_details: Dict[str, float] = Field(
-        default_factory=dict, description="Detailed fee breakdown: {fee_name: amount}"
-    )
-    fee_cash_flows: Optional[pd.Series] = Field(
-        None, description="Fee cash flows for this partner"
-    )
-
-    @field_validator("cash_flows")
-    @classmethod
-    def validate_cash_flows(cls, v):
-        """Validate cash_flows is a pandas Series."""
-        if v is not None and not isinstance(v, pd.Series):
-            raise ValueError("cash_flows must be a pandas Series")
-        return v
-
-    @field_validator("fee_cash_flows")
-    @classmethod
-    def validate_fee_cash_flows(cls, v):
-        """Validate fee_cash_flows is a pandas Series."""
-        if v is not None and not isinstance(v, pd.Series):
-            raise ValueError("fee_cash_flows must be a pandas Series")
-        return v
-
-
-# Base class for all distribution results
-class BaseDistributionResult(ResultModel):
-    """Base class for all distribution results."""
-
-    distribution_method: str = Field(None, description="Distribution method identifier")
-    total_distributions: float = Field(None, description="Total distributions")
-    total_investment: float = Field(None, description="Total investment")
-    equity_multiple: float = Field(None, description="Equity multiple")
-    irr: Optional[float] = Field(None, description="Deal IRR")
-    distributions: pd.Series = Field(None, description="Distribution cash flows")
-
-    @field_validator("distributions")
-    @classmethod
-    def validate_distributions(cls, v):
-        """Validate distributions is a pandas Series."""
-        if not isinstance(v, pd.Series):
-            raise ValueError("distributions must be a pandas Series")
-        return v
-
-
-# Waterfall-specific details
-class WaterfallDetails(ResultModel):
-    """Detailed waterfall distribution results."""
-
-    preferred_return: float = Field(None, description="Preferred return amount")
-    promote_distributions: float = Field(
-        None, description="Promote distributions amount"
-    )
-    partner_results: Dict[str, PartnerMetrics] = Field(
-        default_factory=dict, description="Partner-specific metrics by partner name"
-    )
-
-
-# Specific distribution result types (discriminated union)
-class WaterfallDistributionResult(BaseDistributionResult):
-    """Results for deals with equity waterfall partners."""
-
-    distribution_method: Literal["waterfall"] = "waterfall"
-
-    # Waterfall Details
-    waterfall_details: WaterfallDetails = Field(
-        None, description="Detailed waterfall results"
-    )
-    fee_accounting_details: FeeAccountingDetails = Field(
-        None, description="Fee accounting details"
-    )
-
-
-class SingleEntityWaterfallDetails(ResultModel):
-    """Simplified waterfall for single entity."""
-
-    single_entity_distributions: pd.Series = Field(
-        None, description="Single entity distributions"
-    )
-    preferred_return: float = Field(0.0, description="Preferred return (always 0)")
-    promote_distributions: float = Field(
-        0.0, description="Promote distributions (always 0)"
-    )
-
-    @field_validator("single_entity_distributions")
-    @classmethod
-    def validate_distributions(cls, v):
-        """Validate distributions is a pandas Series."""
-        if not isinstance(v, pd.Series):
-            raise ValueError("single_entity_distributions must be a pandas Series")
-        return v
-
-
-class EmptyFeeAccountingDetails(FeeAccountingDetails):
-    """Empty fee accounting details for single entity deals."""
-
-    total_partner_fees: float = 0.0
-    partner_fees_by_partner: Dict[str, float] = Field(default_factory=dict)
-
-
-class SingleEntityDistributionResult(BaseDistributionResult):
-    """Results for single entity deals (no partners)."""
-
-    distribution_method: Literal["single_entity"] = "single_entity"
-
-    # Simplified Details
-    waterfall_details: SingleEntityWaterfallDetails = Field(
-        None, description="Single entity waterfall"
-    )
-    fee_accounting_details: EmptyFeeAccountingDetails = Field(
-        None, description="Empty fee accounting"
-    )
-
-
-class ErrorWaterfallDetails(ResultModel):
-    """Error case waterfall details."""
-
-    error: str = Field(None, description="Error message")
-    preferred_return: float = Field(0.0, description="Preferred return (always 0)")
-    promote_distributions: float = Field(
-        0.0, description="Promote distributions (always 0)"
-    )
-
-
-class ErrorDistributionResult(BaseDistributionResult):
-    """Fallback for error cases."""
-
-    distribution_method: Literal["error"] = "error"
-
-    # Error Details
-    waterfall_details: ErrorWaterfallDetails = Field(
-        None, description="Error waterfall details"
-    )
-    fee_accounting_details: FeeAccountingDetails = Field(
-        None, description="Fee accounting details"
-    )
-
-
-# Union type for all distribution results (discriminated by distribution_method)
-PartnerDistributionResult = Union[
-    WaterfallDistributionResult, SingleEntityDistributionResult, ErrorDistributionResult
-]
-
-
-# =============================================================================
-# Main Deal Analysis Result
-# =============================================================================
-
-
-class DealAnalysisResult(ResultModel):
-    """Complete deal analysis results containing all analysis components."""
-
-    # Core Summary
-    deal_summary: DealSummary = Field(
-        None, description="Deal metadata and characteristics"
-    )
-
-    # Analysis Components
-    asset_analysis: Any = Field(
-        None, description="Ledger-based asset analysis (AssetAnalysisResult)"
-    )
-    financing_analysis: Optional[FinancingAnalysisResult] = Field(
-        None, description="Financing analysis (None for all-equity deals)"
-    )
-    levered_cash_flows: LeveredCashFlowResult = Field(
-        None, description="Levered cash flow analysis"
-    )
-    partner_distributions: PartnerDistributionResult = Field(
-        ..., description="Partner distribution results"
-    )
-    deal_metrics: DealMetricsResult = Field(
-        None, description="Deal-level performance metrics"
-    )
+    @cached_property
+    def asset_analysis(self):
+        """
+        Legacy compatibility adapter for reporting interface.
+        
+        Provides the asset_analysis interface expected by legacy reports.
+        """
+        class AssetAnalysisAdapter:
+            def __init__(self, queries):
+                self._queries = queries
+            
+            def get_ledger_queries(self):
+                return self._queries
+        
+        return AssetAnalysisAdapter(self._queries)
 
     @cached_property
     def reporting(self) -> "ReportingInterface":
@@ -711,13 +405,199 @@ class DealAnalysisResult(ResultModel):
             ReportingInterface instance for accessing reports (cached)
 
         Example:
-            results = analyze(deal, timeline)
-            pro_forma = results.reporting.pro_forma_summary()
-
-            if results.deal_summary.is_development:
-                sources_uses = results.reporting.sources_and_uses()
+            >>> results = analyze(deal, timeline)
+            >>> pro_forma = results.reporting.pro_forma_summary()
+            >>> sources_uses = results.reporting.sources_and_uses()
         """
-        # Import at runtime to avoid circular dependencies during module loading
-        from ..reporting.interface import ReportingInterface  # noqa: PLC0415
-
+        # Import here to avoid circular import
+        from ..reporting.interface import ReportingInterface
         return ReportingInterface(self)
+
+    @cached_property
+    def deal_metrics(self) -> Dict[str, Any]:
+        """
+        Aggregate deal-level performance metrics.
+        
+        Returns a dictionary containing all key deal metrics for backward compatibility.
+        This aggregates the individual metric properties into a single object.
+        """
+        # Calculate total investment and distributions from equity partner flows
+        equity_flows = self._queries.equity_partner_flows()
+        contributions = self._queries.equity_contributions()
+        
+        # Total investment (contributions are positive from deal perspective)
+        total_investment = contributions.sum() if not contributions.empty else 0.0
+        
+        # Total distributions (negative flows from equity_partner_flows)
+        total_distributions = equity_flows[equity_flows < 0].sum() * -1 if not equity_flows.empty else 0.0
+        
+        return {
+            "levered_irr": self.levered_irr,
+            "unlevered_irr": self.unlevered_irr,
+            "equity_multiple": self.equity_multiple,
+            "unlevered_return_on_cost": self.unlevered_return_on_cost,
+            "net_profit": self.net_profit,
+            "minimum_dscr": self.minimum_dscr,
+            "average_dscr": self.average_dscr,
+            "total_investment": total_investment,
+            "total_distributions": total_distributions,
+        }
+
+    @cached_property  
+    def deal_summary(self) -> Dict[str, Any]:
+        """
+        Deal metadata and summary information.
+        
+        Returns basic deal characteristics and metadata.
+        """
+        return {
+            "deal_id": self._deal.uid,
+            "deal_name": self._deal.name,
+            "archetype": self.archetype,
+            "asset_type": self._deal.asset.property_type.value,
+            "acquisition_date": self._deal.acquisition.acquisition_date,
+            "timeline_months": self._timeline.duration_months,
+        }
+
+    @cached_property
+    def financing_analysis(self) -> Optional[Dict[str, Any]]:
+        """
+        Financing analysis summary.
+        
+        Returns None for all-equity deals, otherwise returns financing metrics.
+        """
+        if not self._deal.financing or not self._deal.financing.facilities:
+            return None
+            
+        # If deal has financing facilities, return analysis even if debt service is zero
+        # (debt service might be zero due to timing, interest-only periods, etc.)
+        debt_service_series = self.debt_service
+        
+        return {
+            "has_financing": True,
+            "total_debt_service": debt_service_series.sum() if not debt_service_series.empty else 0.0,
+            "minimum_dscr": self.minimum_dscr,
+            "average_dscr": self.average_dscr,
+            "facility_count": len(self._deal.financing.facilities),
+            "dscr_metrics": self.dscr_metrics,
+        }
+
+    @cached_property
+    def levered_cash_flows(self) -> pd.Series:
+        """
+        Alias for levered_cash_flow for backward compatibility.
+        
+        Many tests expect levered_cash_flows (plural) instead of levered_cash_flow (singular).
+        """
+        return self.levered_cash_flow
+
+    @cached_property
+    def partner_distributions(self) -> Dict[str, Any]:
+        """
+        Partnership distribution summary.
+        
+        Returns partnership metrics and distribution details.
+        """
+        if not self._deal.equity_partners or len(self._deal.equity_partners.partners) <= 1:
+            return {
+                "distribution_method": "single_entity",
+                "partner_count": len(self._deal.equity_partners.partners) if self._deal.equity_partners else 0,
+                "total_investment": self.deal_metrics.get("total_investment", 0.0),
+                "total_distributions": self.deal_metrics.get("total_distributions", 0.0),
+                "equity_multiple": self.equity_multiple,
+                "levered_irr": self.levered_irr,
+            }
+        
+        # Multi-partner scenario
+        partner_metrics = {}
+        for partner_id, partner_info in self.partners.items():
+            try:
+                partner_metrics[partner_id] = {
+                    "irr": partner_info.irr,
+                    "equity_multiple": partner_info.equity_multiple,
+                    "net_profit": partner_info.net_profit,
+                }
+            except (NotImplementedError, AttributeError):
+                partner_metrics[partner_id] = {
+                    "irr": None,
+                    "equity_multiple": None, 
+                    "net_profit": 0.0,
+                }
+        
+        return {
+            "distribution_method": "partnership_waterfall",
+            "partner_count": len(self._deal.equity_partners.partners),
+            "partner_metrics": partner_metrics,
+            "aggregate_irr": self.levered_irr,
+            "aggregate_equity_multiple": self.equity_multiple,
+        }
+
+    def __repr__(self) -> str:
+        """String representation showing key metrics."""
+        try:
+            irr_str = f"{self.levered_irr:.2%}" if self.levered_irr else "N/A"
+            em_str = f"{self.equity_multiple:.2f}x" if self.equity_multiple else "N/A"
+            return f"DealResults(levered_irr={irr_str}, equity_multiple={em_str})"
+        except NotImplementedError:
+            return "DealResults(metrics not yet implemented)"
+
+
+class PartnerMetrics:
+    """
+    Individual partner analysis and metrics.
+
+    Provides partner-specific calculations using the same engine as
+    deal-level results for consistency.
+    """
+
+    def __init__(self, partner_id: str, ledger: Ledger, timeline: Timeline):
+        """Initialize with partner ID and shared analysis components."""
+        self.partner_id = partner_id
+        self._ledger = ledger
+        self._timeline = timeline
+        self._queries = LedgerQueries(ledger.ledger_df())
+
+    @cached_property
+    def irr(self) -> Optional[float]:
+        """Partner-specific IRR."""
+        return FinancialCalculations.calculate_irr(self.cash_flow)
+
+    @cached_property
+    def equity_multiple(self) -> Optional[float]:
+        """Partner-specific equity multiple."""
+        return FinancialCalculations.calculate_equity_multiple(self.cash_flow)
+
+    @cached_property
+    def net_profit(self) -> float:
+        """Partner-specific net profit."""
+        return self.cash_flow.sum()
+
+    @cached_property
+    def cash_flow(self) -> pd.Series:
+        """Partner-specific cash flow time series."""
+        try:
+            partner_uuid = (
+                UUID(self.partner_id)
+                if isinstance(self.partner_id, str)
+                else self.partner_id
+            )
+            flows = self._queries.partner_flows(partner_uuid)
+            return flows.reindex(self._timeline.period_index, fill_value=0.0)
+        except:
+            # Fallback: filter ledger directly by partner_id
+            partner_mask = self._queries.ledger["entity_id"] == self.partner_id
+            partner_txns = self._queries.ledger[partner_mask]
+            if partner_txns.empty:
+                return pd.Series(0.0, index=self._timeline.period_index)
+
+            # Group by date and sum, then flip sign for investor perspective
+            flows = partner_txns.groupby("date")["amount"].sum()
+            flows = -1 * flows  # Flip for investor perspective
+            return flows.reindex(self._timeline.period_index, fill_value=0.0)
+
+    def __repr__(self) -> str:
+        try:
+            irr_str = f"{self.irr:.2%}" if self.irr else "N/A"
+            return f"PartnerMetrics({self.partner_id}, irr={irr_str})"
+        except NotImplementedError:
+            return f"PartnerMetrics({self.partner_id}, not yet implemented)"

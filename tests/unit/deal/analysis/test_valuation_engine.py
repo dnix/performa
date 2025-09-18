@@ -2,871 +2,574 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Comprehensive Tests for ValuationEngine
+Comprehensive tests for the ledger-driven ValuationEngine.
 
-Unit tests for property valuation calculations with polymorphic dispatch
-across different valuation methodologies and robust fallback strategies.
+This test suite covers the new architecture where ValuationEngine:
+1. Queries NOI directly from the ledger (not from UnleveredAnalysisResult)
+2. Calculates property values using settings-driven approaches  
+3. Updates DealContext with computed values (void return pattern)
+4. Integrates with ledger-based deal orchestration workflow
 
-Test Coverage:
-1. Property value extraction with multiple fallback strategies
-2. NOI extraction using type-safe enum access
-3. Disposition proceeds calculation with polymorphic dispatch
-4. Error handling and graceful degradation
-5. Integration with various data sources and valuation models
-6. Edge cases and boundary conditions
+Test Philosophy:
+- Test actual methods that exist in current architecture
+- Use realistic deal scenarios with proper ledger setup
+- Test context updates and void return patterns
+- Cover edge cases and error scenarios systematically
+- Maintain institutional modeling standards
 """
 
 from datetime import date
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
+from uuid import uuid4
 
 import pandas as pd
 import pytest
 
-from performa.core.ledger import Ledger, LedgerGenerationSettings
-from performa.core.primitives import GlobalSettings, Timeline, UnleveredAggregateLineKey
+from performa.core.ledger import Ledger
+from performa.core.ledger.records import SeriesMetadata
+from performa.core.primitives import (
+    CashFlowCategoryEnum,
+    GlobalSettings,
+    RevenueSubcategoryEnum,
+    Timeline,
+)
+from performa.core.primitives.settings import ValuationSettings
 from performa.deal.analysis.valuation import ValuationEngine
 from performa.deal.deal import Deal
-from performa.deal.results import UnleveredAnalysisResult
+from performa.deal.orchestrator import DealContext
 
 
 @pytest.fixture
 def sample_timeline() -> Timeline:
-    """Standard timeline for testing."""
-    return Timeline(start_date=date(2024, 1, 1), duration_months=24)  # 2 years
+    """Standard 24-month timeline for valuation testing."""
+    return Timeline(start_date=date(2024, 1, 1), duration_months=24)
 
 
 @pytest.fixture
 def sample_settings() -> GlobalSettings:
-    """Standard settings for testing."""
-    return GlobalSettings()
+    """Standard settings with comprehensive valuation parameters."""
+    valuation_settings = ValuationSettings(
+        exit_cap_rate=0.06,  # 6% exit cap rate
+        costs_of_sale_percentage=0.02,  # 2% transaction costs
+        discount_rate=0.08  # 8% discount rate
+    )
+    return GlobalSettings(valuation=valuation_settings)
 
 
 @pytest.fixture
-def mock_deal_basic() -> Deal:
-    """Basic mock deal for testing."""
+def sample_deal() -> Mock:
+    """Mock deal with basic structure for valuation testing."""
     deal = Mock(spec=Deal)
-    deal.exit_valuation = None
-    deal.acquisition = None
+    deal.uid = "test-deal-001"
+    deal.name = "Test Valuation Deal"
+    # Set up deal attributes for ValuationEngine tests
+    deal.acquisition = None  # No acquisition price - use NOI-based valuation
+    deal.exit_valuation = None  # No exit valuation - use default cap rate
     return deal
 
 
 @pytest.fixture
-def mock_deal_with_acquisition() -> Deal:
-    """Mock deal with acquisition data."""
-    deal = Mock(spec=Deal)
-    deal.exit_valuation = None
-
-    # Mock acquisition
-    acquisition = Mock()
-    acquisition.acquisition_cost = 2000000.0  # $2M acquisition
-    deal.acquisition = acquisition
-
-    return deal
-
-
-@pytest.fixture
-def mock_deal_with_exit_valuation() -> Deal:
-    """Mock deal with exit valuation."""
-    deal = Mock(spec=Deal)
-    deal.acquisition = None
-    deal.asset = Mock()  # Add asset attribute
-
-    # Mock exit valuation with cap rate
-    exit_valuation = Mock()
-    exit_valuation.cap_rate = 0.06  # 6% cap rate
-    exit_valuation.compute_cf = Mock(
-        return_value=pd.Series([0.0, 0.0, 0.0, 3500000.0] * 6)
-    )  # Disposition in last month
-    deal.exit_valuation = exit_valuation
-
-    return deal
+def sample_ledger_with_noi(sample_timeline: Timeline) -> Ledger:
+    """Ledger populated with realistic NOI progression."""
+    ledger = Ledger()
+    
+    # Add realistic NOI progression - $80k/month growing to $85k/month
+    noi_values = [80000.0] * 12 + [85000.0] * 12  # Growth in year 2
+    noi_series = pd.Series(noi_values, index=sample_timeline.period_index)
+    
+    # Create metadata for the NOI series
+    noi_metadata = SeriesMetadata(
+        category=CashFlowCategoryEnum.REVENUE,  # NOI is net revenue after expenses
+        subcategory=RevenueSubcategoryEnum.LEASE,  # NOI comes from lease revenue
+        item_name="Net Operating Income",
+        source_id=uuid4(),
+        asset_id=uuid4(),
+        pass_num=1
+    )
+    
+    # Add the NOI series to the ledger
+    ledger.add_series(noi_series, noi_metadata)
+    
+    return ledger
 
 
 @pytest.fixture
-def sample_unlevered_analysis_with_noi(
+def sample_context(
     sample_timeline: Timeline,
-) -> UnleveredAnalysisResult:
-    """Unlevered analysis with NOI data."""
-    # Create realistic NOI progression
-    noi_values = [80000.0] * 12 + [85000.0] * 12  # Growing NOI over time
-
-    cash_flows = pd.DataFrame(
-        {
-            UnleveredAggregateLineKey.NET_OPERATING_INCOME.value: noi_values,
-            UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME.value: [120000.0] * 24,
-            UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value: [40000.0] * 12
-            + [35000.0] * 12,
-        },
-        index=sample_timeline.period_index,
+    sample_settings: GlobalSettings, 
+    sample_deal: Mock,
+    sample_ledger_with_noi: Ledger
+) -> DealContext:
+    """Standard DealContext with populated ledger for testing."""
+    return DealContext(
+        timeline=sample_timeline,
+        settings=sample_settings, 
+        ledger=sample_ledger_with_noi,
+        deal=sample_deal
     )
 
-    result = UnleveredAnalysisResult()
-    result.cash_flows = cash_flows
-    return result
 
-
-@pytest.fixture
-def sample_unlevered_analysis_with_values(
-    sample_timeline: Timeline,
-) -> UnleveredAnalysisResult:
-    """Unlevered analysis with property value data."""
-    # Create appreciation over time
-    initial_value = 2500000.0
-    values = [
-        initial_value * (1.02 ** (i / 12)) for i in range(24)
-    ]  # 2% annual appreciation
-
-    cash_flows = pd.DataFrame(
-        {
-            UnleveredAggregateLineKey.NET_OPERATING_INCOME.value: [75000.0] * 24,
-            "property_value": values,  # Direct property values
-            "asset_value": [v * 0.95 for v in values],  # Alternative value column
-        },
-        index=sample_timeline.period_index,
-    )
-
-    result = UnleveredAnalysisResult()
-    result.cash_flows = cash_flows
-    return result
-
-
-@pytest.fixture
-def empty_unlevered_analysis() -> UnleveredAnalysisResult:
-    """Empty unlevered analysis for fallback testing."""
-    result = UnleveredAnalysisResult()
-    result.cash_flows = pd.DataFrame()
-    return result
-
-
-class TestValuationEngineBasic:
-    """Test basic ValuationEngine functionality."""
-
-    def test_valuation_engine_can_be_instantiated(
-        self, mock_deal_basic, sample_timeline, sample_settings
-    ):
-        """Test that ValuationEngine can be instantiated with basic parameters."""
-        engine = ValuationEngine(
-            deal=mock_deal_basic, timeline=sample_timeline, settings=sample_settings
-        )
+class TestValuationEngineBasics:
+    """Test basic ValuationEngine functionality and inheritance."""
+    
+    def test_valuation_engine_instantiation(self, sample_context: DealContext):
+        """Test that ValuationEngine can be instantiated with DealContext."""
+        engine = ValuationEngine(sample_context)
 
         assert engine is not None
-        assert engine.deal == mock_deal_basic
-        assert engine.timeline == sample_timeline
-        assert engine.settings == sample_settings
-        assert engine.property_value_series is None  # Not yet populated
-        assert engine.noi_series is None  # Not yet populated
+        assert engine.context is sample_context
+        assert engine.deal is sample_context.deal
+        assert engine.timeline is sample_context.timeline
+        assert engine.settings is sample_context.settings
+        assert engine.ledger is sample_context.ledger
+    
+    def test_valuation_engine_has_required_methods(self, sample_context: DealContext):
+        """Test that ValuationEngine has all required methods from new architecture."""
+        engine = ValuationEngine(sample_context)
+        
+        # Main public interface (void return)
+        assert hasattr(engine, 'process')
+        assert callable(getattr(engine, 'process'))
+        
+        # Should have queries from base class for ledger access
+        assert hasattr(engine, 'queries')
+        assert callable(getattr(engine.queries, 'noi'))
 
-    def test_valuation_engine_has_required_methods(
-        self, mock_deal_basic, sample_timeline, sample_settings
-    ):
-        """Test that ValuationEngine has the expected public methods."""
-        engine = ValuationEngine(
-            deal=mock_deal_basic, timeline=sample_timeline, settings=sample_settings
-        )
-
-        # Check for expected methods
-        assert hasattr(engine, "extract_property_value_series")
-        assert callable(engine.extract_property_value_series)
-        assert hasattr(engine, "extract_noi_series")
-        assert callable(engine.extract_noi_series)
-        assert hasattr(engine, "calculate_disposition_proceeds")
-        assert callable(engine.calculate_disposition_proceeds)
-
-
-class TestPropertyValueExtraction:
-    """Test property value extraction with multiple fallback strategies."""
-
-    def test_extract_property_value_direct_from_cash_flows(
-        self,
-        mock_deal_basic,
-        sample_timeline,
-        sample_settings,
-        sample_unlevered_analysis_with_values,
-    ):
-        """Test Strategy 1: Direct extraction from cash flow data."""
-        engine = ValuationEngine(
-            deal=mock_deal_basic, timeline=sample_timeline, settings=sample_settings
-        )
-
-        property_values = engine.extract_property_value_series(
-            sample_unlevered_analysis_with_values
-        )
-
-        assert isinstance(property_values, pd.Series)
-        assert len(property_values) == 24
-        assert property_values.iloc[0] > 2400000.0  # Around $2.5M initial
-        assert (
-            property_values.iloc[-1] > property_values.iloc[0]
-        )  # Appreciation over time
-
-        # Should cache the result
-        assert engine.property_value_series is not None
-        assert engine.property_value_series.equals(property_values)
-
-    def test_extract_property_value_noi_based_default_cap_rate(
-        self,
-        mock_deal_basic,
-        sample_timeline,
-        sample_settings,
-        sample_unlevered_analysis_with_noi,
-    ):
-        """Test Strategy 2: NOI-based valuation with default cap rate."""
-        engine = ValuationEngine(
-            deal=mock_deal_basic, timeline=sample_timeline, settings=sample_settings
-        )
-
-        property_values = engine.extract_property_value_series(
-            sample_unlevered_analysis_with_noi
-        )
-
-        assert isinstance(property_values, pd.Series)
-        assert len(property_values) == 24
-
-        # With 6.5% default cap rate and $80,000 NOI: Value ≈ $80,000 / 0.065 ≈ $1.23M
-        expected_value_year1 = 80000.0 / 0.065
-        assert abs(property_values.iloc[0] - expected_value_year1) < 10000.0
-
-        # Year 2 should be higher due to NOI growth
-        expected_value_year2 = 85000.0 / 0.065
-        assert abs(property_values.iloc[-1] - expected_value_year2) < 10000.0
-
-    def test_extract_property_value_noi_based_deal_cap_rate(
-        self,
-        mock_deal_with_exit_valuation,
-        sample_timeline,
-        sample_settings,
-        sample_unlevered_analysis_with_noi,
-    ):
-        """Test Strategy 2: NOI-based valuation with deal-specific cap rate."""
-        engine = ValuationEngine(
-            deal=mock_deal_with_exit_valuation,
-            timeline=sample_timeline,
-            settings=sample_settings,
-        )
-
-        property_values = engine.extract_property_value_series(
-            sample_unlevered_analysis_with_noi
-        )
-
-        assert isinstance(property_values, pd.Series)
-
-        # With 6% cap rate from deal and $80,000 NOI: Value = $80,000 / 0.06 ≈ $1.33M
-        expected_value = 80000.0 / 0.06
-        assert abs(property_values.iloc[0] - expected_value) < 10000.0
-
-        # Should use deal's cap rate, not default
-        assert (
-            property_values.iloc[0] > 80000.0 / 0.065
-        )  # Higher than default cap rate would give
-
-    def test_extract_property_value_cost_based_appreciation(
-        self,
-        mock_deal_with_acquisition,
-        sample_timeline,
-        sample_settings,
-        empty_unlevered_analysis,
-    ):
-        """Test Strategy 3: Cost-based appreciation using acquisition cost."""
-        engine = ValuationEngine(
-            deal=mock_deal_with_acquisition,
-            timeline=sample_timeline,
-            settings=sample_settings,
-        )
-
-        property_values = engine.extract_property_value_series(empty_unlevered_analysis)
-
-        assert isinstance(property_values, pd.Series)
-        assert len(property_values) == 24
-
-        # Should start at acquisition cost
-        assert abs(property_values.iloc[0] - 2000000.0) < 1000.0
-
-        # Should appreciate at 3% annually
-        expected_final_value = 2000000.0 * (1.03**2)  # 2 years of appreciation
-        assert (
-            abs(property_values.iloc[-1] - expected_final_value) < 6000.0
-        )  # Slightly looser tolerance
-
-        # Should show gradual appreciation
-        assert property_values.iloc[-1] > property_values.iloc[0]
-
-    def test_extract_property_value_zero_fallback(
-        self,
-        mock_deal_basic,
-        sample_timeline,
-        sample_settings,
-        empty_unlevered_analysis,
-    ):
-        """Test Strategy 4: Ultimate fallback to zero values."""
-        engine = ValuationEngine(
-            deal=mock_deal_basic, timeline=sample_timeline, settings=sample_settings
-        )
-
-        property_values = engine.extract_property_value_series(empty_unlevered_analysis)
-
-        assert isinstance(property_values, pd.Series)
-        assert len(property_values) == 24
-        assert (property_values == 0.0).all()  # All zeros as fallback
-
-    def test_extract_property_value_noi_error_fallback(
-        self, mock_deal_with_acquisition, sample_timeline, sample_settings
-    ):
-        """Test fallback when NOI extraction fails."""
-        engine = ValuationEngine(
-            deal=mock_deal_with_acquisition,
-            timeline=sample_timeline,
-            settings=sample_settings,
-        )
-
-        # Create analysis that will cause NOI extraction to fail
-        problematic_analysis = UnleveredAnalysisResult()
-        problematic_analysis.cash_flows = None  # This should cause get_series to fail
-
-        property_values = engine.extract_property_value_series(problematic_analysis)
-
-        # Should fall back to cost-based appreciation
-        assert isinstance(property_values, pd.Series)
-        assert property_values.iloc[0] > 0  # Should not be zero fallback
-        assert (
-            abs(property_values.iloc[0] - 2000000.0) < 1000.0
-        )  # Should use acquisition cost
+    def test_valuation_engine_inherits_analysis_specialist_properly(self, sample_context: DealContext):
+        """Test inheritance from AnalysisSpecialist base class."""
+        engine = ValuationEngine(sample_context)
+        
+        # Should have queries from base class for ledger access
+        assert hasattr(engine, 'queries')
+        assert engine.queries is not None
+        
+        # Should have property access patterns from base
+        assert engine.deal is sample_context.deal
+        assert engine.timeline is sample_context.timeline
+        assert engine.settings is sample_context.settings
+        assert engine.ledger is sample_context.ledger
 
 
-class TestNOIExtraction:
-    """Test NOI extraction using type-safe enum access."""
-
-    def test_extract_noi_series_success(
-        self,
-        mock_deal_basic,
-        sample_timeline,
-        sample_settings,
-        sample_unlevered_analysis_with_noi,
-    ):
-        """Test successful NOI extraction using type-safe enum access."""
-        engine = ValuationEngine(
-            deal=mock_deal_basic, timeline=sample_timeline, settings=sample_settings
-        )
-
-        noi_series = engine.extract_noi_series(sample_unlevered_analysis_with_noi)
-
+class TestNOIExtractionViaQueries:
+    """Test NOI extraction via LedgerQueries (proper ledger-driven architecture)."""
+    
+    def test_noi_extraction_from_populated_ledger(self, sample_context: DealContext):
+        """Test NOI extraction from ledger with realistic data via queries."""
+        engine = ValuationEngine(sample_context)
+        
+        # Test the PUBLIC interface - queries.noi()
+        noi_series = engine.queries.noi()
+        
         assert isinstance(noi_series, pd.Series)
-        assert len(noi_series) == 24
-        assert noi_series.iloc[0] == 80000.0  # First year NOI
-        assert noi_series.iloc[-1] == 85000.0  # Second year NOI
-
-        # Should cache the result
-        assert engine.noi_series is not None
-        assert engine.noi_series.equals(noi_series)
-
-    def test_extract_noi_series_with_missing_data(
-        self, mock_deal_basic, sample_timeline, sample_settings
-    ):
-        """Test NOI extraction when data is missing."""
-        engine = ValuationEngine(
-            deal=mock_deal_basic, timeline=sample_timeline, settings=sample_settings
+        # Note: LedgerQueries.noi() returns actual dates, not reindexed to timeline
+        assert len(noi_series) == 24  # 24 months of data
+        
+        # First 12 months should be $80k
+        assert (noi_series.iloc[:12] == 80000.0).all()
+        
+        # Second 12 months should be $85k (growth scenario)
+        assert (noi_series.iloc[12:] == 85000.0).all()
+    
+    def test_noi_extraction_from_empty_ledger(self, sample_timeline: Timeline, sample_settings: GlobalSettings, sample_deal: Mock):
+        """Test NOI extraction when ledger has no transactions."""
+        empty_ledger = Ledger()
+        context = DealContext(
+            timeline=sample_timeline,
+            settings=sample_settings,
+            ledger=empty_ledger,
+            deal=sample_deal
         )
-
-        # Create analysis without NOI data
-        cash_flows = pd.DataFrame(
-            {
-                "Other_Revenue": [100000.0] * 24,
-                "Other_Expense": [40000.0] * 24,
-            },
-            index=sample_timeline.period_index,
-        )
-
-        analysis = UnleveredAnalysisResult()
-        analysis.cash_flows = cash_flows
-
-        # This should return an appropriate series (possibly empty or zeros)
-        noi_series = engine.extract_noi_series(analysis)
-
+        
+        engine = ValuationEngine(context)
+        noi_series = engine.queries.noi()
+        
+        # Empty ledger should return empty series from queries
         assert isinstance(noi_series, pd.Series)
-        # The exact behavior depends on the get_series implementation
+        assert len(noi_series) == 0  # Empty, not zeros
+    
+    def test_process_updates_context_with_noi(self, sample_context: DealContext):
+        """Test that process() correctly updates context with NOI series."""
+        engine = ValuationEngine(sample_context)
+        
+        # Process should query NOI and update context
+        engine.process()
+        
+        assert hasattr(sample_context, 'noi_series')
+        assert sample_context.noi_series is not None
+        assert isinstance(sample_context.noi_series, pd.Series)
+        
+        # Should match the ledger data
+        assert len(sample_context.noi_series) == 24
+        assert (sample_context.noi_series.iloc[:12] == 80000.0).all()
+        assert (sample_context.noi_series.iloc[12:] == 85000.0).all()
 
-    def test_extract_noi_series_multiple_calls_consistent(
-        self,
-        mock_deal_basic,
-        sample_timeline,
-        sample_settings,
-        sample_unlevered_analysis_with_noi,
-    ):
-        """Test that multiple calls return consistent results."""
-        engine = ValuationEngine(
-            deal=mock_deal_basic, timeline=sample_timeline, settings=sample_settings
+
+class TestPropertyValueCalculation:
+    """Test property value calculation methods (translates old extract_property_value_series concepts)."""
+    
+    def test_calculate_property_value_with_positive_noi(self, sample_context: DealContext):
+        """Test property value calculation using NOI and cap rates."""
+        engine = ValuationEngine(sample_context)
+        
+        # Create sample NOI series
+        noi_series = pd.Series(
+            [80000.0] * 12 + [85000.0] * 12,  # Growing NOI
+            index=sample_context.timeline.period_index
         )
+        
+        property_values = engine._calculate_refi_property_value(noi_series)
 
-        noi_series1 = engine.extract_noi_series(sample_unlevered_analysis_with_noi)
-        noi_series2 = engine.extract_noi_series(sample_unlevered_analysis_with_noi)
+        assert isinstance(property_values, pd.Series)
+        assert len(property_values) == 24
 
-        assert noi_series1.equals(noi_series2)
-        assert engine.noi_series.equals(noi_series1)
-
-
-class TestDispositionProceeds:
-    """Test disposition proceeds calculation with polymorphic dispatch."""
-
-    def test_calculate_disposition_proceeds_with_exit_valuation(
-        self,
-        mock_deal_with_exit_valuation,
-        sample_timeline,
-        sample_settings,
-        sample_unlevered_analysis_with_noi,
-    ):
-        """Test disposition proceeds calculation with exit valuation model."""
-        engine = ValuationEngine(
-            deal=mock_deal_with_exit_valuation,
-            timeline=sample_timeline,
-            settings=sample_settings,
+        # Property values should be positive and time-varying (refi valuation uses LTM methodology)
+        assert (property_values > 0).all()
+        
+        # Should be time-varying series (refi valuation uses trailing 12-month averages)  
+        assert property_values.nunique() > 1  # Values change over time due to LTM rolling average
+        
+        # LTM methodology: Check month 12 which has full 12-month lookback data
+        # At month 12, LTM average = $80k/month for first 12 months
+        # Annual NOI = $80k * 12 = $960k, Property value = $960k / 6.5% = ~$14.77M
+        month_12_expected_noi = 80000.0 * 12  # First 12 months are all $80k
+        month_12_expected_value = month_12_expected_noi / 0.065  # 6.5% refi cap rate
+        assert abs(property_values.iloc[11] - month_12_expected_value) < 100000  # Month 12 (index 11)
+    
+    def test_calculate_property_value_with_zero_noi(self, sample_context: DealContext):
+        """Test property value calculation when NOI is zero (edge case from old test)."""
+        engine = ValuationEngine(sample_context)
+        
+        # Zero NOI series
+        zero_noi_series = pd.Series(
+            [0.0] * 24,
+            index=sample_context.timeline.period_index
         )
+        
+        property_values = engine._calculate_refi_property_value(zero_noi_series)
 
-        # Mock the compute_cf method to return disposition proceeds
+        assert isinstance(property_values, pd.Series)
+        assert len(property_values) == 24
+        
+        # Should fall back to zero values (or minimal values)
+        # This tests the same edge case as the old test_extract_property_value_zero_noi
+        assert (property_values >= 0).all()  # Should not be negative
+    
+    def test_calculate_property_value_with_negative_noi(self, sample_context: DealContext):
+        """Test property value calculation with negative NOI (operating losses)."""
+        engine = ValuationEngine(sample_context)
+        
+        # Negative NOI series (operating losses)
+        negative_noi_series = pd.Series(
+            [-20000.0] * 24,  # $20k monthly losses
+            index=sample_context.timeline.period_index
+        )
+        
+        property_values = engine._calculate_refi_property_value(negative_noi_series)
+        
+        assert isinstance(property_values, pd.Series)
+        assert len(property_values) == 24
+        
+        # Should handle negative NOI gracefully (may fall back to cost basis or zero)
+        # This tests the same concept as old test_extract_property_value_negative_noi
+        assert (property_values >= 0).all()  # Should not result in negative property values
+
+
+class TestDispositionProceedsCalculation:
+    """Test disposition proceeds calculation (translates old calculate_disposition_proceeds concepts)."""
+    
+    def test_calculate_disposition_proceeds_with_exit_valuation(self, sample_context: DealContext):
+        """Test disposition proceeds when deal has exit valuation."""
+        # Mock deal with exit valuation
+        sample_context.deal.exit_valuation = Mock()
+        sample_context.deal.exit_valuation.compute_cf = Mock()
+        sample_context.deal.exit_valuation.cap_rate = 0.065  # Proper numeric cap rate
+        
+        # Mock exit valuation to return $3.5M in final period
         disposition_cf = pd.Series(
-            [0.0] * 23 + [3500000.0], index=sample_timeline.period_index
+            [0.0] * 23 + [3500000.0],  # $3.5M disposition in month 24
+            index=sample_context.timeline.period_index
         )
-        mock_deal_with_exit_valuation.exit_valuation.compute_cf.return_value = (
-            disposition_cf
+        sample_context.deal.exit_valuation.compute_cf.return_value = disposition_cf
+        
+        engine = ValuationEngine(sample_context)
+        
+        # Use realistic NOI for calculation
+        noi_series = pd.Series(
+            [80000.0] * 24,
+            index=sample_context.timeline.period_index
         )
-
-        # Create a simple ledger for the test
-        ledger = Ledger(settings=LedgerGenerationSettings())
-
-        with patch("performa.analysis.AnalysisContext") as mock_context_class:
-            # Mock the context creation
-            mock_context = Mock()
-            mock_context.resolved_lookups = {}
-            mock_context_class.return_value = mock_context
-
-            proceeds = engine.calculate_disposition_proceeds(
-                ledger, sample_unlevered_analysis_with_noi
-            )
-
-        assert isinstance(proceeds, pd.Series)
-        assert len(proceeds) == 24
-        assert proceeds.iloc[-1] == 3500000.0  # Disposition in last period
-        assert proceeds.iloc[:-1].sum() == 0.0  # No proceeds in other periods
-
-        # Verify the exit valuation was called properly
-        mock_deal_with_exit_valuation.exit_valuation.compute_cf.assert_called_once()
-
-    def test_calculate_disposition_proceeds_no_exit_valuation(
-        self,
-        mock_deal_basic,
-        sample_timeline,
-        sample_settings,
-        sample_unlevered_analysis_with_noi,
-    ):
-        """Test disposition proceeds when no exit valuation exists."""
-        engine = ValuationEngine(
-            deal=mock_deal_basic, timeline=sample_timeline, settings=sample_settings
+        
+        gross_proceeds = engine._calculate_exit_gross_proceeds(noi_series)
+        
+        assert isinstance(gross_proceeds, pd.Series)
+        assert len(gross_proceeds) == 24
+        
+        # Should have $3.5M in final period
+        assert gross_proceeds.iloc[-1] == 3500000.0
+        
+        # Should have zero in all other periods
+        assert (gross_proceeds.iloc[:-1] == 0.0).all()
+    
+    def test_calculate_disposition_proceeds_without_exit_valuation(self, sample_context: DealContext):
+        """Test disposition proceeds when deal has no exit valuation."""
+        # Ensure no exit valuation
+        sample_context.deal.exit_valuation = None
+        
+        engine = ValuationEngine(sample_context)
+        
+        noi_series = pd.Series(
+            [80000.0] * 24,
+            index=sample_context.timeline.period_index
         )
-
-        # Create a simple ledger for the test
-        ledger = Ledger(settings=LedgerGenerationSettings())
-
-        proceeds = engine.calculate_disposition_proceeds(
-            ledger, sample_unlevered_analysis_with_noi
+        
+        gross_proceeds = engine._calculate_exit_gross_proceeds(noi_series)
+        
+        assert isinstance(gross_proceeds, pd.Series)
+        assert len(gross_proceeds) == 24
+        
+        # Should be all zeros when no exit valuation
+        assert (gross_proceeds == 0.0).all()
+    
+    def test_calculate_disposition_proceeds_with_error_handling(self, sample_context: DealContext):
+        """Test disposition proceeds calculation handles errors gracefully."""
+        # Mock deal with exit valuation that raises exception
+        sample_context.deal.exit_valuation = Mock()
+        sample_context.deal.exit_valuation.compute_cf = Mock(side_effect=Exception("Exit valuation failed"))
+        sample_context.deal.exit_valuation.cap_rate = 0.06  # Proper numeric cap rate for fallback
+        
+        engine = ValuationEngine(sample_context)
+        
+        noi_series = pd.Series(
+            [80000.0] * 24,
+            index=sample_context.timeline.period_index
         )
+        
+        # Should handle exception gracefully and fall back to cap rate calculation
+        gross_proceeds = engine._calculate_exit_gross_proceeds(noi_series)
+        
+        assert isinstance(gross_proceeds, pd.Series)
+        assert len(gross_proceeds) == 24
+        
+        # Should fall back to cap rate calculation: $80K monthly × 12 months / 6% = $16M
+        expected_value = 80000.0 * 12 / 0.06  # Monthly NOI × 12 / default 6% cap rate
+        assert gross_proceeds.iloc[-1] == expected_value  # Final period should have disposition
+        assert gross_proceeds.iloc[:-1].sum() == 0.0  # All other periods should be zero
 
-        assert isinstance(proceeds, pd.Series)
-        assert len(proceeds) == 24
-        assert (proceeds == 0.0).all()  # Should be all zeros
 
-    def test_calculate_disposition_proceeds_without_unlevered_analysis(
-        self, mock_deal_with_exit_valuation, sample_timeline, sample_settings
-    ):
-        """Test disposition proceeds calculation without unlevered analysis."""
-        engine = ValuationEngine(
-            deal=mock_deal_with_exit_valuation,
-            timeline=sample_timeline,
-            settings=sample_settings,
-        )
-
-        # Mock the compute_cf method
-        disposition_cf = pd.Series(
-            [0.0] * 23 + [4000000.0], index=sample_timeline.period_index
-        )
-        mock_deal_with_exit_valuation.exit_valuation.compute_cf.return_value = (
-            disposition_cf
-        )
-
-        with patch("performa.analysis.AnalysisContext") as mock_context_class:
-            mock_context = Mock()
-            mock_context_class.return_value = mock_context
-
-            # Create a simple ledger for the test
-            ledger = Ledger(settings=LedgerGenerationSettings())
-
-            proceeds = engine.calculate_disposition_proceeds(ledger, None)
-
-        assert isinstance(proceeds, pd.Series)
-        assert len(proceeds) == 24
-        assert proceeds.iloc[-1] == 4000000.0
-
-    def test_calculate_disposition_proceeds_error_handling(
-        self,
-        mock_deal_with_exit_valuation,
-        sample_timeline,
-        sample_settings,
-        sample_unlevered_analysis_with_noi,
-    ):
-        """Test error handling in disposition proceeds calculation."""
-        engine = ValuationEngine(
-            deal=mock_deal_with_exit_valuation,
-            timeline=sample_timeline,
-            settings=sample_settings,
-        )
-
-        # Make the exit valuation raise an error
-        mock_deal_with_exit_valuation.exit_valuation.compute_cf.side_effect = Exception(
-            "Valuation failed"
-        )
-
-        # Should handle the error gracefully and return zeros
-        # Create a simple ledger for the test
-        ledger = Ledger(settings=LedgerGenerationSettings())
-
-        proceeds = engine.calculate_disposition_proceeds(
-            ledger, sample_unlevered_analysis_with_noi
-        )
-
-        assert isinstance(proceeds, pd.Series)
-        assert len(proceeds) == 24
-        assert (proceeds == 0.0).all()  # Should fall back to zeros
-
-    def test_calculate_disposition_proceeds_negative_values_converted(
-        self, mock_deal_with_exit_valuation, sample_timeline, sample_settings
-    ):
-        """Test that negative disposition proceeds are converted to positive."""
-        engine = ValuationEngine(
-            deal=mock_deal_with_exit_valuation,
-            timeline=sample_timeline,
-            settings=sample_settings,
-        )
-
-        # Mock negative proceeds (which should be converted to positive)
-        disposition_cf = pd.Series(
-            [0.0] * 23 + [-2500000.0], index=sample_timeline.period_index
-        )
-        mock_deal_with_exit_valuation.exit_valuation.compute_cf.return_value = (
-            disposition_cf
-        )
-
-        # Create a simple ledger for the test
-        ledger = Ledger(settings=LedgerGenerationSettings())
-
-        with patch("performa.analysis.AnalysisContext") as mock_context_class:
-            mock_context = Mock()
-            mock_context.resolved_lookups = {}
-            mock_context_class.return_value = mock_context
-
-            proceeds = engine.calculate_disposition_proceeds(ledger)
-
-        assert proceeds.iloc[-1] == 2500000.0  # Should be positive
-        assert (proceeds >= 0).all()  # All values should be non-negative
+class TestContextUpdatesAndVoidReturn:
+    """Test the core new architecture: void return + context updates via process()."""
+    
+    def test_process_updates_context_with_computed_values(self, sample_context: DealContext):
+        """Test that process() correctly updates context with all computed values."""
+        # Ensure context starts without valuation data
+        assert not hasattr(sample_context, 'refi_property_value') or sample_context.refi_property_value is None
+        assert not hasattr(sample_context, 'noi_series') or sample_context.noi_series is None
+        assert not hasattr(sample_context, 'exit_gross_proceeds') or sample_context.exit_gross_proceeds is None
+        
+        engine = ValuationEngine(sample_context)
+        
+        # Process should return None (void return pattern)
+        result = engine.process()
+        assert result is None
+        
+        # Context should now have all computed values
+        assert hasattr(sample_context, 'refi_property_value') and sample_context.refi_property_value is not None
+        assert hasattr(sample_context, 'noi_series') and sample_context.noi_series is not None
+        assert hasattr(sample_context, 'exit_gross_proceeds') and sample_context.exit_gross_proceeds is not None
+        
+        # Verify data types and shapes
+        assert isinstance(sample_context.refi_property_value, pd.Series)
+        assert isinstance(sample_context.noi_series, pd.Series)
+        assert isinstance(sample_context.exit_gross_proceeds, pd.Series)
+        
+        assert len(sample_context.refi_property_value) == 24
+        assert len(sample_context.noi_series) == 24
+        assert len(sample_context.exit_gross_proceeds) == 24
+    
+    def test_process_noi_series_matches_ledger_data(self, sample_context: DealContext):
+        """Test that NOI series from process() matches what's in the ledger."""
+        engine = ValuationEngine(sample_context)
+        engine.process()
+        
+        # Should match the fixture data: $80k for 12 months, $85k for 12 months
+        assert (sample_context.noi_series.iloc[:12] == 80000.0).all()
+        assert (sample_context.noi_series.iloc[12:] == 85000.0).all()
+    
+    def test_process_property_value_reflects_noi_and_settings(self, sample_context: DealContext):
+        """Test that property values reflect NOI data and cap rate settings."""
+        engine = ValuationEngine(sample_context)
+        engine.process()
+        
+        # Refi property values should be positive and use LTM methodology (default)
+        assert (sample_context.refi_property_value > 0).all()
+        
+        # With LTM methodology, early periods will use limited history, later periods use full 12mo trailing
+        # Early months (limited history): closer to current NOI
+        # Later months: smooth LTM average
+        
+        # First month uses only its own NOI: $80k * 12 / 6.5% = $14.77M
+        first_month_expected = (80000.0 * 12) / 0.065
+        assert abs(sample_context.refi_property_value.iloc[0] - first_month_expected) < 50000, "First month should use current NOI"
+        
+        # Month 13+ should use full 12-month trailing average
+        # By month 13, we have 12 months of $80k + 1 month of $85k
+        month_13_ltm_noi = ((80000.0 * 11) + (85000.0 * 1)) / 12  # Weighted average
+        month_13_expected = (month_13_ltm_noi * 12) / 0.065
+        assert abs(sample_context.refi_property_value.iloc[12] - month_13_expected) < 50000, "Month 13 should use LTM"
+        
+        # Final month should use LTM of last 12 months (mix of $80k and $85k)
+        final_ltm_noi = sample_context.noi_series.iloc[-12:].mean()  
+        final_expected = (final_ltm_noi * 12) / 0.065
+        assert abs(sample_context.refi_property_value.iloc[-1] - final_expected) < 50000, "Final month should use full LTM"
+    
+    def test_process_can_be_called_multiple_times(self, sample_context: DealContext):
+        """Test that process() can be called multiple times (idempotent)."""
+        engine = ValuationEngine(sample_context)
+        
+        # First call
+        engine.process()
+        first_property_value = sample_context.refi_property_value.copy()
+        first_noi_series = sample_context.noi_series.copy()
+        
+        # Second call should produce same results
+        engine.process()
+        
+        assert sample_context.refi_property_value.equals(first_property_value)
+        assert sample_context.noi_series.equals(first_noi_series)
 
 
 class TestIntegrationScenarios:
-    """Test realistic integration scenarios."""
-
-    def test_complete_valuation_workflow(
-        self,
-        mock_deal_with_exit_valuation,
-        sample_timeline,
-        sample_settings,
-        sample_unlevered_analysis_with_noi,
-    ):
-        """Test complete valuation workflow with all methods."""
-        engine = ValuationEngine(
-            deal=mock_deal_with_exit_valuation,
+    """Test integration scenarios (translates old integration test concepts)."""
+    
+    def test_complete_valuation_workflow_with_growth(self, sample_timeline: Timeline, sample_settings: GlobalSettings, sample_deal: Mock):
+        """Test complete valuation workflow with NOI growth scenario."""
+        # Create ledger with aggressive growth scenario
+        growth_ledger = Ledger()
+        
+        # Start at $70k, grow to $90k by month 24
+        growth_per_month = (90000.0 - 70000.0) / 24
+        
+        growing_noi_values = []
+        for i, period in enumerate(sample_timeline.period_index):
+            noi_value = 70000.0 + (growth_per_month * i)
+            growing_noi_values.append(noi_value)
+        
+        growing_noi_series = pd.Series(growing_noi_values, index=sample_timeline.period_index)
+        
+        growing_noi_metadata = SeriesMetadata(
+            category=CashFlowCategoryEnum.REVENUE,
+            subcategory=RevenueSubcategoryEnum.LEASE,
+            item_name="Net Operating Income",
+            source_id=uuid4(),
+            asset_id=uuid4(),
+            pass_num=1
+        )
+        
+        growth_ledger.add_series(growing_noi_series, growing_noi_metadata)
+        
+        context = DealContext(
             timeline=sample_timeline,
             settings=sample_settings,
+            ledger=growth_ledger,
+            deal=sample_deal
         )
-
-        # Extract property values
-        property_values = engine.extract_property_value_series(
-            sample_unlevered_analysis_with_noi
+        
+        engine = ValuationEngine(context)
+        engine.process()
+        
+        # Refi valuation should grow over time with NOI growth using LTM methodology
+        assert context.refi_property_value.iloc[0] < context.refi_property_value.iloc[-1], "Refi valuation should grow over time"
+        
+        # First month uses only its own NOI: 70k monthly * 12 = 840k annual / 6.5% = ~$12.92M
+        first_expected = (70000.0 * 12) / 0.065
+        assert abs(context.refi_property_value.iloc[0] - first_expected) < 50000, f"First month ${context.refi_property_value.iloc[0]:,.0f} != expected ${first_expected:,.0f}"
+        
+        # Last month uses LTM: average of last 12 months of the growing series
+        last_12_avg = context.noi_series.iloc[-12:].mean() if len(context.noi_series) >= 12 else context.noi_series.mean()
+        last_expected = (last_12_avg * 12) / 0.065
+        assert abs(context.refi_property_value.iloc[-1] - last_expected) < 50000, f"Last month ${context.refi_property_value.iloc[-1]:,.0f} != expected ${last_expected:,.0f}"
+        
+        # NOI should show growth
+        assert context.noi_series.iloc[0] < context.noi_series.iloc[-1]
+    
+    def test_valuation_with_realistic_institutional_assumptions(self, sample_timeline: Timeline, sample_deal: Mock, sample_ledger_with_noi: Ledger):
+        """Test valuation using realistic institutional assumptions."""
+        # Create settings with institutional standards
+        institutional_valuation_settings = ValuationSettings(
+            exit_cap_rate=0.055,  # 5.5% - institutional acquisition
+            refinancing_cap_rate=0.055,  # 5.5% - institutional refinancing (same as exit for this test)
+            costs_of_sale_percentage=0.015  # 1.5% - bulk sale
         )
-
-        # Create a simple ledger for the test
-        ledger = Ledger(settings=LedgerGenerationSettings())
-
-        # Extract NOI series
-        noi_series = engine.extract_noi_series(sample_unlevered_analysis_with_noi)
-
-        # Calculate disposition proceeds
-        with patch("performa.analysis.AnalysisContext") as mock_context_class:
-            mock_context = Mock()
-            mock_context.resolved_lookups = {}
-            mock_context_class.return_value = mock_context
-
-            disposition_cf = pd.Series(
-                [0.0] * 23 + [3000000.0], index=sample_timeline.period_index
-            )
-            mock_deal_with_exit_valuation.exit_valuation.compute_cf.return_value = (
-                disposition_cf
-            )
-
-            disposition_proceeds = engine.calculate_disposition_proceeds(
-                ledger, sample_unlevered_analysis_with_noi
-            )
-
-        # Verify all methods worked
-        assert isinstance(property_values, pd.Series)
-        assert isinstance(noi_series, pd.Series)
-        assert isinstance(disposition_proceeds, pd.Series)
-
-        # Verify reasonable relationships
-        assert property_values.iloc[0] > 0  # Property should have value
-        assert noi_series.iloc[0] > 0  # Should have NOI
-        assert disposition_proceeds.iloc[-1] > 0  # Should have disposition proceeds
-
-        # Property value should be related to NOI through cap rate
-        implied_cap_rate = noi_series.iloc[0] / property_values.iloc[0]
-        assert 0.04 < implied_cap_rate < 0.10  # Reasonable cap rate range
-
-    def test_valuation_with_growth_scenario(
-        self, mock_deal_with_exit_valuation, sample_timeline, sample_settings
-    ):
-        """Test valuation with growing NOI scenario."""
-        # Create analysis with strong NOI growth
-        noi_growth = [60000 + i * 2000 for i in range(24)]  # Growing NOI over time
-
-        cash_flows = pd.DataFrame(
-            {
-                UnleveredAggregateLineKey.NET_OPERATING_INCOME.value: noi_growth,
-            },
-            index=sample_timeline.period_index,
-        )
-
-        growth_analysis = UnleveredAnalysisResult()
-        growth_analysis.cash_flows = cash_flows
-
-        engine = ValuationEngine(
-            deal=mock_deal_with_exit_valuation,
+        institutional_settings = GlobalSettings(valuation=institutional_valuation_settings)
+        
+        institutional_context = DealContext(
             timeline=sample_timeline,
-            settings=sample_settings,
+            settings=institutional_settings,
+            ledger=sample_ledger_with_noi,
+            deal=sample_deal
         )
-
-        property_values = engine.extract_property_value_series(growth_analysis)
-        noi_series = engine.extract_noi_series(growth_analysis)
-
-        # Property values should increase with NOI growth
-        assert property_values.iloc[-1] > property_values.iloc[0]
-        assert noi_series.iloc[-1] > noi_series.iloc[0]
-
-        # Growth rate should be consistent
-        noi_growth_rate = (noi_series.iloc[-1] / noi_series.iloc[0]) - 1
-        value_growth_rate = (property_values.iloc[-1] / property_values.iloc[0]) - 1
-
-        # Growth rates should be similar (same cap rate applied)
-        assert abs(noi_growth_rate - value_growth_rate) < 0.02  # Within 2%
+        
+        engine = ValuationEngine(institutional_context)
+        engine.process()
+        
+        # Refi property values should reflect institutional refi cap rates (higher values than default 6.5%)
+        # $80k monthly NOI * 12 = $960k annual / 5.5% refi cap rate = ~$17.45M
+        expected_annual_noi = 80000.0 * 12  # $960k annual NOI
+        expected_refi_value = expected_annual_noi / 0.055  # 5.5% institutional refi cap rate
+        
+        assert abs(institutional_context.refi_property_value.iloc[0] - expected_refi_value) < 100000  # Within $100k
 
 
 class TestEdgeCasesAndErrorHandling:
-    """Test edge cases and error handling scenarios."""
-
-    def test_extract_property_value_zero_noi(
-        self, mock_deal_basic, sample_timeline, sample_settings
-    ):
-        """Test property value extraction when NOI is zero."""
-        # Create analysis with zero NOI
-        cash_flows = pd.DataFrame(
-            {
-                UnleveredAggregateLineKey.NET_OPERATING_INCOME.value: [0.0] * 24,
-            },
-            index=sample_timeline.period_index,
-        )
-
-        zero_noi_analysis = UnleveredAnalysisResult()
-        zero_noi_analysis.cash_flows = cash_flows
-
-        engine = ValuationEngine(
-            deal=mock_deal_basic, timeline=sample_timeline, settings=sample_settings
-        )
-
-        property_values = engine.extract_property_value_series(zero_noi_analysis)
-
-        # Should fall back to zero values
-        assert isinstance(property_values, pd.Series)
-        assert (property_values == 0.0).all()
-
-    def test_extract_property_value_negative_noi(
-        self, mock_deal_basic, sample_timeline, sample_settings
-    ):
-        """Test property value extraction with negative NOI."""
-        # Create analysis with negative NOI (operating losses)
-        cash_flows = pd.DataFrame(
-            {
-                UnleveredAggregateLineKey.NET_OPERATING_INCOME.value: [-20000.0] * 24,
-            },
-            index=sample_timeline.period_index,
-        )
-
-        negative_noi_analysis = UnleveredAnalysisResult()
-        negative_noi_analysis.cash_flows = cash_flows
-
-        engine = ValuationEngine(
-            deal=mock_deal_basic, timeline=sample_timeline, settings=sample_settings
-        )
-
-        property_values = engine.extract_property_value_series(negative_noi_analysis)
-
-        # Should handle negative NOI gracefully (likely fall back to zero)
-        assert isinstance(property_values, pd.Series)
-        # The exact behavior may vary based on implementation
-
-    def test_extract_property_value_with_partial_data(
-        self, mock_deal_with_acquisition, sample_timeline, sample_settings
-    ):
-        """Test property value extraction with partial/incomplete data."""
-        # Create analysis with some NOI but not enough for valuation
-        cash_flows = pd.DataFrame(
-            {
-                UnleveredAggregateLineKey.NET_OPERATING_INCOME.value: [10000.0] * 6
-                + [0.0] * 18,  # Only first 6 months
-            },
-            index=sample_timeline.period_index,
-        )
-
-        partial_analysis = UnleveredAnalysisResult()
-        partial_analysis.cash_flows = cash_flows
-
-        engine = ValuationEngine(
-            deal=mock_deal_with_acquisition,
+    """Test edge cases and error handling (translates old error handling concepts)."""
+    
+    def test_process_with_empty_ledger(self, sample_timeline: Timeline, sample_settings: GlobalSettings, sample_deal: Mock):
+        """Test process() behavior with completely empty ledger."""
+        empty_ledger = Ledger()
+        context = DealContext(
             timeline=sample_timeline,
             settings=sample_settings,
+            ledger=empty_ledger,
+            deal=sample_deal
         )
-
-        property_values = engine.extract_property_value_series(partial_analysis)
-
-        # The implementation may use NOI-based valuation even with partial data
-        # So we just check that property values are reasonable (either NOI-based or cost-based)
-        assert isinstance(property_values, pd.Series)
-        assert property_values.iloc[0] > 0  # Should have some positive value
-
-    def test_extract_property_value_noi_get_series_exception(
-        self, mock_deal_with_acquisition, sample_timeline, sample_settings
-    ):
-        """Test property value extraction when get_series raises an exception (covers lines 190-193)."""
-        engine = ValuationEngine(
-            deal=mock_deal_with_acquisition,
+        
+        engine = ValuationEngine(context)
+        
+        # Should not raise exception
+        engine.process()
+        
+        # Context should be populated with zero/fallback values
+        assert hasattr(context, 'noi_series')
+        assert hasattr(context, 'refi_property_value')
+        assert hasattr(context, 'exit_gross_proceeds')
+        
+        # NOI should be zeros
+        assert (context.noi_series == 0.0).all()
+        
+        # Property values and proceeds should be non-negative
+        assert (context.refi_property_value >= 0).all()
+        assert (context.exit_gross_proceeds >= 0).all()
+    
+    def test_process_with_malformed_settings(self, sample_timeline: Timeline, sample_deal: Mock, sample_ledger_with_noi: Ledger):
+        """Test process() behavior with malformed valuation settings."""
+        # Create settings with problematic cap rate (as close to zero as Pydantic allows)
+        malformed_valuation_settings = ValuationSettings(
+            exit_cap_rate=0.001  # Very low cap rate (Pydantic won't allow 0.0 due to PositiveFloat)
+        )
+        malformed_settings = GlobalSettings(valuation=malformed_valuation_settings)
+        
+        malformed_context = DealContext(
             timeline=sample_timeline,
-            settings=sample_settings,
+            settings=malformed_settings,
+            ledger=sample_ledger_with_noi,
+            deal=sample_deal
         )
-
-        # Create a mock analysis that will cause get_series to raise an exception
-        mock_analysis = Mock(spec=UnleveredAnalysisResult)
-        mock_analysis.cash_flows = pd.DataFrame()  # Empty but has columns attribute
-        # Mock get_series to raise an exception
-        mock_analysis.get_series.side_effect = Exception("get_series failed")
-
-        property_values = engine.extract_property_value_series(mock_analysis)
-
-        # Should fall back to cost-based appreciation (Strategy 3)
-        assert isinstance(property_values, pd.Series)
-        assert len(property_values) == 24
-        # Should use acquisition cost with appreciation since NOI extraction failed
-        assert (
-            abs(property_values.iloc[0] - 2000000.0) < 1000.0
-        )  # Should use acquisition cost
-        assert (
-            property_values.iloc[-1] > property_values.iloc[0]
-        )  # Should show appreciation
-
-    def test_disposition_proceeds_context_creation_failure(
-        self, mock_deal_with_exit_valuation, sample_timeline, sample_settings
-    ):
-        """Test disposition proceeds when context creation fails."""
-        engine = ValuationEngine(
-            deal=mock_deal_with_exit_valuation,
-            timeline=sample_timeline,
-            settings=sample_settings,
-        )
-
-        # Mock AnalysisContext to raise an error
-        with patch(
-            "performa.analysis.AnalysisContext",
-            side_effect=Exception("Context creation failed"),
-        ):
-            # Create a simple ledger for the test
-            ledger = Ledger(settings=LedgerGenerationSettings())
-
-            proceeds = engine.calculate_disposition_proceeds(ledger)
-
-        # Should handle the error gracefully
-        assert isinstance(proceeds, pd.Series)
-        assert (proceeds == 0.0).all()
-
-    def test_disposition_proceeds_noi_extraction_exception(
-        self, mock_deal_with_exit_valuation, sample_timeline, sample_settings
-    ):
-        """Test disposition proceeds when NOI extraction in context setup fails (covers lines 327-329)."""
-        engine = ValuationEngine(
-            deal=mock_deal_with_exit_valuation,
-            timeline=sample_timeline,
-            settings=sample_settings,
-        )
-
-        # Create mock analysis that will cause NOI extraction to fail in context setup
-        mock_analysis = Mock(spec=UnleveredAnalysisResult)
-        mock_analysis.get_series.side_effect = Exception("NOI extraction failed")
-
-        # Mock the disposition proceeds calculation
-        disposition_cf = pd.Series(
-            [0.0] * 23 + [3000000.0], index=sample_timeline.period_index
-        )
-        mock_deal_with_exit_valuation.exit_valuation.compute_cf.return_value = (
-            disposition_cf
-        )
-
-        with patch("performa.analysis.AnalysisContext") as mock_context_class:
-            # Mock context with resolved_lookups attribute
-            mock_context = Mock()
-            mock_context.resolved_lookups = {}
-            mock_context_class.return_value = mock_context
-
-            # Create a simple ledger for the test
-            ledger = Ledger(settings=LedgerGenerationSettings())
-
-            proceeds = engine.calculate_disposition_proceeds(ledger, mock_analysis)
-
-        # Should continue despite NOI extraction failure and return the disposition proceeds
-        assert isinstance(proceeds, pd.Series)
-        assert len(proceeds) == 24
-        assert proceeds.iloc[-1] == 3000000.0  # Should still get disposition proceeds
-
-        # Verify that the NOI extraction was attempted and failed
-        mock_analysis.get_series.assert_called_once_with(
-            UnleveredAggregateLineKey.NET_OPERATING_INCOME, sample_timeline
-        )
-
-    def test_multiple_value_columns_uses_first(
-        self, mock_deal_basic, sample_timeline, sample_settings
-    ):
-        """Test that when multiple value columns exist, first is used."""
-        # Create analysis with multiple value columns
-        values1 = [2000000.0 + i * 10000 for i in range(24)]
-        values2 = [3000000.0 + i * 15000 for i in range(24)]
-
-        cash_flows = pd.DataFrame(
-            {
-                "property_value": values1,  # Should use this one (first)
-                "asset_value": values2,  # Should ignore this one
-                "value": values1[::-1],  # Should ignore this one
-            },
-            index=sample_timeline.period_index,
-        )
-
-        multi_value_analysis = UnleveredAnalysisResult()
-        multi_value_analysis.cash_flows = cash_flows
-
-        engine = ValuationEngine(
-            deal=mock_deal_basic, timeline=sample_timeline, settings=sample_settings
-        )
-
-        property_values = engine.extract_property_value_series(multi_value_analysis)
-
-        # Should use the first value column (property_value)
-        assert abs(property_values.iloc[0] - values1[0]) < 1000.0
-        assert abs(property_values.iloc[-1] - values1[-1]) < 1000.0
+        
+        engine = ValuationEngine(malformed_context)
+        
+        # Should handle gracefully without crashing
+        engine.process()
+        
+        # Should still populate context (may use fallback values)
+        assert hasattr(malformed_context, 'refi_property_value')
+        assert isinstance(malformed_context.refi_property_value, pd.Series)

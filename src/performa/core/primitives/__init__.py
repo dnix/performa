@@ -55,7 +55,12 @@ from .settings import (
     InflationTimingEnum,
     ReportingSettings,
 )
-from .timeline import Timeline
+from .timeline import (
+    FREQUENCY_MAPPING,
+    PANDAS_FREQUENCY_MAPPING,
+    Timeline,
+    normalize_frequency,
+)
 from .types import FloatBetween0And1, PositiveFloat, PositiveInt
 from .validation import (
     ValidationMixin,
@@ -122,4 +127,8 @@ __all__ = [
     "validate_conditional_requirement_decorator",
     "validate_mutual_exclusivity",
     "validate_term_specification",
+    # Frequency utilities
+    "FREQUENCY_MAPPING",
+    "PANDAS_FREQUENCY_MAPPING",
+    "normalize_frequency",
 ]

@@ -5,7 +5,7 @@
 Universal Financial Reports
 
 Financial reports that work across all deal types, operating exclusively
-on final DealAnalysisResult objects from the analysis engine.
+on final DealResults objects from the analysis engine.
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from typing import Dict, Optional
 
 import pandas as pd
 
+from ..core.primitives.timeline import normalize_frequency
 from .base import BaseReport
 
 
@@ -35,52 +36,25 @@ class ProFormaReport(BaseReport):
         Returns:
             DataFrame where rows are line items and columns are periods
         """
-        # Map frequency strings to pandas aliases for compatibility
-        frequency_mapping = {
-            "A": "YE",  # Annual -> Year End
-            "Q": "QE",  # Quarterly -> Quarter End
-            "M": "ME",  # Monthly -> Month End (though M still works)
-        }
-        pandas_freq = frequency_mapping.get(frequency, frequency)
-        # --- Asset-level aggregates (from elegant LedgerQueries) ---
-        if (
-            hasattr(self._results, "asset_analysis")
-            and self._results.asset_analysis
-            and hasattr(self._results.asset_analysis, "get_ledger_queries")
-        ):
-            # Use elegant LedgerQueries instead of complex summary_df extraction
-            queries = self._results.asset_analysis.get_ledger_queries()
+        # --- Asset-level aggregates (from LedgerQueries) ---
+        queries = self._results.queries
 
-            # Direct query-based extraction (replaces complex column mapping)
-            pgr = self._safe_series(queries.pgr())
-            abatement = self._safe_series(queries.rental_abatement())
-            vacancy = self._safe_series(queries.vacancy_loss())
-            collection = self._safe_series(queries.credit_loss())
-            misc_income = self._safe_series(queries.misc_income())
-            reimburse = self._safe_series(queries.expense_reimbursements())
-            egi = self._safe_series(queries.egi())
-            opex = self._safe_series(queries.opex())
-            noi = self._safe_series(queries.noi())
-
-        else:
-            raise ValueError(
-                "asset_analysis with LedgerQueries is required for pro forma reports"
-            )
+        # Direct query-based extraction
+        pgr = queries.pgr()
+        abatement = queries.rental_abatement()
+        vacancy = queries.vacancy_loss()
+        collection = queries.credit_loss()
+        misc_income = queries.misc_income()
+        reimburse = queries.expense_reimbursements()
+        egi = queries.egi()
+        opex = queries.opex()
+        noi = queries.noi()
 
         # --- Financing aggregates ---
-        fin = getattr(self._results, "financing_analysis", None)
-        debt_service = (
-            self._sum_series_dict(getattr(fin, "debt_service", None)) if fin else None
-        )
+        debt_service = queries.debt_service()
 
         # --- Levered cash flow ---
-        lcf = self._safe_series(
-            getattr(
-                getattr(self._results, "levered_cash_flows", None),
-                "levered_cash_flows",
-                None,
-            )
-        )
+        lcf = self._results.levered_cash_flow
 
         # Assemble monthly DataFrame
         lines: Dict[str, Optional[pd.Series]] = {
@@ -117,42 +91,14 @@ class ProFormaReport(BaseReport):
         # Transpose so that rows are line items, columns are periods
         return annual.T
 
-    def _safe_series(self, series: Optional[pd.Series]) -> Optional[pd.Series]:
-        """Safely validate and return a pandas Series."""
-        if series is None:
-            return None
-        if not isinstance(series, pd.Series):
-            return None
-        return series
-
-    def _sum_series_dict(
-        self, series_dict: Optional[Dict[str, Optional[pd.Series]]]
-    ) -> Optional[pd.Series]:
-        """Sum multiple series from a dictionary, handling None values gracefully."""
-        if not series_dict:
-            return None
-        total: Optional[pd.Series] = None
-        for series in series_dict.values():
-            safe_series = self._safe_series(series)
-            if safe_series is None:
-                continue
-            total = (
-                safe_series if total is None else total.add(safe_series, fill_value=0.0)
-            )
-        return total
 
     def _resample_dataframe(self, df: pd.DataFrame, frequency: str) -> pd.DataFrame:
         """Resample DataFrame to requested frequency."""
         if df.empty:
             return df
 
-        # Map frequency strings to pandas aliases for compatibility
-        frequency_mapping = {
-            "A": "YE",  # Annual -> Year End
-            "Q": "QE",  # Quarterly -> Quarter End
-            "M": "ME",  # Monthly -> Month End (though M still works)
-        }
-        pandas_freq = frequency_mapping.get(frequency, frequency)
+        # Convert user frequency to pandas alias
+        pandas_freq = normalize_frequency(frequency)
 
         # Convert PeriodIndex to Timestamp index for resampling
         if hasattr(df.index, "to_timestamp"):

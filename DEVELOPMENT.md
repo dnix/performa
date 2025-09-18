@@ -681,7 +681,7 @@ base_deal = pattern.create()
 # Customize with Constructs if needed
 from performa.debt.constructs import create_mezzanine_facility
 mezz_debt = create_mezzanine_facility(...)
-base_deal = base_deal.copy(update={"additional_financing": mezz_debt})
+base_deal = base_deal.model_copy(update={"additional_financing": mezz_debt})
 
 # Fine-tune with Primitives for maximum control
 custom_timeline = Timeline(start_date=date(2024, 6, 1), duration_months=72)

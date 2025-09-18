@@ -4,7 +4,7 @@
 """
 Performa Reporting Module
 
-Modern reporting interface using fluent API via DealAnalysisResult.reporting
+Modern reporting interface using fluent API via DealResults.reporting
 
 The primary interface is the fluent API:
     results = analyze(deal, timeline)
@@ -50,7 +50,7 @@ __all__ = [
     # Base classes for custom reports
     "BaseReport",
     "ReportTemplate",
-    # Fluent interface (exposed via DealAnalysisResult.reporting)
+    # Fluent interface (exposed via DealResults.reporting)
     "ReportingInterface",
     # Core reports
     "PivotTableReport",

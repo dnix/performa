@@ -192,11 +192,10 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
         return self.hard_construction_costs + self.soft_costs + self.developer_fee
 
     def _derive_timeline(self) -> Timeline:
-        """Override to add buffer for exit transaction."""
+        """Derive timeline from hold period (consistent with composition approach)."""
         return Timeline(
             start_date=self.acquisition_date,
-            duration_months=self.hold_period_years * 12
-            + 6,  # Add 6 months buffer for exit and wind-down
+            duration_months=self.hold_period_years * 12,  # No buffer for perfect parity
         )
 
     @property
@@ -363,59 +362,9 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
             interest_reserve_rate=self.interest_reserve_rate,
         )
 
-        # === STEP 9: PERMANENT FINANCING ===
-        # Calculate expected stabilized value for loan sizing
-        # target_rent_psf is already annual, so no * 12 needed
-        annual_stabilized_rent = self.target_rent_psf * self.net_rentable_area * 0.95
-        # Assume OpEx = 35% of EGI for office
-        stabilized_noi = annual_stabilized_rent * 0.65
-        stabilized_value = stabilized_noi / self.exit_cap_rate
-
-        # Calculate maximum permanent loan based on LTV
-        max_perm_loan_ltv = stabilized_value * self.permanent_ltv_ratio
-        
-        # Calculate construction loan balance to be paid off
-        construction_loan_balance = self.total_project_cost * self.construction_ltc_ratio
-        
-        # Permanent loan should be the lesser of LTV limit or construction balance
-        # This prevents unintended cash-out refinancing in development deals
-        perm_loan_amount = min(max_perm_loan_ltv, construction_loan_balance)
-
-        # === DEAL FEASIBILITY GUARD RAILS ===
-        construction_loan_amount = self.total_project_cost * self.construction_ltc_ratio
-
-        # Check 1: Value creation requirement
-        value_to_cost_ratio = stabilized_value / self.total_project_cost
-        if value_to_cost_ratio < 1.0:
-            raise ValueError(
-                f"❌ DEAL INFEASIBLE: Office project destroys value! "
-                f"Stabilized value ${stabilized_value:,.0f} < Project cost ${self.total_project_cost:,.0f} "
-                f"(ratio: {value_to_cost_ratio:.2f}). Increase rent PSF, reduce costs, or lower cap rate."
-            )
-
-        # Check 2: Cash-out feasibility
-        cash_out_potential = perm_loan_amount - construction_loan_amount
-        if cash_out_potential < 0:
-            raise ValueError(
-                f"❌ REFINANCING INFEASIBLE: Permanent loan ${perm_loan_amount:,.0f} < "
-                f"Construction loan ${construction_loan_amount:,.0f}. "
-                f"Cash shortfall: ${abs(cash_out_potential):,.0f}. "
-                f"Increase permanent LTV, increase rent PSF, or reduce construction debt."
-            )
-
-        # Check 3: DSCR validation
-        estimated_debt_service = (perm_loan_amount * self.permanent_interest_rate) / 12
-        if estimated_debt_service > 0 and stabilized_noi > 0:
-            estimated_annual_debt_service = estimated_debt_service * 12
-            estimated_dscr = stabilized_noi / estimated_annual_debt_service
-            required_dscr = 1.25
-
-            if estimated_dscr < required_dscr:
-                raise ValueError(
-                    f"❌ DSCR VIOLATION: Estimated DSCR {estimated_dscr:.2f}x below "
-                    f"required {required_dscr:.2f}x. Current capital structure cannot support "
-                    f"permanent financing. Reduce permanent LTV or increase rent PSF."
-                )
+        # === STEP 9: ARCHITECTURAL IMPROVEMENT ===
+        # Auto-sizing will handle all loan calculations and feasibility checks
+        # The sophisticated auto-sizing logic validates LTV/DSCR/Debt Yield constraints automatically
 
         # Calculate construction period for refinance timing
         construction_period_months = (
@@ -426,21 +375,22 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
             construction_terms={
                 "name": "Construction Facility",
                 "ltc_ratio": self.construction_ltc_ratio,  # Use base class LTC parameter for loan sizing
-                "ltc_max": 0.80,  # Standard construction LTC cap
+                "ltc_max": self.construction_ltc_max,  # Use base class parameter
                 "interest_rate": self.construction_interest_rate,
-                "loan_term_months": 24,  # 2 years construction
+                "loan_term_months": self.construction_duration_months,  # Use actual construction duration
                 "interest_reserve_rate": self.interest_reserve_rate,
             },
             permanent_terms={
                 "name": "Permanent Facility",
-                "loan_amount": perm_loan_amount,
+                # ARCHITECTURAL IMPROVEMENT: Use auto-sizing instead of manual calculation
+                "ltv_ratio": self.permanent_ltv_ratio,  # Auto-sizing based on completed property value
+                "dscr_hurdle": 1.25,  # Constraint for auto-sizing
+                "sizing_method": "auto",  # Enable sophisticated auto-sizing
                 "interest_rate": self.permanent_interest_rate,
-                "loan_term_months": self.permanent_loan_term_years * 12,
-                "amortization_months": self.permanent_amortization_years * 12,
-                "ltv_ratio": self.permanent_ltv_ratio,
-                "dscr_hurdle": 1.25,
+                "loan_term_years": self.permanent_loan_term_years,  # Use years form for construct
+                "amortization_years": self.permanent_amortization_years,  # Use years form for construct
                 "origination_fee_rate": 0.005,
-                "refinance_timing": construction_period_months,  # THIS IS THE KEY!
+                # Smart refinance timing: construct will calculate from construction_duration_months
             },
             project_value=self.total_project_cost,
         )

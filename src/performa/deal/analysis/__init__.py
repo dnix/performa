@@ -9,10 +9,12 @@ with clean separation of concerns and domain-driven design principles.
 
 The analysis workflow follows a systematic multi-pass approach:
 1. **Asset Analysis** - Unlevered asset performance analysis
-2. **Valuation Analysis** - Property valuation and disposition proceeds
-3. **Debt Analysis** - Financing structure and debt service calculations
-4. **Cash Flow Analysis** - Institutional-grade funding cascade
-5. **Partnership Analysis** - Equity waterfall and partner distributions
+2. **Acquisition Analysis** - Initial costs and project cost calculation
+3. **Valuation Analysis** - Property valuation and disposition proceeds
+4. **Debt Analysis** - Financing structure and debt service calculations
+5. **Disposition Analysis** - Exit transaction processing
+6. **Cash Flow Analysis** - Institutional-grade funding cascade
+7. **Partnership Analysis** - Equity waterfall and partner distributions
 
 Architecture:
     - Each service is a focused specialist with clear responsibilities
@@ -47,14 +49,17 @@ Design Principles:
     - **Institutional Grade**: Implements real-world financial modeling standards
 """
 
+from .acquisition import AcquisitionAnalyzer
 from .cash_flow import CashFlowEngine
 from .debt import DebtAnalyzer
+from .disposition import DispositionAnalyzer
 from .partnership import PartnershipAnalyzer
 from .valuation import ValuationEngine
 
 __all__ = [
-    "CashFlowEngine",
+    "AcquisitionAnalyzer", 
     "DebtAnalyzer",
+    "DispositionAnalyzer",
     "PartnershipAnalyzer",
-    "ValuationEngine",
+    "ValuationEngine", "CashFlowEngine",
 ]

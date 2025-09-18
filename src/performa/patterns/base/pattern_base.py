@@ -20,7 +20,7 @@ from ...core.primitives import GlobalSettings, Model, Timeline
 from ...core.primitives.types import PositiveInt
 from ...deal import Deal
 from ...deal.api import analyze as run_analysis
-from ...deal.results import DealAnalysisResult
+from ...deal.results import DealResults
 
 
 class PatternBase(Model, ABC):
@@ -124,7 +124,7 @@ class PatternBase(Model, ABC):
         # Case 3: Delegate to pattern-specific logic
         return self._derive_timeline()
 
-    def analyze(self) -> DealAnalysisResult:
+    def analyze(self) -> DealResults:
         """
         Create deal and run analysis with computed timeline.
 
@@ -132,7 +132,7 @@ class PatternBase(Model, ABC):
         directly from pattern parameters.
 
         Returns:
-            DealAnalysisResult with all analysis components
+            DealResults with all analysis components
 
         Example:
             ```python
@@ -150,7 +150,7 @@ class PatternBase(Model, ABC):
         settings = self.settings or GlobalSettings()
         return run_analysis(deal, timeline, settings)
 
-    def create_and_analyze(self) -> Tuple[Deal, DealAnalysisResult]:
+    def create_and_analyze(self) -> Tuple[Deal, DealResults]:
         """
         Create deal and analyze, returning both for advanced use cases.
 
@@ -159,7 +159,7 @@ class PatternBase(Model, ABC):
         or debugging.
 
         Returns:
-            Tuple of (Deal, DealAnalysisResult)
+            Tuple of (Deal, DealResults)
 
         Example:
             ```python

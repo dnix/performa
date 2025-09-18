@@ -131,24 +131,19 @@ class DebtFacilityBase(Model):
         Returns:
             pd.Series: Debt service schedule for aggregation
         """
-        # Validate context for development deals
-        # FIXME: does this go here in the base class or in the permanent class?
-        if hasattr(self, "kind") and self.kind == "permanent":
-            if context.deal and hasattr(context.deal, "is_development_deal"):
-                if context.deal.is_development_deal:
-                    # Check if this facility has refinance timing configured
-                    has_timing = (
-                        hasattr(self, "refinance_timing")
-                        and self.refinance_timing is not None
+        # Validate permanent facility timing in development deals
+        # FIXME: does this go here in the base class or in the permanent class?  
+        if self.kind == "permanent":
+            if context.deal.is_development_deal:
+                # Permanent facilities in development deals must have refinance timing
+                if self.refinance_timing is None:
+                    warnings.warn(
+                        f"PermanentFacility '{self.name}' used in development deal without "
+                        f"refinance timing. The loan will fund on day 1 instead of after "
+                        f"construction completion, creating INCORRECT leverage ratios.",
+                        UserWarning,
+                        stacklevel=2,
                     )
-                    if not has_timing:
-                        warnings.warn(
-                            f"PermanentFacility '{self.name}' used in development deal without "
-                            f"refinance timing. The loan will fund on day 1 instead of after "
-                            f"construction completion, creating INCORRECT leverage ratios.",
-                            UserWarning,
-                            stacklevel=2,
-                        )
 
         timeline = context.timeline
 
@@ -167,17 +162,21 @@ class DebtFacilityBase(Model):
             funding_period = timeline.period_index[refinance_idx]
 
         if self.loan_amount > 0:
-            proceeds_series = pd.Series([self.loan_amount], index=[funding_period])
+            # Skip LOAN_PROCEEDS for facilities with refinance_timing 
+            # (refinancing logic creates REFINANCING_PROCEEDS instead)
+            if self.refinance_timing is None:
+                proceeds_series = pd.Series([self.loan_amount], index=[funding_period])
 
-            proceeds_metadata = SeriesMetadata(
-                category=CashFlowCategoryEnum.FINANCING,
-                subcategory=FinancingSubcategoryEnum.LOAN_PROCEEDS,
-                item_name=f"{self.name} - Proceeds",
-                source_id=self.uid,
-                asset_id=context.deal.asset.uid,  # Clean access via DealContext
-                pass_num=CalculationPhase.FINANCING.value,
-            )
-            context.ledger.add_series(proceeds_series, proceeds_metadata)
+                proceeds_metadata = SeriesMetadata(
+                    category=CashFlowCategoryEnum.FINANCING,
+                    subcategory=FinancingSubcategoryEnum.LOAN_PROCEEDS,
+                    item_name=f"{self.name} - Proceeds",
+                    source_id=self.uid,
+                    asset_id=context.deal.asset.uid,  # Clean access via DealContext
+                    pass_num=CalculationPhase.FINANCING.value,
+                )
+                
+                context.ledger.add_series(proceeds_series, proceeds_metadata)
 
         # Split debt service into interest (expense) and principal (balance reduction)
         if not debt_service.empty and debt_service.sum() != 0:
@@ -244,22 +243,35 @@ class DebtFacilityBase(Model):
         self, context: "DealContext", debt_service: pd.Series, timeline: Timeline
     ) -> None:
         """
-        Helper method to record debt service as a simple combined payment.
+        Record debt service using disaggregated I&P approach for consistency.
         
-        Used for facilities without detailed amortization schedules
-        (e.g., ConstructionFacility with interest-only payments).
+        For interest-only facilities, records payment as interest with 
+        zero principal to maintain uniform subcategory patterns.
         
         Args:
             context: Deal context with ledger
-            debt_service: Combined debt service series
+            debt_service: Debt service series (interest-only assumption)
             timeline: Analysis timeline
         """
-        service_metadata = SeriesMetadata(
+        # Record as interest payment (architectural consistency)
+        interest_metadata = SeriesMetadata(
             category=CashFlowCategoryEnum.FINANCING,
-            subcategory=FinancingSubcategoryEnum.DEBT_SERVICE,
-            item_name=f"{self.name} - Debt Service",
+            subcategory=FinancingSubcategoryEnum.INTEREST_PAYMENT,
+            item_name=f"{self.name} - Interest",
             source_id=self.uid,
             asset_id=context.deal.asset.uid,
             pass_num=CalculationPhase.FINANCING.value,
         )
-        context.ledger.add_series(-debt_service, service_metadata)
+        context.ledger.add_series(-debt_service, interest_metadata)
+        
+        # Record zero principal payment for architectural consistency
+        zero_principal = pd.Series(0.0, index=debt_service.index)
+        principal_metadata = SeriesMetadata(
+            category=CashFlowCategoryEnum.FINANCING,
+            subcategory=FinancingSubcategoryEnum.PRINCIPAL_PAYMENT,
+            item_name=f"{self.name} - Principal",
+            source_id=self.uid,
+            asset_id=context.deal.asset.uid,
+            pass_num=CalculationPhase.FINANCING.value,
+        )
+        context.ledger.add_series(-zero_principal, principal_metadata)
