@@ -115,61 +115,6 @@ class DebtAnalyzer(AnalysisSpecialist):
     - **Stress Testing**: Forward-looking analysis with sensitivity scenarios
     - **Risk Assessment**: Comprehensive covenant monitoring and breach detection
 
-    ## ⚠️ CRITICAL FUNCTIONALITY AUDIT - DO NOT DELETE WITHOUT VERIFICATION
-
-    ### CORE RESPONSIBILITIES (ALL MUST BE PRESERVED):
-
-    1. **DEBT FACILITY PROCESSING** ✅ CRITICAL
-       - Process construction loans with progressive draws
-       - Process term loans with initial funding
-       - Handle refinancing transactions (payoff + new loan)
-       - Calculate enhanced debt service (floating rates, IO periods)
-       - Each facility.compute_cf() writes transactions to ledger
-
-    2. **DSCR CALCULATIONS** ✅ CRITICAL - Lender requirement
-       - calculate_dscr_metrics(): All DSCR metrics
-       - _calculate_dscr_time_series(): Period-by-period
-       - Covenant monitoring and breach detection
-
-    3. **REFINANCING MECHANICS** ✅ CRITICAL
-       - _process_refinancing_transactions(): Payoff old, fund new
-       - _process_refinancing_cash_flows(): Cash flow impacts
-       - _get_refinanced_loan_amount(): Sizing calculations
-       - Net proceeds calculations for equity
-
-    ### METHODS VERIFIED AS CRITICAL (CANNOT DELETE):
-    - analyze(): Core orchestrator interface - calls facility.compute_cf()
-    - calculate_dscr_metrics(): Required by lenders
-    - _process_facilities(): Routes to construction/term processors
-    - _setup_covenant_monitoring(): Institutional requirement
-    - All refinancing methods: Complex transaction logic
-
-    ### METHODS BLOCKED BY TESTS:
-    - analyze_financing_structure(): 400 lines, called by 12 tests
-      XXX BLOCKED: Cannot delete until tests updated
-
-    ### METHODS FLAGGED FOR REVIEW:
-    - _aggregate_debt_service(): Should use ledger query instead
-
-    ### INPUTS REQUIRED:
-    - Deal with financing structure (facilities)
-    - Timeline for analysis period
-    - Property value series (for LTV)
-    - NOI series (for DSCR)
-    - Populated ledger
-
-    ### OUTPUTS PROVIDED:
-    - Debt transactions written to ledger via facility.compute_cf()
-    - DSCR metrics (min, avg, forward-looking)
-    - Covenant monitoring results
-    - Refinancing analysis if applicable
-
-    Institutional capabilities:
-    - Follows commercial real estate lending industry standards
-    - Implements DSCR calculations per institutional underwriting requirements
-    - Provides covenant monitoring frameworks used by institutional lenders
-    - Supports stress testing scenarios required for institutional analysis
-
     Attributes:
         deal: The deal containing financing structure and asset information
         timeline: Analysis timeline for debt service and covenant calculations
@@ -205,7 +150,7 @@ class DebtAnalyzer(AnalysisSpecialist):
         Settings-driven debt processing with institutional-grade covenant monitoring.
         Always processes facilities and writes debt transactions to ledger.
 
-        FIXED: Now handles refinancing transactions after facilities are processed.
+        Handles refinancing transactions after facilities are processed.
         """
         # Handle no financing case internally
         if not self.deal.financing:
@@ -243,12 +188,9 @@ class DebtAnalyzer(AnalysisSpecialist):
 
         # Debt processing complete - all facility transactions written to ledger
 
-    # DELETED: analyze_financing_structure() - 400 lines of zombie code removed
-    # This method created deprecated FinancingAnalysisResult objects
-    # Tests that called this method should use analyze() instead
-
-    # DELETED: _process_facilities() - Orphaned after analyze_financing_structure removal
-    # Facilities are now processed directly in analyze() method
+    ###########################################################################
+    # DEBT SERVICE CALCULATIONS
+    ###########################################################################
 
     def _calculate_enhanced_debt_service(self, permanent_facility) -> pd.Series:
         """
@@ -558,9 +500,6 @@ class DebtAnalyzer(AnalysisSpecialist):
                 # Setup covenant monitoring for new permanent loans
                 covenant_monitoring = transaction.get("covenant_monitoring", {})
                 # TODO: Integrate covenant monitoring with the new permanent loan
-
-    # DELETED: _extract_noi_time_series() - Redundant pre-refactor cruft
-    # Use self.queries.noi() directly instead (available from base class)
 
     def _calculate_dscr_time_series(
         self, noi_series: pd.Series, debt_service_series: pd.Series
