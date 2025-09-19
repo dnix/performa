@@ -115,55 +115,6 @@ class PartnershipAnalyzer(AnalysisSpecialist):
     allocation of equity returns among partners based on their partnership agreements, promote structures,
     and fee arrangements.
 
-    ## ⚠️ CRITICAL FUNCTIONALITY AUDIT - DO NOT DELETE WITHOUT VERIFICATION
-
-    ### CORE RESPONSIBILITIES (ALL MUST BE PRESERVED):
-
-    1. **WATERFALL DISTRIBUTIONS** ✅ CRITICAL - Legal requirement
-       - Apply complex waterfall with promote structures
-       - IRR-based hurdles with binary search for transitions
-       - Catch-up provisions for GP promote
-       - Clawback mechanisms for over-distributions
-       - Multiple tiers with different split ratios
-
-    2. **FEE CALCULATIONS** ✅ CRITICAL - Contractual obligations
-       - _calculate_fee_distributions(): Priority fee payments
-       - Asset management fees (tiered by assets/equity)
-       - Acquisition fees (% of purchase price)
-       - Development fees (% of costs)
-       - Promote calculations (carried interest)
-       - Dual-entry accounting (project debit, partner credit)
-
-    3. **LEDGER POPULATION** ✅ CRITICAL
-       - Write partner distributions to ledger
-       - Record fee payments with proper accounting
-       - Track distributions by partner and type
-       - Maintain audit trail for tax/legal purposes
-
-    ### METHODS VERIFIED AS CRITICAL (CANNOT DELETE):
-    - analyze(): Core orchestrator interface
-    - _calculate_fee_distributions(): Legal fee obligations
-    - _combine_fee_and_waterfall_results(): Merge complex logic
-    - _add_distribution_records_to_ledger(): Record payments
-    - _calculate_single_entity_distributions(): Single owner case
-
-    ### DELETED ZOMBIE METHODS:
-    - calculate_partner_distributions(): 106 lines deleted
-      Replaced by analyze() method writing to ledger
-
-    ### INPUTS REQUIRED:
-    - Deal with partnership structure
-    - Levered cash flows from ledger
-    - Timeline for analysis period
-    - Populated ledger with cash available
-
-    ### OUTPUTS PROVIDED:
-    - Partner distribution transactions in ledger
-    - Fee payment transactions in ledger
-    - Status of waterfall execution
-    - Partners processed count
-    - Total distributed amount
-
     The PartnershipAnalyzer implements institutional standards for partnership distributions, including:
     - IRR-based promote calculations with binary search precision for exact tier transitions
     - Fee priority payment logic ensuring fees are paid before equity distributions
@@ -355,11 +306,9 @@ class PartnershipAnalyzer(AnalysisSpecialist):
 
         # Partnership analysis complete - all transactions written to ledger
 
-    # XXX ZOMBIE METHOD: calculate_partner_distributions() DELETED
-    # This 108-line method created PartnerDistributionResult objects manually.
-    # SAFE DELETION: Not called by any tests, examples, or orchestrator.
-    # All functionality now handled by analyze() method which writes to ledger.
-    # DELETED: Lines 277-385 (108 lines of manual distribution result assembly)
+    ###########################################################################
+    # WATERFALL DISTRIBUTION CALCULATIONS
+    ###########################################################################
 
     def _calculate_single_entity_distributions(
         self, cash_flows: pd.Series, context: "DealContext"
@@ -815,6 +764,3 @@ class PartnershipAnalyzer(AnalysisSpecialist):
             )
 
             ledger.add_series(distribution_series, metadata)
-
-    # XXX ZOMBIE METHOD DELETED: _create_partner_distributions_result()
-    # This method was never called and created deprecated result objects

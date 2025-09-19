@@ -77,12 +77,12 @@ from performa.deal.analysis import (
     PartnershipAnalyzer,
     ValuationEngine,
 )
+from performa.deal.results import DealResults
 
 if TYPE_CHECKING:
     from performa.analysis.results import AssetAnalysisResult
     from performa.core.ledger import Ledger
     from performa.deal.deal import Deal
-    from performa.deal.results import DealResults
 
 logger = logging.getLogger(__name__)
 
@@ -327,7 +327,6 @@ class DealCalculator:
             PartnershipAnalyzer(deal_context).process()
 
             # Return clean results that query the ledger
-            from performa.deal.results import DealResults
             return DealResults(self.deal, self.timeline, ledger)
 
         except Exception as e:

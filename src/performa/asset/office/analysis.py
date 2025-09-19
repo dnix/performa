@@ -77,9 +77,9 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
 
     def run(self) -> None:
         """
-        ASSEMBLER PATTERN - ENHANCED RUN METHOD FOR OFFICE
+        Process office property analysis.
 
-        This override implements the same architectural pattern as residential:
+        Implements consistent architectural pattern:
         1. Recovery states pre-calculation (office-specific)
         2. AnalysisContext serves as universal data bus
         3. One-time UUID resolution during assembly
@@ -115,7 +115,7 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
         ti_template_lookup = {}  # Future enhancement
         lc_template_lookup = {}  # Future enhancement
 
-        # === 3. CREATE ENHANCED CONTEXT ===
+        # === 3. CREATE ANALYSIS CONTEXT ===
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -135,6 +135,10 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
         orchestrator = CashFlowOrchestrator(models=all_models, context=context)
         orchestrator.execute()
         self._orchestrator = orchestrator
+
+    #########################################################
+    # CALCULATION METHODS
+    #########################################################
 
     def _pre_calculate_recoveries(self) -> Dict[UUID, RecoveryCalculationState]:
         """

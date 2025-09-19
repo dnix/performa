@@ -71,7 +71,7 @@ class DispositionTransaction:
     def calculate_net_proceeds(self) -> float:
         """Calculate net proceeds after all deductions.
 
-        XXX: This is redundant with net_to_equity which is already calculated.
+        NOTE: This is redundant with net_to_equity which is already calculated.
         Only kept for test compatibility - consider removing in future.
         """
         total_debt_payoff = sum(self.debt_payoffs.values())
@@ -520,6 +520,3 @@ class DispositionAnalyzer(AnalysisSpecialist):
         ledger.add_series(payoff_series, metadata)
 
         logger.debug(f"Recorded debt payoff for {facility_name}: ${payoff_amount:,.0f}")
-
-    # DELETED: _process_disposition_with_settings() - Never called, dead code
-    # Was a wrapper around process_disposition() that's not needed

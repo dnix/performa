@@ -126,55 +126,6 @@ class CashFlowEngine(AnalysisSpecialist):
     - **Dynamic Equity Targets**: Calculates equity targets that adjust as interest compounds
     - **Component Tracking**: Maintains detailed audit trails of all funding components
 
-    ## ⚠️ CRITICAL FUNCTIONALITY AUDIT - DO NOT DELETE WITHOUT VERIFICATION
-
-    ### CORE RESPONSIBILITIES (ALL MUST BE PRESERVED):
-
-    1. **FUNDING CASCADE EXECUTION** ✅ CRITICAL - 216 lines
-       - _execute_funding_cascade(): Core allocation algorithm
-       - Equity-first funding up to LTC targets
-       - Debt-second funding within facility limits
-       - Interest compounding with reserve tracking
-       - Funding gap identification and validation
-
-    2. **LEDGER POPULATION** ✅ CRITICAL
-       - _add_funding_sources_to_ledger(): Write equity/debt to ledger
-       - _add_disposition_records_to_ledger(): Exit with debt payoff
-       - Records all funding transactions for audit trail
-
-    3. **FINANCIAL CALCULATIONS** ✅ CRITICAL
-       - _calculate_equity_target(): LTC-based equity requirements
-       - _calculate_required_equity_from_ltc(): Constraint calculations
-       - _calculate_interest_reserve_capacity(): Reserve sizing
-       - _fund_period_uses(): Period-by-period allocation
-
-    ### METHODS VERIFIED AS CRITICAL (CANNOT DELETE):
-    - analyze(): Core orchestrator interface
-    - _execute_funding_cascade(): 216-line funding algorithm
-    - _add_funding_sources_to_ledger(): Populates ledger
-    - _calculate_equity_target(): Equity calculation
-    - _fund_period_uses(): Period funding logic
-    - _get_available_debt_funding(): Debt capacity
-    - _add_disposition_records_to_ledger(): Exit processing
-
-    ### METHODS FLAGGED FOR REVIEW (XXX):
-    - _calculate_period_uses(): May be orphaned after deletions
-    - _initialize_funding_components(): Could be simplified
-    - _calculate_debt_service_series(): Not called after deletions
-    - _calculate_loan_payoff_series(): Not called after deletions
-
-    ### INPUTS REQUIRED:
-    - Deal with financing structure (debt facilities, partnership)
-    - Timeline for analysis period
-    - Asset analysis results (for operational cash flows)
-    - Populated ledger with project uses
-
-    ### OUTPUTS PROVIDED:
-    - Funding transactions written to ledger
-    - Status of cascade execution
-    - Total uses, equity funded, debt funded metrics
-    - **Gap Analysis**: Identifies and reports funding gaps for risk management
-
     The funding cascade process:
     1. Calculate period-by-period uses (acquisition, construction, fees)
     2. Initialize funding state with equity targets and debt tranche tracking
@@ -282,14 +233,9 @@ class CashFlowEngine(AnalysisSpecialist):
 
         # Cash flow processing complete - all funding transactions written to ledger
 
-    # XXX ZOMBIE METHOD: calculate_levered_cash_flows() DELETED
-    # This 1000+ line method was the core of the pre-ledger architecture.
-    # It assembled cash flows manually instead of querying the ledger.
-    # SAFE DELETION: Not called by any tests, examples, or orchestrator.
-    # All functionality now handled by:
-    # - analyze() method writes to ledger
-    # - DealResults.levered_cash_flow queries ledger
-    # DELETED: Lines 233-303 (71 lines of method definition + calls to zombie helpers)
+    ###########################################################################
+    # LEDGER-BASED CASH FLOW CALCULATIONS
+    ###########################################################################
 
     def _calculate_ledger_based_uses(self, ledger, timeline) -> pd.Series:
         """
@@ -395,7 +341,7 @@ class CashFlowEngine(AnalysisSpecialist):
         # NOTE: Interest expense is also NOT added here because debt service (which includes
         # interest) is already written by debt facilities via their compute_cf method.
 
-    # XXX FUTURE DELETION CANDIDATE: _initialize_funding_components()
+    # FIXME: _initialize_funding_components() may be deletion candidate
     # This method initializes structures that could be simplified with pure ledger approach.
     @staticmethod
     def _initialize_funding_components(
@@ -423,7 +369,7 @@ class CashFlowEngine(AnalysisSpecialist):
             "max_ltc": max_ltc,  # Include settings in components
         }
 
-    # XXX FUTURE SIMPLIFICATION CANDIDATE: _execute_funding_cascade()
+    # FIXME: _execute_funding_cascade() may be simplification candidate
     # This 216-line method implements complex funding cascade logic.
     # KEEP FOR NOW: Contains critical equity/debt allocation and interest compounding.
     # FUTURE: Could be simplified if ledger tracking becomes more sophisticated.
@@ -695,7 +641,7 @@ class CashFlowEngine(AnalysisSpecialist):
         # For construction financing, calculate equity based on debt structure
         for facility in self.deal.financing.facilities:
             if hasattr(facility, "kind") and facility.kind == "construction":
-                # If facility has ltc_ratio, use it to calculate FIXED equity target
+                # If facility has ltc_ratio, use it to calculate equity target
                 if hasattr(facility, "ltc_ratio") and facility.ltc_ratio is not None:
                     # TODO: Review this calculation thoroughly
                     # Use initial uses to fix equity target
@@ -787,9 +733,6 @@ class CashFlowEngine(AnalysisSpecialist):
         # Required equity is total cost minus max available debt
         required_equity = total_project_cost - max_debt_from_ltc
         return max(required_equity, 0)  # Never negative
-
-    # DELETED: _allocate_equity_contribution() - Never called, dead code
-    # Equity allocation handled elsewhere in the architecture
 
     def _fund_period_uses(
         self,
@@ -938,50 +881,9 @@ class CashFlowEngine(AnalysisSpecialist):
     # Note: Interest calculation is now integrated into _execute_funding_cascade
     # This method has been removed as it's now handled iteratively in the cascade
 
-    # XXX ZOMBIE METHOD: _assemble_levered_cash_flow_results() DELETED
-    # This 170-line method manually assembled LeveredCashFlowResult objects.
-    # SAFE DELETION: Only called by calculate_levered_cash_flows() which we deleted.
-    # All functionality now handled by DealResults queries from ledger.
-    # DELETED: Lines 1075-1245 (170 lines of manual cash flow assembly)
-
-    # DELETED: _extract_unlevered_cash_flows() - Replaced by direct ledger query
-    # This method had complex defensive fallbacks that are no longer needed
-    # Use LedgerQueries.operational_cash_flow() instead
-    # DELETED: _extract_unlevered_cash_flows_DELETED() - Already marked as deleted
-    # Replaced by LedgerQueries.operational_cash_flow()
-
-    # XXX ZOMBIE METHOD: _calculate_total_distributions() DELETED
-    # This 30-line method calculated distributions for LeveredCashFlowResult.
-    # SAFE DELETION: Only called by _assemble_levered_cash_flow_results() which we deleted.
-    # All functionality now handled by DealResults queries from ledger.
-    # XXX ZOMBIE METHOD: _calculate_total_distributions() DELETED
-    # This 30-line method calculated distributions for LeveredCashFlowResult.
-    # SAFE DELETION: Only called by _assemble_levered_cash_flow_results() which we deleted.
-    # All functionality now handled by DealResults queries from ledger.
-    # XXX ZOMBIE METHOD: _calculate_total_distributions() DELETED
-    # This 30-line method calculated distributions for LeveredCashFlowResult.
-    # SAFE DELETION: Only called by _assemble_levered_cash_flow_results() which we deleted.
-    # All functionality now handled by DealResults queries from ledger.
-    # XXX ZOMBIE METHOD: _calculate_total_distributions() DELETED
-    # This 30-line method calculated distributions for LeveredCashFlowResult.
-    # SAFE DELETION: Only called by _assemble_levered_cash_flow_results() which we deleted.
-    # All functionality now handled by DealResults queries from ledger.
-    # XXX ZOMBIE METHOD: _calculate_total_distributions() DELETED
-    # This 30-line method calculated distributions for LeveredCashFlowResult.
-    # SAFE DELETION: Only called by _assemble_levered_cash_flow_results() which we deleted.
-    # All functionality now handled by DealResults queries from ledger.
-    # XXX ZOMBIE METHOD: _calculate_total_distributions() DELETED
-    # This 30-line method calculated distributions for LeveredCashFlowResult.
-    # SAFE DELETION: Only called by _assemble_levered_cash_flow_results() which we deleted.
-    # All functionality now handled by DealResults queries from ledger.
-    # XXX ZOMBIE METHOD: _calculate_total_distributions() DELETED
-    # This 30-line method calculated distributions for LeveredCashFlowResult.
-    # SAFE DELETION: Only called by _assemble_levered_cash_flow_results() which we deleted.
-    # All functionality now handled by DealResults queries from ledger.
-    # XXX ZOMBIE METHOD: _calculate_total_distributions() DELETED
-    # This 30-line method calculated distributions for LeveredCashFlowResult.
-    # SAFE DELETION: Only called by _assemble_levered_cash_flow_results() which we deleted.
-    # All functionality now handled by DealResults queries from ledger.
+    ###########################################################################
+    # DISPOSITION RECORDS
+    ###########################################################################
 
     def _add_disposition_records_to_ledger(
         self, ledger: "Ledger", disposition_proceeds: pd.Series
@@ -1018,7 +920,7 @@ class CashFlowEngine(AnalysisSpecialist):
             gross_proceeds=disposition_proceeds,
             debt_facilities=debt_facilities,
             ledger=ledger,
-            transaction_costs=0.0,  # TODO: Add transaction costs from deal config
+            transaction_costs=0.0,  # FIXME: Add transaction costs from deal config
             deal_uid=str(self.deal.uid) if self.deal else "unknown",
             asset_uid=str(self.deal.asset.uid)
             if self.deal and self.deal.asset

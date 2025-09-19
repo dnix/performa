@@ -126,20 +126,9 @@ class ValuationEngine(AnalysisSpecialist):
         )
         self.context.noi_series = noi_series  # ← For both analysts
 
-    # DELETED: extract_property_value_series() - Replaced by _calculate_property_value()
-    # This method extracted from asset_result which is no longer needed
-    # Use ValuationEngine.process() instead
-
-    # DELETED: extract_noi_series() - NOI now queried directly from ledger
-    # This method extracted from asset_result which is no longer needed
-    # Use ValuationEngine.process() instead
-
-    # DELETED: _extract_noi_from_ledger() - Redundant pre-refactor cruft
-    # Use self.queries.noi() directly in process() method instead
-
-    # DELETED: calculate_disposition_proceeds() - Replaced by _calculate_disposition_proceeds()
-    # This method took unlevered_analysis which is no longer needed
-    # Use ValuationEngine.process() instead
+    ###########################################################################
+    # VALUATION CALCULATION METHODS
+    ###########################################################################
 
     def _calculate_refi_property_value(self, noi_series: pd.Series) -> pd.Series:
         """
@@ -193,10 +182,6 @@ class ValuationEngine(AnalysisSpecialist):
             property_values.append(property_value)
 
         return pd.Series(property_values, index=self.context.timeline.period_index)
-
-    # DELETED: _calculate_property_value() - Replaced by _calculate_refi_property_value()
-    # This method contained legacy logic with hidden defaults and complex fallbacks.
-    # The new approach separates refinancing (conservative) and exit (user-defined) valuations.
 
     def _calculate_exit_gross_proceeds(self, noi_series: pd.Series) -> pd.Series:
         """

@@ -109,5 +109,7 @@ class ProFormaReport(BaseReport):
         df_ts.index = idx
         # Suppress pandas period frequency deprecation warnings (Y->YE, Q->QE)
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message=".*is deprecated.*", category=FutureWarning)
+            warnings.filterwarnings(
+                "ignore", message=".*is deprecated.*", category=FutureWarning
+            )
             return df_ts.resample(pandas_freq).sum()

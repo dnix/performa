@@ -224,8 +224,10 @@ def _classify_performa_object(obj: Any) -> str:
     obj_type = type(obj).__name__
 
     # Deal objects: Complete deal structures requiring comprehensive analysis
-    if obj_type == "Deal" or "Deal" in obj_type or any(
-        "Deal" in base.__name__ for base in type(obj).__mro__
+    if (
+        obj_type == "Deal"
+        or "Deal" in obj_type
+        or any("Deal" in base.__name__ for base in type(obj).__mro__)
     ):
         return "Deal"
 

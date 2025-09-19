@@ -494,14 +494,17 @@ class TestEdgeCases:
 
         # Test case 4: Very small positive returns (realistic edge case)
         minimal_profit_flows = pd.Series(
-            [-1000000, 0, 1000001], index=timeline.period_index  # Tiny $1 profit
+            [-1000000, 0, 1000001],
+            index=timeline.period_index,  # Tiny $1 profit
         )
 
         # This should complete successfully with minimal profit distribution
-        result4 = calculator.calculate_waterfall_distribution(minimal_profit_flows, timeline)
+        result4 = calculator.calculate_waterfall_distribution(
+            minimal_profit_flows, timeline
+        )
         assert result4 is not None
         assert "partner_distributions" in result4
-        
+
         # With minimal profit, most distributions should go to capital return
         total_metrics = result4["total_metrics"]
         assert total_metrics["net_profit"] == 1  # $1 profit
