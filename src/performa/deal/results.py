@@ -18,7 +18,7 @@ This class is a THIN, INTELLIGENT WRAPPER with no calculation logic itself.
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 import pandas as pd
@@ -28,16 +28,11 @@ from ..core.ledger import Ledger
 from ..core.ledger.queries import LedgerQueries
 from ..core.primitives import (
     CashFlowCategoryEnum,
-    GlobalSettings,
     Timeline,
     UnleveredAggregateLineKey,
 )
 from ..reporting.interface import ReportingInterface
-from .analysis.debt import DebtAnalyzer
 from .deal import Deal
-
-if TYPE_CHECKING:
-    pass
 
 
 class DealResults:  # noqa: PLR0904
@@ -95,7 +90,7 @@ class DealResults:  # noqa: PLR0904
         return self._queries
 
     # ==========================================================================
-    # PRIMARY METRICS (What 99% of analysts want)
+    # PRIMARY METRICS
     # ==========================================================================
 
     @cached_property
@@ -114,7 +109,7 @@ class DealResults:  # noqa: PLR0904
         return self.levered_cash_flow.sum()
 
     # ==========================================================================
-    # TIME SERIES (For charting and period analysis)
+    # TIME SERIES
     # ==========================================================================
 
     @cached_property
@@ -217,18 +212,32 @@ class DealResults:  # noqa: PLR0904
             - covenant_analysis: Periods below various thresholds
             - trend_direction: Whether DSCR is improving/declining
         """
-        # Create a context for the debt analyzer
-        from .orchestrator import DealContext  # noqa: PLC0415
-        context = DealContext(
-            deal=self._deal,
-            timeline=self._timeline,
-            settings=GlobalSettings(),  # Use default settings
-            ledger=self._ledger,
-        )
+        # Calculate DSCR series directly from ledger (no circular dependencies)
+        dscr_series = self._calculate_dscr_series()
+        
+        if dscr_series.empty or dscr_series.sum() == 0:
+            return {
+                "dscr_series": None,
+                "minimum_dscr": None,
+                "average_dscr": None,
+                "median_dscr": None,
+                "covenant_analysis": {},
+                "trend_slope": None,
+                "trend_direction": None,
+            }
 
-        # Create a debt analyzer to calculate metrics
-        analyzer = DebtAnalyzer(context)
-        return analyzer.calculate_dscr_metrics()
+        # Calculate comprehensive metrics directly
+        non_zero_dscr = dscr_series[dscr_series > 0]
+        
+        return {
+            "dscr_series": dscr_series,
+            "minimum_dscr": float(dscr_series.min()) if not dscr_series.empty else None,
+            "average_dscr": float(non_zero_dscr.mean()) if not non_zero_dscr.empty else None,
+            "median_dscr": float(dscr_series.median()) if not dscr_series.empty else None,
+            "covenant_analysis": self._calculate_covenant_analysis(dscr_series),
+            "trend_slope": self._calculate_dscr_trend_slope(dscr_series),
+            "trend_direction": self._determine_dscr_trend_direction(dscr_series),
+        }
 
     def _calculate_dscr_series(self) -> pd.Series:
         """Calculate DSCR for each period with comprehensive coverage."""
@@ -249,6 +258,87 @@ class DealResults:  # noqa: PLR0904
             dscr_series[period] = dscr_value if dscr_value is not None else 0.0
 
         return dscr_series
+
+    def _calculate_covenant_analysis(self, dscr_series: pd.Series) -> Dict[str, Any]:
+        """Calculate covenant analysis for common DSCR thresholds."""
+        if dscr_series.empty:
+            return {}
+            
+        # Common commercial real estate covenant thresholds
+        thresholds = [1.0, 1.1, 1.15, 1.2, 1.25, 1.3, 1.35, 1.4, 1.5]
+        
+        covenant_analysis = {}
+        for threshold in thresholds:
+            below_threshold = dscr_series < threshold
+            periods_below = below_threshold.sum()
+            consecutive_periods = self._find_max_consecutive_periods_below_threshold(
+                dscr_series, threshold
+            )
+            
+            covenant_analysis[f"below_{threshold}"] = {
+                "periods_count": int(periods_below),
+                "percentage": float(periods_below / len(dscr_series) * 100) if len(dscr_series) > 0 else 0.0,
+                "max_consecutive": int(consecutive_periods),
+            }
+            
+        return covenant_analysis
+    
+    def _find_max_consecutive_periods_below_threshold(self, dscr_series: pd.Series, threshold: float) -> int:
+        """Find maximum consecutive periods below a given threshold."""
+        if dscr_series.empty:
+            return 0
+            
+        below_threshold = dscr_series < threshold
+        max_consecutive = 0
+        current_consecutive = 0
+        
+        for is_below in below_threshold:
+            if is_below:
+                current_consecutive += 1
+                max_consecutive = max(max_consecutive, current_consecutive)
+            else:
+                current_consecutive = 0
+                
+        return max_consecutive
+    
+    def _calculate_dscr_trend_slope(self, dscr_series: pd.Series) -> Optional[float]:
+        """Calculate the trend slope of DSCR over time."""
+        if dscr_series.empty or len(dscr_series) < 2:
+            return None
+            
+        # Simple linear regression slope
+        non_zero_periods = dscr_series[dscr_series > 0]
+        if len(non_zero_periods) < 2:
+            return None
+            
+        x = range(len(non_zero_periods))
+        y = non_zero_periods.values
+        
+        # Calculate slope using least squares
+        n = len(x)
+        sum_x = sum(x)
+        sum_y = sum(y)
+        sum_xy = sum(x[i] * y[i] for i in range(n))
+        sum_x2 = sum(x[i] ** 2 for i in range(n))
+        
+        if n * sum_x2 - sum_x * sum_x == 0:
+            return None
+            
+        slope = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x * sum_x)
+        return float(slope)
+    
+    def _determine_dscr_trend_direction(self, dscr_series: pd.Series) -> Optional[str]:
+        """Determine if DSCR trend is improving, declining, or stable."""
+        slope = self._calculate_dscr_trend_slope(dscr_series)
+        
+        if slope is None:
+            return None
+        elif slope > 0.01:  # Threshold for meaningful improvement
+            return "improving"
+        elif slope < -0.01:  # Threshold for meaningful decline
+            return "declining"
+        else:
+            return "stable"
 
     # ==========================================================================
     # ARCHETYPE DETECTION
