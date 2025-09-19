@@ -192,7 +192,8 @@ class OfficeStabilizedAcquisitionPattern(PatternBase):
 
         # Create market lease terms for rollover
         market_terms = OfficeRolloverLeaseTerms(
-            market_rent=self.current_rent_psf * 12,  # Annual rent PSF for market rollover
+            market_rent=self.current_rent_psf
+            * 12,  # Annual rent PSF for market rollover
             term_months=self.avg_lease_term_months,
             growth_rate=PercentageGrowthRate(
                 name="Market Rent Growth",
@@ -204,9 +205,7 @@ class OfficeStabilizedAcquisitionPattern(PatternBase):
         renewal_terms = OfficeRolloverLeaseTerms(
             market_rent=self.current_rent_psf * 12 * 0.98,  # 2% renewal discount
             term_months=self.avg_lease_term_months,
-            growth_rate=PercentageGrowthRate(
-                name="Renewal Rent Growth", value=0.03
-            ),
+            growth_rate=PercentageGrowthRate(name="Renewal Rent Growth", value=0.03),
         )
 
         # Create rollover profile

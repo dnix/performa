@@ -376,7 +376,9 @@ class TestDebtCalculationsAgainstBenchmarks:
         # Validate loan amount against manual calculation (including origination fees)
         base_loan_amount = benchmark["total_project_cost"] * benchmark["senior_ltc"]
         # Construction loans typically include 1% origination fee in proceeds
-        expected_with_fees = base_loan_amount * 1.05  # 5% tolerance for fees and calculations
+        expected_with_fees = (
+            base_loan_amount * 1.05
+        )  # 5% tolerance for fees and calculations
         assert (
             loan_proceeds <= expected_with_fees
         ), f"Loan proceeds ${loan_proceeds:,.0f} should not significantly exceed base ${base_loan_amount:,.0f}"
@@ -386,9 +388,7 @@ class TestDebtCalculationsAgainstBenchmarks:
         if not interest_txns.empty:
             first_interest = interest_txns.iloc[0]["amount"]
             # Interest calculated on actual loan proceeds (which include fees)
-            expected_first_interest = loan_proceeds * (
-                benchmark["senior_rate"] / 12
-            )
+            expected_first_interest = loan_proceeds * (benchmark["senior_rate"] / 12)
 
             assert (
                 abs(first_interest - expected_first_interest) < 100

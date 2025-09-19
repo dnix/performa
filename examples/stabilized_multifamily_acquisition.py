@@ -75,6 +75,7 @@ financing and partnership structures.
 """
 
 import sys
+import traceback
 from datetime import date
 from pathlib import Path
 
@@ -103,11 +104,13 @@ from performa.core.primitives import (
     Timeline,
 )
 from performa.deal import (
+    AcquisitionTerms,
+    Deal,
     PartnershipStructure,
     analyze,
     create_simple_partnership,
 )
-from performa.debt import FixedRate, InterestRate, PermanentFacility
+from performa.debt import FinancingPlan, FixedRate, InterestRate, PermanentFacility
 
 
 def create_sample_multifamily_property() -> ResidentialProperty:
@@ -424,13 +427,18 @@ def create_sample_deal():
     print(f"   Number of Partners: {len(partnership.partners)}")
     for partner in partnership.partners:
         partner_type_str = (
-            partner.partner_type.value if hasattr(partner, 'partner_type') and hasattr(partner.partner_type, 'value')
-            else partner.kind if hasattr(partner, 'kind')
-            else 'Unknown'
+            partner.partner_type.value
+            if hasattr(partner, "partner_type")
+            and hasattr(partner.partner_type, "value")
+            else partner.kind
+            if hasattr(partner, "kind")
+            else "Unknown"
         )
         ownership_pct = (
-            partner.ownership_percentage if hasattr(partner, 'ownership_percentage')
-            else partner.share if hasattr(partner, 'share')
+            partner.ownership_percentage
+            if hasattr(partner, "ownership_percentage")
+            else partner.share
+            if hasattr(partner, "share")
             else 0.0
         )
         print(f"   - {partner.name} ({partner_type_str}): {ownership_pct:.0%}")
@@ -445,9 +453,7 @@ def create_sample_deal():
 
     # Create complete Deal structure
     print("Creating complete deal structure...")
-    from performa.deal import AcquisitionTerms, Deal
-    from performa.debt import FinancingPlan
-    
+
     deal = Deal(
         name="Maple Ridge Apartments - Stabilized Acquisition",
         asset=property_obj,
@@ -459,10 +465,7 @@ def create_sample_deal():
             acquisition_date=date(2024, 1, 1),
             closing_costs_rate=0.025,  # 2.5% closing costs
         ),
-        financing=FinancingPlan(
-            name="Acquisition Financing",
-            facilities=[loan]
-        ),
+        financing=FinancingPlan(name="Acquisition Financing", facilities=[loan]),
         equity_partners=partnership,
     )
 
@@ -484,18 +487,24 @@ def create_sample_deal():
     # Display deal-level results using proper deal analysis attributes
     try:
         # Get deal-level metrics
-        irr_str = f"{results.levered_irr:.2%}" if results.levered_irr is not None else "N/A"
-        em_str = f"{results.equity_multiple:.2f}x" if results.equity_multiple is not None else "N/A"
-        
+        irr_str = (
+            f"{results.levered_irr:.2%}" if results.levered_irr is not None else "N/A"
+        )
+        em_str = (
+            f"{results.equity_multiple:.2f}x"
+            if results.equity_multiple is not None
+            else "N/A"
+        )
+
         print("DEAL PERFORMANCE ANALYSIS:")
         print("-" * 50)
         print(f"   Deal IRR: {irr_str}")
         print(f"   Equity Multiple: {em_str}")
-        
+
         # Get property-level metrics from ledger queries
-        if hasattr(results, '_queries'):
+        if hasattr(results, "_queries"):
             ledger_queries = results._queries
-            
+
             # Calculate key property metrics for 5-year period
             pgr_series = ledger_queries.pgr()  # Potential Gross Revenue
             egi_series = ledger_queries.egi()  # Effective Gross Income
@@ -508,7 +517,11 @@ def create_sample_deal():
             egi_annual = egi_series.sum() / 5 if len(egi_series) > 0 else 0
             opex_annual = abs(opex_series.sum() / 5) if len(opex_series) > 0 else 0
             noi_annual = noi_series.sum() / 5 if len(noi_series) > 0 else 0
-            debt_service_annual = abs(debt_service_series.sum() / 5) if len(debt_service_series) > 0 else 0
+            debt_service_annual = (
+                abs(debt_service_series.sum() / 5)
+                if len(debt_service_series) > 0
+                else 0
+            )
 
             print()
             print("PROPERTY PERFORMANCE ANALYSIS:")
@@ -523,29 +536,28 @@ def create_sample_deal():
             if debt_service_annual > 0 and noi_annual > 0:
                 dscr = noi_annual / debt_service_annual
                 print(f"   Debt Service Coverage Ratio: {dscr:.2f}x")
-        
+
         print()
         success_flag = True
 
     except Exception as e:
         print(f"❌ Error calculating metrics from deal results: {e}")
-        import traceback
         traceback.print_exc()
         success_flag = False
 
     # Return results for potential downstream use
     if success_flag:
         print("🎉 Deal analysis completed successfully!")
-        
-        # TODO: AUDIT HIGH IRR 
+
+        # TODO: AUDIT HIGH IRR
         # The 34.74% IRR seems high for a stabilized multifamily acquisition
         # Typical stabilized returns: 8-15% IRR, 1.4-2.2x EM
-        # Need to validate: 1) Missing disposition proceeds? 2) Unrealistic assumptions? 
+        # Need to validate: 1) Missing disposition proceeds? 2) Unrealistic assumptions?
         # 3) Ledger calculation issues? Use debug_model.md validation pattern
-        
+
         return results
     else:
-        print("❌ Deal analysis encountered errors") 
+        print("❌ Deal analysis encountered errors")
         return None
 
     print("Testing loan sizing calculation...")
@@ -751,7 +763,7 @@ def main():
     components without the complex Deal structure.
     """
     try:
-        # Run deal analysis demonstration  
+        # Run deal analysis demonstration
         results = create_sample_deal()
 
         print("🎉 Stabilized multifamily acquisition analysis completed successfully!")

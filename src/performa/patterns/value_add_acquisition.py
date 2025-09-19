@@ -446,8 +446,10 @@ class ValueAddAcquisitionPattern(PatternBase):
         loan_amount = total_project_cost * self.ltv_ratio
 
         # Calculate when renovation loan should mature (at refinancing)
-        renovation_loan_term_months = (self.renovation_start_year + self.renovation_duration_years) * 12
-        
+        renovation_loan_term_months = (
+            self.renovation_start_year + self.renovation_duration_years
+        ) * 12
+
         financing_plan = create_construction_to_permanent_plan(
             construction_terms={
                 "name": "Renovation Loan",
@@ -459,7 +461,10 @@ class ValueAddAcquisitionPattern(PatternBase):
                     {
                         "name": "Renovation Financing",
                         "interest_rate": {
-                            "details": {"rate_type": "fixed", "rate": self.renovation_loan_rate}
+                            "details": {
+                                "rate_type": "fixed",
+                                "rate": self.renovation_loan_rate,
+                            }
                         },
                         "fee_rate": 0.015,
                         "ltc_threshold": self.ltv_ratio,
@@ -481,7 +486,10 @@ class ValueAddAcquisitionPattern(PatternBase):
                 # CRITICAL FIX: Set refinance timing to after renovation completion
                 # This prevents double-funding by ensuring permanent loan refinances renovation loan
                 # rather than both funding on day 1
-                "refinance_timing": (self.renovation_start_year + self.renovation_duration_years) * 12,
+                "refinance_timing": (
+                    self.renovation_start_year + self.renovation_duration_years
+                )
+                * 12,
             },
         )
 

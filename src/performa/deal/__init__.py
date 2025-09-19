@@ -60,7 +60,7 @@ __all__ = [
     "create_simple_partnership",
     # Capital-based constructs (pro-rata ownership)
     "create_partnership_from_capital",
-    "create_simple_capital_partnership", 
+    "create_simple_capital_partnership",
     "create_institutional_waterfall_from_capital",
     # Distribution calculations
     "DistributionCalculator",

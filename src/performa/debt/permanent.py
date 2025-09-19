@@ -316,7 +316,7 @@ class PermanentFacility(DebtFacilityBase):
         """
         Compute permanent loan cash flows with auto-sizing and DSCR validation.
 
-        Implements auto-sizing for cash-out refinancing and fail-fast DSCR validation 
+        Implements auto-sizing for cash-out refinancing and fail-fast DSCR validation
         to prevent silent covenant violations.
         """
         # Auto-sizing: Lazy initialization when context is available
@@ -326,8 +326,8 @@ class PermanentFacility(DebtFacilityBase):
             # This is necessary because auto-sizing requires runtime context (property values, NOI)
             # that's not available during model instantiation. Alternative architectures would require
             # major changes to when/how facilities are created and attached to deals.
-            object.__setattr__(self, 'loan_amount', auto_sized_amount)  # noqa: PLC2801
-            
+            object.__setattr__(self, "loan_amount", auto_sized_amount)  # noqa: PLC2801
+
         # Validate we have a loan amount
         if self.loan_amount is None:
             raise ValueError(
@@ -346,78 +346,99 @@ class PermanentFacility(DebtFacilityBase):
     def _calculate_auto_sized_amount(self, context: "DealContext") -> float:
         """
         Auto-size permanent loan for cash-out refinancing based on LTV/DSCR/Debt Yield constraints.
-        
+
         Sizes against completed property value to enable cash-out refinancing profits.
         Uses most restrictive constraint from LTV/DSCR/Debt Yield.
         """
-        if not hasattr(context, 'refi_property_value') or context.refi_property_value is None:
+        if (
+            not hasattr(context, "refi_property_value")
+            or context.refi_property_value is None
+        ):
             raise ValueError(
                 f"Auto-sizing failed for {self.name}: No property value available in context. "
                 "Ensure ValuationEngine runs before DebtAnalyzer."
             )
-        
+
         # Get current property value (use most recent value for completed property)
-        property_value = context.refi_property_value.iloc[-1] if len(context.refi_property_value) > 0 else 0
-        
+        property_value = (
+            context.refi_property_value.iloc[-1]
+            if len(context.refi_property_value) > 0
+            else 0
+        )
+
         if property_value <= 0:
             raise ValueError(
                 f"Auto-sizing failed for {self.name}: Property value is ${property_value:,.0f}. "
                 "Cannot size loan with zero or negative property value."
             )
-        
+
         # Initialize constraints for cash-out refinancing
         constraints = []
-        
+
         # LTV constraint - primary constraint for cash-out refinancing
         if self.ltv_ratio:
             ltv_amount = property_value * self.ltv_ratio
             constraints.append(("LTV", ltv_amount))
-        
+
         # DSCR constraint (simplified - uses NOI if available)
-        if self.dscr_hurdle and hasattr(context, 'noi_series') and context.noi_series is not None:
+        if (
+            self.dscr_hurdle
+            and hasattr(context, "noi_series")
+            and context.noi_series is not None
+        ):
             # Get annual NOI (use most recent 12 months)
             if len(context.noi_series) >= 12:
                 annual_noi = context.noi_series.iloc[-12:].sum()
             else:
                 annual_noi = context.noi_series.sum() * (12 / len(context.noi_series))
-            
+
             if annual_noi > 0:
                 max_debt_service = annual_noi / self.dscr_hurdle
-                
+
                 # Calculate loan amount that produces this debt service
                 monthly_rate = self._get_monthly_rate()
                 if self.amortization_months > 0 and monthly_rate > 0:
                     # Use PMT formula in reverse to get principal
-                    dscr_loan_amount = abs(npf.pv(monthly_rate, self.amortization_months, -max_debt_service / 12))
+                    dscr_loan_amount = abs(
+                        npf.pv(
+                            monthly_rate,
+                            self.amortization_months,
+                            -max_debt_service / 12,
+                        )
+                    )
                     constraints.append(("DSCR", dscr_loan_amount))
-        
+
         # Debt yield constraint
-        if self.debt_yield_hurdle and hasattr(context, 'noi_series') and context.noi_series is not None:
+        if (
+            self.debt_yield_hurdle
+            and hasattr(context, "noi_series")
+            and context.noi_series is not None
+        ):
             # Get annual NOI
             if len(context.noi_series) >= 12:
                 annual_noi = context.noi_series.iloc[-12:].sum()
             else:
                 annual_noi = context.noi_series.sum() * (12 / len(context.noi_series))
-            
+
             if annual_noi > 0:
                 debt_yield_amount = annual_noi / self.debt_yield_hurdle
                 constraints.append(("Debt Yield", debt_yield_amount))
-        
+
         # Use most restrictive constraint
         if not constraints:
             raise ValueError(
                 f"Auto-sizing failed for {self.name}: No valid constraints available. "
                 "Provide ltv_ratio, dscr_hurdle, or debt_yield_hurdle."
             )
-        
+
         # Find minimum (most restrictive) constraint
         constraint_name, loan_amount = min(constraints, key=lambda x: x[1])
-        
+
         logger.info(
             f"Auto-sized {self.name}: ${loan_amount:,.0f} based on {constraint_name} constraint "
             f"(Property Value: ${property_value:,.0f}, LTV: {self.ltv_ratio:.1%})"
         )
-        
+
         return loan_amount
 
     def _get_monthly_rate(self) -> float:
@@ -558,49 +579,53 @@ class PermanentFacility(DebtFacilityBase):
 
         return debt_service
 
-    def get_outstanding_balance(self, date: pd.Period, ledger: "Ledger" = None) -> float:
+    def get_outstanding_balance(
+        self, date: pd.Period, ledger: "Ledger" = None
+    ) -> float:
         """
         Calculate outstanding loan balance at a given date.
-        
+
         For permanent loans, this needs to account for amortization.
         Interest-only loans will have full balance outstanding until maturity.
         Amortizing loans will have declining balance based on payments made.
-        
+
         Args:
             date: Date for balance calculation
             ledger: Optional ledger to query for actual payments made
-            
+
         Returns:
             Outstanding loan balance
         """
         if not self.loan_amount or self.loan_amount <= 0:
             return 0.0
-            
+
         # For interest-only loans, full balance is outstanding
-        if self.amortization_months == 0 or self.interest_only_months >= self.loan_term_months:
+        if (
+            self.amortization_months == 0
+            or self.interest_only_months >= self.loan_term_months
+        ):
             return self.loan_amount
-            
+
         # For amortizing loans, need to calculate remaining balance
         # This is a simplified calculation - ideally would use amortization schedule
         if ledger:
             try:
                 # Query ledger for actual principal payments
                 ledger_df = ledger.ledger_df()
-                
+
                 # Get debt service for this facility
                 service_mask = (
-                    (ledger_df["item_name"].str.contains(self.name, na=False)) &
-                    (ledger_df["subcategory"] == "DEBT_SERVICE")
-                )
-                
+                    ledger_df["item_name"].str.contains(self.name, na=False)
+                ) & (ledger_df["subcategory"] == "DEBT_SERVICE")
+
                 # For now, assume interest-only so no principal reduction
                 # This is conservative and ensures debt is fully paid at exit
                 return self.loan_amount
-                
+
             except Exception as e:
                 logger.warning(f"Could not query ledger for {self.name}: {e}")
                 return self.loan_amount
-        
+
         # Default: return full loan amount (conservative)
         return self.loan_amount
 

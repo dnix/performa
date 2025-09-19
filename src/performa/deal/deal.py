@@ -99,8 +99,7 @@ class Deal(Model):
 
     # Funding Strategy - Order of capital deployment during development
     funding_cascade: Literal["equity_first", "pro_rata", "debt_first"] = Field(
-        "equity_first",
-        description="Order of capital deployment during development"
+        "equity_first", description="Order of capital deployment during development"
     )
 
     # Deal Fees - Optional deal fee structures (developer, management, etc.)

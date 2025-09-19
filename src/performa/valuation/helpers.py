@@ -22,6 +22,8 @@ from ..core.primitives import (
 
 
 class AssetValuation:
+    # XXX: we may not need this anymore
+    # FIXME: assess if we need this class at all
     """
     Helper for creating explicit asset valuations in the ledger.
 

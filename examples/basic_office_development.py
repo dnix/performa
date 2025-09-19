@@ -175,16 +175,24 @@ def main():
         results = analyze(deal, timeline, settings)
 
         print("✅ Deal Analysis Complete!")
-        irr_str = f"{results.levered_irr:.2%}" if results.levered_irr is not None else "N/A"
-        em_str = f"{results.equity_multiple:.2f}x" if results.equity_multiple is not None else "N/A"
+        irr_str = (
+            f"{results.levered_irr:.2%}" if results.levered_irr is not None else "N/A"
+        )
+        em_str = (
+            f"{results.equity_multiple:.2f}x"
+            if results.equity_multiple is not None
+            else "N/A"
+        )
         print(f"   Deal IRR: {irr_str}")
         print(f"   Equity Multiple: {em_str}")
-        
+
         # Calculate total equity invested from ledger
         equity_contributions = results._queries.equity_contributions()
-        total_equity_invested = abs(equity_contributions.sum()) if not equity_contributions.empty else 0
+        total_equity_invested = (
+            abs(equity_contributions.sum()) if not equity_contributions.empty else 0
+        )
         print(f"   Total Equity Invested: ${total_equity_invested:,.0f}")
-        
+
         print(f"   Net Profit: ${results.levered_cash_flow.sum():,.0f}")
 
         # Partnership Results
@@ -199,10 +207,14 @@ def main():
                     else "     IRR: N/A"
                 )
                 print(f"     Equity Multiple: {partner_metrics.equity_multiple:.2f}x")
-                
+
                 # Calculate total distributions from cash flow
-                positive_flows = partner_metrics.cash_flow[partner_metrics.cash_flow > 0]
-                total_distributions = positive_flows.sum() if not positive_flows.empty else 0
+                positive_flows = partner_metrics.cash_flow[
+                    partner_metrics.cash_flow > 0
+                ]
+                total_distributions = (
+                    positive_flows.sum() if not positive_flows.empty else 0
+                )
                 print(f"     Total Return: ${total_distributions:,.0f}")
 
         # Financing Results
@@ -252,7 +264,7 @@ def main():
     print("\n🎉 Complete development deal analysis working!")
     print("📋 All Deal components and reporting functionality demonstrated!")
     print("🚀 New fluent reporting interface (results.reporting.*) validated!")
-    
+
     return results
 
 

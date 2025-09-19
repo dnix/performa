@@ -29,7 +29,7 @@ Example:
 
     # Process valuation with settings-driven assumptions
     result = ValuationEngine.process(context)
-    
+
     # Access computed values
     property_values = result["property_value"]
     disposition_proceeds = result["gross_proceeds"]
@@ -83,7 +83,7 @@ class ValuationEngine(AnalysisSpecialist):
 
         # Process valuation with settings
         result = ValuationEngine.process(context)
-        
+
         # Access computed values
         property_values = result["property_value"]
         print(f"Property value range: {property_values.min():.0f} - {property_values.max():.0f}")
@@ -118,9 +118,13 @@ class ValuationEngine(AnalysisSpecialist):
         exit_gross_proceeds = self._calculate_exit_gross_proceeds(noi_series)
 
         # Ferry specific values to context for downstream passes
-        self.context.refi_property_value = refi_property_value  # ← For DebtAnalyzer LTV calculations
-        self.context.exit_gross_proceeds = exit_gross_proceeds  # ← For DispositionAnalyzer
-        self.context.noi_series = noi_series                   # ← For both analysts
+        self.context.refi_property_value = (
+            refi_property_value  # ← For DebtAnalyzer LTV calculations
+        )
+        self.context.exit_gross_proceeds = (
+            exit_gross_proceeds  # ← For DispositionAnalyzer
+        )
+        self.context.noi_series = noi_series  # ← For both analysts
 
     # DELETED: extract_property_value_series() - Replaced by _calculate_property_value()
     # This method extracted from asset_result which is no longer needed
@@ -132,58 +136,62 @@ class ValuationEngine(AnalysisSpecialist):
 
     # DELETED: _extract_noi_from_ledger() - Redundant pre-refactor cruft
     # Use self.queries.noi() directly in process() method instead
-    
+
     # DELETED: calculate_disposition_proceeds() - Replaced by _calculate_disposition_proceeds()
     # This method took unlevered_analysis which is no longer needed
     # Use ValuationEngine.process() instead
-    
+
     def _calculate_refi_property_value(self, noi_series: pd.Series) -> pd.Series:
         """
         Calculate property value for refinancing based on user-defined NOI methodology.
-        
+
         This valuation is used by DebtAnalyzer for LTV calculations and loan sizing.
         Supports LTM (trailing 12mo), NTM (forward-looking), or current period methods.
-        
+
         Args:
             noi_series: NOI from ledger (monthly)
-            
+
         Returns:
             Property value time series for refinancing
         """
         # Get refinancing settings
         refi_cap_rate = self.context.settings.valuation.refinancing_cap_rate
         noi_method = self.context.settings.valuation.refinancing_noi_method
-        
+
         if noi_series.empty or noi_series.sum() <= 0:
             return pd.Series(0.0, index=self.context.timeline.period_index)
-        
+
         if refi_cap_rate <= 0:
             return pd.Series(0.0, index=self.context.timeline.period_index)
-        
+
         # Align NOI series with timeline
         aligned_noi = self.context.timeline.align_series(noi_series, fill_value=0.0)
-        
+
         # Calculate property values based on NOI methodology
         property_values = []
-        
+
         for i, period in enumerate(self.context.timeline.period_index):
             if noi_method == "ltm":
                 # Trailing 12-month average (conservative, lender-friendly)
                 start_idx = max(0, i - 11)  # Look back 12 months (including current)
-                period_noi = aligned_noi.iloc[start_idx:i + 1].mean() if i > 0 else aligned_noi.iloc[i]
-            elif noi_method == "ntm":  
+                period_noi = (
+                    aligned_noi.iloc[start_idx : i + 1].mean()
+                    if i > 0
+                    else aligned_noi.iloc[i]
+                )
+            elif noi_method == "ntm":
                 # Forward-looking 12-month average (optimistic)
                 end_idx = min(len(aligned_noi), i + 12)  # Look forward 12 months
                 period_noi = aligned_noi.iloc[i:end_idx].mean()
             else:  # current
                 # Current period NOI (most volatile)
                 period_noi = aligned_noi.iloc[i]
-            
+
             # Annualize and apply cap rate
             annual_noi = period_noi * 12
             property_value = annual_noi / refi_cap_rate
             property_values.append(property_value)
-        
+
         return pd.Series(property_values, index=self.context.timeline.period_index)
 
     # DELETED: _calculate_property_value() - Replaced by _calculate_refi_property_value()
@@ -193,21 +201,21 @@ class ValuationEngine(AnalysisSpecialist):
     def _calculate_exit_gross_proceeds(self, noi_series: pd.Series) -> pd.Series:
         """
         Calculate gross disposition proceeds using exit_valuation.compute_cf() or cap rate fallback.
-        
+
         This valuation is used by DispositionAnalyzer for exit cash flows.
         Uses user-defined exit strategy with sophisticated fallback options.
-        
+
         Args:
             noi_series: NOI from ledger
-            
+
         Returns:
             Gross proceeds time series from exit strategy
         """
         gross_proceeds = pd.Series(0.0, index=self.context.timeline.period_index)
-        
+
         if not self.context.deal.exit_valuation:
             return gross_proceeds
-            
+
         # Use exit_valuation.compute_cf() - all AnyValuation types have this method
         try:
             exit_cf = self.context.deal.exit_valuation.compute_cf(self.context)
@@ -217,16 +225,16 @@ class ValuationEngine(AnalysisSpecialist):
             # Log the exception for debugging (but continue to fallback)
             logging.warning(f"Exit valuation compute_cf() failed: {e}")
             pass  # Fall back to cap rate calculation
-                
+
         # Fallback: Cap rate calculation using NOI
         if noi_series.empty or noi_series.sum() <= 0:
             return gross_proceeds
-            
+
         exit_period = self.context.timeline.period_index[-1]
-        
+
         # Calculate exit NOI using user-defined methodology (LTM or NTM)
         noi_method = self.context.settings.valuation.exit_noi_method
-        
+
         if noi_method == "ltm":
             # Trailing 12-month average (conservative, industry standard)
             # Smooths monthly volatility and reflects recent operational performance
@@ -238,13 +246,15 @@ class ValuationEngine(AnalysisSpecialist):
             # Forward-looking/current month NOI (optimistic for growth properties)
             # Uses most recent month as basis for forward projections
             exit_noi = noi_series.iloc[-1] if not noi_series.empty else 0.0
-            
+
         # Get exit cap rate - fail fast if not available
         exit_cap_rate = self.context.deal.exit_valuation.cap_rate
-        
+
         if exit_cap_rate > 0 and exit_noi > 0:
             # Convert monthly NOI to annual NOI for cap rate valuation
-            annual_noi = exit_noi * 12  # NOI series is monthly, need annual for cap rate
+            annual_noi = (
+                exit_noi * 12
+            )  # NOI series is monthly, need annual for cap rate
             gross_proceeds[exit_period] = annual_noi / exit_cap_rate
-            
+
         return gross_proceeds

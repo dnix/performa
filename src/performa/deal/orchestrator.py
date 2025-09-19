@@ -77,12 +77,12 @@ from performa.deal.analysis import (
     PartnershipAnalyzer,
     ValuationEngine,
 )
-from performa.deal.results import DealResults
 
 if TYPE_CHECKING:
     from performa.analysis.results import AssetAnalysisResult
     from performa.core.ledger import Ledger
     from performa.deal.deal import Deal
+    from performa.deal.results import DealResults
 
 logger = logging.getLogger(__name__)
 
@@ -142,10 +142,14 @@ class DealContext:
     # --- Deal-Level Metrics (Optional - populated as needed) ---
     noi_series: Optional[pd.Series] = None
     project_costs: Optional[float] = None
-    
+
     # --- Valuation-Specific Metrics ---
-    refi_property_value: Optional[pd.Series] = None  # Conservative valuation for refinancing/LTV
-    exit_gross_proceeds: Optional[pd.Series] = None  # Exit proceeds from user-defined valuation
+    refi_property_value: Optional[pd.Series] = (
+        None  # Conservative valuation for refinancing/LTV
+    )
+    exit_gross_proceeds: Optional[pd.Series] = (
+        None  # Exit proceeds from user-defined valuation
+    )
 
     def __post_init__(self):
         """Validate required fields after initialization."""
@@ -260,7 +264,7 @@ class DealCalculator:
     # Previously: 6 complex intermediate result objects stored state
     # Now: Stateless orchestrator - results come directly from ledger
 
-    def run(self, ledger: "Ledger") -> DealResults:
+    def run(self, ledger: "Ledger") -> "DealResults":
         """
         Orchestrate deal analysis through a predictable sequence.
         Each pass enriches the context and/or writes to the ledger.
@@ -323,6 +327,7 @@ class DealCalculator:
             PartnershipAnalyzer(deal_context).process()
 
             # Return clean results that query the ledger
+            from performa.deal.results import DealResults
             return DealResults(self.deal, self.timeline, ledger)
 
         except Exception as e:

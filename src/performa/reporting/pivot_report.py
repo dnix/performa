@@ -87,7 +87,6 @@ class PivotTableReport(BaseReport):
 
         return pivot_df
 
-
     def _prepare_ledger_data(
         self,
         ledger_df: pd.DataFrame,

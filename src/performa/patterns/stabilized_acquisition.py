@@ -338,7 +338,7 @@ class StabilizedAcquisitionPattern(PatternBase):
         # === Step 3: Create Financing Plan ===
         # Calculate loan amount based on LTV of acquisition price
         loan_amount = self.acquisition_price * self.ltv_ratio
-        
+
         permanent_facility = PermanentFacility(
             name=f"{self.property_name} Permanent Loan",
             loan_amount=loan_amount,  # Explicit sizing based on acquisition price

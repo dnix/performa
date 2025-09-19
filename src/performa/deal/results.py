@@ -15,6 +15,8 @@ ALL data access delegates to LedgerQueries.
 This class is a THIN, INTELLIGENT WRAPPER with no calculation logic itself.
 """
 
+from __future__ import annotations
+
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, Dict, Optional
 from uuid import UUID
@@ -24,11 +26,18 @@ import pandas as pd
 from ..core.calculations import FinancialCalculations
 from ..core.ledger import Ledger
 from ..core.ledger.queries import LedgerQueries
-from ..core.primitives import CashFlowCategoryEnum, Timeline, UnleveredAggregateLineKey
+from ..core.primitives import (
+    CashFlowCategoryEnum,
+    GlobalSettings,
+    Timeline,
+    UnleveredAggregateLineKey,
+)
+from ..reporting.interface import ReportingInterface
+from .analysis.debt import DebtAnalyzer
 from .deal import Deal
 
 if TYPE_CHECKING:
-    from ..reporting.interface import ReportingInterface
+    pass
 
 
 class DealResults:  # noqa: PLR0904
@@ -70,11 +79,11 @@ class DealResults:  # noqa: PLR0904
     # DIRECT DATA ACCESS
     # ==========================================================================
 
-    @property 
+    @property
     def timeline(self) -> "Timeline":
         """Analysis timeline."""
         return self._timeline
-    
+
     @property
     def ledger_df(self) -> pd.DataFrame:
         """Direct access to the ledger DataFrame for reporting and analysis."""
@@ -120,7 +129,7 @@ class DealResults:  # noqa: PLR0904
         flows = self._queries.equity_partner_flows()
         # CRITICAL: Flip sign for investor perspective (contributions negative, distributions positive)
         investor_flows = -1 * flows
-        
+
         # Use enhanced Timeline.align_series() - handles all index types automatically
         return self._timeline.align_series(investor_flows, fill_value=0.0)
 
@@ -192,14 +201,14 @@ class DealResults:  # noqa: PLR0904
         # Only average periods with actual debt service
         non_zero_dscr = dscr_series[dscr_series > 0]
         return non_zero_dscr.mean() if not non_zero_dscr.empty else None
-    
+
     @cached_property
     def dscr_metrics(self) -> Dict[str, Any]:
         """
         Get comprehensive DSCR metrics including covenant monitoring.
-        
+
         THIS IS CRITICAL FOR LENDER COVENANT MONITORING!
-        
+
         Returns:
             Dict containing:
             - dscr_series: Full time series of DSCR values
@@ -208,18 +217,15 @@ class DealResults:  # noqa: PLR0904
             - covenant_analysis: Periods below various thresholds
             - trend_direction: Whether DSCR is improving/declining
         """
-        from ..core.primitives import GlobalSettings
-        from .analysis.debt import DebtAnalyzer
-        from .orchestrator import DealContext
-        
         # Create a context for the debt analyzer
+        from .orchestrator import DealContext  # noqa: PLC0415
         context = DealContext(
             deal=self._deal,
             timeline=self._timeline,
             settings=GlobalSettings(),  # Use default settings
-            ledger=self._ledger
+            ledger=self._ledger,
         )
-        
+
         # Create a debt analyzer to calculate metrics
         analyzer = DebtAnalyzer(context)
         return analyzer.calculate_dscr_metrics()
@@ -361,10 +367,10 @@ class DealResults:  # noqa: PLR0904
             UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES: self._queries.opex,
             UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES: self._queries.capex,
         }
-        
+
         # Get the query method for this key
         query_method = key_mapping.get(key)
-        
+
         if query_method:
             try:
                 # Call the LedgerQueries method and align to timeline
@@ -373,7 +379,7 @@ class DealResults:  # noqa: PLR0904
             except Exception:
                 # Fallback to zero series if query fails
                 pass
-        
+
         # If key not found or query failed, return zero-filled series
         return pd.Series(0.0, index=timeline.period_index, name=key.value)
 
@@ -381,16 +387,17 @@ class DealResults:  # noqa: PLR0904
     def asset_analysis(self):
         """
         Legacy compatibility adapter for reporting interface.
-        
+
         Provides the asset_analysis interface expected by legacy reports.
         """
+
         class AssetAnalysisAdapter:
             def __init__(self, queries):
                 self._queries = queries
-            
+
             def get_ledger_queries(self):
                 return self._queries
-        
+
         return AssetAnalysisAdapter(self._queries)
 
     @cached_property
@@ -410,27 +417,28 @@ class DealResults:  # noqa: PLR0904
             >>> sources_uses = results.reporting.sources_and_uses()
         """
         # Import here to avoid circular import
-        from ..reporting.interface import ReportingInterface
         return ReportingInterface(self)
 
     @cached_property
     def deal_metrics(self) -> Dict[str, Any]:
         """
         Aggregate deal-level performance metrics.
-        
+
         Returns a dictionary containing all key deal metrics for backward compatibility.
         This aggregates the individual metric properties into a single object.
         """
         # Calculate total investment and distributions from equity partner flows
         equity_flows = self._queries.equity_partner_flows()
         contributions = self._queries.equity_contributions()
-        
+
         # Total investment (contributions are positive from deal perspective)
         total_investment = contributions.sum() if not contributions.empty else 0.0
-        
+
         # Total distributions (negative flows from equity_partner_flows)
-        total_distributions = equity_flows[equity_flows < 0].sum() * -1 if not equity_flows.empty else 0.0
-        
+        total_distributions = (
+            equity_flows[equity_flows < 0].sum() * -1 if not equity_flows.empty else 0.0
+        )
+
         return {
             "levered_irr": self.levered_irr,
             "unlevered_irr": self.unlevered_irr,
@@ -443,11 +451,11 @@ class DealResults:  # noqa: PLR0904
             "total_distributions": total_distributions,
         }
 
-    @cached_property  
+    @cached_property
     def deal_summary(self) -> Dict[str, Any]:
         """
         Deal metadata and summary information.
-        
+
         Returns basic deal characteristics and metadata.
         """
         return {
@@ -463,19 +471,21 @@ class DealResults:  # noqa: PLR0904
     def financing_analysis(self) -> Optional[Dict[str, Any]]:
         """
         Financing analysis summary.
-        
+
         Returns None for all-equity deals, otherwise returns financing metrics.
         """
         if not self._deal.financing or not self._deal.financing.facilities:
             return None
-            
+
         # If deal has financing facilities, return analysis even if debt service is zero
         # (debt service might be zero due to timing, interest-only periods, etc.)
         debt_service_series = self.debt_service
-        
+
         return {
             "has_financing": True,
-            "total_debt_service": debt_service_series.sum() if not debt_service_series.empty else 0.0,
+            "total_debt_service": debt_service_series.sum()
+            if not debt_service_series.empty
+            else 0.0,
             "minimum_dscr": self.minimum_dscr,
             "average_dscr": self.average_dscr,
             "facility_count": len(self._deal.financing.facilities),
@@ -486,7 +496,7 @@ class DealResults:  # noqa: PLR0904
     def levered_cash_flows(self) -> pd.Series:
         """
         Alias for levered_cash_flow for backward compatibility.
-        
+
         Many tests expect levered_cash_flows (plural) instead of levered_cash_flow (singular).
         """
         return self.levered_cash_flow
@@ -495,19 +505,26 @@ class DealResults:  # noqa: PLR0904
     def partner_distributions(self) -> Dict[str, Any]:
         """
         Partnership distribution summary.
-        
+
         Returns partnership metrics and distribution details.
         """
-        if not self._deal.equity_partners or len(self._deal.equity_partners.partners) <= 1:
+        if (
+            not self._deal.equity_partners
+            or len(self._deal.equity_partners.partners) <= 1
+        ):
             return {
                 "distribution_method": "single_entity",
-                "partner_count": len(self._deal.equity_partners.partners) if self._deal.equity_partners else 0,
+                "partner_count": len(self._deal.equity_partners.partners)
+                if self._deal.equity_partners
+                else 0,
                 "total_investment": self.deal_metrics.get("total_investment", 0.0),
-                "total_distributions": self.deal_metrics.get("total_distributions", 0.0),
+                "total_distributions": self.deal_metrics.get(
+                    "total_distributions", 0.0
+                ),
                 "equity_multiple": self.equity_multiple,
                 "levered_irr": self.levered_irr,
             }
-        
+
         # Multi-partner scenario
         partner_metrics = {}
         for partner_id, partner_info in self.partners.items():
@@ -520,10 +537,10 @@ class DealResults:  # noqa: PLR0904
             except (NotImplementedError, AttributeError):
                 partner_metrics[partner_id] = {
                     "irr": None,
-                    "equity_multiple": None, 
+                    "equity_multiple": None,
                     "net_profit": 0.0,
                 }
-        
+
         return {
             "distribution_method": "partnership_waterfall",
             "partner_count": len(self._deal.equity_partners.partners),

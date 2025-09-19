@@ -6,7 +6,7 @@ Debug utilities for financial model validation and troubleshooting.
 
 This module provides comprehensive debugging capabilities for Performa objects:
 - Object introspection and configuration analysis
-- Ledger semantic analysis and validation  
+- Ledger semantic analysis and validation
 - Configuration intentionality assessment
 - Deal comparison and parity validation
 - Timeline analysis and mismatch detection
@@ -24,7 +24,7 @@ Supports polymorphic object introspection - can debug any Performa component:
 ### Core Introspection
 - `dump_performa_object`: Polymorphic object configuration dumping
 - `dump_deal_config`: Comprehensive deal configuration extraction
-- `compare_deal_configs`: Side-by-side deal configuration comparison  
+- `compare_deal_configs`: Side-by-side deal configuration comparison
 - `format_performa_object`: Readable object analysis formatting
 
 ### Deal Comparison
@@ -136,11 +136,11 @@ __all__ = [
     "create_actionable_config_summary",
     # Advanced debug utilities
     "compare_deal_configurations",
-    "compare_deal_timelines", 
+    "compare_deal_timelines",
     "extract_component_timelines",
     "format_timeline_comparison",
     "analyze_ledger_shape",
-    "compare_ledger_shapes", 
+    "compare_ledger_shapes",
     "format_ledger_shape_comparison",
     "validate_deal_parity",
     "quick_parity_check",

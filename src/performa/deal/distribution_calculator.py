@@ -17,6 +17,12 @@ import pandas as pd
 
 from ..core.calculations import FinancialCalculations
 from ..core.primitives import Timeline
+from ..deal.partnership import (
+    CarryPromote,
+    EMWaterfallPromote,
+    HybridWaterfallPromote,
+    IRRWaterfallPromote,
+)
 from .partnership import PartnershipStructure
 
 
@@ -190,7 +196,7 @@ class DistributionCalculator:
         2. Promote is applied tier-by-tier based on achieving hurdles (IRR or EM)
         3. Each tier's incremental profit is distributed with that tier's promote rate
         4. GPs receive promote on top of their pro-rata share
-        
+
         Supports IRR, EM, and hybrid waterfall structures
 
         Args:
@@ -241,15 +247,7 @@ class DistributionCalculator:
 
         # Get promote structure
         promote = self.partnership.promote
-        
-        # Import types for checking
-        from ..deal.partnership import (
-            CarryPromote,
-            EMWaterfallPromote,
-            HybridWaterfallPromote,
-            IRRWaterfallPromote,
-        )
-        
+
         # Dispatch to appropriate waterfall calculation based on promote type
         # Note: WaterfallPromote is an alias for IRRWaterfallPromote, so it's handled by the first case
         if isinstance(promote, IRRWaterfallPromote):
@@ -263,14 +261,14 @@ class DistributionCalculator:
             return self._calculate_carry_promote(cash_flows, timeline, promote)
         else:
             raise ValueError(f"Unknown promote type: {type(promote).__name__}")
-    
+
     def _calculate_irr_waterfall(
         self, cash_flows: pd.Series, timeline: Timeline, promote
     ) -> Dict[str, Any]:
         """Calculate IRR-based waterfall distribution."""
         # Get tiers from promote
         tiers, final_promote_rate = promote.all_tiers
-        
+
         # Set up partner data
         periods = cash_flows.index
         partner_names = [p.name for p in self.partnership.partners]
@@ -288,52 +286,52 @@ class DistributionCalculator:
 
         # Initialize partner cash flows matrix
         partner_flows = np.zeros((n_periods, n_partners))
-        
+
         # Separate investments and distributions
         investments = cash_flows[cash_flows < 0]
         distributions = cash_flows[cash_flows > 0]
-        
+
         # Total investment amount (as positive number)
         total_investment = abs(investments.sum())
-        
+
         # Allocate investments pro-rata by ownership
         for period_idx, cf in enumerate(cash_flows):
             if cf < 0:
                 # Investment - allocate by ownership share
                 partner_flows[period_idx, :] = cf * partner_shares
-        
+
         def calculate_distribution_for_irr_hurdle(target_irr: float) -> float:
             """
             Calculate the total distribution amount needed to achieve a target IRR.
-            
+
             For European waterfall, we need to find what total distribution amount
             would result in the target IRR given the investment pattern.
-            
+
             Args:
                 target_irr: Target IRR hurdle (e.g., 0.08 for 8%)
-                
+
             Returns:
                 Total distribution amount needed to achieve target IRR
             """
             # For simple case of single investment at start and single distribution at end
             # Future Value = Present Value * (1 + IRR)^years
-            
+
             # Get investment timing - use the investment-weighted average time
             investment_times = []
             investment_amounts = []
-            
+
             for idx, cf in enumerate(cash_flows):
                 if cf < 0:
                     # This is an investment
                     investment_times.append(idx)
                     investment_amounts.append(abs(cf))
-            
+
             if not investment_amounts:
                 return 0.0
-                
+
             # Calculate time from investment to final distribution
             final_period = len(cash_flows) - 1
-            
+
             # For each investment, calculate future value at target IRR
             total_fv = 0.0
             for inv_time, inv_amount in zip(investment_times, investment_amounts):
@@ -342,80 +340,88 @@ class DistributionCalculator:
                 # Future value = PV * (1 + r)^t
                 fv = inv_amount * (1 + target_irr) ** years
                 total_fv += fv
-            
+
             return total_fv
 
         # Calculate actual total distribution amount
         total_distributions = distributions.sum()
-        
+
         # Calculate distribution amounts for each tier
         tier_amounts = []
-        
+
         # First, return of capital (always pro-rata, no promote)
         tier_amounts.append((total_investment, 0.0, "Return of Capital"))
-        
+
         # Then calculate amounts for each IRR tier
         for i, (hurdle_rate, promote_rate) in enumerate(tiers):
             if hurdle_rate == np.inf:
                 # Final tier - takes all remaining
-                tier_amounts.append((float('inf'), promote_rate, f"Final Tier"))
+                tier_amounts.append((float("inf"), promote_rate, f"Final Tier"))
             else:
                 # Calculate distribution needed for this hurdle
                 required_dist = calculate_distribution_for_irr_hurdle(hurdle_rate)
-                tier_amounts.append((required_dist, promote_rate, f"Tier {hurdle_rate:.1%}"))
-        
+                tier_amounts.append((
+                    required_dist,
+                    promote_rate,
+                    f"Tier {hurdle_rate:.1%}",
+                ))
+
         # Add final tier for distributions above all tiers (if final promote rate > 0)
         if final_promote_rate > 0:
-            tier_amounts.append((float('inf'), final_promote_rate, "Final Tier"))
+            tier_amounts.append((float("inf"), final_promote_rate, "Final Tier"))
         # Now distribute each positive cash flow through the tiers
         cumulative_distributed = 0.0
         current_tier_idx = 0
-        
+
         for period_idx, cf in enumerate(cash_flows):
             if cf <= 0:
                 continue  # Skip investments, already allocated
-            
+
             # Distribute this period's cash flow through tiers
             remaining_cf = cf
-            
+
             while remaining_cf > 0 and current_tier_idx < len(tier_amounts):
                 tier_threshold, promote_rate, tier_name = tier_amounts[current_tier_idx]
-                
+
                 # How much room left in this tier?
                 if current_tier_idx == len(tier_amounts) - 1:
                     # Last tier - infinite capacity
                     tier_capacity = remaining_cf
                 else:
                     tier_capacity = max(0, tier_threshold - cumulative_distributed)
-                
+
                 # Amount to distribute in this tier
                 tier_amount = min(remaining_cf, tier_capacity)
-                
+
                 if tier_amount <= 0:
                     current_tier_idx += 1
                     continue
-                
+
                 # Allocate this tier's distributions
                 # Base amount distributed pro-rata
                 base_distribution = tier_amount * (1 - promote_rate)
                 base_per_partner = base_distribution * partner_shares
-                
+
                 # Promote amount to GPs only
                 promote_distribution = tier_amount * promote_rate
                 promote_per_gp = np.zeros(n_partners)
                 if gp_shares_total > 0:
-                    promote_per_gp[gp_mask] = promote_distribution * (partner_shares[gp_mask] / gp_shares_total)
-                
+                    promote_per_gp[gp_mask] = promote_distribution * (
+                        partner_shares[gp_mask] / gp_shares_total
+                    )
+
                 # Add to partner flows for this period
                 partner_flows[period_idx, :] += base_per_partner + promote_per_gp
-                
+
                 cumulative_distributed += tier_amount
                 remaining_cf -= tier_amount
-                
-                # Move to next tier if this one is full
-                if cumulative_distributed >= tier_threshold and current_tier_idx < len(tier_amounts) - 1:
-                    current_tier_idx += 1
 
+                # Move to next tier if this one is full
+                if (
+                    cumulative_distributed >= tier_threshold
+                    and current_tier_idx < len(tier_amounts) - 1
+                ):
+                    current_tier_idx += 1
 
         # Convert to DataFrame
         distribution_df = pd.DataFrame(
@@ -443,18 +449,18 @@ class DistributionCalculator:
                 "distribution_matrix": distribution_df,
             },
         }
-    
+
     def _calculate_em_waterfall(
         self, cash_flows: pd.Series, timeline: Timeline, promote
     ) -> Dict[str, Any]:
         """
         Calculate Equity Multiple-based waterfall distribution.
-        
+
         Much simpler than IRR - just threshold-based distribution.
         """
         # Get tiers from promote
         tiers, final_promote_rate = promote.all_tiers
-        
+
         # Set up partner data
         periods = cash_flows.index
         partner_names = [p.name for p in self.partnership.partners]
@@ -472,79 +478,84 @@ class DistributionCalculator:
 
         # Initialize partner cash flows matrix
         partner_flows = np.zeros((n_periods, n_partners))
-        
+
         # Separate investments and distributions
         investments = cash_flows[cash_flows < 0]
         distributions = cash_flows[cash_flows > 0]
-        
+
         # Total investment amount (as positive number)
         total_investment = abs(investments.sum())
-        
+
         # Allocate investments pro-rata by ownership
         for period_idx, cf in enumerate(cash_flows):
             if cf < 0:
                 # Investment - allocate by ownership share
                 partner_flows[period_idx, :] = cf * partner_shares
-        
+
         # Calculate tier thresholds based on equity multiples
         tier_amounts = []
         for em_hurdle, promote_rate in tiers:
             # Each EM tier is simply investment * multiple
             threshold = total_investment * em_hurdle
             tier_amounts.append((threshold, promote_rate, f"Tier {em_hurdle:.1f}x"))
-        
+
         # Add final tier for distributions above all tiers
-        tier_amounts.append((float('inf'), final_promote_rate, "Final Tier"))
-        
+        tier_amounts.append((float("inf"), final_promote_rate, "Final Tier"))
+
         # Distribute each positive cash flow through the tiers
         cumulative_distributed = 0.0
         current_tier_idx = 0
-        
+
         for period_idx, cf in enumerate(cash_flows):
             if cf <= 0:
                 continue  # Skip investments, already allocated
-            
+
             # Distribute this period's cash flow through tiers
             remaining_cf = cf
-            
+
             while remaining_cf > 0 and current_tier_idx < len(tier_amounts):
                 tier_threshold, promote_rate, tier_name = tier_amounts[current_tier_idx]
-                
+
                 # How much room left in this tier?
                 if current_tier_idx == len(tier_amounts) - 1:
                     # Last tier - infinite capacity
                     tier_capacity = remaining_cf
                 else:
                     tier_capacity = max(0, tier_threshold - cumulative_distributed)
-                
+
                 # Amount to distribute in this tier
                 tier_amount = min(remaining_cf, tier_capacity)
-                
+
                 if tier_amount <= 0:
                     current_tier_idx += 1
                     continue
-                
+
                 # Allocate this tier's distributions
                 # Base amount distributed pro-rata
                 base_distribution = tier_amount * (1 - promote_rate)
                 base_per_partner = base_distribution * partner_shares
-                
+
                 # Promote amount to GPs only
                 promote_distribution = tier_amount * promote_rate
                 promote_per_gp = np.zeros(n_partners)
                 if gp_shares_total > 0:
-                    promote_per_gp[gp_mask] = promote_distribution * (partner_shares[gp_mask] / gp_shares_total)
-                
+                    promote_per_gp[gp_mask] = promote_distribution * (
+                        partner_shares[gp_mask] / gp_shares_total
+                    )
+
                 # Add to partner flows for this period
                 partner_flows[period_idx, :] += base_per_partner + promote_per_gp
-                
+
                 cumulative_distributed += tier_amount
                 remaining_cf -= tier_amount
-                
+
                 # Move to next tier if this one is full
-                if cumulative_distributed >= tier_threshold and current_tier_idx < len(tier_amounts) - 1:
+                if (
+                    cumulative_distributed >= tier_threshold
+                    and current_tier_idx < len(tier_amounts) - 1
+                ):
                     current_tier_idx += 1
-        
+
         # Convert to DataFrame
         distribution_df = pd.DataFrame(
             partner_flows, index=periods, columns=partner_names
@@ -571,38 +582,42 @@ class DistributionCalculator:
                 "distribution_matrix": distribution_df,
             },
         }
-    
+
     def _calculate_hybrid_waterfall(
         self, cash_flows: pd.Series, timeline: Timeline, promote
     ) -> Dict[str, Any]:
         """
         Calculate hybrid IRR/EM waterfall distribution.
-        
+
         Uses min or max logic to combine IRR and EM hurdles.
         """
         # For now, calculate both and combine based on logic
         # This is a simplified implementation - could be optimized
-        
+
         # Calculate IRR-based distribution
-        irr_results = self._calculate_irr_waterfall(cash_flows, timeline, promote.irr_waterfall)
-        
-        # Calculate EM-based distribution  
-        em_results = self._calculate_em_waterfall(cash_flows, timeline, promote.em_waterfall)
-        
+        irr_results = self._calculate_irr_waterfall(
+            cash_flows, timeline, promote.irr_waterfall
+        )
+
+        # Calculate EM-based distribution
+        em_results = self._calculate_em_waterfall(
+            cash_flows, timeline, promote.em_waterfall
+        )
+
         # Extract partner cash flows from both
         irr_flows = irr_results["waterfall_details"]["distribution_matrix"]
         em_flows = em_results["waterfall_details"]["distribution_matrix"]
-        
+
         # Combine based on logic
         if promote.logic == "min":
             # More restrictive - LP gets better of two outcomes
             # For each partner, choose the distribution that gives LP higher return
             lp_mask = np.array([p.kind == "LP" for p in self.partnership.partners])
-            
+
             # Calculate which gives LP more
             lp_irr_total = irr_flows.iloc[:, lp_mask].sum().sum()
             lp_em_total = em_flows.iloc[:, lp_mask].sum().sum()
-            
+
             if lp_irr_total >= lp_em_total:
                 # IRR gives LP more, use it
                 final_results = irr_results
@@ -612,33 +627,33 @@ class DistributionCalculator:
         else:
             # Max logic - GP gets better of two outcomes
             gp_mask = np.array([p.kind == "GP" for p in self.partnership.partners])
-            
+
             # Calculate which gives GP more
             gp_irr_total = irr_flows.iloc[:, gp_mask].sum().sum()
             gp_em_total = em_flows.iloc[:, gp_mask].sum().sum()
-            
+
             if gp_irr_total >= gp_em_total:
                 # IRR gives GP more, use it
                 final_results = irr_results
             else:
                 # EM gives GP more, use it
                 final_results = em_results
-        
+
         # Update distribution method to reflect hybrid
         final_results["distribution_method"] = "hybrid_waterfall"
         final_results["waterfall_details"]["hybrid_logic"] = promote.logic
         final_results["waterfall_details"]["selected"] = (
             "IRR" if final_results == irr_results else "EM"
         )
-        
+
         return final_results
-    
+
     def _calculate_carry_promote(
         self, cash_flows: pd.Series, timeline: Timeline, promote
     ) -> Dict[str, Any]:
         """
         Calculate traditional private equity carry distribution.
-        
+
         Traditional carry logic:
         1. Return of capital to all partners (pro-rata)
         2. Preferred return to LP on their capital contribution
@@ -654,7 +669,7 @@ class DistributionCalculator:
         partner_shares = np.array([p.share for p in self.partnership.partners])
         gp_mask = np.array([p.kind == "GP" for p in self.partnership.partners])
         lp_mask = ~gp_mask
-        
+
         # Validate structure
         if gp_mask.sum() == 0:
             raise ValueError("Carry promote requires at least one GP partner")
@@ -663,14 +678,14 @@ class DistributionCalculator:
 
         # Initialize partner cash flows matrix
         partner_flows = np.zeros((n_periods, n_partners))
-        
+
         # Separate investments and distributions
         investments = cash_flows[cash_flows < 0]
         distributions = cash_flows[cash_flows > 0]
-        
+
         total_investment = abs(investments.sum())
         total_distributions = distributions.sum()
-        
+
         if total_distributions <= total_investment:
             # No profit - just return capital pro-rata
             for period_idx, cf in enumerate(cash_flows):
@@ -683,65 +698,68 @@ class DistributionCalculator:
             for period_idx, cf in enumerate(cash_flows):
                 if cf < 0:
                     partner_flows[period_idx, :] = cf * partner_shares
-            
+
             # Traditional carry distribution calculation
             total_profit = total_distributions - total_investment
-            
+
             # Calculate holding period in years
             # Investment at start of first period, distribution at end of last period
             # So if we have 60 monthly periods, that's a 5-year holding period
             holding_years = len(cash_flows) / 12.0
-            
+
             # Calculate preferred return amount for LPs
             lp_investment = total_investment * partner_shares[lp_mask].sum()
             preferred_return_amount = lp_investment * (
                 (1 + promote.pref_hurdle_rate) ** holding_years - 1
             )
-            
+
             # Profit above preferred return
             profit_above_pref = max(0, total_profit - preferred_return_amount)
-            
+
             # Carry calculation
             carry_amount = profit_above_pref * promote.promote_rate
-            remaining_profit = total_profit - carry_amount
-            
+
             # Distribute each positive cash flow
             cumulative_distributed = 0.0
-            
+
             for period_idx, cf in enumerate(cash_flows):
                 if cf <= 0:
                     continue
-                
+
                 # How much of this distribution is return of capital vs profit
-                capital_portion = min(cf, max(0, total_investment - cumulative_distributed))
+                capital_portion = min(
+                    cf, max(0, total_investment - cumulative_distributed)
+                )
                 profit_portion = cf - capital_portion
-                
+
                 # Distribute capital return pro-rata
                 if capital_portion > 0:
                     partner_flows[period_idx, :] += capital_portion * partner_shares
-                
+
                 # Distribute profit portion
                 if profit_portion > 0:
                     # Calculate what portion of total profit this represents
-                    profit_ratio = profit_portion / total_profit if total_profit > 0 else 0
-                    
+                    if total_profit > 0:
+                        profit_ratio = profit_portion / total_profit
+                    else:
+                        profit_ratio = 0.0
+
                     # GP gets proportional carry
                     period_carry = carry_amount * profit_ratio
-                    # Rest distributed pro-rata
                     period_base_profit = profit_portion - period_carry
-                    
+
                     # Allocate to partners
                     partner_flows[period_idx, :] += period_base_profit * partner_shares
-                    
+
                     # Add carry to GP partners only
                     if period_carry > 0:
                         gp_shares_total = partner_shares[gp_mask].sum()
                         partner_flows[period_idx, gp_mask] += period_carry * (
                             partner_shares[gp_mask] / gp_shares_total
                         )
-                
+
                 cumulative_distributed += cf
-        
+
         # Convert to DataFrame
         distribution_df = pd.DataFrame(
             partner_flows, index=periods, columns=partner_names
@@ -770,11 +788,14 @@ class DistributionCalculator:
                     "total_investment": total_investment,
                     "total_distributions": total_distributions,
                     "total_profit": total_distributions - total_investment,
-                    "preferred_return_amount": lp_investment * (
-                        (1 + promote.pref_hurdle_rate) ** (len(cash_flows) / 12.0) - 1
-                    ) if total_distributions > total_investment else 0,
-                    "carry_amount": profit_above_pref * promote.promote_rate if total_distributions > total_investment else 0,
-                }
+                    "preferred_return_amount": lp_investment
+                    * ((1 + promote.pref_hurdle_rate) ** (len(cash_flows) / 12.0) - 1)
+                    if total_distributions > total_investment
+                    else 0,
+                    "carry_amount": profit_above_pref * promote.promote_rate
+                    if total_distributions > total_investment
+                    else 0,
+                },
             },
         }
 

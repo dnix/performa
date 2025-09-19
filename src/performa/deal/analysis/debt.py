@@ -65,6 +65,7 @@ Institutional Standards:
 from __future__ import annotations
 
 import logging
+import traceback
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List
 
@@ -80,6 +81,8 @@ from performa.core.primitives.enums import (
     CashFlowCategoryEnum,
     FinancingSubcategoryEnum,
 )
+from performa.debt.construction import ConstructionFacility
+from performa.debt.permanent import PermanentFacility
 
 # Deprecated result imports removed - full ledger-driven now
 from .base import AnalysisSpecialist
@@ -201,7 +204,7 @@ class DebtAnalyzer(AnalysisSpecialist):
         """
         Settings-driven debt processing with institutional-grade covenant monitoring.
         Always processes facilities and writes debt transactions to ledger.
-        
+
         FIXED: Now handles refinancing transactions after facilities are processed.
         """
         # Handle no financing case internally
@@ -214,28 +217,28 @@ class DebtAnalyzer(AnalysisSpecialist):
         for facility in self.deal.financing.facilities:
             # Facility writes debt transactions to ledger
             facility.compute_cf(self.context)
-        
+
         # Handle refinancing AFTER facilities are processed
         # This ensures construction loan amounts are in the ledger
-        if (self.deal.financing.has_construction_financing and 
-            self.deal.financing.has_permanent_financing):
-            
+        if (
+            self.deal.financing.has_construction_financing
+            and self.deal.financing.has_permanent_financing
+        ):
             try:
                 # Get data for refinancing calculations (populated by valuation pass)
                 property_value_series = self.context.refi_property_value
                 noi_series = self.context.noi_series
-                
+
                 # Process refinancing transactions
                 self._process_refinancing_transactions(
                     property_value_series=property_value_series,
                     noi_series=noi_series,
-                    ledger=self.context.ledger
+                    ledger=self.context.ledger,
                 )
-                
+
             except Exception as e:
                 # Log but don't fail - refinancing is important but not critical
                 logger.warning(f"Failed to process refinancing: {e}")
-                import traceback
                 logger.warning(f"Traceback: {traceback.format_exc()}")
 
         # Debt processing complete - all facility transactions written to ledger
@@ -342,7 +345,7 @@ class DebtAnalyzer(AnalysisSpecialist):
         """Get the loan amount from refinancing transactions for this facility."""
         # financing_analysis doesn't exist anymore - just use facility's loan amount
         # TODO: If we need dynamic refinancing amounts, implement a different approach
-        
+
         # Fallback to facility's specified loan amount
         return permanent_facility.loan_amount or 0.0
 
@@ -414,7 +417,6 @@ class DebtAnalyzer(AnalysisSpecialist):
         except Exception as e:
             # Log the error but continue with empty transactions
             logger.error(f"ERROR in refinancing: {str(e)}")
-            import traceback
             logger.error(traceback.format_exc())
             # Don't store in financing_analysis - it doesn't exist anymore
 
@@ -557,7 +559,6 @@ class DebtAnalyzer(AnalysisSpecialist):
                 covenant_monitoring = transaction.get("covenant_monitoring", {})
                 # TODO: Integrate covenant monitoring with the new permanent loan
 
-
     # DELETED: _extract_noi_time_series() - Redundant pre-refactor cruft
     # Use self.queries.noi() directly instead (available from base class)
 
@@ -601,18 +602,16 @@ class DebtAnalyzer(AnalysisSpecialist):
     def _extract_facility_covenant_thresholds(self) -> List[float]:
         """
         Extract DSCR covenant thresholds from deal facilities.
-        
+
         Uses explicit type-based dispatch - we know our facility types and their capabilities.
         This is important for covenant monitoring!
-        
+
         Returns:
             List of covenant thresholds from facilities, or empty list if none found
         """
-        from performa.debt.construction import ConstructionFacility
-        from performa.debt.permanent import PermanentFacility
-        
+
         thresholds = []
-        
+
         if self.deal.financing and self.deal.financing.facilities:
             for facility in self.deal.financing.facilities:
                 if isinstance(facility, PermanentFacility):
@@ -621,24 +620,24 @@ class DebtAnalyzer(AnalysisSpecialist):
                         thresholds.append(facility.ongoing_dscr_min)
                     if facility.dscr_hurdle is not None:
                         thresholds.append(facility.dscr_hurdle)
-                
+
                 elif isinstance(facility, ConstructionFacility):
                     # ConstructionFacility typically doesn't have ongoing covenant monitoring
                     # (Construction loans are usually interest-only with no DSCR covenants)
                     pass
-                
+
                 # If we add more facility types, handle them explicitly here
-        
+
         # Remove duplicates and sort
         return sorted(list(set(thresholds))) if thresholds else []
 
     def calculate_dscr_metrics(self) -> Dict[str, Any]:
         """
         Calculate comprehensive DSCR metrics for covenant monitoring.
-        
+
         THIS IS CRITICAL FOR LENDER REQUIREMENTS!
         Returns DSCR time series and covenant analysis.
-        
+
         Returns:
             Dict containing:
             - dscr_series: Period-by-period DSCR values
@@ -658,45 +657,63 @@ class DebtAnalyzer(AnalysisSpecialist):
                 "trend_slope": None,
                 "trend_direction": None,
             }
-        
+
         # Get NOI from ledger
         noi_series = self.queries.noi()
-        
+
         # Get debt service from ledger
         debt_service = self.queries.debt_service()
-        
+
         # Calculate DSCR time series
         dscr_series = self._calculate_dscr_time_series(noi_series, debt_service)
-        
+
         # Get facility-specific covenant thresholds
         facility_thresholds = self._extract_facility_covenant_thresholds()
-        
+
         # Calculate comprehensive metrics
         metrics = {
             "dscr_series": dscr_series,
             "minimum_dscr": float(dscr_series.min()) if not dscr_series.empty else None,
-            "average_dscr": float(dscr_series.mean()) if not dscr_series.empty else None,
-            "median_dscr": float(dscr_series.median()) if not dscr_series.empty else None,
+            "average_dscr": float(dscr_series.mean())
+            if not dscr_series.empty
+            else None,
+            "median_dscr": float(dscr_series.median())
+            if not dscr_series.empty
+            else None,
         }
-        
+
         # Covenant analysis - use facility-specific or standard thresholds
-        covenant_thresholds = facility_thresholds if facility_thresholds else [1.0, 1.1, 1.15, 1.2, 1.25, 1.3, 1.35, 1.4, 1.5]
-        
+        covenant_thresholds = (
+            facility_thresholds
+            if facility_thresholds
+            else [1.0, 1.1, 1.15, 1.2, 1.25, 1.3, 1.35, 1.4, 1.5]
+        )
+
         metrics["covenant_analysis"] = {}
         for threshold in covenant_thresholds:
             periods_below = (dscr_series < threshold).sum()
-            metrics["covenant_analysis"][f"periods_below_{threshold:.2f}"] = int(periods_below)
-            
+            metrics["covenant_analysis"][f"periods_below_{threshold:.2f}"] = int(
+                periods_below
+            )
+
             # Find specific breach periods
             breach_periods = dscr_series[dscr_series < threshold].index.tolist()
             if breach_periods:
-                metrics["covenant_analysis"][f"breach_periods_{threshold:.2f}"] = breach_periods
-        
+                metrics["covenant_analysis"][f"breach_periods_{threshold:.2f}"] = (
+                    breach_periods
+                )
+
         # Trend analysis
         if len(dscr_series) > 1:
             x = range(len(dscr_series))
             trend_slope = np.polyfit(x, dscr_series.values, 1)[0]
             metrics["trend_slope"] = float(trend_slope)
-            metrics["trend_direction"] = "improving" if trend_slope > 0 else "declining" if trend_slope < 0 else "stable"
-        
+            metrics["trend_direction"] = (
+                "improving"
+                if trend_slope > 0
+                else "declining"
+                if trend_slope < 0
+                else "stable"
+            )
+
         return metrics

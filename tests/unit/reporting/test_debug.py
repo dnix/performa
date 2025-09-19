@@ -98,7 +98,9 @@ class TestPolymorphicDebugUtility:
         assert "_computed" in result["config"]
         computed = result["config"]["_computed"]
         assert "total_project_cost" in computed
-        assert computed["total_project_cost"] == 31_184_000  # Updated: includes developer fee (5% of construction)
+        assert (
+            computed["total_project_cost"] == 31_184_000
+        )  # Updated: includes developer fee (5% of construction)
         assert "derived_timeline" in computed
         assert computed["derived_timeline"]["duration_months"] == 84
 

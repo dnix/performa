@@ -48,12 +48,12 @@ class Partner(Entity):
 
     # Equity ownership percentage
     share: float = Field(..., description="Equity ownership percentage")
-    
+
     # Capital commitment (drives funding contributions)
     capital_commitment: Optional[PositiveFloat] = Field(
         None,
         description="Explicit capital commitment in dollars. "
-                    "If None for ALL partners, funding is derived pro-rata from shares."
+        "If None for ALL partners, funding is derived pro-rata from shares.",
     )
 
     @field_validator("share")

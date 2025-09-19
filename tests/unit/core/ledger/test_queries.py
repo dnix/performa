@@ -203,8 +203,8 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         # Industry standard: PGR includes all revenue at 100% occupancy
         # January: $10,000 lease + $500 misc = $10,500
         # February: $10,000 lease only = $10,000
-        assert pgr.loc[pd.Period('2024-01', freq='M')] == 10500
-        assert pgr.loc[pd.Period('2024-02', freq='M')] == 10000
+        assert pgr.loc[pd.Period("2024-01", freq="M")] == 10500
+        assert pgr.loc[pd.Period("2024-02", freq="M")] == 10000
 
     def test_vacancy_loss_calculation(self):
         """Test vacancy loss calculation."""
@@ -214,7 +214,7 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         vacancy = queries.vacancy_loss()
 
         # Should be 1,000 for January (absolute value of -1000)
-        assert vacancy.loc[pd.Period('2024-01', freq='M')] == 1000
+        assert vacancy.loc[pd.Period("2024-01", freq="M")] == 1000
 
     def test_egi_calculation(self):
         """Test Effective Gross Income calculation."""
@@ -224,9 +224,9 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         egi = queries.egi()
 
         # January: 10,000 (lease) + 500 (misc) - 1,000 (vacancy) = 9,500
-        assert egi.loc[pd.Period('2024-01', freq='M')] == 9500
+        assert egi.loc[pd.Period("2024-01", freq="M")] == 9500
         # February: 10,000 (lease) + 0 (misc) - 0 (vacancy) = 10,000
-        assert egi.loc[pd.Period('2024-02', freq='M')] == 10000
+        assert egi.loc[pd.Period("2024-02", freq="M")] == 10000
 
     def test_opex_calculation(self):
         """Test operating expenses calculation."""
@@ -236,8 +236,8 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         opex = queries.opex()
 
         # Should be 2,000 for both January and February (absolute value)
-        assert opex.loc[pd.Period('2024-01', freq='M')] == 2000
-        assert opex.loc[pd.Period('2024-02', freq='M')] == 2000
+        assert opex.loc[pd.Period("2024-01", freq="M")] == 2000
+        assert opex.loc[pd.Period("2024-02", freq="M")] == 2000
 
     def test_noi_calculation(self):
         """Test Net Operating Income calculation."""
@@ -248,9 +248,9 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
 
         # January: 10,000 + 500 - 1,000 (vacancy) revenue - 2,000 expense = 7,500
         # Note: vacancy is negative revenue, so total revenue = 10,000 + 500 - 1,000 = 9,500
-        assert noi.loc[pd.Period('2024-01', freq='M')] == 7500
+        assert noi.loc[pd.Period("2024-01", freq="M")] == 7500
         # February: 10,000 revenue - 2,000 expense = 8,000 (no vacancy)
-        assert noi.loc[pd.Period('2024-02', freq='M')] == 8000
+        assert noi.loc[pd.Period("2024-02", freq="M")] == 8000
 
     def test_noi_equals_revenue_minus_expense(self):
         """NOI should equal revenue minus expenses from operating flows."""
@@ -265,9 +265,9 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         manual_revenue = revenue_txns.groupby("date")["amount"].sum()
         manual_expense = expense_txns.groupby("date")["amount"].sum().abs()
         manual_noi = manual_revenue - manual_expense
-        
+
         # Convert manual calculation index to Period to match query result
-        manual_noi.index = pd.PeriodIndex(manual_noi.index, freq='M')
+        manual_noi.index = pd.PeriodIndex(manual_noi.index, freq="M")
 
         # Compare with query result
         query_noi = queries.noi()
@@ -286,7 +286,7 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         # Our test data only has acquisition ($50,000) which is now correctly excluded
         # So operational CapEx should be 0 or the series should be empty
         if len(capex) > 0:
-            assert capex.loc[pd.Period('2024-01', freq='M')] == 0
+            assert capex.loc[pd.Period("2024-01", freq="M")] == 0
         # else: empty series is also valid (no operational CapEx)
 
     def test_ti_calculation(self):
@@ -297,7 +297,7 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         ti = queries.ti()
 
         # Should find the "TI Allowance" item
-        assert ti.loc[pd.Period('2024-01', freq='M')] == 5000
+        assert ti.loc[pd.Period("2024-01", freq="M")] == 5000
 
     def test_lc_calculation(self):
         """Test leasing commissions calculation (pattern matching)."""
@@ -307,7 +307,7 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         lc = queries.lc()
 
         # Should find the "LC Payment" item
-        assert lc.loc[pd.Period('2024-01', freq='M')] == 2000
+        assert lc.loc[pd.Period("2024-01", freq="M")] == 2000
 
     def test_ucf_calculation(self):
         """Test Unlevered Cash Flow calculation."""
@@ -323,11 +323,11 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         # Test that UCF calculation works and produces expected results
         # For January: NOI = 7500, operational CapEx = 0 (acquisition excluded), TI = 5000, LC = 2000
         # UCF = 7500 - 0 - 5000 - 2000 = 500
-        assert ucf.loc[pd.Period('2024-01', freq='M')] == 7500 - 0 - 5000 - 2000
+        assert ucf.loc[pd.Period("2024-01", freq="M")] == 7500 - 0 - 5000 - 2000
 
         # For February: NOI = 8000, CapEx = 0, TI = 0, LC = 0
         # UCF = 8000 - 0 - 0 - 0 = 8000
-        assert ucf.loc[pd.Period('2024-02', freq='M')] == 8000
+        assert ucf.loc[pd.Period("2024-02", freq="M")] == 8000
 
     def test_total_uses_calculation(self):
         """Test total uses calculation."""
@@ -337,7 +337,7 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         uses = queries.total_uses()
 
         # January: 50,000 (acquisition) + 5,000 (TI) + 2,000 (LC) = 57,000
-        assert uses.loc[pd.Period('2024-01', freq='M')] == 57000
+        assert uses.loc[pd.Period("2024-01", freq="M")] == 57000
 
     def test_total_sources_calculation(self):
         """Test total sources calculation."""
@@ -347,7 +347,7 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         sources = queries.total_sources()
 
         # January: 30,000 (equity) + 20,000 (debt) = 50,000
-        assert sources.loc[pd.Period('2024-01', freq='M')] == 50000
+        assert sources.loc[pd.Period("2024-01", freq="M")] == 50000
 
     def test_debt_draws_calculation(self):
         """Test debt draws calculation."""
@@ -357,7 +357,7 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         debt_draws = queries.debt_draws()
 
         # Should be 20,000 for January
-        assert debt_draws.loc[pd.Period('2024-01', freq='M')] == 20000
+        assert debt_draws.loc[pd.Period("2024-01", freq="M")] == 20000
 
     def test_equity_contributions_calculation(self):
         """Test equity contributions calculation."""
@@ -367,7 +367,7 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         equity = queries.equity_contributions()
 
         # Should be 30,000 for January
-        assert equity.loc[pd.Period('2024-01', freq='M')] == 30000
+        assert equity.loc[pd.Period("2024-01", freq="M")] == 30000
 
     def test_debt_service_calculation(self):
         """Test debt service calculation."""
@@ -377,7 +377,7 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         debt_service = queries.debt_service()
 
         # Should be 800 for February (absolute value)
-        assert debt_service.loc[pd.Period('2024-02', freq='M')] == 800
+        assert debt_service.loc[pd.Period("2024-02", freq="M")] == 800
 
     def test_uses_breakdown(self):
         """Test uses breakdown by subcategory."""
@@ -387,11 +387,11 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         breakdown = queries.uses_breakdown()
 
         # Should have breakdown by subcategory
-        assert breakdown.loc[pd.Period('2024-01', freq='M'), "Purchase Price"] == 50000
-        assert breakdown.loc[pd.Period('2024-01', freq='M'), "Other"] == 7000  # TI + LC
+        assert breakdown.loc[pd.Period("2024-01", freq="M"), "Purchase Price"] == 50000
+        assert breakdown.loc[pd.Period("2024-01", freq="M"), "Other"] == 7000  # TI + LC
         # Disaggregated debt service components
-        assert breakdown.loc[pd.Period('2024-02', freq='M'), "Interest Payment"] == 500
-        assert breakdown.loc[pd.Period('2024-02', freq='M'), "Principal Payment"] == 300
+        assert breakdown.loc[pd.Period("2024-02", freq="M"), "Interest Payment"] == 500
+        assert breakdown.loc[pd.Period("2024-02", freq="M"), "Principal Payment"] == 300
 
     def test_sources_breakdown(self):
         """Test sources breakdown by subcategory."""
@@ -401,8 +401,11 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         breakdown = queries.sources_breakdown()
 
         # Should have breakdown by subcategory
-        assert breakdown.loc[pd.Period('2024-01', freq='M'), "Equity Contribution"] == 30000
-        assert breakdown.loc[pd.Period('2024-01', freq='M'), "Loan Proceeds"] == 20000
+        assert (
+            breakdown.loc[pd.Period("2024-01", freq="M"), "Equity Contribution"]
+            == 30000
+        )
+        assert breakdown.loc[pd.Period("2024-01", freq="M"), "Loan Proceeds"] == 20000
 
     def test_empty_ledger_handling(self):
         """Test that queries handle empty ledgers gracefully."""
@@ -439,7 +442,7 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         partner_flows = queries.partner_flows(partner_id)
 
         # Should return the flow for that partner
-        assert partner_flows.loc[pd.Period('2024-01', freq='M')] == 10000
+        assert partner_flows.loc[pd.Period("2024-01", freq="M")] == 10000
 
     def test_query_consistency_across_methods(self):
         """Test that related queries are consistent with each other."""
@@ -494,8 +497,8 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         abatement = queries.rental_abatement()
 
         # Should return absolute values (positive amounts)
-        assert abatement.loc[pd.Period('2024-01', freq='M')] == 500
-        assert abatement.loc[pd.Period('2024-02', freq='M')] == 300
+        assert abatement.loc[pd.Period("2024-01", freq="M")] == 500
+        assert abatement.loc[pd.Period("2024-02", freq="M")] == 300
 
     def test_collection_loss_calculation(self):
         """Test collection loss calculation."""
@@ -529,8 +532,8 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         collection = queries.credit_loss()
 
         # Should return absolute values (positive amounts)
-        assert collection.loc[pd.Period('2024-01', freq='M')] == 200
-        assert collection.loc[pd.Period('2024-02', freq='M')] == 150
+        assert collection.loc[pd.Period("2024-01", freq="M")] == 200
+        assert collection.loc[pd.Period("2024-02", freq="M")] == 150
 
     def test_misc_income_calculation(self):
         """Test miscellaneous income calculation."""
@@ -564,8 +567,8 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         misc = queries.misc_income()
 
         # Should return positive amounts as-is
-        assert misc.loc[pd.Period('2024-01', freq='M')] == 100
-        assert misc.loc[pd.Period('2024-02', freq='M')] == 75
+        assert misc.loc[pd.Period("2024-01", freq="M")] == 100
+        assert misc.loc[pd.Period("2024-02", freq="M")] == 75
 
     def test_expense_reimbursements_calculation(self):
         """Test expense reimbursements calculation."""
@@ -599,8 +602,8 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         reimburse = queries.expense_reimbursements()
 
         # Should return positive amounts as-is
-        assert reimburse.loc[pd.Period('2024-01', freq='M')] == 250
-        assert reimburse.loc[pd.Period('2024-02', freq='M')] == 300
+        assert reimburse.loc[pd.Period("2024-01", freq="M")] == 250
+        assert reimburse.loc[pd.Period("2024-02", freq="M")] == 300
 
     def test_new_methods_with_empty_ledger(self):
         """Test that new methods handle empty ledgers gracefully."""

@@ -132,7 +132,7 @@ class DebtFacilityBase(Model):
             pd.Series: Debt service schedule for aggregation
         """
         # Validate permanent facility timing in development deals
-        # FIXME: does this go here in the base class or in the permanent class?  
+        # FIXME: does this go here in the base class or in the permanent class?
         if self.kind == "permanent":
             if context.deal.is_development_deal:
                 # Permanent facilities in development deals must have refinance timing
@@ -162,7 +162,7 @@ class DebtFacilityBase(Model):
             funding_period = timeline.period_index[refinance_idx]
 
         if self.loan_amount > 0:
-            # Skip LOAN_PROCEEDS for facilities with refinance_timing 
+            # Skip LOAN_PROCEEDS for facilities with refinance_timing
             # (refinancing logic creates REFINANCING_PROCEEDS instead)
             if self.refinance_timing is None:
                 proceeds_series = pd.Series([self.loan_amount], index=[funding_period])
@@ -175,32 +175,37 @@ class DebtFacilityBase(Model):
                     asset_id=context.deal.asset.uid,  # Clean access via DealContext
                     pass_num=CalculationPhase.FINANCING.value,
                 )
-                
+
                 context.ledger.add_series(proceeds_series, proceeds_metadata)
 
         # Split debt service into interest (expense) and principal (balance reduction)
         if not debt_service.empty and debt_service.sum() != 0:
-            
             # Check if this facility supports detailed amortization
             # (PermanentFacility has generate_amortization method)
-            if hasattr(self, 'generate_amortization') and hasattr(self, 'amortization_months'):
+            if hasattr(self, "generate_amortization") and hasattr(
+                self, "amortization_months"
+            ):
                 try:
                     # Get detailed amortization schedule
                     amortization_schedule = self.generate_amortization(
                         self.loan_amount, timeline.period_index[0]
                     )
-                    
+
                     # Truncate to analysis timeline length
                     analysis_periods = len(timeline.period_index)
-                    truncated_periods = min(len(amortization_schedule), analysis_periods)
-                    
+                    truncated_periods = min(
+                        len(amortization_schedule), analysis_periods
+                    )
+
                     # Record interest component (actual cash expense)
-                    if 'Interest' in amortization_schedule.columns:
+                    if "Interest" in amortization_schedule.columns:
                         interest_series = pd.Series(
-                            amortization_schedule['Interest'].values[:truncated_periods],
-                            index=timeline.period_index[:truncated_periods]
+                            amortization_schedule["Interest"].values[
+                                :truncated_periods
+                            ],
+                            index=timeline.period_index[:truncated_periods],
                         )
-                        
+
                         interest_metadata = SeriesMetadata(
                             category=CashFlowCategoryEnum.FINANCING,
                             subcategory=FinancingSubcategoryEnum.INTEREST_PAYMENT,
@@ -210,14 +215,16 @@ class DebtFacilityBase(Model):
                             pass_num=CalculationPhase.FINANCING.value,
                         )
                         context.ledger.add_series(-interest_series, interest_metadata)
-                    
+
                     # Record principal component (for balance tracking only)
-                    if 'Principal' in amortization_schedule.columns:
+                    if "Principal" in amortization_schedule.columns:
                         principal_series = pd.Series(
-                            amortization_schedule['Principal'].values[:truncated_periods],
-                            index=timeline.period_index[:truncated_periods]
+                            amortization_schedule["Principal"].values[
+                                :truncated_periods
+                            ],
+                            index=timeline.period_index[:truncated_periods],
                         )
-                        
+
                         principal_metadata = SeriesMetadata(
                             category=CashFlowCategoryEnum.FINANCING,
                             subcategory=FinancingSubcategoryEnum.PRINCIPAL_PAYMENT,
@@ -227,7 +234,7 @@ class DebtFacilityBase(Model):
                             pass_num=CalculationPhase.FINANCING.value,
                         )
                         context.ledger.add_series(-principal_series, principal_metadata)
-                    
+
                 except Exception as e:
                     # If amortization fails, fall back to simple debt service recording
                     logger.warning(f"Could not split debt service for {self.name}: {e}")
@@ -238,16 +245,16 @@ class DebtFacilityBase(Model):
                 self._record_simple_debt_service(context, debt_service, timeline)
 
         return debt_service
-    
+
     def _record_simple_debt_service(
         self, context: "DealContext", debt_service: pd.Series, timeline: Timeline
     ) -> None:
         """
         Record debt service using disaggregated I&P approach for consistency.
-        
-        For interest-only facilities, records payment as interest with 
+
+        For interest-only facilities, records payment as interest with
         zero principal to maintain uniform subcategory patterns.
-        
+
         Args:
             context: Deal context with ledger
             debt_service: Debt service series (interest-only assumption)
@@ -263,7 +270,7 @@ class DebtFacilityBase(Model):
             pass_num=CalculationPhase.FINANCING.value,
         )
         context.ledger.add_series(-debt_service, interest_metadata)
-        
+
         # Record zero principal payment for architectural consistency
         zero_principal = pd.Series(0.0, index=debt_service.index)
         principal_metadata = SeriesMetadata(

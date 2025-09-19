@@ -74,7 +74,7 @@ class DevelopmentPatternBase(PatternBase):
     )
     construction_ltc_max: FloatBetween0And1 = Field(
         default=0.80,
-        le=0.85, 
+        le=0.85,
         description="Maximum LTC threshold - lender's covenant that cannot be exceeded",
     )
     construction_interest_rate: FloatBetween0And1 = Field(
@@ -90,8 +90,8 @@ class DevelopmentPatternBase(PatternBase):
         )
     )
     interest_reserve_rate: Optional[FloatBetween0And1] = Field(
-        default=None, 
-        description="Interest reserve as percentage of loan amount (only used with SIMPLE method)"
+        default=None,
+        description="Interest reserve as percentage of loan amount (only used with SIMPLE method)",
     )
 
     # === PERMANENT FINANCING ===
@@ -136,7 +136,8 @@ class DevelopmentPatternBase(PatternBase):
         description="Investment hold period in years (from land acquisition)",
     )
     exit_cap_rate: FloatBetween0And1 = Field(
-        default=0.065, description="Exit capitalization rate for sale valuation (typical market: 6-7%)"
+        default=0.065,
+        description="Exit capitalization rate for sale valuation (typical market: 6-7%)",
     )
     exit_costs_rate: FloatBetween0And1 = Field(
         default=0.025, description="Exit transaction costs as percentage of sale price"

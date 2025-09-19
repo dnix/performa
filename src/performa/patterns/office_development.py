@@ -102,7 +102,8 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
 
     # === LEASING ASSUMPTIONS ===
     target_rent_psf: PositiveFloat = Field(
-        ..., description="Target base rent in $/SF/year (e.g., $55.00-$65.00 for Class A)"
+        ...,
+        description="Target base rent in $/SF/year (e.g., $55.00-$65.00 for Class A)",
     )
     average_lease_size_sf: PositiveFloat = Field(
         default=5_000.0,
@@ -145,10 +146,12 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
 
     # === CONSTRUCTION COST MODEL ===
     construction_cost_psf: PositiveFloat = Field(
-        default=300.0, description="Construction cost per square foot of gross area (realistic market range: $275-$350/SF)"
+        default=300.0,
+        description="Construction cost per square foot of gross area (realistic market range: $275-$350/SF)",
     )
     soft_costs_rate: FloatBetween0And1 = Field(
-        default=0.15, description="Soft costs as percentage of hard construction costs (typical market: 12-18%)"
+        default=0.15,
+        description="Soft costs as percentage of hard construction costs (typical market: 12-18%)",
     )
     developer_fee_rate: FloatBetween0And1 = Field(
         default=0.05,
@@ -242,14 +245,18 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
                 name="Construction - Core & Shell",
                 work_type="construction",
                 value=self.hard_construction_costs,
-                draw_schedule=SCurveDrawSchedule(sigma=1.0),  # Realistic S-curve construction draws
+                draw_schedule=SCurveDrawSchedule(
+                    sigma=1.0
+                ),  # Realistic S-curve construction draws
                 timeline=timeline,
             ),
             CapitalItem(
                 name="Professional Fees",
                 work_type="soft_costs",
                 value=self.soft_costs,
-                draw_schedule=SCurveDrawSchedule(sigma=1.2),  # Slightly more gradual for soft costs
+                draw_schedule=SCurveDrawSchedule(
+                    sigma=1.2
+                ),  # Slightly more gradual for soft costs
                 timeline=timeline,
             ),
             CapitalItem(

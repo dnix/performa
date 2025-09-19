@@ -325,7 +325,7 @@ def create_construction_to_permanent_plan(
     if "ltv_ratio" in permanent_params and "loan_amount" not in permanent_params:
         permanent_params["sizing_method"] = "auto"
         # Keep ltv_ratio for the facility's auto-sizing logic
-    
+
     # SMART REFINANCING TIMING: Calculate based on actual construction duration
     if "refinance_timing" not in permanent_params:
         # Get construction duration from construction_params
@@ -335,7 +335,7 @@ def create_construction_to_permanent_plan(
             construction_years = construction_params.get("loan_term_years")
             if construction_years:
                 construction_duration = construction_years * 12
-        
+
         if construction_duration:
             # Fund 1 month after construction completion
             permanent_params["refinance_timing"] = construction_duration + 1
@@ -343,7 +343,7 @@ def create_construction_to_permanent_plan(
             # If no construction duration specified, require explicit refinance_timing
             raise ValueError(
                 "Construction-to-permanent financing requires either:\n"
-                "  1. Explicit 'refinance_timing' in permanent_terms, or\n" 
+                "  1. Explicit 'refinance_timing' in permanent_terms, or\n"
                 "  2. 'loan_term_months' or 'loan_term_years' in construction_terms\n"
                 "Cannot auto-determine permanent loan timing without construction duration."
             )

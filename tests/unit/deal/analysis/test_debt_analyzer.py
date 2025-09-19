@@ -252,13 +252,13 @@ def mock_permanent_facility_with_refinancing():
 def sample_unlevered_analysis():
     """Sample unlevered analysis result - simplified for new architecture."""
     timeline = Timeline(start_date=date(2024, 1, 1), duration_months=60)
-    
+
     # Return a simple dict with cash flow data that tests can use
     # This replaces the old UnleveredAnalysisResult (zombie class)
     return {
-        'noi_series': pd.Series([100000.0] * 60, index=timeline.period_index),
-        'egi_series': pd.Series([150000.0] * 60, index=timeline.period_index),
-        'opex_series': pd.Series([50000.0] * 60, index=timeline.period_index),
+        "noi_series": pd.Series([100000.0] * 60, index=timeline.period_index),
+        "egi_series": pd.Series([150000.0] * 60, index=timeline.period_index),
+        "opex_series": pd.Series([50000.0] * 60, index=timeline.period_index),
     }
 
 
@@ -266,7 +266,11 @@ class TestDebtAnalyzerBasic:
     """Test basic DebtAnalyzer functionality."""
 
     def test_debt_analyzer_can_be_instantiated(
-        self, mock_deal_without_financing, sample_timeline, sample_settings, sample_ledger
+        self,
+        mock_deal_without_financing,
+        sample_timeline,
+        sample_settings,
+        sample_ledger,
     ):
         """Test that DebtAnalyzer can be instantiated with basic parameters."""
         context = DealContext(
@@ -284,7 +288,11 @@ class TestDebtAnalyzerBasic:
         # No more FinancingAnalysisResult - it's a zombie class
 
     def test_debt_analyzer_has_required_methods(
-        self, mock_deal_without_financing, sample_timeline, sample_settings, sample_ledger
+        self,
+        mock_deal_without_financing,
+        sample_timeline,
+        sample_settings,
+        sample_ledger,
     ):
         """Test that DebtAnalyzer has the expected public methods."""
         context = DealContext(
@@ -310,7 +318,7 @@ class TestAnalyzeFinancingStructureNoFinancing:
 
     # DELETED: test_analyze_financing_structure_no_financing
     # This test was pure implementation detail testing - just checked
-    # the shape of FinancingAnalysisResult (zombie class) from 
+    # the shape of FinancingAnalysisResult (zombie class) from
     # analyze_financing_structure() (deleted method). No business logic.
 
     # DELETED: test_analyze_financing_structure_no_financing_immutable_state
@@ -321,7 +329,7 @@ class TestAnalyzeFinancingStructureNoFinancing:
 class TestAnalyzeFinancingStructureWithFinancing:
     """Test financing structure analysis with various facility types."""
 
-    # DELETED: test_analyze_financing_structure_basic_financing  
+    # DELETED: test_analyze_financing_structure_basic_financing
     # Pure implementation detail testing - just checked shape of FinancingAnalysisResult
     # and FacilityInfo (both zombie classes) from deleted method. No business logic.
 
@@ -358,7 +366,7 @@ class TestAnalyzeFinancingStructureWithFinancing:
         # This aligns with the fail-fast philosophy - broken facilities indicate fundamental problems
         with pytest.raises(Exception) as exc_info:
             analyzer.process()
-        
+
         assert "compute_cf failed" in str(exc_info.value)
 
     def test_process_facility_without_compute_cf(
@@ -390,7 +398,7 @@ class TestAnalyzeFinancingStructureWithFinancing:
         # This aligns with fail-fast philosophy - malformed facilities should not be silently ignored
         with pytest.raises(AttributeError) as exc_info:
             analyzer.process()
-        
+
         assert "compute_cf" in str(exc_info.value)
 
 
@@ -569,7 +577,10 @@ class TestDSCRCalculations:
         dscr_metrics = analyzer.calculate_dscr_metrics()
 
         # For deals without financing, DSCR metrics should be None or empty
-        assert dscr_metrics.get("dscr_series") is None or len(dscr_metrics.get("dscr_series", [])) == 0
+        assert (
+            dscr_metrics.get("dscr_series") is None
+            or len(dscr_metrics.get("dscr_series", [])) == 0
+        )
         assert dscr_metrics.get("minimum_dscr") is None
 
     def test_calculate_dscr_metrics_with_financing(
@@ -606,19 +617,21 @@ class TestDSCRCalculations:
         # Then calculate DSCR metrics
         dscr_metrics = analyzer.calculate_dscr_metrics()
 
-        # Verify DSCR was calculated 
+        # Verify DSCR was calculated
         assert dscr_metrics is not None
         dscr_series = dscr_metrics.get("dscr_series")
-        
+
         if dscr_series is not None:
             assert isinstance(dscr_series, pd.Series)
             # With mock facilities that don't generate debt service, DSCR = 100.0 (infinite coverage)
-            expected_dscr = 100.0  # Industry convention for no debt service but positive NOI
+            expected_dscr = (
+                100.0  # Industry convention for no debt service but positive NOI
+            )
             if not dscr_series.empty and dscr_series.iloc[0] > 0:
                 assert abs(dscr_series.iloc[0] - expected_dscr) < 0.01
                 # Check summary statistics from metrics dictionary
                 minimum_dscr = dscr_metrics.get("minimum_dscr")
-                average_dscr = dscr_metrics.get("average_dscr") 
+                average_dscr = dscr_metrics.get("average_dscr")
                 if minimum_dscr is not None and average_dscr is not None:
                     assert abs(minimum_dscr - expected_dscr) < 0.01
                     assert abs(average_dscr - expected_dscr) < 0.01
@@ -661,19 +674,21 @@ class TestDSCRCalculations:
 
         # Process facilities through the new architecture
         analyzer.process()
-        
+
         # Calculate DSCR metrics
         dscr_metrics = analyzer.calculate_dscr_metrics()
 
         # Verify DSCR was calculated
         assert dscr_metrics is not None
         dscr_series = dscr_metrics.get("dscr_series")
-        
+
         if dscr_series is not None and not dscr_series.empty:
             assert isinstance(dscr_series, pd.Series)
 
             # With mock facilities that don't generate debt service, DSCR = 100.0 (infinite coverage)
-            expected_dscr = 100.0  # Industry convention for no debt service but positive NOI
+            expected_dscr = (
+                100.0  # Industry convention for no debt service but positive NOI
+            )
             if dscr_series.iloc[0] > 0:
                 assert abs(dscr_series.iloc[0] - expected_dscr) < 0.01
                 # Check covenant analysis from metrics dictionary
@@ -690,11 +705,10 @@ class TestDSCRCalculations:
     # Equivalent error handling is tested in test_dscr_calculation_with_missing_noi.
 
 
-
 class TestEdgeCasesAndErrorHandling:
     """Test edge cases and error handling scenarios."""
 
-    # DELETED: test_facility_without_name  
+    # DELETED: test_facility_without_name
     # Pure implementation detail - tests defensive programming for missing name attribute.
     # Not meaningful business logic. Data validation should happen at model level.
 
@@ -722,7 +736,9 @@ class TestEdgeCasesAndErrorHandling:
         )
 
         # Add some debt service to ledger but deliberately omit NOI
-        debt_service_series = pd.Series([50000.0] * 60, index=sample_timeline.period_index)
+        debt_service_series = pd.Series(
+            [50000.0] * 60, index=sample_timeline.period_index
+        )
         interest_metadata = SeriesMetadata(
             category=CashFlowCategoryEnum.FINANCING,
             subcategory=FinancingSubcategoryEnum.INTEREST_PAYMENT,
@@ -740,7 +756,7 @@ class TestEdgeCasesAndErrorHandling:
             pass_num=CalculationPhase.FINANCING.value,
         )
         sample_ledger.add_series(debt_service_series, interest_metadata)
-        # Add zero principal payment  
+        # Add zero principal payment
         zero_principal = pd.Series(0.0, index=debt_service_series.index)
         sample_ledger.add_series(zero_principal, principal_metadata)
 
@@ -748,13 +764,13 @@ class TestEdgeCasesAndErrorHandling:
 
         # CRITICAL: Should handle missing NOI gracefully without crashing
         dscr_metrics = analyzer.calculate_dscr_metrics()
-        
+
         # Should either return empty/None results or handle gracefully
         assert dscr_metrics is not None  # Should not crash
-        
+
         # Specific behavior depends on implementation:
         # - May return empty DSCR series
-        # - May return None for DSCR values  
+        # - May return None for DSCR values
         # - May use fallback calculations
         # Key requirement: No exceptions raised
 
@@ -801,20 +817,19 @@ class TestIntegrationScenarios:
         # Verify ledger contains expected financing transactions
         ledger_df = sample_ledger.ledger_df()
         financing_records = ledger_df[
-            ledger_df['category'] == CashFlowCategoryEnum.FINANCING
+            ledger_df["category"] == CashFlowCategoryEnum.FINANCING
         ]
-        
+
         # Should have financing entries from both construction and permanent facilities
         # (Exact verification depends on facility mock implementation)
-        
+
         # CRITICAL: Verify DSCR calculation works for development scenario
         dscr_metrics = analyzer.calculate_dscr_metrics()
         assert dscr_metrics is not None
-        assert 'dscr_series' in dscr_metrics
-        
+        assert "dscr_series" in dscr_metrics
+
         # DSCR series should reflect the complex debt service pattern
         # from construction→permanent transition
-        dscr_series = dscr_metrics['dscr_series']
+        dscr_series = dscr_metrics["dscr_series"]
         assert isinstance(dscr_series, pd.Series)
         assert len(dscr_series) > 0  # Should have calculated values
-

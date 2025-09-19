@@ -88,7 +88,8 @@ from typing import TYPE_CHECKING, Any, Dict
 
 import pandas as pd
 
-from ...core.ledger import Ledger
+from ...core.ledger import Ledger, SeriesMetadata
+from ...core.primitives import CashFlowCategoryEnum, FinancingSubcategoryEnum
 from ...core.primitives.enums import FeeTypeEnum
 from ..distribution_calculator import DistributionCalculator
 from .base import AnalysisSpecialist
@@ -224,50 +225,46 @@ class PartnershipAnalyzer(AnalysisSpecialist):
     def _extract_fee_rates_from_deal(self) -> Dict[str, float]:
         """
         Extract fee rates from deal's fee structure.
-        
+
         Delegates to static method to eliminate duplication.
-        
+
         Returns:
             Dict with management, acquisition, and development fee rates
         """
         return self._extract_fee_rates_from_deal_static(self.deal)
-    
+
     @staticmethod
     def _extract_fee_rates_from_deal_static(deal) -> Dict[str, float]:
         """
         Static version for use in _calculate_single_entity_distributions.
-        
+
         Args:
             deal: Deal object to extract fee rates from
-            
+
         Returns:
             Dict with management, acquisition, and development fee rates
-        """        
-        rates = {
-            'management': 0.0,
-            'acquisition': 0.0, 
-            'development': 0.0
-        }
-        
+        """
+        rates = {"management": 0.0, "acquisition": 0.0, "development": 0.0}
+
         # Extract fee rates from deal structure
         if deal.deal_fees is not None:
             for fee in deal.deal_fees:
                 if fee.fee_type is not None:
                     if fee.fee_type == FeeTypeEnum.ASSET_MANAGEMENT:
-                        rates['management'] = 0.02  # 2% if management fee exists
+                        rates["management"] = 0.02  # 2% if management fee exists
                     elif fee.fee_type == FeeTypeEnum.ACQUISITION:
-                        rates['acquisition'] = 0.01  # 1% if acquisition fee exists
+                        rates["acquisition"] = 0.01  # 1% if acquisition fee exists
                     elif fee.fee_type == FeeTypeEnum.DEVELOPER:
-                        rates['development'] = 0.03  # 3% if development fee exists
-        
+                        rates["development"] = 0.03  # 3% if development fee exists
+
         # Fallback to standard institutional defaults if no deal fees specified
         if all(rate == 0.0 for rate in rates.values()):
             rates = {
-                'management': 0.02,  # 2% annual management fee
-                'acquisition': 0.01,  # 1% acquisition fee  
-                'development': 0.03   # 3% development fee
+                "management": 0.02,  # 2% annual management fee
+                "acquisition": 0.01,  # 1% acquisition fee
+                "development": 0.03,  # 3% development fee
             }
-        
+
         return rates
 
     def process(self) -> None:
@@ -284,44 +281,46 @@ class PartnershipAnalyzer(AnalysisSpecialist):
 
         # Extract fee rates from deal structure (or use standard defaults)
         fee_rates = self._extract_fee_rates_from_deal()
-        management_fee_rate = fee_rates['management']
-        acquisition_fee_rate = fee_rates['acquisition'] 
-        development_fee_rate = fee_rates['development']
+        management_fee_rate = fee_rates["management"]
+        acquisition_fee_rate = fee_rates["acquisition"]
+        development_fee_rate = fee_rates["development"]
 
         # CRITICAL FIX: Get available cash for distribution from ACTUAL ledger transactions only
-        
+
         # Step 1: Get ACTUAL NOI from ledger transactions (much cleaner than reconstructing)
         actual_noi = self.queries.noi()  # Direct NOI from operating transactions only
-        
+
         # Step 2: Get ACTUAL debt service from ledger transactions
         debt_service = self.queries.debt_service()
 
         # TODO: create a net cash flow (noi minus debt service) in LedgerQueries
-        
+
         # Step 3: Validate we have actual operations to distribute
         if actual_noi.empty and debt_service.empty:
             return  # No operations to distribute
-            
+
         # Step 4: Align indices for calculation using Timeline.align_series()
         noi_aligned = self.timeline.align_series(actual_noi, fill_value=0.0)
         debt_service_aligned = self.timeline.align_series(debt_service, fill_value=0.0)
-        
+
         # Step 5: Calculate ONLY actual available cash (no phantom proceeds)
         # CRITICAL FIX: debt_service() returns POSITIVE values, so subtract them from NOI
-        available_for_distribution = noi_aligned - debt_service_aligned  # Subtract positive debt service
-        
+        available_for_distribution = (
+            noi_aligned - debt_service_aligned
+        )  # Subtract positive debt service
+
         # Validate available cash for distribution
-        
+
         if available_for_distribution.empty or available_for_distribution.sum() == 0:
             return  # No cash available for distribution
-        
+
         # Use available cash as input to waterfall (NOT equity_partner_flows!)
         levered_flows = available_for_distribution
 
         # PRESERVE CRITICAL LOGIC: Apply full waterfall distribution algorithm
         # Check if deal has equity partners for waterfall distribution
         has_partners = self.deal.has_equity_partners
-        
+
         if has_partners:
             # Step 1: Calculate fee priority payments with settings (ESSENTIAL)
             fee_details = PartnershipAnalyzer._calculate_fee_distributions(
@@ -348,15 +347,11 @@ class PartnershipAnalyzer(AnalysisSpecialist):
             )
 
             # ESSENTIAL: Write distribution transactions to ledger
-            self._write_distributions_to_ledger(
-                combined_results, self.context.ledger
-            )
+            self._write_distributions_to_ledger(combined_results, self.context.ledger)
 
         else:
             # Single entity - apply single entity distribution logic (ESSENTIAL)
-            self._calculate_single_entity_distributions(
-                levered_flows, self.context
-            )
+            self._calculate_single_entity_distributions(levered_flows, self.context)
 
         # Partnership analysis complete - all transactions written to ledger
 
@@ -367,8 +362,7 @@ class PartnershipAnalyzer(AnalysisSpecialist):
     # DELETED: Lines 277-385 (108 lines of manual distribution result assembly)
 
     def _calculate_single_entity_distributions(
-        self,
-        cash_flows: pd.Series, context: "DealContext"
+        self, cash_flows: pd.Series, context: "DealContext"
     ) -> Dict[str, Any]:
         """
         Calculate distributions for single entity deals (no equity partners).
@@ -381,10 +375,12 @@ class PartnershipAnalyzer(AnalysisSpecialist):
             Dict with distribution summary
         """
         # Extract fee rates from deal structure (or use standard defaults)
-        fee_rates = PartnershipAnalyzer._extract_fee_rates_from_deal_static(context.deal)
-        management_fee_rate = fee_rates['management']
-        acquisition_fee_rate = fee_rates['acquisition'] 
-        development_fee_rate = fee_rates['development']
+        fee_rates = PartnershipAnalyzer._extract_fee_rates_from_deal_static(
+            context.deal
+        )
+        management_fee_rate = fee_rates["management"]
+        acquisition_fee_rate = fee_rates["acquisition"]
+        development_fee_rate = fee_rates["development"]
 
         # Calculate fee distributions even for single entity
         fee_details = PartnershipAnalyzer._calculate_fee_distributions(
@@ -430,8 +426,7 @@ class PartnershipAnalyzer(AnalysisSpecialist):
 
     @staticmethod
     def _calculate_fee_distributions(
-        cash_flows: pd.Series, 
-        context: "DealContext"
+        cash_flows: pd.Series, context: "DealContext"
     ) -> Dict[str, Any]:
         """
         Calculate fee priority payments with deal-driven rates.
@@ -589,7 +584,9 @@ class PartnershipAnalyzer(AnalysisSpecialist):
 
     @staticmethod
     def _combine_fee_and_waterfall_results(
-        fee_details: Dict[str, Any], waterfall_results: Dict[str, Any], context: "DealContext"
+        fee_details: Dict[str, Any],
+        waterfall_results: Dict[str, Any],
+        context: "DealContext",
     ) -> Dict[str, Any]:
         """
         Combine fee and waterfall results into comprehensive distribution analysis.
@@ -685,7 +682,8 @@ class PartnershipAnalyzer(AnalysisSpecialist):
                         partner_results[payee_name]["fee_cash_flows"] = fee_details[
                             "fee_cash_flows_by_partner"
                         ].get(
-                            payee_name, pd.Series(0.0, index=context.timeline.period_index)
+                            payee_name,
+                            pd.Series(0.0, index=context.timeline.period_index),
                         )
 
                         # Update total distributions to include fees
@@ -699,10 +697,12 @@ class PartnershipAnalyzer(AnalysisSpecialist):
         return combined_results
 
     @staticmethod
-    def _write_distributions_to_ledger(combined_results: Dict[str, Any], ledger) -> None:
+    def _write_distributions_to_ledger(
+        combined_results: Dict[str, Any], ledger
+    ) -> None:
         """
         Write distribution transactions to ledger.
-        
+
         Args:
             combined_results: Combined fee and waterfall results
             ledger: Ledger to write to
@@ -720,7 +720,7 @@ class PartnershipAnalyzer(AnalysisSpecialist):
                             else period,
                             amount=-amount,  # Negative for distribution (outflow)
                             category="Financing",
-                            subcategory="Equity Distribution", 
+                            subcategory="Equity Distribution",
                             flow_purpose="Equity Distribution",
                             entity_id=partner_id,
                             entity_type="GP" if "GP" in str(partner_id) else "LP",
@@ -729,7 +729,9 @@ class PartnershipAnalyzer(AnalysisSpecialist):
                         )
 
     @staticmethod
-    def _simple_waterfall_distribution(cash_flows: pd.Series, context: "DealContext") -> Dict[str, Any]:
+    def _simple_waterfall_distribution(
+        cash_flows: pd.Series, context: "DealContext"
+    ) -> Dict[str, Any]:
         """
         Simplified waterfall distribution when DistributionCalculator is not available.
 
@@ -741,28 +743,35 @@ class PartnershipAnalyzer(AnalysisSpecialist):
             Simple waterfall results matching expected structure
         """
         # Simple pro-rata distribution based on ownership percentages
-        partners = context.deal.equity_partners.partners if context.deal.equity_partners else []
-        
+        partners = (
+            context.deal.equity_partners.partners
+            if context.deal.equity_partners
+            else []
+        )
+
         partner_results = {}
         for partner in partners:
             ownership = partner.share  # Partner.share is required field
             partner_flows = cash_flows * ownership
-            
+
             partner_results[partner.name] = {
                 "distributions": partner_flows,
                 "total_distributions": partner_flows.sum(),
                 "net_profit": partner_flows.sum(),
-                "equity_multiple": partner_flows[partner_flows > 0].sum() / abs(partner_flows[partner_flows < 0].sum()) if partner_flows[partner_flows < 0].sum() != 0 else 1.0,
+                "equity_multiple": partner_flows[partner_flows > 0].sum()
+                / abs(partner_flows[partner_flows < 0].sum())
+                if partner_flows[partner_flows < 0].sum() != 0
+                else 1.0,
                 "irr": None,  # Simplified - no IRR calculation
-                "ownership_percentage": ownership
+                "ownership_percentage": ownership,
             }
-        
+
         return {
             "partner_results": partner_results,
             "total_metrics": {
                 "total_distributions": cash_flows[cash_flows > 0].sum(),
-                "total_investment": abs(cash_flows[cash_flows < 0].sum())
-            }
+                "total_investment": abs(cash_flows[cash_flows < 0].sum()),
+            },
         }
 
     def _write_distributions_to_ledger(
@@ -772,29 +781,29 @@ class PartnershipAnalyzer(AnalysisSpecialist):
         CRITICAL METHOD: Write partner distributions to ledger.
         This method records equity distributions as financing transactions.
         """
-        from ...core.ledger import SeriesMetadata
-        from ...core.primitives import CashFlowCategoryEnum, FinancingSubcategoryEnum
-        
+
         if not combined_results or "partner_distributions" not in combined_results:
             return
-            
+
         partner_results = combined_results["partner_distributions"]
-        
-        for partner_name, partner_data in partner_results.items():            
+
+        for partner_name, partner_data in partner_results.items():
             # Get distributions from cash_flows (the actual distribution data)
             distributions = partner_data.get("cash_flows", pd.Series())
-            
+
             if distributions.empty or distributions.sum() == 0:
                 continue
-                
+
             # Only record positive distributions (outflows from deal to partners)
             positive_distributions = distributions[distributions > 0]
             if positive_distributions.empty:
                 continue
-                
+
             # Create distribution series (negative = outflow from deal perspective)
-            distribution_series = -positive_distributions  # Flip sign for deal perspective
-            
+            distribution_series = (
+                -positive_distributions
+            )  # Flip sign for deal perspective
+
             metadata = SeriesMetadata(
                 category=CashFlowCategoryEnum.FINANCING,
                 subcategory=FinancingSubcategoryEnum.EQUITY_DISTRIBUTION,
@@ -804,7 +813,7 @@ class PartnershipAnalyzer(AnalysisSpecialist):
                 pass_num=5,  # Partnership pass
                 entity_type="GP,LP",  # Distribution to equity partners
             )
-            
+
             ledger.add_series(distribution_series, metadata)
 
     # XXX ZOMBIE METHOD DELETED: _create_partner_distributions_result()

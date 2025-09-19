@@ -169,19 +169,22 @@ class FlowPurposeMapper:
             # Financing subcategories based on common patterns
             if category == CashFlowCategoryEnum.FINANCING:
                 # CRITICAL FIX: Proper classification of equity vs debt transactions
-                
+
                 # EQUITY_CONTRIBUTION: Capital coming IN from partners = CAPITAL_SOURCE
                 if subcategory == FinancingSubcategoryEnum.EQUITY_CONTRIBUTION:
                     return TransactionPurpose.CAPITAL_SOURCE
-                
-                # Partner returns/fees: Capital costs going OUT to partners = FINANCING_SERVICE  
-                elif subcategory in [
-                    FinancingSubcategoryEnum.EQUITY_DISTRIBUTION,  # Distributions to partners
-                    FinancingSubcategoryEnum.PREFERRED_RETURN,     # Preferred return payments
-                    FinancingSubcategoryEnum.PROMOTE,              # GP promote/carry payments
-                ]:
+
+                # Partner returns/fees: Capital costs going OUT to partners = FINANCING_SERVICE
+                elif (
+                    subcategory
+                    in [
+                        FinancingSubcategoryEnum.EQUITY_DISTRIBUTION,  # Distributions to partners
+                        FinancingSubcategoryEnum.PREFERRED_RETURN,  # Preferred return payments
+                        FinancingSubcategoryEnum.PROMOTE,  # GP promote/carry payments
+                    ]
+                ):
                     return TransactionPurpose.FINANCING_SERVICE
-                
+
                 # All other financing: Debt proceeds (positive) vs debt service (negative)
                 elif amount > 0:  # Positive = proceeds/draws (debt proceeds)
                     return TransactionPurpose.CAPITAL_SOURCE

@@ -79,7 +79,7 @@ class CapitalSubcategoryEnum(str, Enum):
     PURCHASE_PRICE = "Purchase Price"
     CLOSING_COSTS = "Closing Costs"
     DUE_DILIGENCE = "Due Diligence"
-    
+
     # Disposition subcategories
     TRANSACTION_COSTS = "Transaction Costs"
 
@@ -187,7 +187,7 @@ class FinancingSubcategoryEnum(str, Enum):
         ORIGINATION_FEE: Loan origination fees (negative outflow)
         EXIT_FEE: Loan exit fees (negative outflow)
         PREPAYMENT_PENALTY: Early repayment penalties (negative outflow)
-    
+
     Usage Notes:
         - Use PREPAYMENT for disposition, REFINANCING_PAYOFF for refinancing
         - PRINCIPAL_PAYMENT tracks balance and is a cash outflow

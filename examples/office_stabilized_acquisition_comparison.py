@@ -118,10 +118,12 @@ def main():
 
         # Key financial metrics
         if hasattr(results, "deal_metrics") and results.deal_metrics:
-            if results.deal_metrics.get('levered_irr') is not None:
+            if results.deal_metrics.get("levered_irr") is not None:
                 print(f"   Deal IRR: {results.deal_metrics.get('levered_irr'):.2%}")
-            if results.deal_metrics.get('equity_multiple') is not None:
-                print(f"   Deal Multiple: {results.deal_metrics.get('equity_multiple'):.2f}x")
+            if results.deal_metrics.get("equity_multiple") is not None:
+                print(
+                    f"   Deal Multiple: {results.deal_metrics.get('equity_multiple'):.2f}x"
+                )
 
         # Asset-level validation
         if hasattr(results, "asset_analysis") and results.asset_analysis:

@@ -230,10 +230,12 @@ class ValuationSettings(Model):
         default=0.065, description="Cap rate for refinancing property valuations."
     )
     refinancing_noi_method: Literal["ltm", "ntm", "current"] = Field(
-        default="ltm", description="NOI calculation method for refinancing: ltm=trailing 12mo avg, ntm=forward 12mo, current=current period."
+        default="ltm",
+        description="NOI calculation method for refinancing: ltm=trailing 12mo avg, ntm=forward 12mo, current=current period.",
     )
     exit_noi_method: Literal["ltm", "ntm"] = Field(
-        default="ltm", description="NOI calculation method for exit valuation: ltm=trailing 12mo avg, ntm=forward-looking NOI."
+        default="ltm",
+        description="NOI calculation method for exit valuation: ltm=trailing 12mo avg, ntm=forward-looking NOI.",
     )
     costs_of_sale_percentage: FloatBetween0And1 = Field(
         default=0.03, description="Transaction costs as a percentage of exit value."

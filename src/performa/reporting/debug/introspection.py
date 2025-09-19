@@ -13,14 +13,18 @@ for any Performa object type, with specialized handling for different domains:
 - Debt objects (FinancingPlan, facilities, etc.)
 """
 
-from typing import Any, Dict, List, Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import pandas as pd
 from pydantic import BaseModel
 
 from ...core.primitives import GlobalSettings, Timeline
-from ...deal import Deal
 from ...debt.plan import FinancingPlan
+
+if TYPE_CHECKING:
+    from ...deal import Deal
 
 
 def dump_deal_config(
@@ -158,7 +162,7 @@ def dump_performa_object(
 
     # Dispatch to appropriate handler based on object type
     # NOTE: Order matters! More specific checks must come before generic ones
-    if isinstance(obj, Deal):
+    if type(obj).__name__ == "Deal":
         result["config"] = _handle_deal_object(
             obj, exclude_defaults, exclude_unset, include_computed
         )
@@ -220,7 +224,9 @@ def _classify_performa_object(obj: Any) -> str:
     obj_type = type(obj).__name__
 
     # Deal objects: Complete deal structures requiring comprehensive analysis
-    if isinstance(obj, Deal):
+    if obj_type == "Deal" or "Deal" in obj_type or any(
+        "Deal" in base.__name__ for base in type(obj).__mro__
+    ):
         return "Deal"
 
     # Pattern objects: High-level interfaces for rapid deal creation

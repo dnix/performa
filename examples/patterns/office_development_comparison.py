@@ -25,7 +25,7 @@ Both approaches model the identical development project:
 - Metro Office Tower: $16.7M development cost
 - Office building: 45,000 SF rentable, $65/SF rent
 - Construction-to-permanent financing at 65% LTC/LTV
-- GP/LP partnership with 8% preferred return + 20% promote  
+- GP/LP partnership with 8% preferred return + 20% promote
 - 5-year hold period with 6.5% exit cap rate (realistic market)
 
 The example demonstrates the evolution from manual composition to
@@ -119,9 +119,7 @@ def create_deal_via_composition():
 
     # === STEP 1: PROJECT TIMELINE ===
     start_date = date(2024, 1, 1)
-    timeline = Timeline(
-        start_date=start_date, duration_months=60
-    )  # 5 year timeline
+    timeline = Timeline(start_date=start_date, duration_months=60)  # 5 year timeline
 
     # === STEP 2: CAPITAL EXPENDITURE PLAN ===
     capital_items = [
@@ -130,14 +128,18 @@ def create_deal_via_composition():
             name="Construction - Core & Shell",
             work_type="construction",
             value=10_400_000,  # Core construction costs
-            draw_schedule=SCurveDrawSchedule(sigma=1.0),  # Realistic S-curve construction draws
+            draw_schedule=SCurveDrawSchedule(
+                sigma=1.0
+            ),  # Realistic S-curve construction draws
             timeline=timeline,
         ),
         CapitalItem(
             name="Professional Fees",
-            work_type="soft_costs", 
+            work_type="soft_costs",
             value=624_000,  # Professional fees
-            draw_schedule=SCurveDrawSchedule(sigma=1.2),  # Slightly more gradual for soft costs
+            draw_schedule=SCurveDrawSchedule(
+                sigma=1.2
+            ),  # Slightly more gradual for soft costs
             timeline=timeline,
         ),
         CapitalItem(
@@ -243,7 +245,7 @@ def create_deal_via_composition():
             "loan_term_months": 20,  # 20 months (match Month 21 space availability)
         },
         permanent_terms={
-            "name": "Permanent Facility", 
+            "name": "Permanent Facility",
             "ltv_ratio": 0.65,  # 65% LTV - auto-sizing based on completed property value
             "sizing_method": "auto",  # Enable sophisticated auto-sizing
             "interest_rate": 0.050,  # 5.0% permanent rate
@@ -404,9 +406,7 @@ def demonstrate_pattern_interface():
             print(f"   Timeline: ✅ Integrated")
             print(f"   Implementation: ✅ Fully Working")
             print(f"   Deal Creation: ✅ {deal.name}")
-            print(
-                f"   Construction Finance: ✅ Includes draw-based calculations"
-            )
+            print(f"   Construction Finance: ✅ Includes draw-based calculations")
 
         except Exception as e:
             print(f"   ❌ Implementation failed: {e}")
@@ -437,8 +437,8 @@ def analyze_composition_deal(deal):
 
         print("✅ Analysis Complete!")
 
-        irr = results.deal_metrics.get('levered_irr')
-        em = results.deal_metrics.get('equity_multiple')
+        irr = results.deal_metrics.get("levered_irr")
+        em = results.deal_metrics.get("equity_multiple")
 
         if irr is not None:
             print(f"   Deal IRR: {irr:.2%}")
@@ -450,12 +450,12 @@ def analyze_composition_deal(deal):
         else:
             print("   Equity Multiple: None")
 
-        if results.deal_metrics.get('total_investment'):
+        if results.deal_metrics.get("total_investment"):
             print(
                 f"   Total Equity Invested: ${results.deal_metrics.get('total_investment'):,.0f}"
             )
 
-        if results.deal_metrics.get('net_profit'):
+        if results.deal_metrics.get("net_profit"):
             print(f"   Net Profit: ${results.deal_metrics.get('net_profit'):,.0f}")
 
         # Partnership results
@@ -469,7 +469,11 @@ def analyze_composition_deal(deal):
                 partner_name,
                 partner_result,
             ) in waterfall_details.partner_results.items():
-                irr_str = f"{partner_result.get('irr'):.2%}" if partner_result.get('irr') else "N/A"
+                irr_str = (
+                    f"{partner_result.get('irr'):.2%}"
+                    if partner_result.get("irr")
+                    else "N/A"
+                )
                 print(
                     f"     {partner_name}: {irr_str} IRR, {partner_result.get('equity_multiple'):.2f}x EM"
                 )
@@ -537,7 +541,7 @@ def main():
             print("✅ Pattern Analysis Complete!")
             pattern_irr_str = (
                 f"{pattern_results.deal_metrics.get('levered_irr'):.2%}"
-                if pattern_results.deal_metrics.get('levered_irr')
+                if pattern_results.deal_metrics.get("levered_irr")
                 else "N/A"
             )
             print(f"   Deal IRR: {pattern_irr_str}")
@@ -547,21 +551,23 @@ def main():
             print(
                 f"   Total Equity Invested: ${pattern_results.deal_metrics.get('total_investment'):,.0f}"
             )
-            print(f"   Net Profit: ${pattern_results.deal_metrics.get('net_profit'):,.0f}")
+            print(
+                f"   Net Profit: ${pattern_results.deal_metrics.get('net_profit'):,.0f}"
+            )
 
             # Compare results
             if composition_results:
                 irr_diff = abs(
-                    (composition_results.deal_metrics.get('levered_irr') or 0)
-                    - (pattern_results.deal_metrics.get('levered_irr') or 0)
+                    (composition_results.deal_metrics.get("levered_irr") or 0)
+                    - (pattern_results.deal_metrics.get("levered_irr") or 0)
                 )
                 em_diff = abs(
-                    composition_results.deal_metrics.get('equity_multiple')
-                    - pattern_results.deal_metrics.get('equity_multiple')
+                    composition_results.deal_metrics.get("equity_multiple")
+                    - pattern_results.deal_metrics.get("equity_multiple")
                 )
                 equity_diff = abs(
-                    composition_results.deal_metrics.get('total_investment')
-                    - pattern_results.deal_metrics.get('total_investment')
+                    composition_results.deal_metrics.get("total_investment")
+                    - pattern_results.deal_metrics.get("total_investment")
                 )
 
                 print(f"\n   EQUIVALENCE CHECK:")
@@ -703,30 +709,46 @@ def main():
         if composition_results and pattern_results:
             # Expected values for office development comparison with realistic market assumptions
             # Both approaches produce identical results with realistic 6.5% exit cap rate and 2.5% transaction costs
-            expected_irr = 0.16132702259868625  # 16.13% - exact parity for both approaches
+            expected_irr = (
+                0.16132702259868625  # 16.13% - exact parity for both approaches
+            )
             expected_em = 1.89839210322396  # 1.898x - exact parity for both approaches
-            expected_equity_comp = 6920011.156925966  # Composition equity - exact parity
+            expected_equity_comp = (
+                6920011.156925966  # Composition equity - exact parity
+            )
             expected_equity_pattern = 6920011.156925966  # Pattern equity - exact parity
 
             # Assert composition results (100% exact parity - no tolerances needed)
-            comp_irr = composition_results.deal_metrics.get('levered_irr') or 0
-            comp_em = composition_results.deal_metrics.get('equity_multiple')
-            comp_equity = composition_results.deal_metrics.get('total_investment')
-            
+            comp_irr = composition_results.deal_metrics.get("levered_irr") or 0
+            comp_em = composition_results.deal_metrics.get("equity_multiple")
+            comp_equity = composition_results.deal_metrics.get("total_investment")
+
             # Validate composition results match expected values (100% mathematical parity within financial precision)
-            assert abs(comp_irr - expected_irr) < 1e-6, f"Composition IRR {comp_irr} != expected {expected_irr}"
-            assert abs(comp_em - expected_em) < 1e-6, f"Composition EM {comp_em} != expected {expected_em}"
-            assert abs(comp_equity - expected_equity_comp) < 1.0, f"Composition Equity ${comp_equity} != expected ${expected_equity_comp}"
+            assert (
+                abs(comp_irr - expected_irr) < 1e-6
+            ), f"Composition IRR {comp_irr} != expected {expected_irr}"
+            assert (
+                abs(comp_em - expected_em) < 1e-6
+            ), f"Composition EM {comp_em} != expected {expected_em}"
+            assert (
+                abs(comp_equity - expected_equity_comp) < 1.0
+            ), f"Composition Equity ${comp_equity} != expected ${expected_equity_comp}"
 
             # Assert pattern results match composition exactly (100% mathematical parity)
-            pattern_irr = pattern_results.deal_metrics.get('levered_irr') or 0
-            pattern_em = pattern_results.deal_metrics.get('equity_multiple')
-            pattern_equity = pattern_results.deal_metrics.get('total_investment')
-            
-            # Pattern should match composition within financial calculation precision  
-            assert abs(pattern_irr - comp_irr) < 1e-6, f"Pattern IRR {pattern_irr} != composition {comp_irr}"
-            assert abs(pattern_em - comp_em) < 1e-6, f"Pattern EM {pattern_em} != composition {comp_em}"
-            assert abs(pattern_equity - comp_equity) < 1.0, f"Pattern Equity ${pattern_equity} != composition ${comp_equity}"
+            pattern_irr = pattern_results.deal_metrics.get("levered_irr") or 0
+            pattern_em = pattern_results.deal_metrics.get("equity_multiple")
+            pattern_equity = pattern_results.deal_metrics.get("total_investment")
+
+            # Pattern should match composition within financial calculation precision
+            assert (
+                abs(pattern_irr - comp_irr) < 1e-6
+            ), f"Pattern IRR {pattern_irr} != composition {comp_irr}"
+            assert (
+                abs(pattern_em - comp_em) < 1e-6
+            ), f"Pattern EM {pattern_em} != composition {comp_em}"
+            assert (
+                abs(pattern_equity - comp_equity) < 1.0
+            ), f"Pattern Equity ${pattern_equity} != composition ${comp_equity}"
 
             print("\n✅ Expected value assertions passed - metrics remain stable")
 

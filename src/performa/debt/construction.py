@@ -50,7 +50,7 @@ class ConstructionFacility(DebtFacilityBase):
     - Flexible draw scheduling (uniform or custom)
     - Interest-only payment structure during construction
     - Integration with ledger-based cash flow analysis
-    
+
     Assumptions:
     - Interest-only payments throughout construction term
     - Future: milestone-based amortization after stabilization
@@ -130,7 +130,10 @@ class ConstructionFacility(DebtFacilityBase):
         False, description="Whether to fund interest payments from loan proceeds"
     )
     interest_reserve_rate: Optional[float] = Field(
-        default=None, ge=0, le=0.5, description="Interest reserve as percentage of loan amount (only used with SIMPLE method)"
+        default=None,
+        ge=0,
+        le=0.5,
+        description="Interest reserve as percentage of loan amount (only used with SIMPLE method)",
     )
 
     # Enhanced interest calculation settings
@@ -158,7 +161,7 @@ class ConstructionFacility(DebtFacilityBase):
         le=0.85,
         description="Maximum LTC threshold - lender's covenant that cannot be exceeded",
     )
-    
+
     # TODO: Add funding cascade strategy (equity-first vs pro-rata vs debt-first)
     # This determines the ORDER of draws, not the SIZE of the loan
     # Currently hardcoded to equity-first in CashFlowEngine
@@ -693,7 +696,7 @@ class ConstructionFacility(DebtFacilityBase):
         if not debt_service.empty and debt_service.sum() != 0:
             # For construction loans (interest-only), write as separate I&P for consistency
             # Interest payment = debt_service amount, Principal payment = $0
-            
+
             # Record interest payment (actual cash expense)
             interest_metadata = SeriesMetadata(
                 category=CashFlowCategoryEnum.FINANCING,
@@ -705,7 +708,7 @@ class ConstructionFacility(DebtFacilityBase):
             )
             # Interest payment is outflow (negative in ledger)
             context.ledger.add_series(-debt_service, interest_metadata)
-            
+
             # Record principal payment as $0 (interest-only assumption)
             # TODO: Future enhancement - milestone-based amortization after construction/stabilization
             zero_principal = pd.Series(0.0, index=debt_service.index)
@@ -717,7 +720,9 @@ class ConstructionFacility(DebtFacilityBase):
                 asset_id=context.deal.asset.uid,
                 pass_num=CalculationPhase.FINANCING.value,
             )
-            context.ledger.add_series(-zero_principal, principal_metadata)  # $0 outflow (current assumption)
+            context.ledger.add_series(
+                -zero_principal, principal_metadata
+            )  # $0 outflow (current assumption)
 
         return debt_service
 
@@ -746,7 +751,9 @@ class ConstructionFacility(DebtFacilityBase):
         max_periods = periods
         if self.loan_term_months:
             max_periods = min(self.loan_term_months, periods)
-            logger.debug(f"{self.name}: Limiting debt service to {max_periods} months (loan term)")
+            logger.debug(
+                f"{self.name}: Limiting debt service to {max_periods} months (loan term)"
+            )
 
         # Generate draw schedule (limited to loan term)
         draws = self._generate_draw_schedule(timeline)
@@ -761,7 +768,7 @@ class ConstructionFacility(DebtFacilityBase):
                 # Stop generating debt service after loan term
                 if i >= max_periods:
                     break
-                    
+
                 if i < len(draws):
                     # Add this period's draw to outstanding balance
                     outstanding_balance += draws.iloc[i]
@@ -769,7 +776,7 @@ class ConstructionFacility(DebtFacilityBase):
                 # Calculate interest payment on outstanding balance
                 # For interest-only loans, we only pay interest, not principal
                 interest_payment = outstanding_balance * monthly_rate
-                
+
                 # CRITICAL FIX: Return only the interest payment as debt service
                 # Draws are handled separately as loan proceeds
                 debt_service.iloc[i] = interest_payment
@@ -838,7 +845,9 @@ class ConstructionFacility(DebtFacilityBase):
                 # Convert period string to timeline index if possible
                 try:
                     if period_str in draws.index.astype(str):
-                        period_idx = draws.index[draws.index.astype(str) == period_str][0]
+                        period_idx = draws.index[draws.index.astype(str) == period_str][
+                            0
+                        ]
                         # Only add draw if within loan term
                         period_num = draws.index.get_loc(period_idx)
                         if period_num < max_draw_periods:

@@ -158,8 +158,7 @@ def create_deal_via_composition():
             term_months=12,
         ),
         renewal_terms=ResidentialRolloverLeaseTerms(
-            market_rent=1200.0
-            * 0.95,  # Renewal rent slightly below market
+            market_rent=1200.0 * 0.95,  # Renewal rent slightly below market
             term_months=12,
         ),
     )
@@ -320,7 +319,9 @@ def create_deal_via_composition():
     # === STEP 9: ACQUISITION TERMS ===
     acquisition = AcquisitionTerms(
         name="Riverside Gardens Acquisition",
-        timeline=Timeline(start_date=acquisition_date, duration_months=3),  # 3 months to close
+        timeline=Timeline(
+            start_date=acquisition_date, duration_months=3
+        ),  # 3 months to close
         value=11_500_000,  # $115K per unit (conservative institutional basis)
         acquisition_date=acquisition_date,
         closing_costs_rate=0.02,  # 2% closing costs
@@ -474,7 +475,9 @@ def demonstrate_pattern_interface():
             gp_share=0.20,
             lp_share=0.80,
             pref_return=0.08,  # 8% preferred return (was preferred_return)
-            promote_tiers=[(0.15, 0.20)],  # 20% promote above 15% IRR (was promote_tier_1)
+            promote_tiers=[
+                (0.15, 0.20)
+            ],  # 20% promote above 15% IRR (was promote_tier_1)
             # Exit strategy
             hold_period_years=7,
             exit_cap_rate=0.065,  # 6.5% exit cap (institutional conservative)
@@ -504,9 +507,7 @@ def demonstrate_pattern_interface():
         # Create the deal to show it works
         deal = pattern.create()
         print(f"   Deal Creation: ✅ {deal.name}")
-        print(
-            "   ✅ Construction financing properly funds total project cost"
-        )
+        print("   ✅ Construction financing properly funds total project cost")
 
         return pattern, deal
 
@@ -539,11 +540,13 @@ def analyze_deals(composition_deal, pattern_deal):
         print("\n   COMPOSITION RESULTS:")
         comp_irr_str = (
             f"{comp_results.deal_metrics.get('levered_irr'):.2%}"
-            if comp_results.deal_metrics.get('levered_irr')
+            if comp_results.deal_metrics.get("levered_irr")
             else "N/A"
         )
         print(f"     Deal IRR: {comp_irr_str}")
-        print(f"     Equity Multiple: {comp_results.deal_metrics.get('equity_multiple'):.2f}x")
+        print(
+            f"     Equity Multiple: {comp_results.deal_metrics.get('equity_multiple'):.2f}x"
+        )
         print(
             f"     Total Equity: ${comp_results.deal_metrics.get('total_investment'):,.0f}"
         )
@@ -551,7 +554,7 @@ def analyze_deals(composition_deal, pattern_deal):
         print("\n   PATTERN RESULTS:")
         irr_str = (
             f"{pattern_results.deal_metrics.get('levered_irr'):.2%}"
-            if pattern_results.deal_metrics.get('levered_irr')
+            if pattern_results.deal_metrics.get("levered_irr")
             else "N/A"
         )
         print(f"     Deal IRR: {irr_str}")
@@ -564,16 +567,16 @@ def analyze_deals(composition_deal, pattern_deal):
 
         # Check for equivalence
         irr_diff = abs(
-            (comp_results.deal_metrics.get('levered_irr') or 0)
-            - (pattern_results.deal_metrics.get('levered_irr') or 0)
+            (comp_results.deal_metrics.get("levered_irr") or 0)
+            - (pattern_results.deal_metrics.get("levered_irr") or 0)
         )
         em_diff = abs(
-            comp_results.deal_metrics.get('equity_multiple')
-            - pattern_results.deal_metrics.get('equity_multiple')
+            comp_results.deal_metrics.get("equity_multiple")
+            - pattern_results.deal_metrics.get("equity_multiple")
         )
         equity_diff = abs(
-            comp_results.deal_metrics.get('total_investment')
-            - pattern_results.deal_metrics.get('total_investment')
+            comp_results.deal_metrics.get("total_investment")
+            - pattern_results.deal_metrics.get("total_investment")
         )
 
         print(f"\n   EQUIVALENCE CHECK:")
@@ -612,9 +615,7 @@ def main():
     print("1. Composition: Manual assembly of components (current production approach)")
     print("2. Convention: Pattern-driven interface (ready for full implementation)")
     print()
-    print(
-        "✅ Both approaches use unified construction financing solution"
-    )
+    print("✅ Both approaches use unified construction financing solution")
     print("   with automatic loan sizing and ledger-first Sources & Uses integration.")
     print()
 
@@ -664,31 +665,43 @@ def main():
         if comp_results and pattern_results:
             # Expected values for value-add comparison with mathematical parity
             expected_irr = 0.20576603529560467  # 20.58% - improved returns due to cash-out refinancing fix
-            expected_em = 5.030049182508483  # 5.030049x - exact value for precision  
+            expected_em = 5.030049182508483  # 5.030049x - exact value for precision
             expected_equity = 5941150  # $5,941,150 - corrected equity value
 
             # Assert composition results (100% exact parity - no tolerances needed)
-            comp_irr = comp_results.deal_metrics.get('levered_irr')
-            comp_em = comp_results.deal_metrics.get('equity_multiple')
-            comp_equity = comp_results.deal_metrics.get('total_investment')
+            comp_irr = comp_results.deal_metrics.get("levered_irr")
+            comp_em = comp_results.deal_metrics.get("equity_multiple")
+            comp_equity = comp_results.deal_metrics.get("total_investment")
 
             # Validate composition results match expected values (100% mathematical parity within financial precision)
             assert comp_irr is not None, f"Composition IRR should not be None"
-            assert abs(comp_irr - expected_irr) < 1e-6, f"Composition IRR {comp_irr} != expected {expected_irr}"
-            assert abs(comp_em - expected_em) < 1e-6, f"Composition EM {comp_em} != expected {expected_em}"
-            assert abs(comp_equity - expected_equity) < 1.0, f"Composition Equity ${comp_equity} != expected ${expected_equity}"
+            assert (
+                abs(comp_irr - expected_irr) < 1e-6
+            ), f"Composition IRR {comp_irr} != expected {expected_irr}"
+            assert (
+                abs(comp_em - expected_em) < 1e-6
+            ), f"Composition EM {comp_em} != expected {expected_em}"
+            assert (
+                abs(comp_equity - expected_equity) < 1.0
+            ), f"Composition Equity ${comp_equity} != expected ${expected_equity}"
 
             # Validate pattern results match composition exactly (100% mathematical parity)
-            pattern_irr = pattern_results.deal_metrics.get('levered_irr')
-            pattern_em = pattern_results.deal_metrics.get('equity_multiple')
-            pattern_equity = pattern_results.deal_metrics.get('total_investment')
+            pattern_irr = pattern_results.deal_metrics.get("levered_irr")
+            pattern_em = pattern_results.deal_metrics.get("equity_multiple")
+            pattern_equity = pattern_results.deal_metrics.get("total_investment")
 
             # Pattern should match composition within financial calculation precision
             assert pattern_irr is not None, f"Pattern IRR should not be None"
-            assert abs(pattern_irr - comp_irr) < 1e-6, f"Pattern IRR {pattern_irr} != composition {comp_irr}"
-            assert abs(pattern_em - comp_em) < 1e-6, f"Pattern EM {pattern_em} != composition {comp_em}"
-            assert abs(pattern_equity - comp_equity) < 1.0, f"Pattern equity ${pattern_equity} != composition ${comp_equity}"
-        
+            assert (
+                abs(pattern_irr - comp_irr) < 1e-6
+            ), f"Pattern IRR {pattern_irr} != composition {comp_irr}"
+            assert (
+                abs(pattern_em - comp_em) < 1e-6
+            ), f"Pattern EM {pattern_em} != composition {comp_em}"
+            assert (
+                abs(pattern_equity - comp_equity) < 1.0
+            ), f"Pattern equity ${pattern_equity} != composition ${comp_equity}"
+
             print(f"✅ Composition validated: {comp_irr:.2%} IRR (Parity achieved)")
             print(f"✅ Pattern validated: {pattern_irr:.2%} IRR (Parity achieved)")
             print(f"   Mathematical parity confirms both approaches are equivalent")

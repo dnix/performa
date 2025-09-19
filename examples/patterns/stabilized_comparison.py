@@ -277,7 +277,7 @@ def create_deal_via_composition():
     )
 
     # === STEP 8: PERMANENT FINANCING ===
-    # CRITICAL FIX: Match Pattern approach exactly - explicit loan amount calculation  
+    # CRITICAL FIX: Match Pattern approach exactly - explicit loan amount calculation
     loan_amount = 12_000_000 * 0.70  # $8.4M loan (70% of $12M acquisition price)
     permanent_loan = PermanentFacility(
         name="Maple Ridge Apartments Permanent Loan",  # Match Pattern naming
@@ -440,11 +440,13 @@ def analyze_deals(composition_deal, pattern_deal):
         print("\n   COMPOSITION RESULTS:")
         comp_irr_str = (
             f"{comp_results.deal_metrics.get('levered_irr'):.2%}"
-            if comp_results.deal_metrics.get('levered_irr')
+            if comp_results.deal_metrics.get("levered_irr")
             else "N/A"
         )
         print(f"     Deal IRR: {comp_irr_str}")
-        print(f"     Equity Multiple: {comp_results.deal_metrics.get('equity_multiple'):.2f}x")
+        print(
+            f"     Equity Multiple: {comp_results.deal_metrics.get('equity_multiple'):.2f}x"
+        )
         print(
             f"     Total Equity: ${comp_results.deal_metrics.get('total_investment'):,.0f}"
         )
@@ -452,7 +454,7 @@ def analyze_deals(composition_deal, pattern_deal):
         print("\n   PATTERN RESULTS:")
         pattern_irr_str = (
             f"{pattern_results.deal_metrics.get('levered_irr'):.2%}"
-            if pattern_results.deal_metrics.get('levered_irr')
+            if pattern_results.deal_metrics.get("levered_irr")
             else "N/A"
         )
         print(f"     Deal IRR: {pattern_irr_str}")
@@ -465,16 +467,16 @@ def analyze_deals(composition_deal, pattern_deal):
 
         # Check for equivalence
         irr_diff = abs(
-            (comp_results.deal_metrics.get('levered_irr') or 0)
-            - (pattern_results.deal_metrics.get('levered_irr') or 0)
+            (comp_results.deal_metrics.get("levered_irr") or 0)
+            - (pattern_results.deal_metrics.get("levered_irr") or 0)
         )
         em_diff = abs(
-            comp_results.deal_metrics.get('equity_multiple')
-            - pattern_results.deal_metrics.get('equity_multiple')
+            comp_results.deal_metrics.get("equity_multiple")
+            - pattern_results.deal_metrics.get("equity_multiple")
         )
         equity_diff = abs(
-            comp_results.deal_metrics.get('total_investment')
-            - pattern_results.deal_metrics.get('total_investment')
+            comp_results.deal_metrics.get("total_investment")
+            - pattern_results.deal_metrics.get("total_investment")
         )
 
         print(f"\n   EQUIVALENCE CHECK:")
@@ -555,7 +557,9 @@ def main():
     ):
         if comp_results and pattern_results:
             # Golden values for stabilized comparison
-            expected_irr = 0.211834  # 21.18% - improved returns due to cash-out refinancing fix
+            expected_irr = (
+                0.211834  # 21.18% - improved returns due to cash-out refinancing fix
+            )
             expected_em = 2.2772  # 2.2772x - exact value for precision
             expected_equity = 3797952  # $3,797,952 - corrected equity value
 
@@ -564,9 +568,9 @@ def main():
             tolerance_dollar = 10  # $10 tolerance
 
             # Assert composition results
-            comp_irr = comp_results.deal_metrics.get('levered_irr')
-            comp_em = comp_results.deal_metrics.get('equity_multiple')
-            comp_equity = comp_results.deal_metrics.get('total_investment')
+            comp_irr = comp_results.deal_metrics.get("levered_irr")
+            comp_em = comp_results.deal_metrics.get("equity_multiple")
+            comp_equity = comp_results.deal_metrics.get("total_investment")
 
             assert (
                 abs(comp_irr - expected_irr) < tolerance_percent
@@ -579,9 +583,9 @@ def main():
             ), f"Composition Equity ${comp_equity:,.0f} != expected ${expected_equity:,.0f}"
 
             # Assert pattern results match composition (parity validation)
-            pattern_irr = pattern_results.deal_metrics.get('levered_irr')
-            pattern_em = pattern_results.deal_metrics.get('equity_multiple')
-            pattern_equity = pattern_results.deal_metrics.get('total_investment')
+            pattern_irr = pattern_results.deal_metrics.get("levered_irr")
+            pattern_em = pattern_results.deal_metrics.get("equity_multiple")
+            pattern_equity = pattern_results.deal_metrics.get("total_investment")
 
             assert (
                 abs(pattern_irr - expected_irr) < tolerance_percent

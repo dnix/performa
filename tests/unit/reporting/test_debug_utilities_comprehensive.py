@@ -104,7 +104,9 @@ class TestPolymorphicDebugUtility:
         assert "_computed" in result["config"]
         computed = result["config"]["_computed"]
         assert "total_project_cost" in computed
-        assert computed["total_project_cost"] == 31_184_000  # Updated: includes developer fee (5% of construction)
+        assert (
+            computed["total_project_cost"] == 31_184_000
+        )  # Updated: includes developer fee (5% of construction)
         assert "derived_timeline" in computed
         assert computed["derived_timeline"]["duration_months"] == 84
 
@@ -725,9 +727,9 @@ class TestCashOutRefinancingValidation:
             current_avg_rent=1200,
             hold_period_years=5,
         )
-        
+
         pattern2 = StabilizedAcquisitionPattern(
-            property_name="Timeline Test B", 
+            property_name="Timeline Test B",
             acquisition_date=date(2024, 1, 1),
             acquisition_price=10_000_000,
             total_units=100,
@@ -735,17 +737,17 @@ class TestCashOutRefinancingValidation:
             current_avg_rent=1200,
             hold_period_years=7,  # Different hold period
         )
-        
+
         deal1 = pattern1.create()
         deal2 = pattern2.create()
-        
+
         result = compare_deal_timelines(deal1, deal2)
-        
+
         # Should detect timeline differences
         assert isinstance(result, dict)
-        assert 'has_mismatches' in result
-        assert 'differences' in result
-        assert 'summary' in result
+        assert "has_mismatches" in result
+        assert "differences" in result
+        assert "summary" in result
 
     def test_compare_deal_configurations(self):
         """Test configuration comparison utility."""
@@ -758,27 +760,27 @@ class TestCashOutRefinancingValidation:
             current_avg_rent=1200,
             exit_cap_rate=0.065,
         )
-        
+
         pattern2 = StabilizedAcquisitionPattern(
             property_name="Config Test B",
-            acquisition_date=date(2024, 1, 1), 
+            acquisition_date=date(2024, 1, 1),
             acquisition_price=10_000_000,
             total_units=100,
             avg_unit_sf=800,
             current_avg_rent=1200,
             exit_cap_rate=0.070,  # Different exit cap rate
         )
-        
+
         deal1 = pattern1.create()
         deal2 = pattern2.create()
-        
+
         result = compare_deal_configurations(deal1, deal2)
-        
+
         assert isinstance(result, dict)
-        assert 'differences' in result
-        assert 'all_differences' in result  # Backward compatibility alias
-        assert 'has_differences' in result
-        assert 'impact_assessment' in result
+        assert "differences" in result
+        assert "all_differences" in result  # Backward compatibility alias
+        assert "has_differences" in result
+        assert "impact_assessment" in result
 
     def test_deal_parity_validation(self):
         """Test deal parity validation utility."""
@@ -791,7 +793,7 @@ class TestCashOutRefinancingValidation:
             avg_unit_sf=800,
             current_avg_rent=1200,
         )
-        
+
         pattern2 = StabilizedAcquisitionPattern(
             property_name="Parity Test B",
             acquisition_date=date(2024, 1, 1),
@@ -800,21 +802,21 @@ class TestCashOutRefinancingValidation:
             avg_unit_sf=800,
             current_avg_rent=1200,
         )
-        
+
         # Should be identical - test perfect parity
         results1 = pattern1.analyze()
         results2 = pattern2.analyze()
-        
+
         parity = validate_deal_parity(results1, results2)
-        
+
         assert isinstance(parity, dict)
-        assert 'passes' in parity
-        assert 'parity_level' in parity
-        assert 'summary' in parity
-        assert 'recommended_fixes' in parity
-        
+        assert "passes" in parity
+        assert "parity_level" in parity
+        assert "summary" in parity
+        assert "recommended_fixes" in parity
+
         # Should achieve parity
-        assert parity['passes'] or parity['parity_level'] in ['perfect', 'excellent']
+        assert parity["passes"] or parity["parity_level"] in ["perfect", "excellent"]
 
     def test_ledger_shape_analysis(self):
         """Test ledger shape analysis utility."""
@@ -826,18 +828,18 @@ class TestCashOutRefinancingValidation:
             avg_unit_sf=800,
             current_avg_rent=1200,
         )
-        
+
         results = pattern.analyze()
         shape = analyze_ledger_shape(results)
-        
+
         assert isinstance(shape, dict)
-        assert 'transaction_summary' in shape
-        assert 'flow_summary' in shape
-        assert 'timeline_coverage' in shape
-        assert 'warnings' in shape
-        
+        assert "transaction_summary" in shape
+        assert "flow_summary" in shape
+        assert "timeline_coverage" in shape
+        assert "warnings" in shape
+
         # Should have reasonable transaction counts
-        assert shape['transaction_summary']['total_count'] > 100
+        assert shape["transaction_summary"]["total_count"] > 100
 
     def test_component_timeline_extraction(self):
         """Test component timeline extraction utility."""
@@ -850,17 +852,20 @@ class TestCashOutRefinancingValidation:
             current_avg_rent=1200,
             hold_period_years=5,
         )
-        
+
         deal = pattern.create()
         timelines = extract_component_timelines(deal)
-        
+
         assert isinstance(timelines, dict)
-        assert 'misalignment_warnings' in timelines
-        assert 'summary' in timelines
-        
+        assert "misalignment_warnings" in timelines
+        assert "summary" in timelines
+
         # Should extract multiple component timelines
-        timeline_components = [k for k, v in timelines.items() 
-                             if isinstance(v, dict) and 'duration_months' in v]
+        timeline_components = [
+            k
+            for k, v in timelines.items()
+            if isinstance(v, dict) and "duration_months" in v
+        ]
         assert len(timeline_components) > 0
 
 

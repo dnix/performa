@@ -266,7 +266,11 @@ class FinancingPlan(Model):
                             payoff_amount = (
                                 0.0  # Will be calculated by deal orchestrator
                             )
-                    elif hasattr(const_facility, 'loan_amount') and const_facility.loan_amount and const_facility.loan_amount > 0:
+                    elif (
+                        hasattr(const_facility, "loan_amount")
+                        and const_facility.loan_amount
+                        and const_facility.loan_amount > 0
+                    ):
                         payoff_amount = const_facility.loan_amount
                     else:
                         # For dynamic loans (LTC-based), we can't know the amount here

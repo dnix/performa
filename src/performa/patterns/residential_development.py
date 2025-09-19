@@ -156,7 +156,8 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         default=0.15, description="Soft costs as percentage of hard construction costs"
     )
     developer_fee_rate: FloatBetween0And1 = Field(
-        default=0.05, description="Developer fee as percentage of total construction cost"
+        default=0.05,
+        description="Developer fee as percentage of total construction cost",
     )
 
     # === OPERATING ASSUMPTIONS ===
@@ -276,7 +277,9 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
                 start_date=self.acquisition_date,
                 duration_months=18,  # Typical residential construction timeline
             ),
-            draw_schedule=SCurveDrawSchedule(sigma=1.0),  # Realistic S-curve construction draws over 18 months
+            draw_schedule=SCurveDrawSchedule(
+                sigma=1.0
+            ),  # Realistic S-curve construction draws over 18 months
         )
 
         developer_fee_item = CapitalItem(
@@ -405,13 +408,15 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
 
         financing = create_construction_to_permanent_plan(
             construction_terms={
-                "name": "Construction Facility", 
+                "name": "Construction Facility",
                 "ltc_ratio": self.construction_ltc_ratio,  # Use base class LTC parameter for loan sizing
                 "ltc_max": self.construction_ltc_max,  # Lender's hard gate
                 "interest_rate": self.construction_interest_rate,
                 "loan_term_months": self.construction_duration_months,  # Use actual construction duration
                 "fund_interest_from_reserve": True,  # Match composition approach
-                "interest_reserve_rate": 0.10 if self.interest_reserve_rate is None else self.interest_reserve_rate,  # 10% reserve
+                "interest_reserve_rate": 0.10
+                if self.interest_reserve_rate is None
+                else self.interest_reserve_rate,  # 10% reserve
                 "interest_calculation_method": getattr(
                     InterestCalculationMethod, self.interest_calculation_method
                 ),

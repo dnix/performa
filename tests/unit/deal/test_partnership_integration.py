@@ -127,15 +127,21 @@ class TestPartnershipIntegrationWithRealDeals:
             partner_distributions["distribution_method"] == "partnership_waterfall"
         )  # pari_passu maps to partnership_waterfall (no promotes)
         assert "aggregate_equity_multiple" in partner_distributions
-        assert "aggregate_irr" in partner_distributions  
-        
+        assert "aggregate_irr" in partner_distributions
+
         # Partner details structure differs for partnership waterfall
         # Individual partner results are not available in the same structure
 
         # Validate basic partnership metrics exist
         assert partner_distributions["partner_count"] == 2
-        assert isinstance(partner_distributions.get("aggregate_equity_multiple"), (int, float, type(None)))
-        assert partner_distributions.get("aggregate_irr") is not None or partner_distributions.get("aggregate_irr") is None  # Can be None for zero-return scenarios
+        assert isinstance(
+            partner_distributions.get("aggregate_equity_multiple"),
+            (int, float, type(None)),
+        )
+        assert (
+            partner_distributions.get("aggregate_irr") is not None
+            or partner_distributions.get("aggregate_irr") is None
+        )  # Can be None for zero-return scenarios
 
     def test_development_deal_with_multiple_partners(
         self, development_project, acquisition_terms, analysis_timeline
@@ -188,8 +194,14 @@ class TestPartnershipIntegrationWithRealDeals:
         assert partner_distributions["partner_count"] == 4
         # Individual partner results are not available in partnership_waterfall structure
         # Partnership distribution handles aggregate metrics only
-        assert isinstance(partner_distributions.get("aggregate_equity_multiple"), (int, float, type(None)))
-        assert partner_distributions.get("aggregate_irr") is not None or partner_distributions.get("aggregate_irr") is None  # Can be None for zero-return scenarios
+        assert isinstance(
+            partner_distributions.get("aggregate_equity_multiple"),
+            (int, float, type(None)),
+        )
+        assert (
+            partner_distributions.get("aggregate_irr") is not None
+            or partner_distributions.get("aggregate_irr") is None
+        )  # Can be None for zero-return scenarios
 
     def test_partnership_distribution_calculator_standalone(self, analysis_timeline):
         """
@@ -440,7 +452,10 @@ class TestPartnershipFoundationEdgeCases:
 
         # Both should have valid metrics
         assert isinstance(single_distributions.get("equity_multiple"), (int, float))
-        assert isinstance(partnership_distributions.get("aggregate_equity_multiple"), (int, float, type(None)))
+        assert isinstance(
+            partnership_distributions.get("aggregate_equity_multiple"),
+            (int, float, type(None)),
+        )
 
     def test_partnership_validation_integration(self):
         """

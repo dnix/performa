@@ -506,7 +506,7 @@ class TestCrossValidationAgainstIndustryBenchmarks:
 
         # Very tight tolerance for financial calculations (0.01% = 1 basis point)
         tolerance = 0.0001
-        
+
         gp_diff = abs(gp_results["equity_multiple"] - expected_gp_multiple)
         lp_diff = abs(lp_results["equity_multiple"] - expected_lp_multiple)
 

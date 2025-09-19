@@ -275,7 +275,7 @@ class TestWaterfallPromote:
 
         # Should have preferred return tier plus the defined tiers
         assert len(tiers) == 3
-        assert tiers[0] == (0.08, 0.0)   # Preferred return tier with 0% promote
+        assert tiers[0] == (0.08, 0.0)  # Preferred return tier with 0% promote
         assert tiers[1] == (0.12, 0.10)  # First tier at 12% with 10% promote
         assert tiers[2] == (0.15, 0.20)  # Second tier at 15% with 20% promote
         assert final_rate == 0.30

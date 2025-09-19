@@ -283,24 +283,24 @@ def create_partnership_from_capital(
     gps: List[Tuple[str, float]],
     lps: List[Tuple[str, float]],
     distribution_method: str = "pari_passu",
-    promote: Optional[PromoteStructure] = None
+    promote: Optional[PromoteStructure] = None,
 ) -> PartnershipStructure:
     """
     Create partnership with pro-rata ownership based on capital commitments.
-    
+
     This helper function simplifies the common case where ownership percentages
     are proportional to capital contributions. It's ideal for institutional
     structures with multiple LPs and/or co-sponsor GPs.
-    
+
     Args:
         gps: List of (name, capital_commitment) tuples for GP partners
-        lps: List of (name, capital_commitment) tuples for LP partners  
+        lps: List of (name, capital_commitment) tuples for LP partners
         distribution_method: "pari_passu" or "waterfall"
         promote: Optional promote structure for waterfall distributions
-        
+
     Returns:
         PartnershipStructure with partners having pro-rata ownership
-        
+
     Example:
         ```python
         # Multiple institutional LPs with co-sponsors
@@ -308,7 +308,7 @@ def create_partnership_from_capital(
             gps=[("Lead Sponsor", 3_000_000), ("Co-Sponsor", 2_000_000)],
             lps=[
                 ("Pension Fund A", 45_000_000),
-                ("Insurance Fund B", 30_000_000), 
+                ("Insurance Fund B", 30_000_000),
                 ("REIT C", 20_000_000)
             ]
         )
@@ -316,52 +316,46 @@ def create_partnership_from_capital(
         # Lead Sponsor: 3% ownership, Co-Sponsor: 2% ownership
         # Pension Fund A: 45% ownership, Insurance Fund B: 30%, REIT C: 20%
         ```
-        
+
     Raises:
         ValueError: If no partners provided or commitments are negative/zero
     """
     if not gps and not lps:
         raise ValueError("Must provide at least one GP or LP")
-        
+
     all_partners = []
     total_capital = 0.0
-    
+
     # Validate and collect all capital commitments
     for name, commitment in gps + lps:
         if commitment < 0:
-            raise ValueError(f"Capital commitment for {name} cannot be negative, got {commitment}")
+            raise ValueError(
+                f"Capital commitment for {name} cannot be negative, got {commitment}"
+            )
         total_capital += commitment
-        
+
     # Ensure total capital is positive
     if total_capital <= 0:
         raise ValueError("Total capital commitments must be positive")
-        
+
     # Create GP partners with computed ownership
     for name, commitment in gps:
         ownership_share = commitment / total_capital
         partner = Partner(
-            name=name,
-            kind="GP", 
-            share=ownership_share,
-            capital_commitment=commitment
+            name=name, kind="GP", share=ownership_share, capital_commitment=commitment
         )
         all_partners.append(partner)
-        
-    # Create LP partners with computed ownership  
+
+    # Create LP partners with computed ownership
     for name, commitment in lps:
         ownership_share = commitment / total_capital
         partner = Partner(
-            name=name,
-            kind="LP",
-            share=ownership_share, 
-            capital_commitment=commitment
+            name=name, kind="LP", share=ownership_share, capital_commitment=commitment
         )
         all_partners.append(partner)
-        
+
     return PartnershipStructure(
-        partners=all_partners,
-        distribution_method=distribution_method,
-        promote=promote
+        partners=all_partners, distribution_method=distribution_method, promote=promote
     )
 
 
@@ -371,25 +365,25 @@ def create_simple_capital_partnership(
     gp_name: str = "GP",
     lp_name: str = "LP",
     distribution_method: str = "pari_passu",
-    promote: Optional[PromoteStructure] = None
+    promote: Optional[PromoteStructure] = None,
 ) -> PartnershipStructure:
     """
     Create simple 2-partner structure with pro-rata ownership from capital.
-    
+
     Convenience function for the most common case: single GP and single LP
     with ownership proportional to their capital contributions.
-    
+
     Args:
         gp_capital: GP capital commitment in dollars
-        lp_capital: LP capital commitment in dollars  
+        lp_capital: LP capital commitment in dollars
         gp_name: GP partner name (default: "GP")
         lp_name: LP partner name (default: "LP")
         distribution_method: Distribution method
         promote: Optional promote structure
-        
+
     Returns:
         PartnershipStructure with pro-rata ownership
-        
+
     Example:
         ```python
         # Simple 70/30 capital split = 70/30 ownership split
@@ -403,34 +397,34 @@ def create_simple_capital_partnership(
         gps=[(gp_name, gp_capital)],
         lps=[(lp_name, lp_capital)],
         distribution_method=distribution_method,
-        promote=promote
+        promote=promote,
     )
 
 
 def create_institutional_waterfall_from_capital(
     gps: List[Tuple[str, float]],
-    lps: List[Tuple[str, float]], 
+    lps: List[Tuple[str, float]],
     pref_return: float = 0.08,
     promote_tiers: Optional[List[Tuple[float, float]]] = None,
-    final_promote_rate: float = 0.20
+    final_promote_rate: float = 0.20,
 ) -> PartnershipStructure:
     """
     Create institutional waterfall with pro-rata base ownership from capital.
-    
+
     This combines capital-based ownership calculation with sophisticated
     waterfall distribution logic. Perfect for institutional funds where
     base ownership is proportional to capital but GPs get promoted returns.
-    
+
     Args:
         gps: List of (name, capital_commitment) for GP partners
         lps: List of (name, capital_commitment) for LP partners
         pref_return: Preferred return rate (default 8%)
-        promote_tiers: Optional intermediate promote tiers  
+        promote_tiers: Optional intermediate promote tiers
         final_promote_rate: Final promote rate for GPs
-        
+
     Returns:
         PartnershipStructure with waterfall and pro-rata base ownership
-        
+
     Example:
         ```python
         # Institutional fund structure
@@ -446,7 +440,7 @@ def create_institutional_waterfall_from_capital(
     """
     if promote_tiers is None:
         promote_tiers = []
-        
+
     # Create the waterfall promote structure
     waterfall_promote = WaterfallPromote(
         pref_hurdle_rate=pref_return,
@@ -454,13 +448,10 @@ def create_institutional_waterfall_from_capital(
             WaterfallTier(tier_hurdle_rate=hurdle, promote_rate=rate)
             for hurdle, rate in promote_tiers
         ],
-        final_promote_rate=final_promote_rate
+        final_promote_rate=final_promote_rate,
     )
-    
+
     # Create partnership with pro-rata ownership from capital
     return create_partnership_from_capital(
-        gps=gps,
-        lps=lps,
-        distribution_method="waterfall",
-        promote=waterfall_promote
+        gps=gps, lps=lps, distribution_method="waterfall", promote=waterfall_promote
     )

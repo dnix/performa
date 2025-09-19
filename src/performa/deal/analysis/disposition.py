@@ -70,7 +70,7 @@ class DispositionTransaction:
 
     def calculate_net_proceeds(self) -> float:
         """Calculate net proceeds after all deductions.
-        
+
         XXX: This is redundant with net_to_equity which is already calculated.
         Only kept for test compatibility - consider removing in future.
         """
@@ -131,14 +131,16 @@ class DispositionAnalyzer(AnalysisSpecialist):
         # Use settings for transaction costs - no hidden defaults
         # TODO: add a parameter for this
         disposition_cost_rate = self.settings.valuation.costs_of_sale_percentage
-        
+
         # Process the disposition transaction with settings
         # Calculate transaction costs based on settings
         total_transaction_costs = gross_proceeds.sum() * disposition_cost_rate
-        
+
         transaction = self.process_disposition(
             gross_proceeds=gross_proceeds,
-            debt_facilities=self.deal.financing.facilities if self.deal.financing else [],
+            debt_facilities=self.deal.financing.facilities
+            if self.deal.financing
+            else [],
             ledger=self.ledger,
             transaction_costs=total_transaction_costs,
             deal_uid=str(self.deal.uid),
@@ -347,8 +349,11 @@ class DispositionAnalyzer(AnalysisSpecialist):
             service_mask = (
                 ledger_df["item_name"].str.contains(facility.name, na=False)
             ) & (
-                (ledger_df["subcategory"] == FinancingSubcategoryEnum.INTEREST_PAYMENT) |
-                (ledger_df["subcategory"] == FinancingSubcategoryEnum.PRINCIPAL_PAYMENT)
+                (ledger_df["subcategory"] == FinancingSubcategoryEnum.INTEREST_PAYMENT)
+                | (
+                    ledger_df["subcategory"]
+                    == FinancingSubcategoryEnum.PRINCIPAL_PAYMENT
+                )
             )
             # Debt service is negative in ledger
             total_service = abs(ledger_df[service_mask]["amount"].sum())
@@ -457,7 +462,7 @@ class DispositionAnalyzer(AnalysisSpecialist):
 
     def _record_equity_distribution(
         self,
-        ledger: "Ledger", 
+        ledger: "Ledger",
         amount: float,
         disposition_date: pd.Period,
         deal_uid: str,
@@ -468,7 +473,7 @@ class DispositionAnalyzer(AnalysisSpecialist):
         equity_distribution_series = pd.Series(
             [-amount],  # Negative = outflow from deal to equity partners
             index=pd.PeriodIndex([disposition_date], freq="M"),
-            name="Disposition Proceeds"
+            name="Disposition Proceeds",
         )
 
         metadata = SeriesMetadata(
@@ -484,7 +489,9 @@ class DispositionAnalyzer(AnalysisSpecialist):
         ledger.add_series(equity_distribution_series, metadata)
 
         if amount == 0:
-            logger.info(f"💰 Recorded $0 disposition distribution (all proceeds went to debt payoff)")
+            logger.info(
+                f"💰 Recorded $0 disposition distribution (all proceeds went to debt payoff)"
+            )
         else:
             logger.info(f"💰 Recorded equity distribution: ${amount:,.0f} to partners")
 

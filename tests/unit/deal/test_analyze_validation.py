@@ -119,7 +119,7 @@ class TestDealAnalyzeValidation:
         assert result is not None
         # In the new architecture, asset_analysis is wrapped in an adapter
         # but the underlying ledger should be reused from the asset_result
-        assert hasattr(result.asset_analysis, 'get_ledger_queries')
+        assert hasattr(result.asset_analysis, "get_ledger_queries")
         # Verify that the analysis succeeded by checking we have valid queries
         assert result.asset_analysis.get_ledger_queries() is not None
 
@@ -147,7 +147,7 @@ class TestDealAnalyzeValidation:
         assert result is not None
         # In the new architecture, asset_analysis is wrapped in an adapter
         # but the underlying ledger should be reused from the asset_result
-        assert hasattr(result.asset_analysis, 'get_ledger_queries')
+        assert hasattr(result.asset_analysis, "get_ledger_queries")
         # Verify that the analysis succeeded by checking we have valid queries
         assert result.asset_analysis.get_ledger_queries() is not None
 

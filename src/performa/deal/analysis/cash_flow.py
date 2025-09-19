@@ -89,6 +89,7 @@ from performa.core.primitives import (
     FinancingSubcategoryEnum,
     TransactionPurpose,
 )
+from performa.debt.construction import ConstructionFacility
 
 # Deprecated result imports removed - full ledger-driven now
 from .base import AnalysisSpecialist
@@ -219,31 +220,34 @@ class CashFlowEngine(AnalysisSpecialist):
     def _extract_max_ltc_from_facilities(self) -> float:
         """
         Extract maximum LTC ratio from deal financing facilities.
-        
+
         Uses explicit type-based dispatch to get LTC settings from facilities.
         Consolidates the scattered LTC logic into one place.
-        
+
         Returns:
             Maximum LTC ratio from facilities, or standard default if none found
         """
-        from performa.debt.construction import ConstructionFacility
-        
+
         max_ltc_from_facilities = 0.0
-        
+
         if self.deal.financing and self.deal.financing.facilities:
             for facility in self.deal.financing.facilities:
                 if isinstance(facility, ConstructionFacility):
                     # Check for explicit LTC ratio on facility
                     if facility.ltc_ratio is not None:
-                        max_ltc_from_facilities = max(max_ltc_from_facilities, facility.ltc_ratio)
-                    
+                        max_ltc_from_facilities = max(
+                            max_ltc_from_facilities, facility.ltc_ratio
+                        )
+
                     # Check for tranche-based LTC (consolidates existing logic)
                     elif facility.tranches is not None:
                         facility_max_ltc = max(
                             tranche.ltc_threshold for tranche in facility.tranches
                         )
-                        max_ltc_from_facilities = max(max_ltc_from_facilities, facility_max_ltc)
-        
+                        max_ltc_from_facilities = max(
+                            max_ltc_from_facilities, facility_max_ltc
+                        )
+
         # Fallback to standard institutional default if no facility LTC found
         return max_ltc_from_facilities if max_ltc_from_facilities > 0 else 0.75
 
@@ -256,12 +260,12 @@ class CashFlowEngine(AnalysisSpecialist):
         """
         # Extract LTC from facility settings (or use standard default)
         max_ltc = self._extract_max_ltc_from_facilities()
-        
+
         # Step 1: Calculate what needs funding from ledger
         base_uses = self._calculate_ledger_based_uses(self.ledger, self.timeline)
         if base_uses.sum() == 0:
             return  # No funding required
-        
+
         # Step 2: Initialize funding components with settings
         funding_components = self._initialize_funding_components(self.context, max_ltc)
 
@@ -275,7 +279,7 @@ class CashFlowEngine(AnalysisSpecialist):
 
         # Step 5: Disposition handling removed - now handled by DispositionAnalyzer pass
         # The orchestrator calls DispositionAnalyzer.process() separately
-        
+
         # Cash flow processing complete - all funding transactions written to ledger
 
     # XXX ZOMBIE METHOD: calculate_levered_cash_flows() DELETED
@@ -394,7 +398,9 @@ class CashFlowEngine(AnalysisSpecialist):
     # XXX FUTURE DELETION CANDIDATE: _initialize_funding_components()
     # This method initializes structures that could be simplified with pure ledger approach.
     @staticmethod
-    def _initialize_funding_components(context: "DealContext", max_ltc: float) -> Dict[str, Any]:
+    def _initialize_funding_components(
+        context: "DealContext", max_ltc: float
+    ) -> Dict[str, Any]:
         """
         Initialize funding component tracking structures with settings.
 
@@ -455,7 +461,7 @@ class CashFlowEngine(AnalysisSpecialist):
         # Initialize cumulative funding tracking
         equity_funded_cumulative = 0.0
         debt_funded_cumulative = 0.0
-        
+
         # Initialize debt draw tracking for _get_available_debt_funding
         # This must be done here, not inside the method, to preserve state across periods
         self._cumulative_debt_drawn = 0.0
@@ -587,7 +593,7 @@ class CashFlowEngine(AnalysisSpecialist):
                 # Update cumulative tracking
                 equity_funded_cumulative += period_equity
                 debt_funded_cumulative += period_debt
-                
+
                 logger.debug(
                     f"  Cumulative totals: equity=${equity_funded_cumulative:,.0f}, debt=${debt_funded_cumulative:,.0f}"
                 )
@@ -622,7 +628,7 @@ class CashFlowEngine(AnalysisSpecialist):
             f"Funding cascade complete: equity_funded=${equity_funded_cumulative:,.0f}, "
             f"debt_funded=${debt_funded_cumulative:,.0f}, total_uses=${final_total_uses:,.0f}"
         )
-        
+
         return {
             "total_project_cost": final_total_uses,  # Total uses including compounded interest
             "equity_target": final_equity_target,
@@ -644,18 +650,18 @@ class CashFlowEngine(AnalysisSpecialist):
         ):
             # Use explicit commitments
             total_committed = self.deal.equity_partners.total_committed_capital
-            
+
             # Validate that commitments can meet equity requirements
             # Calculate what equity SHOULD be based on project costs and debt structure
             required_equity = self._calculate_required_equity_from_ltc(
                 total_project_cost
             )
-            
+
             # Check for capital shortfall
             if total_committed < required_equity:
                 shortfall = required_equity - total_committed
                 shortfall_pct = (shortfall / required_equity) * 100
-                
+
                 if shortfall_pct > 10:  # >10% shortfall = error
                     raise ValueError(
                         f"💰 CAPITAL SHORTFALL: Partner commitments (${total_committed:,.0f}) "
@@ -669,7 +675,7 @@ class CashFlowEngine(AnalysisSpecialist):
                         f"only ${shortfall_pct:.1f}% above required equity (${required_equity:,.0f}). "
                         f"Consider increasing equity buffer for cost overruns."
                     )
-            
+
             # Check for over-commitment (might indicate parameter issues)
             elif total_committed > required_equity * 1.5:  # >150% over-committed
                 excess = total_committed - required_equity
@@ -679,7 +685,7 @@ class CashFlowEngine(AnalysisSpecialist):
                     f"exceed estimated requirements (${required_equity:,.0f}) by {excess_pct:.1f}%. "
                     f"Verify LTC parameters or consider increasing debt."
                 )
-                
+
             logger.debug(
                 f"Using explicit capital commitments: ${total_committed:,.0f} "
                 f"(vs estimated requirement: ${required_equity:,.0f})"
@@ -696,7 +702,7 @@ class CashFlowEngine(AnalysisSpecialist):
                     # This prevents interest compounding from inflating equity needs
                     # The ltc_ratio determines loan sizing (and thus implied equity need)
                     # Interest is funded by the debt facility itself (interest reserve)
-                    
+
                     # TODO: This calculation assumes equity = (1 - LTC) which only works for
                     # single-loan deals. Need proper capital structure model at Deal level
                     # to handle complex equity structures (GP/LP/Pref/Mezz)
@@ -759,17 +765,17 @@ class CashFlowEngine(AnalysisSpecialist):
         """Calculate required equity based on LTC constraints and debt structure."""
         if not self.deal.financing:
             return total_project_cost  # All equity deal
-            
+
         # Find the most restrictive LTC constraint
         max_debt_from_ltc = 0.0
-        
+
         for facility in self.deal.financing.facilities:
             if hasattr(facility, "kind") and facility.kind == "construction":
                 if hasattr(facility, "ltc_ratio") and facility.ltc_ratio is not None:
                     # Calculate max debt from this facility's LTC
                     max_debt = total_project_cost * facility.ltc_ratio
                     max_debt_from_ltc = max(max_debt_from_ltc, max_debt)
-                    
+
                 elif hasattr(facility, "tranches") and facility.tranches:
                     # For multi-tranche facilities, use highest LTC
                     max_ltc = max(
@@ -777,7 +783,7 @@ class CashFlowEngine(AnalysisSpecialist):
                     )
                     max_debt = total_project_cost * max_ltc
                     max_debt_from_ltc = max(max_debt_from_ltc, max_debt)
-                    
+
         # Required equity is total cost minus max available debt
         required_equity = total_project_cost - max_debt_from_ltc
         return max(required_equity, 0)  # Never negative
@@ -817,7 +823,7 @@ class CashFlowEngine(AnalysisSpecialist):
             Tuple of (period_equity, period_debt)
         """
         remaining_equity_capacity = max(0, equity_target - equity_funded)
-        
+
         logger.debug(
             f"_fund_period_uses: period_uses=${period_uses:,.0f}, equity_target=${equity_target:,.0f}, "
             f"equity_funded=${equity_funded:,.0f}, remaining_equity_capacity=${remaining_equity_capacity:,.0f}"
@@ -831,14 +837,14 @@ class CashFlowEngine(AnalysisSpecialist):
             # Fund with remaining equity + debt
             period_equity = remaining_equity_capacity
             period_debt_needed = period_uses - period_equity
-            
+
             logger.debug(f"  Need debt funding: ${period_debt_needed:,.0f}")
 
             # Get actual debt funding by querying ledger (replaces multi-tranche logic)
             period_debt = self._get_available_debt_funding(
                 period_debt_needed, period_idx, ledger
             )
-            
+
             logger.debug(f"  Got debt funding: ${period_debt:,.0f}")
 
             return period_equity, period_debt
@@ -890,7 +896,7 @@ class CashFlowEngine(AnalysisSpecialist):
             # full loan commitment as proceeds at origination. This represents the total
             # available funding capacity. We DON'T reduce this by debt service payments -
             # that's a fundamental misunderstanding of how construction loans work.
-            # 
+            #
             # The funding cascade should use this available capacity to fund project uses.
             # Debt service is a separate outflow that happens later, not a reduction in
             # available funding capacity.
@@ -905,7 +911,7 @@ class CashFlowEngine(AnalysisSpecialist):
             if not hasattr(self, "_cumulative_debt_drawn"):
                 # Fallback initialization if called outside of funding cascade
                 self._cumulative_debt_drawn = 0.0
-            
+
             # Available capacity is loan capacity minus what we've already drawn
             available_capacity = max(
                 0.0, total_loan_capacity - self._cumulative_debt_drawn
@@ -913,7 +919,7 @@ class CashFlowEngine(AnalysisSpecialist):
 
             # Return the minimum of what's needed and what's available
             available_funding = min(debt_needed, available_capacity)
-            
+
             # Update cumulative tracking
             self._cumulative_debt_drawn += available_funding
 
@@ -982,7 +988,7 @@ class CashFlowEngine(AnalysisSpecialist):
     ) -> pd.Series:
         """
         Add disposition/exit sale transactions to the ledger WITH DEBT PAYOFF.
-        
+
         This method now handles disposition as a complex transaction:
         1. Records gross sale proceeds
         2. Calculates and records debt payoffs
@@ -999,14 +1005,14 @@ class CashFlowEngine(AnalysisSpecialist):
             logger.debug("No disposition proceeds to add to ledger")
             return pd.Series(0.0, index=self.timeline.period_index)
 
-        # Use DispositionAnalyzer to handle the complex transaction        
+        # Use DispositionAnalyzer to handle the complex transaction
         analyzer = DispositionAnalyzer(self.context)
-        
+
         # Get debt facilities if they exist
         debt_facilities = []
         if self.deal.financing and self.deal.financing.facilities:
             debt_facilities = self.deal.financing.facilities
-        
+
         # Process disposition with debt payoff waterfall
         transaction = analyzer.process_disposition(
             gross_proceeds=disposition_proceeds,
@@ -1018,29 +1024,29 @@ class CashFlowEngine(AnalysisSpecialist):
             if self.deal and self.deal.asset
             else "unknown",
         )
-        
+
         # Create net proceeds series for equity distribution
         net_proceeds = pd.Series(0.0, index=self.timeline.period_index)
-        
+
         # Find the disposition period
         disposition_period = (
             disposition_proceeds[disposition_proceeds > 0].index[0]
             if (disposition_proceeds > 0).any()
             else None
         )
-        
+
         if disposition_period and transaction.net_to_equity > 0:
             net_proceeds[disposition_period] = transaction.net_to_equity
-        
+
         # Log the impact
         gross_amount = disposition_proceeds.sum()
         total_debt_payoff = sum(transaction.debt_payoffs.values())
-        
+
         logger.info(
             f"📊 DISPOSITION SUMMARY:\n"
             f"  Gross proceeds: ${gross_amount:,.0f}\n"
             f"  Debt payoff: ${total_debt_payoff:,.0f}\n"
             f"  Net to equity: ${transaction.net_to_equity:,.0f}"
         )
-        
+
         return net_proceeds

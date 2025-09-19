@@ -87,7 +87,7 @@ class TestMultiTrancheFundingIntegration:
         # Fees are included in loan proceeds (industry standard)
         # Senior: 60% * 1% fee + Junior: 15% * 2% fee = blended fee on total
         expected_total_with_fees = base_loan * 1.0375  # ~3.75% fee load
-        
+
         assert (
             abs(total_proceeds - expected_total_with_fees) < 5000
         ), f"Total proceeds ${total_proceeds:,.0f} should be ~${expected_total_with_fees:,.0f} (including fees)"
@@ -217,10 +217,12 @@ class TestMultiTrancheFundingIntegration:
         # Validate LTC constraint enforcement
         # Industry standard: LTC applies to base loan, but proceeds include origination fees
         base_loan = project_costs * 0.50  # $4M base loan
-        
+
         # Allow for reasonable fee tolerance (1-3% typical for construction loans)
-        max_allowed_with_fees = base_loan * 1.03  # 3% tolerance for fees and calculations
-        
+        max_allowed_with_fees = (
+            base_loan * 1.03
+        )  # 3% tolerance for fees and calculations
+
         assert (
             total_proceeds <= max_allowed_with_fees
         ), f"Proceeds ${total_proceeds:,.0f} should not significantly exceed base LTC ${base_loan:,.0f}"
@@ -297,7 +299,9 @@ class TestFundingCascadeComponentIntegration:
 
         # Validate proceeds are reasonable (including origination fees)
         base_loan = 6_000_000 * 0.65  # $3.9M base
-        max_expected_with_fees = base_loan * 1.04  # 4% tolerance for fees and calculations
+        max_expected_with_fees = (
+            base_loan * 1.04
+        )  # 4% tolerance for fees and calculations
         assert (
             proceeds <= max_expected_with_fees
         ), f"Proceeds ${proceeds:,.0f} should not significantly exceed ${base_loan:,.0f} (base LTC)"
@@ -364,7 +368,7 @@ class TestEndToEndFundingValidation:
         base_loan = project_costs * 0.80  # $20M base
         # Allow for origination fees (senior 1% + mezz 2.5% blended)
         max_expected_with_fees = base_loan * 1.06  # 6% tolerance for fees
-        
+
         assert (
             total_proceeds <= max_expected_with_fees
         ), f"Total proceeds ${total_proceeds:,.0f} should not significantly exceed ${base_loan:,.0f} (base LTC + fees)"

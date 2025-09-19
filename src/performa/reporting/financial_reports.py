@@ -10,6 +10,7 @@ on final DealResults objects from the analysis engine.
 
 from __future__ import annotations
 
+import warnings
 from typing import Dict, Optional
 
 import pandas as pd
@@ -91,7 +92,6 @@ class ProFormaReport(BaseReport):
         # Transpose so that rows are line items, columns are periods
         return annual.T
 
-
     def _resample_dataframe(self, df: pd.DataFrame, frequency: str) -> pd.DataFrame:
         """Resample DataFrame to requested frequency."""
         if df.empty:
@@ -107,4 +107,7 @@ class ProFormaReport(BaseReport):
             idx = pd.to_datetime(df.index)
         df_ts = df.copy()
         df_ts.index = idx
-        return df_ts.resample(pandas_freq).sum()
+        # Suppress pandas period frequency deprecation warnings (Y->YE, Q->QE)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=".*is deprecated.*", category=FutureWarning)
+            return df_ts.resample(pandas_freq).sum()

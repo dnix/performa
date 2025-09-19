@@ -69,17 +69,19 @@ def analyze_configuration_intentionality(
 
     # Detect if this is a pattern-based object (high defaults usage is expected)
     is_pattern_based = _detect_pattern_based_object(obj, user_params, total_params)
-    
+
     # Calculate appropriate quality scores based on object type
     if is_pattern_based:
         # For patterns: Quality = appropriate parameter specification, not override count
-        quality_score = _calculate_pattern_quality_score(user_params, set_params, total_params)
+        quality_score = _calculate_pattern_quality_score(
+            user_params, set_params, total_params
+        )
         quality_interpretation = "Pattern Quality Score (defaults are a feature)"
     else:
         # For manual composition: Quality = explicit specification
         quality_score = user_params / total_params if total_params > 0 else 0
         quality_interpretation = "Configuration Completeness (explicit vs defaults)"
-    
+
     analysis["intentionality_metrics"] = {
         "user_explicit_count": user_params,
         "user_plus_set_count": set_params,
@@ -88,7 +90,9 @@ def analyze_configuration_intentionality(
         "defaulted_ratio": (total_params - set_params) / total_params
         if total_params > 0
         else 0,
-        "completeness_score": set_params / total_params if total_params > 0 else 0,  # Legacy for compatibility
+        "completeness_score": set_params / total_params
+        if total_params > 0
+        else 0,  # Legacy for compatibility
         "quality_score": quality_score,
         "quality_interpretation": quality_interpretation,
         "is_pattern_based": is_pattern_based,
@@ -130,7 +134,7 @@ def analyze_configuration_intentionality(
     # Configuration quality assessment using context-appropriate scoring
     quality_score = analysis["intentionality_metrics"]["quality_score"]
     is_pattern = analysis["intentionality_metrics"]["is_pattern_based"]
-    
+
     if is_pattern:
         # Pattern-specific quality assessment
         if quality_score >= 0.9:
@@ -606,52 +610,56 @@ def _get_critical_params_by_type(
 def _detect_pattern_based_object(obj: Any, user_params: int, total_params: int) -> bool:
     """
     Detect if an object is pattern-based where defaults are a feature.
-    
+
     Pattern objects are designed to use intelligent defaults, so low explicit
     parameter counts should be considered high quality, not low quality.
     """
     # Check class name for pattern indicators
     class_name = obj.__class__.__name__
-    if 'Pattern' in class_name:
+    if "Pattern" in class_name:
         return True
-    
+
     # Check for Deal objects created from patterns (high default usage)
-    if class_name == 'Deal' and hasattr(obj, 'description'):
-        description = getattr(obj, 'description', '') or ''
-        if 'pattern' in description.lower() or 'convention' in description.lower():
+    if class_name == "Deal" and hasattr(obj, "description"):
+        description = getattr(obj, "description", "") or ""
+        if "pattern" in description.lower() or "convention" in description.lower():
             return True
-    
+
     # Check for very high default usage (>60%) which suggests pattern-based approach
-    default_ratio = (total_params - user_params) / total_params if total_params > 0 else 0
+    default_ratio = (
+        (total_params - user_params) / total_params if total_params > 0 else 0
+    )
     if default_ratio > 0.6:
         return True
-    
+
     return False
 
 
-def _calculate_pattern_quality_score(user_params: int, set_params: int, total_params: int) -> float:
+def _calculate_pattern_quality_score(
+    user_params: int, set_params: int, total_params: int
+) -> float:
     """
     Calculate quality score appropriate for pattern-based objects.
-    
+
     For patterns, quality comes from:
     1. Specifying the essential parameters (not all parameters)
     2. Leveraging intelligent defaults appropriately
     3. Avoiding over-specification that defeats the pattern purpose
-    
+
     Returns a score from 0.0 to 1.0 where higher is better.
     """
     if total_params == 0:
         return 1.0
-    
+
     # Essential parameters ratio (should be reasonable but not exhaustive)
     explicit_ratio = user_params / total_params
-    
+
     # For patterns, optimal explicit ratio is 10-30% (hitting key parameters)
     if 0.1 <= explicit_ratio <= 0.3:
         # High quality: appropriate parameter targeting
         base_score = 1.0
     elif 0.05 <= explicit_ratio < 0.1:
-        # Good quality: minimal but functional configuration  
+        # Good quality: minimal but functional configuration
         base_score = 0.8
     elif 0.3 < explicit_ratio <= 0.5:
         # Good quality: more detailed configuration
@@ -662,5 +670,5 @@ def _calculate_pattern_quality_score(user_params: int, set_params: int, total_pa
     else:
         # Very low specification might indicate incomplete configuration
         base_score = 0.5
-    
+
     return base_score

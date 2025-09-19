@@ -157,7 +157,7 @@ class TestAnalyzeDeal:
         # Test that we can get ledger queries through the asset analysis adapter
         queries = asset_analysis.get_ledger_queries()
         assert queries is not None
-        
+
         # Test that basic unlevered cash flow queries work
         unlevered_cf = queries.ucf()  # unlevered cash flow
         assert isinstance(unlevered_cf, pd.Series)
@@ -183,8 +183,10 @@ class TestAnalyzeDeal:
         # In new architecture: levered_cash_flows should be a pandas Series
         assert isinstance(levered_cash_flows, pd.Series)
         assert len(levered_cash_flows) > 0  # Should have data
-        assert levered_cash_flows.index.freq is not None  # Should have proper time index
-        
+        assert (
+            levered_cash_flows.index.freq is not None
+        )  # Should have proper time index
+
         # Note: In new architecture, cash flow metrics are accessed through other DealResults properties
         # rather than through a LeveredCashFlowResult wrapper object
 
@@ -202,7 +204,9 @@ class TestAnalyzeDeal:
         # For deals without equity partners, expect single_entity distribution method
         assert partner_distributions["distribution_method"] == "single_entity"
         assert "levered_irr" in partner_distributions  # Note: was aggregate_irr
-        assert "equity_multiple" in partner_distributions  # Note: was aggregate_equity_multiple
+        assert (
+            "equity_multiple" in partner_distributions
+        )  # Note: was aggregate_equity_multiple
         assert "partner_count" in partner_distributions
 
     def test_deal_metrics_structure(
@@ -324,11 +328,11 @@ class TestAnalyzeDeal:
                             name="Base Construction",
                             category=CashFlowCategoryEnum.CAPITAL,
                             subcategory="Hard Costs",
-                            timeline=Timeline.from_dates('2024-01-01', '2025-12-31'),
+                            timeline=Timeline.from_dates("2024-01-01", "2025-12-31"),
                             value=1_000_000,
-                            draw_schedule=SCurveDrawSchedule(sigma=1.0)
+                            draw_schedule=SCurveDrawSchedule(sigma=1.0),
                         )
-                    ]
+                    ],
                 ),
                 blueprints=[],
             )
@@ -386,15 +390,15 @@ class TestAnalyzeDeal:
         deal_metrics = results.deal_metrics
         partner_metrics = results.partner_distributions
 
-        # IRR should be consistent (if calculated)  
-        deal_irr = deal_metrics.get("levered_irr") 
+        # IRR should be consistent (if calculated)
+        deal_irr = deal_metrics.get("levered_irr")
         partner_irr = partner_metrics.get("aggregate_irr")
         if deal_irr is not None and partner_irr is not None:
             assert abs(deal_irr - partner_irr) < 0.0001
 
         # Equity multiple should be consistent
         deal_eq_multiple = deal_metrics.get("equity_multiple")
-        partner_eq_multiple = partner_metrics.get("equity_multiple")  
+        partner_eq_multiple = partner_metrics.get("equity_multiple")
         if deal_eq_multiple is not None and partner_eq_multiple is not None:
             assert abs(deal_eq_multiple - partner_eq_multiple) < 0.0001
 

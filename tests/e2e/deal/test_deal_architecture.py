@@ -62,18 +62,18 @@ class TestDealCentricArchitectureIntegration:
             gross_area=100000.0,
             net_rentable_area=90000.0,
             construction_plan=CapitalPlan(
-                name="Construction Plan", 
+                name="Construction Plan",
                 capital_items=[
                     # Minimal construction item to generate cash flows for architectural testing
                     CapitalItem(
                         name="Base Construction",
                         category=CashFlowCategoryEnum.CAPITAL,
                         subcategory="Hard Costs",
-                        timeline=Timeline.from_dates('2024-01-01', '2025-12-31'),
+                        timeline=Timeline.from_dates("2024-01-01", "2025-12-31"),
                         value=5_000_000,
-                        draw_schedule=SCurveDrawSchedule(sigma=1.0)
+                        draw_schedule=SCurveDrawSchedule(sigma=1.0),
                     )
-                ]
+                ],
             ),
             blueprints=[],
         )
@@ -146,9 +146,9 @@ class TestDealCentricArchitectureIntegration:
         levered = results.levered_cash_flows
         # In new architecture, cash flow components accessed through ledger queries
         assert results.queries is not None  # Should have ledger queries access
-        
+
         # Cash flow components now accessed through dedicated query methods
-        revenue = results.queries.revenue()  
+        revenue = results.queries.revenue()
         opex = results.queries.opex()  # Operating expenses
         assert isinstance(revenue, pd.Series) or revenue is None
         assert isinstance(opex, pd.Series) or opex is None
@@ -205,11 +205,11 @@ class TestDealCentricArchitectureIntegration:
                             name="Base Construction",
                             category=CashFlowCategoryEnum.CAPITAL,
                             subcategory="Hard Costs",
-                            timeline=Timeline.from_dates('2024-01-01', '2025-12-31'),
+                            timeline=Timeline.from_dates("2024-01-01", "2025-12-31"),
                             value=5_000_000,
-                            draw_schedule=SCurveDrawSchedule(sigma=1.0)
+                            draw_schedule=SCurveDrawSchedule(sigma=1.0),
                         )
-                    ]
+                    ],
                 ),
                 blueprints=[],
             )
@@ -225,7 +225,9 @@ class TestDealCentricArchitectureIntegration:
             results = analyze(deal, timeline)
 
             # Should work consistently
-            assert results.deal_summary["archetype"] == "Development"  # Note: capitalized from archetype detection
+            assert (
+                results.deal_summary["archetype"] == "Development"
+            )  # Note: capitalized from archetype detection
 
     def test_pydantic_validation_integration(
         self, purified_development_project, acquisition_terms, timeline
@@ -247,7 +249,7 @@ class TestDealCentricArchitectureIntegration:
         # Asset analysis should have proper ledger-based structure
         asset_analysis = results.asset_analysis
         assert hasattr(asset_analysis, "get_ledger_queries")
-        
+
         # Should be able to get ledger queries
         queries = asset_analysis.get_ledger_queries()
         assert queries is not None
@@ -360,18 +362,18 @@ class TestArchitecturalQuality:
             gross_area=100000.0,
             net_rentable_area=90000.0,
             construction_plan=CapitalPlan(
-                name="Construction Plan", 
+                name="Construction Plan",
                 capital_items=[
                     # Minimal construction item to generate cash flows for architectural testing
                     CapitalItem(
                         name="Base Construction",
                         category=CashFlowCategoryEnum.CAPITAL,
                         subcategory="Hard Costs",
-                        timeline=Timeline.from_dates('2024-01-01', '2025-12-31'),
+                        timeline=Timeline.from_dates("2024-01-01", "2025-12-31"),
                         value=5_000_000,
-                        draw_schedule=SCurveDrawSchedule(sigma=1.0)
+                        draw_schedule=SCurveDrawSchedule(sigma=1.0),
                     )
-                ]
+                ],
             ),
             blueprints=[],
         )

@@ -72,6 +72,7 @@ from performa.deal import (
     analyze,
     create_gp_lp_waterfall,
 )
+from performa.debt.constructs import create_construction_to_permanent_plan
 from performa.development import DevelopmentProject
 from performa.patterns import ResidentialDevelopmentPattern
 
@@ -108,7 +109,9 @@ def create_deal_via_composition():
 
     # === STEP 1: PROJECT TIMELINE ===
     acquisition_date = date(2024, 1, 1)
-    construction_timeline = Timeline(start_date=acquisition_date, duration_months=18)  # 18 months construction
+    construction_timeline = Timeline(
+        start_date=acquisition_date, duration_months=18
+    )  # 18 months construction
 
     # === STEP 2: CAPITAL EXPENDITURE PLAN ===
     # Use single capital item structure
@@ -131,12 +134,14 @@ def create_deal_via_composition():
             name="Institutional Residential Development Construction",  # Match pattern naming
             work_type="construction",  # Single construction item like pattern
             value=total_construction_cost,  # $20,736,000 (hard + soft combined)
-            draw_schedule=SCurveDrawSchedule(sigma=1.0),  # Realistic S-curve construction draws over 18 months
+            draw_schedule=SCurveDrawSchedule(
+                sigma=1.0
+            ),  # Realistic S-curve construction draws over 18 months
             timeline=construction_timeline,  # Use 18-month construction timeline
         ),
         CapitalItem(
             name="Institutional Residential Development Developer Fee",  # Match pattern naming
-            work_type="developer", 
+            work_type="developer",
             value=developer_fee,  # $1,036,800 (5% of construction cost)
             draw_schedule=UniformDrawSchedule(),  # Flat monthly payments (industry standard)
             timeline=construction_timeline,  # Same timeline as construction
@@ -149,7 +154,9 @@ def create_deal_via_composition():
     )
 
     # Pattern's total_project_cost = land_cost + total_construction_cost + developer_fee
-    total_project_cost = land_cost + total_construction_cost + developer_fee  # $29,772,800 (now includes developer fee)
+    total_project_cost = (
+        land_cost + total_construction_cost + developer_fee
+    )  # $29,772,800 (now includes developer fee)
 
     # === STEP 3: VACANT UNIT INVENTORY ===
     # Match exact unit mix from pattern
@@ -261,8 +268,7 @@ def create_deal_via_composition():
 
     # === STEP 8: CONSTRUCTION-TO-PERMANENT FINANCING ===
     # Use proper construction-to-permanent structure for development deals
-    from performa.debt.constructs import create_construction_to_permanent_plan
-    
+
     # Match pattern financing parameters exactly
     construction_terms = {
         "name": "Institutional Residential Construction Loan",
@@ -273,9 +279,9 @@ def create_deal_via_composition():
         "fund_interest_from_reserve": True,
         "interest_reserve_rate": 0.10,  # 10% interest reserve
     }
-    
+
     permanent_terms = {
-        "name": "Institutional Residential Permanent Loan", 
+        "name": "Institutional Residential Permanent Loan",
         "ltv_ratio": 0.70,  # 70% loan-to-value ratio (auto-sizing)
         "interest_rate": 0.055,  # 5.5% permanent rate
         "loan_term_years": 10,  # 10 year term
@@ -283,18 +289,18 @@ def create_deal_via_composition():
         "origination_fee_rate": 0.005,  # 50 bps origination fee
         "dscr_hurdle": 1.25,  # 1.25x debt service coverage minimum
     }
-    
+
     financing = create_construction_to_permanent_plan(
         construction_terms=construction_terms,
         permanent_terms=permanent_terms,
-        project_value=total_project_cost  # Pass total project cost for LTC calculation
+        project_value=total_project_cost,  # Pass total project cost for LTC calculation
     )
 
     # === STEP 9: PARTNERSHIP STRUCTURE ===
     # GP/LP waterfall partnership structure
     partnership = create_gp_lp_waterfall(
         gp_share=0.10,  # 10% GP (matches pattern)
-        lp_share=0.90,  # 90% LP (matches pattern) 
+        lp_share=0.90,  # 90% LP (matches pattern)
         pref_return=0.08,  # 8% preferred return (matches pattern.preferred_return)
         promote_tiers=[(0.15, 0.20)],  # 20% promote after 15% IRR hurdle
         final_promote_rate=0.20,  # 20% final promote rate
@@ -480,9 +486,12 @@ def run_comparative_analysis():
         print("-" * 60)
         # Create analysis timeline
         analysis_timeline = Timeline(start_date=date(2024, 1, 1), duration_months=84)
-        
+
         comp_results = analyze(
-            deal=comp_deal, timeline=analysis_timeline, settings=settings, ledger=comp_ledger
+            deal=comp_deal,
+            timeline=analysis_timeline,
+            settings=settings,
+            ledger=comp_ledger,
         )
         print("Analysis Complete!")
 
@@ -506,7 +515,9 @@ def run_comparative_analysis():
         print("Pattern Analysis Complete!")
 
         if pattern_results.deal_metrics:
-            print(f"   Deal IRR: {pattern_results.deal_metrics.get('levered_irr', 'N/A')}")
+            print(
+                f"   Deal IRR: {pattern_results.deal_metrics.get('levered_irr', 'N/A')}"
+            )
             print(
                 f"   Equity Multiple: {pattern_results.deal_metrics.get('equity_multiple', 'N/A')}"
             )
@@ -535,13 +546,15 @@ def run_comparative_analysis():
 
         if comp_results.deal_metrics and pattern_results.deal_metrics:
             # Calculate differences
-            comp_irr = comp_results.deal_metrics.get('levered_irr', 0) or 0
-            pattern_irr = pattern_results.deal_metrics.get('levered_irr', 0) or 0
-            comp_em = comp_results.deal_metrics.get('equity_multiple', 0) or 0
-            pattern_em = pattern_results.deal_metrics.get('equity_multiple', 0) or 0
-            comp_equity = comp_results.deal_metrics.get('total_investment', 0) or 0
-            pattern_equity = pattern_results.deal_metrics.get('total_investment', 0) or 0
-            
+            comp_irr = comp_results.deal_metrics.get("levered_irr", 0) or 0
+            pattern_irr = pattern_results.deal_metrics.get("levered_irr", 0) or 0
+            comp_em = comp_results.deal_metrics.get("equity_multiple", 0) or 0
+            pattern_em = pattern_results.deal_metrics.get("equity_multiple", 0) or 0
+            comp_equity = comp_results.deal_metrics.get("total_investment", 0) or 0
+            pattern_equity = (
+                pattern_results.deal_metrics.get("total_investment", 0) or 0
+            )
+
             irr_diff = abs(comp_irr - pattern_irr)
             em_diff = abs(comp_em - pattern_em)
             equity_diff = abs(comp_equity - pattern_equity)
@@ -580,8 +593,8 @@ def run_comparative_analysis():
             print("\n📈 RETURN VALIDATION")
             print("-" * 60)
 
-            irr = pattern_results.deal_metrics.get('levered_irr', 0) or 0
-            em = pattern_results.deal_metrics.get('equity_multiple', 0) or 0
+            irr = pattern_results.deal_metrics.get("levered_irr", 0) or 0
+            em = pattern_results.deal_metrics.get("equity_multiple", 0) or 0
 
             # Sniff tests for development deals (per model-validation.mdc)
             irr_ok = 0.18 <= irr <= 0.28  # 18-28% IRR for development
@@ -630,32 +643,48 @@ def main():
     # expected_irr = 0.14666695113502742  # 14.67% - exact parity for both approaches
     # expected_em = 2.0815194567180093  # 2.08x - exact parity for both approaches
     # expected_equity = 9277172.304  # $9,277,172 - exact parity for both approaches
-    expected_irr = 0.30470338679903536  # 30.47% - improved returns due to cash-out refinancing fix  
-    expected_em = 5.790450729661329  # 5.79x - improved returns due to cash-out refinancing fix  
+    expected_irr = (
+        0.30470338679903536  # 30.47% - improved returns due to cash-out refinancing fix
+    )
+    expected_em = (
+        5.790450729661329  # 5.79x - improved returns due to cash-out refinancing fix
+    )
     expected_equity = 9784747.404  # $9,784,747 - equity recording now works correctly
 
     # Assert pattern results match exact expected values (100% exact parity - no tolerances needed)
-    actual_irr = pattern_results.deal_metrics.get('levered_irr', 0) or 0
-    actual_em = pattern_results.deal_metrics.get('equity_multiple', 0) or 0
-    actual_equity = pattern_results.deal_metrics.get('total_investment', 0) or 0
+    actual_irr = pattern_results.deal_metrics.get("levered_irr", 0) or 0
+    actual_em = pattern_results.deal_metrics.get("equity_multiple", 0) or 0
+    actual_equity = pattern_results.deal_metrics.get("total_investment", 0) or 0
 
     # Validate pattern results match expected values (100% mathematical parity within financial precision)
-    assert abs(actual_irr - expected_irr) < 1e-6, f"Pattern IRR {actual_irr} != expected {expected_irr}"
-    assert abs(actual_em - expected_em) < 1e-6, f"Pattern EM {actual_em} != expected {expected_em}"
-    assert abs(actual_equity - expected_equity) < 1.0, f"Pattern Equity ${actual_equity} != expected ${expected_equity}"
+    assert (
+        abs(actual_irr - expected_irr) < 1e-6
+    ), f"Pattern IRR {actual_irr} != expected {expected_irr}"
+    assert (
+        abs(actual_em - expected_em) < 1e-6
+    ), f"Pattern EM {actual_em} != expected {expected_em}"
+    assert (
+        abs(actual_equity - expected_equity) < 1.0
+    ), f"Pattern Equity ${actual_equity} != expected ${expected_equity}"
 
     # Assert composition results match pattern exactly (100% mathematical parity)
-    comp_irr = composition_results.deal_metrics.get('levered_irr', 0) or 0
-    comp_em = composition_results.deal_metrics.get('equity_multiple', 0) or 0
-    comp_equity = composition_results.deal_metrics.get('total_investment', 0) or 0
+    comp_irr = composition_results.deal_metrics.get("levered_irr", 0) or 0
+    comp_em = composition_results.deal_metrics.get("equity_multiple", 0) or 0
+    comp_equity = composition_results.deal_metrics.get("total_investment", 0) or 0
 
     # NOTE: Composition and pattern approaches may have slight differences due to implementation details
     # This is acceptable as both produce realistic development returns within industry ranges
     irr_tolerance = 0.10  # 10% tolerance for IRR differences
-    em_tolerance = 1.5    # 1.5x tolerance for EM differences
-    assert abs(comp_irr - actual_irr) < irr_tolerance, f"Composition IRR {comp_irr} != pattern {actual_irr} (diff > {irr_tolerance:.1%})"
-    assert abs(comp_em - actual_em) < em_tolerance, f"Composition EM {comp_em} != pattern {actual_em} (diff > {em_tolerance:.1f}x)"
-    assert abs(comp_equity - actual_equity) < 1.0, f"Composition Equity ${comp_equity} != pattern ${actual_equity}"
+    em_tolerance = 1.5  # 1.5x tolerance for EM differences
+    assert (
+        abs(comp_irr - actual_irr) < irr_tolerance
+    ), f"Composition IRR {comp_irr} != pattern {actual_irr} (diff > {irr_tolerance:.1%})"
+    assert (
+        abs(comp_em - actual_em) < em_tolerance
+    ), f"Composition EM {comp_em} != pattern {actual_em} (diff > {em_tolerance:.1f}x)"
+    assert (
+        abs(comp_equity - actual_equity) < 1.0
+    ), f"Composition Equity ${comp_equity} != pattern ${actual_equity}"
 
     print(f"\n🎉 RESIDENTIAL DEVELOPMENT COMPARISON COMPLETE!")
     print("📋 Both approaches working with mathematical parity")

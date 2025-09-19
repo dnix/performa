@@ -229,9 +229,9 @@ class TestLedgerAccuracy:
         ledger_noi = (
             revenue_aligned + expense_aligned
         )  # Expenses are now negative, so addition gives subtraction
-        
+
         # Convert ledger calculation index to Period to match result index
-        ledger_noi.index = pd.PeriodIndex(ledger_noi.index, freq='M')
+        ledger_noi.index = pd.PeriodIndex(ledger_noi.index, freq="M")
 
         # Get NOI from result
         result_noi = result.noi

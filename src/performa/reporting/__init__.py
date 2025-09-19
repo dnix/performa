@@ -19,7 +19,7 @@ from .base import BaseReport, ReportTemplate
 from .debug import (
     analyze_configuration_intentionality,
     analyze_ledger_semantically,
-    # Advanced debug utilities  
+    # Advanced debug utilities
     analyze_ledger_shape,
     compare_configuration_intentionality,
     compare_deal_configs,
