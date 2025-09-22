@@ -20,15 +20,22 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Ruff
-        run: pip install ruff
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          # Install project with dev dependencies from pyproject.toml
+          uv pip install --system -e .[dev]
 
       - name: Run Ruff Linter
         run: |
           # Check formatting
-          ruff format --check .
+          uv run ruff format --check .
           # Check linting (but skip copyright check - that's in the other workflow)
-          ruff check . --ignore CPY001
+          uv run ruff check . --ignore CPY001
 
   test:
     name: Test Suite
