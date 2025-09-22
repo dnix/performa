@@ -181,12 +181,6 @@ class DealResults:  # noqa: PLR0904
         return flows.reindex(self._timeline.period_index, fill_value=0.0)
 
     @cached_property
-    def equity_cash_flow(self) -> pd.Series:
-        """Equity partner cash flows (contributions and distributions)."""
-        flows = self._queries.equity_partner_flows()
-        return flows.reindex(self._timeline.period_index, fill_value=0.0)
-
-    @cached_property
     def noi(self) -> pd.Series:
         """Net Operating Income time series."""
         flows = self._queries.noi()
