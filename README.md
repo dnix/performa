@@ -1,5 +1,5 @@
 <p align="center">
-  <video src="docs/synthwave.mp4" alt="Performa Hero" width="100%" autoplay muted loop playsinline poster="docs/synthwave.jpeg"></video>
+  <img src="docs/synthwave.gif" alt="Performa Hero" width="100%" />
 </p>
 
 <p align="center">
