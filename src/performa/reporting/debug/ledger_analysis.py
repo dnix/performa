@@ -215,9 +215,9 @@ def validate_valuation_exclusion(df: pd.DataFrame, method_name: str = "unknown")
     """
     Validate that a DataFrame properly excludes valuation entries.
     
-    This utility function helps prevent the critical consistency issue where
-    valuation entries (NON-CASH analytical snapshots) get included in cash
-    flow calculations, causing massive ledger imbalances.
+    This utility function helps prevent consistency issues where valuation
+    entries (non-cash analytical snapshots) get included in cash flow
+    calculations, which can cause ledger imbalances.
     
     Args:
         df: DataFrame that should have valuation entries excluded
@@ -236,9 +236,9 @@ def validate_valuation_exclusion(df: pd.DataFrame, method_name: str = "unknown")
         if valuation_count > 0:
             valuation_total = df[df["flow_purpose"] == "Valuation"]["amount"].sum()
             raise ValueError(
-                f"CRITICAL CONSISTENCY ERROR in {method_name}: Found {valuation_count} "
-                f"valuation entries totaling ${valuation_total:,.0f}. These NON-CASH "
-                f"analytical snapshots MUST be excluded using: "
+                f"Consistency error in {method_name}: Found {valuation_count} "
+                f"valuation entries totaling ${valuation_total:,.0f}. These non-cash "
+                f"analytical snapshots should be excluded using: "
                 f"df[df['flow_purpose'] != 'Valuation']"
             )
 
@@ -246,18 +246,18 @@ def validate_valuation_exclusion(df: pd.DataFrame, method_name: str = "unknown")
 def _validate_balances(df: pd.DataFrame) -> Dict[str, Any]:
     """Validate mathematical balances in ledger (excluding non-cash valuation entries).
     
-    CRITICAL CONSISTENCY RULE: Always exclude flow_purpose="Valuation" entries from balance 
-    calculations. Valuation entries are NON-CASH analytical snapshots recorded for audit 
-    trail and API consistency, but they represent property appraisals, not actual cash flows.
+    Important: Always exclude flow_purpose="Valuation" entries from balance calculations.
+    Valuation entries are non-cash analytical snapshots recorded for audit trail and API
+    consistency, but they represent property appraisals, not actual cash flows.
     
-    Including them creates massive ledger imbalances (e.g., $2.48B) that don't reflect 
-    the actual financial position. This exclusion pattern MUST be consistent across all 
-    reporting, analysis, and cash flow calculation methods.
+    Including them can create ledger imbalances that don't reflect the actual financial
+    position. This exclusion pattern should be consistent across all reporting, analysis,
+    and cash flow calculation methods.
     
     See also: LedgerQueries.project_cash_flow(), equity_partner_flows(), operational_cash_flow()
-    which all use this same exclusion pattern for mathematical consistency.
+    which all use this same exclusion pattern for consistency.
     """
-    # CRITICAL: Exclude non-cash valuation entries from balance calculation
+    # Exclude non-cash valuation entries from balance calculation
     # This maintains consistency with all cash flow query methods in LedgerQueries
     cash_flow_df = df[df["flow_purpose"] != "Valuation"] if "flow_purpose" in df.columns else df
     
@@ -392,7 +392,7 @@ def ledger_sanity_check(
 
     # Check for empty ledger
     if analysis.get("record_count", 0) == 0:
-        warnings.append("❌ CRITICAL: Ledger is empty")
+        warnings.append("❌ Warning: Ledger is empty")
         return warnings
 
     # Check anomalies
