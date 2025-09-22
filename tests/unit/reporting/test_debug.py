@@ -102,7 +102,7 @@ class TestPolymorphicDebugUtility:
             computed["total_project_cost"] == 31_184_000
         )  # Updated: includes developer fee (5% of construction)
         assert "derived_timeline" in computed
-        assert computed["derived_timeline"]["duration_months"] == 84
+        assert computed["derived_timeline"]["duration_months"] == 123  # 3 (start) + 18 (construction) + 18 (lease-up) + 84 (hold)
 
     def test_dump_stabilized_pattern(self):
         """Test debug utility with StabilizedAcquisitionPattern."""

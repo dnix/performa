@@ -46,7 +46,7 @@ def main():
     gp_share = 0.20
     lp_share = 0.80
     hold_period_years = 5
-    exit_cap_rate = 0.055
+    exit_cap_rate = 0.068  # 6.8% exit cap rate (realistic office market)
     exit_costs_rate = 0.025
 
     # === METHOD 1: OFFICE STABILIZED ACQUISITION PATTERN ===
@@ -114,7 +114,12 @@ def main():
         )
 
         print("✅ Analysis completed successfully!")
-        print(f"   Deal name: {results.deal_summary.deal_name}")
+        # Access deal_summary as dict since it returns a dictionary
+        deal_summary = results.deal_summary if hasattr(results, 'deal_summary') else {}
+        if isinstance(deal_summary, dict) and 'deal_name' in deal_summary:
+            print(f"   Deal name: {deal_summary['deal_name']}")
+        else:
+            print(f"   Deal name: {pattern_deal.name}")
 
         # Key financial metrics
         if hasattr(results, "deal_metrics") and results.deal_metrics:

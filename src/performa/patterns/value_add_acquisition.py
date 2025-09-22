@@ -205,13 +205,19 @@ class ValueAddAcquisitionPattern(PatternBase):
         return v
 
     def _derive_timeline(self) -> Timeline:
-        """Derive timeline from acquisition date and hold period."""
-        start_date = self.analysis_start_date or self.acquisition_date
-        duration_months = self.analysis_duration_months or (
-            self.hold_period_years * 12 + 12
-        )
-
-        return Timeline(start_date=start_date, duration_months=duration_months)
+        """
+        Derive timeline from hold_period_years (stabilized hold after renovation).
+        
+        Value-Add Timeline: Acquisition → Renovation → Stabilized Hold Period
+        - Total timeline = renovation_duration_months + hold_period_years * 12
+        """
+        start_date = self.acquisition_date
+        
+        # Value-add timeline = renovation period + stabilized hold period
+        # Adding 12 months for typical renovation/lease-up period
+        total_duration_months = self.hold_period_years * 12 + 12
+        
+        return Timeline(start_date=start_date, duration_months=total_duration_months)
 
     def create(self) -> Deal:
         """

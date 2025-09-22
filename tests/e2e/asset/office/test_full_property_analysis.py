@@ -118,10 +118,10 @@ def test_end_to_end_analysis(
         jan_2024, UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value
     ] == pytest.approx(expected_rent)
 
-    # Expected Expenses: 120,000 / 12 = 10,000
+    # Expected Expenses: 120,000 / 12 = 10,000 (negative: costs are outflows)
     assert result_df.loc[
         jan_2024, UnleveredAggregateLineKey.TOTAL_OPERATING_EXPENSES.value
-    ] == pytest.approx(10000)
+    ] == pytest.approx(-10000)
 
     # Expected NOI (simple case)
     # Note: The orchestrator now calculates EGI, vacancy, etc. This is a simplified check.

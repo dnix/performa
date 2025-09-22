@@ -235,9 +235,9 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
 
         opex = queries.opex()
 
-        # Should be 2,000 for both January and February (absolute value)
-        assert opex.loc[pd.Period("2024-01", freq="M")] == 2000
-        assert opex.loc[pd.Period("2024-02", freq="M")] == 2000
+        # Should be -2,000 for both January and February (negative cost)
+        assert opex.loc[pd.Period("2024-01", freq="M")] == -2000
+        assert opex.loc[pd.Period("2024-02", freq="M")] == -2000
 
     def test_noi_calculation(self):
         """Test Net Operating Income calculation."""
@@ -296,8 +296,8 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
 
         ti = queries.ti()
 
-        # Should find the "TI Allowance" item
-        assert ti.loc[pd.Period("2024-01", freq="M")] == 5000
+        # Should find the "TI Allowance" item (negative cost)
+        assert ti.loc[pd.Period("2024-01", freq="M")] == -5000
 
     def test_lc_calculation(self):
         """Test leasing commissions calculation (pattern matching)."""
@@ -306,8 +306,8 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
 
         lc = queries.lc()
 
-        # Should find the "LC Payment" item
-        assert lc.loc[pd.Period("2024-01", freq="M")] == 2000
+        # Should find the "LC Payment" item (negative cost)
+        assert lc.loc[pd.Period("2024-01", freq="M")] == -2000
 
     def test_ucf_calculation(self):
         """Test Unlevered Cash Flow calculation."""
@@ -321,9 +321,9 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         lc = queries.lc()
 
         # Test that UCF calculation works and produces expected results
-        # For January: NOI = 7500, operational CapEx = 0 (acquisition excluded), TI = 5000, LC = 2000
-        # UCF = 7500 - 0 - 5000 - 2000 = 500
-        assert ucf.loc[pd.Period("2024-01", freq="M")] == 7500 - 0 - 5000 - 2000
+        # For January: NOI = 7500, operational CapEx = 0 (acquisition excluded), TI = -5000, LC = -2000
+        # UCF = NOI - CapEx - TI - LC = 7500 - 0 - (-5000) - (-2000) = 7500 + 5000 + 2000 = 14500
+        assert ucf.loc[pd.Period("2024-01", freq="M")] == 7500 - 0 - (-5000) - (-2000)
 
         # For February: NOI = 8000, CapEx = 0, TI = 0, LC = 0
         # UCF = 8000 - 0 - 0 - 0 = 8000
@@ -336,8 +336,8 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
 
         uses = queries.total_uses()
 
-        # January: 50,000 (acquisition) + 5,000 (TI) + 2,000 (LC) = 57,000
-        assert uses.loc[pd.Period("2024-01", freq="M")] == 57000
+        # January: -50,000 (acquisition) + -5,000 (TI) + -2,000 (LC) = -57,000 (negative cost)
+        assert uses.loc[pd.Period("2024-01", freq="M")] == -57000
 
     def test_total_sources_calculation(self):
         """Test total sources calculation."""
@@ -376,8 +376,8 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
 
         debt_service = queries.debt_service()
 
-        # Should be 800 for February (absolute value)
-        assert debt_service.loc[pd.Period("2024-02", freq="M")] == 800
+        # Should be -800 for February (negative cost: -500 interest + -300 principal)
+        assert debt_service.loc[pd.Period("2024-02", freq="M")] == -800
 
     def test_uses_breakdown(self):
         """Test uses breakdown by subcategory."""
@@ -386,12 +386,12 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
 
         breakdown = queries.uses_breakdown()
 
-        # Should have breakdown by subcategory
-        assert breakdown.loc[pd.Period("2024-01", freq="M"), "Purchase Price"] == 50000
-        assert breakdown.loc[pd.Period("2024-01", freq="M"), "Other"] == 7000  # TI + LC
-        # Disaggregated debt service components
-        assert breakdown.loc[pd.Period("2024-02", freq="M"), "Interest Payment"] == 500
-        assert breakdown.loc[pd.Period("2024-02", freq="M"), "Principal Payment"] == 300
+        # Should have breakdown by subcategory (negative costs)
+        assert breakdown.loc[pd.Period("2024-01", freq="M"), "Purchase Price"] == -50000
+        assert breakdown.loc[pd.Period("2024-01", freq="M"), "Other"] == -7000  # TI + LC (negative costs)
+        # Disaggregated debt service components (negative costs)
+        assert breakdown.loc[pd.Period("2024-02", freq="M"), "Interest Payment"] == -500
+        assert breakdown.loc[pd.Period("2024-02", freq="M"), "Principal Payment"] == -300
 
     def test_sources_breakdown(self):
         """Test sources breakdown by subcategory."""

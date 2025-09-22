@@ -173,6 +173,16 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
     to extract standard real estate financial metrics. The flow_purpose
     column provides the primary filtering mechanism.
 
+    Important: All cash flow methods should exclude flow_purpose="Valuation" entries.
+    These are non-cash analytical snapshots that represent property appraisals
+    and should not be included in cash flow calculations.
+    
+    Standard exclusion pattern:
+        & (ledger["flow_purpose"] != TransactionPurpose.VALUATION.value)
+    
+    New query methods should follow this pattern to maintain mathematical
+    consistency across the system.
+
     Args:
         ledger: DataFrame with transaction records following the standard schema
     """
@@ -236,7 +246,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of potential gross revenue by period
         """
         revenue = self.ledger[
-            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING)
+            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING.value)
             & (self.ledger["category"] == CashFlowCategoryEnum.REVENUE)
             & (self.ledger["subcategory"].isin(GROSS_REVENUE_SUBCATEGORIES))
         ]
@@ -255,7 +265,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of gross potential rent by period
         """
         lease_revenue = self.ledger[
-            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING)
+            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING.value)
             & (self.ledger["category"] == CashFlowCategoryEnum.REVENUE)
             & (self.ledger["subcategory"] == RevenueSubcategoryEnum.LEASE)
         ]
@@ -275,7 +285,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of tenant revenue by period
         """
         tenant_revenue = self.ledger[
-            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING)
+            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING.value)
             & (self.ledger["category"] == CashFlowCategoryEnum.REVENUE)
             & (self.ledger["subcategory"].isin(TENANT_REVENUE_SUBCATEGORIES))
         ]
@@ -291,7 +301,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of vacancy losses (absolute values) by period
         """
         vacancy = self.ledger[
-            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING)
+            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING.value)
             & (self.ledger["subcategory"] == RevenueSubcategoryEnum.VACANCY_LOSS)
         ]
         if vacancy.empty:
@@ -311,7 +321,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of effective gross income by period
         """
         egi_components = self.ledger[
-            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING)
+            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING.value)
             & (self.ledger["category"] == CashFlowCategoryEnum.REVENUE)
             & (self.ledger["subcategory"].isin(ALL_REVENUE_SUBCATEGORIES))
         ]
@@ -327,15 +337,15 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of operating expenses (absolute values) by period
         """
         expenses = self.ledger[
-            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING)
+            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING.value)
             & (self.ledger["category"] == CashFlowCategoryEnum.EXPENSE)
             & (self.ledger["subcategory"] == ExpenseSubcategoryEnum.OPEX)
         ]
         if expenses.empty:
             return pd.Series(dtype=float, name="Operating Expenses")
-        return -expenses.groupby("date")[
+        return expenses.groupby("date")[
             "amount"
-        ].sum()  # Convert negative to positive for display
+        ].sum()  # Keep negative values for mathematical consistency
 
     def noi(self) -> pd.Series:
         """
@@ -345,7 +355,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of net operating income by period
         """
         operating_flows = self.ledger[
-            self.ledger["flow_purpose"] == TransactionPurpose.OPERATING
+            self.ledger["flow_purpose"] == TransactionPurpose.OPERATING.value
         ]
         if operating_flows.empty:
             return pd.Series(dtype=float, name="Net Operating Income")
@@ -389,9 +399,9 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
 
         if capex.empty:
             return pd.Series(dtype=float, name="Capital Expenditures")
-        return -capex.groupby("date")[
+        return capex.groupby("date")[
             "amount"
-        ].sum()  # Convert negative to positive for display
+        ].sum()  # Keep negative values for correct mathematical operations
 
     def ti(self) -> pd.Series:
         """
@@ -410,9 +420,9 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         ]
         if ti.empty:
             return pd.Series(dtype=float, name="Tenant Improvements")
-        return -ti.groupby("date")[
+        return ti.groupby("date")[
             "amount"
-        ].sum()  # Convert negative to positive for display
+        ].sum()  # Keep negative values for correct mathematical operations
 
     def lc(self) -> pd.Series:
         """
@@ -431,9 +441,9 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         ]
         if lc.empty:
             return pd.Series(dtype=float, name="Leasing Commissions")
-        return -lc.groupby("date")[
+        return lc.groupby("date")[
             "amount"
-        ].sum()  # Convert negative to positive for display
+        ].sum()  # Keep negative values for correct mathematical operations
 
     def ucf(self) -> pd.Series:
         """
@@ -441,7 +451,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
 
         Legacy method maintained for backward compatibility.
         For new code, prefer operational_cash_flow() which has the same
-        calculation but enhanced implementation.
+        calculation with improved implementation.
 
         Returns:
             Time series of unlevered cash flow by period
@@ -465,13 +475,13 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of total capital uses (absolute values) by period
         """
         uses = self.ledger[
-            self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_USE
+            self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_USE.value
         ]
         if uses.empty:
             return pd.Series(dtype=float, name="Total Uses")
-        return -uses.groupby("date")[
+        return uses.groupby("date")[
             "amount"
-        ].sum()  # Convert negative to positive for display
+        ].sum()  # Keep negative values for mathematical consistency
 
     def total_sources(self) -> pd.Series:
         """
@@ -481,7 +491,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of total sources by period
         """
         sources = self.ledger[
-            self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE
+            self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE.value
         ]
         if sources.empty:
             return pd.Series(dtype=float, name="Total Sources")
@@ -511,7 +521,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             fill_value=0,
             observed=False,  # Suppress future warning
         )
-        return -breakdown  # Convert negative uses to positive for display
+        return breakdown  # Keep negative values for mathematical consistency
 
     def sources_breakdown(self) -> pd.DataFrame:
         """
@@ -521,7 +531,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             DataFrame with sources broken down by subcategory and period
         """
         sources = self.ledger[
-            self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE
+            self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE.value
         ]
         if sources.empty:
             return pd.DataFrame()
@@ -556,7 +566,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         """
         debt = self.ledger[
             (self.ledger["subcategory"].isin(DEBT_FUNDING_SUBCATEGORIES))
-            & (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE)
+            & (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE.value)
         ]
         if debt.empty:
             return pd.Series(dtype=float, name="Debt Draws")
@@ -574,13 +584,13 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         """
         service = self.ledger[
             (self.ledger["subcategory"].isin(DEBT_SERVICE_SUBCATEGORIES))
-            & (self.ledger["flow_purpose"] == TransactionPurpose.FINANCING_SERVICE)
+            & (self.ledger["flow_purpose"] == TransactionPurpose.FINANCING_SERVICE.value)
         ]
         if service.empty:
             return pd.Series(dtype=float, name="Debt Service")
-        return -service.groupby("date")[
+        return service.groupby("date")[
             "amount"
-        ].sum()  # Convert negative to positive for display
+        ].sum()  # Keep negative values for mathematical consistency
 
     def equity_contributions(self) -> pd.Series:
         """
@@ -591,7 +601,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         """
         equity = self.ledger[
             (self.ledger["subcategory"] == FinancingSubcategoryEnum.EQUITY_CONTRIBUTION)
-            & (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE)
+            & (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE.value)
         ]
         if equity.empty:
             return pd.Series(dtype=float, name="Equity Contributions")
@@ -623,7 +633,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         """
         gp_txns = self.ledger[
             (self.ledger["entity_type"] == "GP")
-            & (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE)
+            & (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE.value)
         ]
         if gp_txns.empty:
             return pd.Series(dtype=float, name="GP Distributions")
@@ -638,7 +648,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         """
         lp_txns = self.ledger[
             (self.ledger["entity_type"] == "LP")
-            & (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE)
+            & (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE.value)
         ]
         if lp_txns.empty:
             return pd.Series(dtype=float, name="LP Distributions")
@@ -652,7 +662,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of rental abatement amounts by period
         """
         abatement_txns = self.ledger[
-            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING)
+            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING.value)
             & (self.ledger["subcategory"] == RevenueSubcategoryEnum.ABATEMENT)
         ]
         if abatement_txns.empty:
@@ -669,7 +679,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of credit loss amounts by period
         """
         credit_txns = self.ledger[
-            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING)
+            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING.value)
             & (self.ledger["subcategory"] == RevenueSubcategoryEnum.CREDIT_LOSS)
         ]
         if credit_txns.empty:
@@ -686,7 +696,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of miscellaneous income amounts by period
         """
         misc_txns = self.ledger[
-            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING)
+            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING.value)
             & (
                 self.ledger["subcategory"] == RevenueSubcategoryEnum.MISC
             )  # Fixed: use correct enum value
@@ -703,7 +713,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             Time series of expense reimbursement amounts by period
         """
         reimburse_txns = self.ledger[
-            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING)
+            (self.ledger["flow_purpose"] == TransactionPurpose.OPERATING.value)
             & (
                 self.ledger["subcategory"] == RevenueSubcategoryEnum.RECOVERY
             )  # Updated to match RevenueSubcategoryEnum.RECOVERY
@@ -714,38 +724,93 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
 
     # === Asset Valuation Queries ===
 
-    def asset_value(self) -> float:
+    # REMOVED: asset_value() - ambiguous "latest" concept replaced with explicit methods:
+    #   - asset_value_at(date) for specific dates
+    #   - asset_valuations() for complete time series
+    
+    def asset_value_at(self, date: pd.Period) -> float:
         """
-        Get asset value from explicit valuation transactions only.
-
-        Phase 1: Requires explicit AssetValuation transaction in ledger
-        Phase 2: May support calculated fallbacks from cap rates
-
+        Get NON-CASH asset valuation as of specific date.
+        
+        Uses the most recent valuation on or before the specified date.
+        These are analytical snapshots, not cash transactions.
+        
+        Args:
+            date: Target date for valuation lookup
+            
         Returns:
-            Most recent asset valuation amount
-
+            NON-CASH asset valuation as of the specified date
+            
         Raises:
-            ValueError: If no asset valuation found in ledger
-
+            ValueError: If no asset valuation found on or before the date
+            
         Example:
-            queries = LedgerQueries(ledger_df)
-            current_value = queries.asset_value()  # e.g., 12_000_000.0
+            refi_date = pd.Period("2025-06", freq="M")
+            refi_value = queries.asset_value_at(refi_date)  # Non-cash analytical record
         """
-        valuation_txns = self.ledger[
-            (self.ledger["category"] == CashFlowCategoryEnum.VALUATION)
-            & (self.ledger["subcategory"] == ValuationSubcategoryEnum.ASSET_VALUATION)
-        ]
+        valuation_txns = self._get_valuation_transactions()
 
         if valuation_txns.empty:
             raise ValueError(
                 "No asset valuation found in ledger. "
-                "Asset value must be explicitly set via an AssetValuation transaction. "
-                "Use AssetValuation.from_cap_rate() or AssetValuation.add_to_ledger() "
-                "to provide explicit asset valuations."
+                "Asset value must be explicitly set via a valuation transaction."
             )
+        
+        # Filter to valuations on or before the target date
+        valid_txns = valuation_txns[valuation_txns["date"] <= date]
+        
+        if valid_txns.empty:
+            raise ValueError(
+                f"No asset valuation found on or before {date}. "
+                f"First valuation is on {valuation_txns['date'].min()}."
+            )
+        
+        # Return most recent valuation on or before the date
+        return valid_txns.sort_values("date")["amount"].iloc[-1]
+    
+    def asset_valuations(self) -> pd.Series:
+        """
+        Get NON-CASH valuation records for analytical purposes.
+        
+        These are calculated property valuations recorded for audit trail
+        and reporting - NOT cash transactions. Used for LTV analysis,
+        appraisal tracking, and valuation history.
+        
+        Returns:
+            Time series of NON-CASH asset valuations indexed by date
+            
+        Raises:
+            ValueError: If no asset valuations found in ledger
+            
+        Example:
+            valuations = queries.asset_valuations()  # Non-cash analytical records
+            print(f"Valuations from {valuations.index.min()} to {valuations.index.max()}")
+        """
+        valuation_txns = self._get_valuation_transactions()
 
-        # Return most recent valuation
-        return valuation_txns.sort_values("date")["amount"].iloc[-1]
+        if valuation_txns.empty:
+            raise ValueError(
+                "No asset valuations found in ledger. "
+                "Asset values must be explicitly set via valuation transactions."
+            )
+        
+        # Group by date and sum (in case of multiple valuations on same date)
+        valuations = valuation_txns.groupby("date")["amount"].sum()
+        valuations.name = "Asset Valuations"
+        
+        return valuations.sort_index()
+    
+    def _get_valuation_transactions(self) -> pd.DataFrame:
+        """
+        Helper method to get all asset valuation transactions.
+        
+        Returns:
+            DataFrame of asset valuation transactions
+        """
+        return self.ledger[
+            (self.ledger["category"] == CashFlowCategoryEnum.VALUATION)
+            & (self.ledger["subcategory"] == ValuationSubcategoryEnum.ASSET_VALUATION)
+        ]
 
     # === Financing Queries ===
 
@@ -806,7 +871,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             ledger_to_use = ledger_to_use[ledger_to_use["date"] <= as_of_date]
 
         uses = ledger_to_use[
-            ledger_to_use["flow_purpose"] == TransactionPurpose.CAPITAL_USE
+            ledger_to_use["flow_purpose"] == TransactionPurpose.CAPITAL_USE.value
         ]
         if uses.empty:
             return pd.Series(dtype=float, name="Capital Uses")
@@ -831,7 +896,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             ledger_to_use = ledger_to_use[ledger_to_use["date"] <= as_of_date]
 
         sources = ledger_to_use[
-            ledger_to_use["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE
+            ledger_to_use["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE.value
         ]
         if sources.empty:
             return pd.Series(dtype=float, name="Capital Sources")
@@ -857,7 +922,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
 
         Note:
             This is equivalent to the existing ucf() method but with
-            enhanced vectorized implementation for performance.
+            improved vectorized implementation for performance.
         """
         # Get component series using existing optimized methods
         noi_series = self.noi()
@@ -888,35 +953,57 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
 
     def project_cash_flow(self) -> pd.Series:
         """
-        Complete project-level cash flow including all capital events.
+        Complete project-level cash flow representing PROJECT CASH REQUIREMENTS.
 
-        This is the universal formula that works for any deal type:
+        This represents the cash flows that the project itself generates/requires,
+        BEFORE considering how those requirements are funded (debt vs equity).
+
+        Includes:
         - Operational cash flows (NOI - CapEx - TI - LC)
-        - Acquisition costs (negative outflow)
-        - Construction/renovation costs (negative outflow)
-        - Disposition proceeds (positive inflow)
+        - Capital USES: acquisition, construction, capex (negative outflows)
+        - Disposition proceeds: sale proceeds (positive inflows)
+
+        Excludes:
+        - Financing sources: loan proceeds, equity contributions (funding sources)
+        - Debt service: interest/principal payments (financing costs)
+        - Non-cash valuation entries (flow_purpose="Valuation")
+
+        Note: This method excludes flow_purpose="Valuation" entries to maintain
+        consistency with other cash flow calculations and reporting methods.
+        Valuation entries are analytical snapshots, not actual cash flows.
 
         Industry standard formula:
-        PCF = Operational Cash Flow + Capital Sources - Capital Uses
+        PCF = Operational Cash Flow + Capital Uses + Disposition Proceeds
 
         Returns:
-            Time series of complete project cash flows by period
+            Time series of project cash flows by period (BEFORE financing effects)
 
         Example:
-            For stabilized deals: Includes acquisition cost in Period 1
-            For development deals: Includes construction costs throughout
-            For all deals: Includes disposition proceeds at exit
+            For development: Negative during construction, positive at stabilization/exit
+            For stabilized: Positive from operations, includes exit proceeds
         """
         # Start with operational cash flows
         operational_cf = self.operational_cash_flow()
 
-        # Get all capital transactions
-        capital_transactions = self.ledger[
-            self.ledger["flow_purpose"].isin([
-                TransactionPurpose.CAPITAL_USE,  # Acquisition, construction, etc. (negative)
-                TransactionPurpose.CAPITAL_SOURCE,  # Disposition proceeds (positive)
-            ])
+        # Get CAPITAL USES ONLY (acquisition, construction, capex)
+        # Exclude CAPITAL_SOURCE financing (loan proceeds, equity contributions)
+        # Note: Excludes non-cash valuation entries (flow_purpose = VALUATION)
+        capital_uses = self.ledger[
+            (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_USE.value)
         ]
+
+        # Get DISPOSITION PROCEEDS (sale proceeds are legitimately part of project cash flow)
+        # Exclude financing sources (loans, equity, refinancing) but include genuine asset sales
+        # Note: Real disposition proceeds have CAPITAL_SOURCE purpose (not VALUATION purpose)
+        disposition_proceeds = self.ledger[
+            (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE.value) &
+            (~self.ledger["subcategory"].isin([
+                "Loan Proceeds", "Equity Contribution", "Refinancing Proceeds"
+            ]))
+        ]
+
+        # Combine capital uses and disposition proceeds
+        capital_transactions = pd.concat([capital_uses, disposition_proceeds], ignore_index=True)
 
         if capital_transactions.empty:
             # No capital events - return just operational flows
@@ -961,6 +1048,13 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         - PREFERRED_RETURN: Preferred return payments (negative outflow)
         - PROMOTE: Carried interest/promote payments (negative outflow)
 
+        Excludes:
+        - Non-cash valuation entries (flow_purpose="Valuation")
+
+        Note: This method excludes flow_purpose="Valuation" entries to maintain
+        consistency with other cash flow calculations and reporting methods.
+        Valuation entries are analytical snapshots, not actual cash flows.
+
         Sign convention (from deal perspective):
         - Contributions are positive (cash into deal)
         - Distributions are negative (cash out of deal)
@@ -974,15 +1068,20 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             partner_cf = -1 * equity_partner_flows()
         """
         # Filter for equity partner transactions by subcategory
+        # Note: Excludes non-cash valuation entries (flow_purpose = VALUATION)
         equity_flows = self.ledger[
             (self.ledger["category"] == CashFlowCategoryEnum.FINANCING)
             & (self.ledger["subcategory"].isin(EQUITY_PARTNER_SUBCATEGORIES))
+            & (self.ledger["flow_purpose"] != TransactionPurpose.VALUATION.value)
         ]
 
         # Also capture partner-specific flows if entity_type indicates GP/LP
+        # Note: Excludes disposition proceeds and non-cash valuation entries
         partner_flows = self.ledger[
             (self.ledger["entity_type"].isin(["GP", "LP"]))
-            & (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE)
+            & (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE.value)
+            & (~self.ledger["item_name"].str.contains("Exit Sale Proceeds", case=False, na=False))
+            & (self.ledger["flow_purpose"] != TransactionPurpose.VALUATION.value)
         ]
 
         # Combine equity subcategory flows and partner-specific flows
@@ -1024,7 +1123,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         # Get transactions that increase debt balance
         debt_increases = self.ledger[
             (self.ledger["subcategory"].isin(DEBT_INCREASE_SUBCATEGORIES))
-            & (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE)
+            & (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE.value)
         ]
 
         # Get transactions that decrease debt balance
@@ -1032,13 +1131,13 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         # 1. Principal payments (exact balance reduction)
         principal_payments = self.ledger[
             (self.ledger["subcategory"] == FinancingSubcategoryEnum.PRINCIPAL_PAYMENT)
-            & (self.ledger["flow_purpose"] == TransactionPurpose.FINANCING_SERVICE)
+            & (self.ledger["flow_purpose"] == TransactionPurpose.FINANCING_SERVICE.value)
         ]
 
         # 2. Full loan payoffs
         debt_payoffs = self.ledger[
             (self.ledger["subcategory"].isin(DEBT_PAYOFF_SUBCATEGORIES))
-            & (self.ledger["flow_purpose"] == TransactionPurpose.FINANCING_SERVICE)
+            & (self.ledger["flow_purpose"] == TransactionPurpose.FINANCING_SERVICE.value)
         ]
 
         # DEBT_SERVICE fully deprecated - all facilities now use disaggregated I&P approach
@@ -1112,7 +1211,7 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
 
         # Get capital use transactions that match construction patterns
         construction_flows = self.ledger[
-            (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_USE)
+            (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_USE.value)
             & (
                 # Match by subcategory
                 (

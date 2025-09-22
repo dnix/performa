@@ -17,7 +17,6 @@ from typing import Optional, Tuple
 from pydantic import ConfigDict, Field
 
 from ...core.primitives import GlobalSettings, Model, Timeline
-from ...core.primitives.types import PositiveInt
 from ...deal import Deal
 from ...deal.api import analyze as run_analysis
 from ...deal.results import DealResults
@@ -48,18 +47,13 @@ class PatternBase(Model, ABC):
         extra="forbid",  # Prevent silent parameter failures in Patterns abstractions
     )
 
-    # Optional timeline parameters for explicit control
+    # Optional timeline overrides for advanced use cases
+    # Most users should rely on pattern's hold_period_years for timeline
     analysis_start_date: Optional[date] = Field(
-        None, description="Analysis start date (defaults to acquisition/project start)"
-    )
-    analysis_duration_months: Optional[PositiveInt] = Field(
-        None,
-        ge=1,
-        le=600,
-        description="Analysis duration in months (defaults to hold period + buffer)",
+        None, description="Override analysis start date (defaults to acquisition/project start)"
     )
     analysis_end_date: Optional[date] = Field(
-        None, description="Analysis end date (alternative to duration_months)"
+        None, description="Override analysis end date (defaults to hold period + construction/lease-up)"
     )
 
     # Optional global settings for analysis
@@ -84,44 +78,44 @@ class PatternBase(Model, ABC):
     @abstractmethod
     def _derive_timeline(self) -> Timeline:
         """
-        Derive timeline from pattern-specific business parameters.
+        Derive timeline from hold_period_years business parameter.
 
-        This method is called when explicit timeline parameters are not provided.
-        Subclasses should implement logic to derive sensible defaults based on
-        their business parameters (e.g., acquisition date + hold period).
+        Unified Timeline Approach:
+        - Stabilized patterns: Timeline = acquisition_date to (acquisition_date + hold_period_years) 
+        - Development patterns: Timeline = acquisition_date to (construction_end + lease_up + hold_period_years)
+        
+        This eliminates timeline mismatches by making hold_period_years the single source of truth.
+        All exit valuations, analysis periods, and business calculations derive from this.
 
         Returns:
-            Timeline object for analysis
+            Timeline object for analysis based on hold_period_years
         """
         pass
 
     def get_timeline(self) -> Timeline:
         """
-        Get timeline for analysis, using explicit parameters or deriving from business logic.
+        Get timeline for analysis, using explicit overrides or deriving from hold period.
 
+        Timeline Philosophy:
+        - Hold period drives everything (industry standard like Argus/Rockport)
+        - Development patterns: hold_period_years = stabilized hold AFTER construction/lease-up
+        - Stabilized patterns: hold_period_years = total operating period
+        
         Priority:
-        1. If both analysis_start_date and analysis_end_date provided, use them
-        2. If analysis_start_date and analysis_duration_months provided, calculate end
-        3. Otherwise, delegate to pattern-specific _derive_timeline()
+        1. If both analysis_start_date and analysis_end_date provided, use them (override)
+        2. Otherwise, delegate to pattern-specific _derive_timeline() based on hold_period_years
 
         Returns:
             Timeline object for analysis
         """
-        # Case 1: Both start and end dates provided
+        # Case 1: Both start and end dates provided (advanced override)
         if self.analysis_start_date and self.analysis_end_date:
             return Timeline.from_dates(
                 start_date=self.analysis_start_date.strftime("%Y-%m-%d"),
                 end_date=self.analysis_end_date.strftime("%Y-%m-%d"),
             )
 
-        # Case 2: Start date and duration provided
-        if self.analysis_start_date and self.analysis_duration_months:
-            return Timeline(
-                start_date=self.analysis_start_date,
-                duration_months=self.analysis_duration_months,
-            )
-
-        # Case 3: Delegate to pattern-specific logic
+        # Case 2: Delegate to pattern-specific logic based on hold_period_years
         return self._derive_timeline()
 
     def analyze(self) -> DealResults:

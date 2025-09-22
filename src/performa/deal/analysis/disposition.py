@@ -41,6 +41,7 @@ from ...core.primitives import (
     CapitalSubcategoryEnum,
     CashFlowCategoryEnum,
     FinancingSubcategoryEnum,
+    RevenueSubcategoryEnum,
 )
 from .base import AnalysisSpecialist
 
@@ -129,7 +130,7 @@ class DispositionAnalyzer(AnalysisSpecialist):
             return  # No exit to process
 
         # Use settings for transaction costs - no hidden defaults
-        # TODO: add a parameter for this
+        # TODO: add a parameter for cost of sales
         disposition_cost_rate = self.settings.valuation.costs_of_sale_percentage
 
         # Process the disposition transaction with settings
@@ -423,8 +424,8 @@ class DispositionAnalyzer(AnalysisSpecialist):
     ) -> None:
         """Record gross sale proceeds to ledger."""
         metadata = SeriesMetadata(
-            category=CashFlowCategoryEnum.CAPITAL,
-            subcategory=CapitalSubcategoryEnum.OTHER,  # Sale proceeds
+            category=CashFlowCategoryEnum.REVENUE,  # Correct: sale proceeds are revenue inflows
+            subcategory=RevenueSubcategoryEnum.SALE,  # Sale proceeds
             item_name="Exit Sale Proceeds (Gross)",
             source_id=deal_uid,
             asset_id=asset_uid,

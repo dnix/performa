@@ -101,7 +101,20 @@ class DealResults:  # noqa: PLR0904
     @cached_property
     def equity_multiple(self) -> Optional[float]:
         """THE primary multiple metric - total returns / total investment."""
-        return FinancialCalculations.calculate_equity_multiple(self.levered_cash_flow)
+        # Use actual equity flows from ledger, not UCF/LCF
+        # UCF assumes 100% equity, but we need actual equity invested
+        contributions = self._queries.ledger[
+            self._queries.ledger["subcategory"] == "Equity Contribution"
+        ]["amount"].sum()
+        
+        distributions = self._queries.ledger[
+            self._queries.ledger["subcategory"] == "Equity Distribution"  
+        ]["amount"].sum()
+        
+        if contributions <= 0:
+            return None  # No equity investment to measure against
+            
+        return abs(distributions) / contributions
 
     @cached_property
     def net_profit(self) -> float:
@@ -115,23 +128,55 @@ class DealResults:  # noqa: PLR0904
     @cached_property
     def levered_cash_flow(self) -> pd.Series:
         """
-        Partner-level net cash flows (foundation for levered_irr).
+        Project-level cash flows after debt service effects (foundation for levered_irr).
 
-        CORRECTED IMPLEMENTATION: This is a PURE QUERY of equity partner flows,
-        not a complex assembly. The ledger already contains the correct data.
+        This represents the project's net cash requirements after debt service payments.
+        Industry standard formula: LCF = UCF - Debt Service
+        
+        This is PROJECT-level analysis, not partner-level distributions.
+        """
+        # Get project cash flows and debt service
+        project_cf = self._queries.project_cash_flow()
+        debt_service = self._queries.debt_service()
+        
+        # Calculate levered cash flow (debt service is already negative)
+        levered_cf = project_cf + debt_service
+        
+        # Align with timeline
+        return self._timeline.align_series(levered_cf, fill_value=0.0)
+
+    @cached_property
+    def equity_cash_flow(self) -> pd.Series:
+        """
+        Partner-level equity cash flows (investor perspective).
+        
+        This represents actual cash flows to/from equity partners including:
+        - Equity contributions (negative to investors)
+        - Operating distributions (positive to investors)  
+        - Disposition distributions (positive to investors)
+        
+        This is PARTNER-level analysis for equity investor returns.
         """
         # Query equity partner flows and flip to investor perspective
         flows = self._queries.equity_partner_flows()
         # CRITICAL: Flip sign for investor perspective (contributions negative, distributions positive)
         investor_flows = -1 * flows
 
-        # Use enhanced Timeline.align_series() - handles all index types automatically
+        # Align with timeline
         return self._timeline.align_series(investor_flows, fill_value=0.0)
 
     @cached_property
     def unlevered_cash_flow(self) -> pd.Series:
-        """Project-level cash flow before debt effects (archetype-aware)."""
-        # Query project cash flows (total investment perspective)
+        """
+        Project-level cash flow before debt effects (industry standard definition).
+        
+        ALWAYS includes:
+        - Operational cash flows (NOI - CapEx - TI - LC)
+        - Capital outflows: acquisition costs, construction costs
+        - Capital inflows: disposition/sale proceeds
+        
+        This is the standard real estate definition of UCF.
+        """
         flows = self._queries.project_cash_flow()
         return flows.reindex(self._timeline.period_index, fill_value=0.0)
 
@@ -159,11 +204,125 @@ class DealResults:  # noqa: PLR0904
         flows = self._queries.debt_service()
         return flows.reindex(self._timeline.period_index, fill_value=0.0)
 
+    # REMOVED: asset_value() - ambiguous "latest" concept replaced with explicit methods:
+    #   - asset_value_at(date) for specific dates  
+    #   - disposition_valuation for exit value
+    #   - refi_valuation for refinancing value
+    #   - asset_valuations for complete time series
+    
+    def asset_value_at(self, date: pd.Period) -> float:
+        """
+        NON-CASH asset valuation as of specific date.
+
+        These are analytical snapshots recorded for audit trail,
+        not cash transactions.
+
+        Args:
+            date: Target date for valuation lookup
+
+        Returns:
+            NON-CASH asset valuation as of the specified date
+
+        Raises:
+            ValueError: If no asset valuation found on or before the date
+
+        Example:
+            # Get non-cash valuation at refinancing
+            refi_date = timeline.period_index[24]  # Month 24
+            refi_value = results.asset_value_at(refi_date)  # Analytical snapshot
+        """
+        return self._queries.asset_value_at(date)
+    
     @cached_property
-    def asset_value(self) -> pd.Series:
-        """Asset value over time."""
-        flows = self._queries.asset_value()
-        return flows.reindex(self._timeline.period_index, fill_value=0.0)
+    def asset_valuations(self) -> pd.Series:
+        """
+        NON-CASH valuation records for analytical purposes.
+
+        These are calculated property valuations recorded for audit trail
+        and reporting - NOT cash transactions.
+
+        Returns:
+            Time series of NON-CASH asset valuations indexed by date
+
+        Raises:
+            ValueError: If no asset valuations found in ledger
+
+        Example:
+            valuations = results.asset_valuations  # Non-cash analytical records
+            print(f"Valuations: {len(valuations)} entries")
+            print(f"Range: {valuations.min():,.0f} to {valuations.max():,.0f}")
+        """
+        return self._queries.asset_valuations()
+
+    # ==========================================================================
+    # CONVENIENT ASSET VALUATION PROPERTIES (POC)
+    # ==========================================================================
+    
+    @cached_property
+    def acquisition_valuation(self) -> Optional[float]:
+        """
+        Asset valuation at acquisition (if recorded).
+        
+        Returns:
+            Asset value at or near acquisition date, None if not found
+            
+        Note:
+            This is a convenience property that may be too limiting for complex deals.
+            Use asset_value_at() for more precise date control.
+        """
+        try:
+            # Use acquisition date from deal
+            acq_date = pd.Period(self._deal.acquisition.acquisition_date, freq=self._timeline.frequency)
+            return self._queries.asset_value_at(acq_date)
+        except (ValueError, AttributeError):
+            return None
+    
+    @cached_property
+    def refi_valuation(self) -> Optional[float]:
+        """
+        Asset valuation for refinancing purposes (if applicable).
+        
+        Returns:
+            Conservative valuation used for refinancing, None if not found
+            
+        Note:
+            This is a convenience property that may be too limiting for complex deals
+            with multiple refinancings. Use asset_value_at() for more precise control.
+        """
+        try:
+            # Look for refinancing around the middle of the timeline (typical timing)
+            mid_period = len(self._timeline.period_index) // 2
+            target_date = self._timeline.period_index[mid_period]
+            return self._queries.asset_value_at(target_date)
+        except (ValueError, IndexError):
+            return None
+    
+    @cached_property
+    def disposition_valuation(self) -> Optional[float]:
+        """
+        Asset valuation at disposition/exit (if recorded).
+        
+        Returns:
+            Market valuation used for disposition, None if not found
+            
+        Note:
+            This is a convenience property that may be too limiting for complex deals.
+            Use asset_value_at() for more precise date control.
+        """
+        try:
+            # Use the last few periods of the timeline (typical disposition timing)
+            final_periods = self._timeline.period_index[-3:]  # Last 3 periods
+            
+            for period in reversed(final_periods):  # Check from most recent backwards
+                try:
+                    return self._queries.asset_value_at(period)
+                except ValueError:
+                    continue
+            
+            # If no valuation in final periods, return None
+            return None
+        except (ValueError, IndexError):
+            return None
 
     # ==========================================================================
     # UNLEVERED METRICS (Asset-level perspective)

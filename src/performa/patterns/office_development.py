@@ -28,6 +28,7 @@ from ..core.capital import CapitalItem, CapitalPlan
 from ..core.primitives import (
     AssetTypeEnum,
     FloatBetween0And1,
+    FrequencyEnum,
     InterestCalculationMethod,
     PositiveFloat,
     PositiveInt,
@@ -195,10 +196,22 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
         return self.hard_construction_costs + self.soft_costs + self.developer_fee
 
     def _derive_timeline(self) -> Timeline:
-        """Derive timeline from hold period (consistent with composition approach)."""
+        """
+        Derive timeline from hold_period_years (stabilized hold after construction + lease-up).
+        
+        Development Timeline: Acquisition → Construction → Lease-up → Stabilized Hold Period
+        - Total timeline = construction_start_months + construction_duration_months + 12 (lease-up) + hold_period_years * 12
+        """
+        # Calculate total development timeline
+        construction_period_months = self.construction_start_months + self.construction_duration_months
+        lease_up_months = 12  # Standard office lease-up period
+        stabilized_hold_months = self.hold_period_years * 12
+        
+        total_timeline_months = construction_period_months + lease_up_months + stabilized_hold_months
+        
         return Timeline(
             start_date=self.acquisition_date,
-            duration_months=self.hold_period_years * 12,  # No buffer for perfect parity
+            duration_months=total_timeline_months
         )
 
     @property
@@ -224,18 +237,8 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
         """
 
         # === STEP 1: PROJECT TIMELINE ===
-        construction_start_date = self.acquisition_date
-        # Calculate construction timeline duration
-        total_timeline_months = max(
-            self.construction_start_months
-            + self.construction_duration_months
-            + 12,  # +12 for stabilization
-            self.hold_period_years * 12,  # Or hold period, whichever is longer
-        )
-
-        timeline = Timeline(
-            start_date=construction_start_date, duration_months=total_timeline_months
-        )
+        # Use unified timeline from _derive_timeline() method
+        timeline = self._derive_timeline()
 
         # === STEP 2: CAPITAL EXPENDITURE PLAN ===
         # NOTE: Land acquisition handled by AcquisitionTerms, not CapitalItem
@@ -312,9 +315,9 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
                 frequency_months=self.leasing_frequency_months,
             ),
             leasing_assumptions=DirectLeaseTerms(
-                base_rent_value=self.target_rent_psf
-                / 12,  # Convert annual $/SF to monthly
+                base_rent_value=self.target_rent_psf / 12,  # Convert annual $/SF to monthly
                 base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
+                base_rent_frequency=FrequencyEnum.MONTHLY,  # Explicit: using monthly values
                 term_months=self.lease_term_months,
                 upon_expiration=UponExpirationEnum.MARKET,
             ),
@@ -397,9 +400,10 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
                 "loan_term_years": self.permanent_loan_term_years,  # Use years form for construct
                 "amortization_years": self.permanent_amortization_years,  # Use years form for construct
                 "origination_fee_rate": 0.005,
-                # Smart refinance timing: construct will calculate from construction_duration_months
+                # Smart refinance timing: construct will calculate from construction_duration_months + lease_up
             },
             project_value=self.total_project_cost,
+            lease_up_months=12,  # DEVELOPMENT FIX: Account for 12-month lease-up before refinancing
         )
 
         # === STEP 10: PARTNERSHIP STRUCTURE ===

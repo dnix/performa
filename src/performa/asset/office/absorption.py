@@ -1027,6 +1027,7 @@ class OfficeAbsorptionPlan(
             term_months=final_terms.term_months,
             base_rent_value=final_terms.base_rent_value,
             base_rent_reference=final_terms.base_rent_reference,
+            base_rent_frequency=final_terms.base_rent_frequency,  # Propagate frequency from DirectLeaseTerms
             upon_expiration=final_terms.upon_expiration,
             rent_escalation=final_terms.rent_escalation,
             rent_abatement=final_terms.rent_abatement,
@@ -1086,6 +1087,7 @@ class OfficeAbsorptionPlan(
             term_months=final_terms.term_months,
             base_rent_value=final_terms.base_rent_value,
             base_rent_reference=final_terms.base_rent_reference,
+            base_rent_frequency=final_terms.base_rent_frequency,  # Propagate frequency from DirectLeaseTerms
             upon_expiration=final_terms.upon_expiration,
             rent_escalation=final_terms.rent_escalation,
             rent_abatement=final_terms.rent_abatement,

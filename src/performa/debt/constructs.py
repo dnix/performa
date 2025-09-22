@@ -280,6 +280,7 @@ def create_construction_to_permanent_plan(
     construction_terms: Dict,
     permanent_terms: Dict,
     project_value: Optional[float] = None,
+    lease_up_months: Optional[int] = None,
 ) -> FinancingPlan:
     """
     Creates a standard two-facility financing plan for development deals.
@@ -294,6 +295,8 @@ def create_construction_to_permanent_plan(
                          Either 'loan_amount' OR 'ltv_ratio' + project_value
         project_value: Total project value for calculating loan amounts from ratios.
                        Required if using ltc_threshold or ltv_ratio.
+        lease_up_months: Duration of lease-up period for development deals.
+                         If provided, refinance timing accounts for stabilization.
 
     Returns:
         FinancingPlan: A plan containing both the construction and permanent facilities.
@@ -337,8 +340,16 @@ def create_construction_to_permanent_plan(
                 construction_duration = construction_years * 12
 
         if construction_duration:
-            # Fund 1 month after construction completion
-            permanent_params["refinance_timing"] = construction_duration + 1
+            # Account for lease-up period before refinancing in development deals
+            # Development deals typically refinance after substantial occupancy, not immediately after construction
+            if lease_up_months and lease_up_months > 0:
+                # Refinance after construction + most of lease-up is complete (80% occupancy buffer)
+                stabilization_buffer = max(1, int(lease_up_months * 0.8))
+                permanent_params["refinance_timing"] = construction_duration + stabilization_buffer
+            else:
+                # Legacy behavior: Fund 1 month after construction completion
+                # NOTE: This may cause auto-sizing failures if NOI is zero at refinance
+                permanent_params["refinance_timing"] = construction_duration + 1
         else:
             # If no construction duration specified, require explicit refinance_timing
             raise ValueError(

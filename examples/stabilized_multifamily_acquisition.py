@@ -618,7 +618,7 @@ def create_sample_deal():
 
     # Conservative exit assumptions
     year5_noi = realistic_noi * (1.025**5)  # 2.5% annual NOI growth
-    exit_cap_rate = 0.055  # 5.5% exit cap rate (conservative)
+    exit_cap_rate = 0.065  # 6.5% exit cap rate (realistic multifamily market)
     exit_value = year5_noi / exit_cap_rate
 
     # Sale proceeds after costs and loan balance

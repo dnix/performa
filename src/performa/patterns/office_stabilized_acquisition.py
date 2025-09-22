@@ -28,6 +28,7 @@ from ..asset.office import (
 )
 from ..core.primitives import (
     FloatBetween0And1,
+    FrequencyEnum,
     LeaseTypeEnum,
     PercentageGrowthRate,
     PositiveFloat,
@@ -92,7 +93,7 @@ class OfficeStabilizedAcquisitionPattern(PatternBase):
         ..., description="Total net rentable area in square feet"
     )
     current_rent_psf: PositiveFloat = Field(
-        ..., description="Current average rent per square foot per year"
+        default=20.0, description="Current average rent per square foot per year"
     )
     occupancy_rate: FloatBetween0And1 = Field(
         default=0.95, description="Current occupancy rate (decimal)"
@@ -145,7 +146,7 @@ class OfficeStabilizedAcquisitionPattern(PatternBase):
         default=7, ge=1, le=15, description="Investment hold period in years"
     )
     exit_cap_rate: FloatBetween0And1 = Field(
-        default=0.065, description="Exit capitalization rate for sale valuation"
+        default=0.060, description="Exit capitalization rate for sale valuation"
     )
     exit_costs_rate: FloatBetween0And1 = Field(
         default=0.015, description="Exit transaction costs as percentage of sale price"
@@ -192,8 +193,7 @@ class OfficeStabilizedAcquisitionPattern(PatternBase):
 
         # Create market lease terms for rollover
         market_terms = OfficeRolloverLeaseTerms(
-            market_rent=self.current_rent_psf
-            * 12,  # Annual rent PSF for market rollover
+            market_rent=self.current_rent_psf,  # Already annual rent PSF
             term_months=self.avg_lease_term_months,
             growth_rate=PercentageGrowthRate(
                 name="Market Rent Growth",
@@ -203,7 +203,7 @@ class OfficeStabilizedAcquisitionPattern(PatternBase):
 
         # Create renewal terms (typically with modest discount)
         renewal_terms = OfficeRolloverLeaseTerms(
-            market_rent=self.current_rent_psf * 12 * 0.98,  # 2% renewal discount
+            market_rent=self.current_rent_psf * 0.98,  # 2% renewal discount on annual rent PSF
             term_months=self.avg_lease_term_months,
             growth_rate=PercentageGrowthRate(name="Renewal Rent Growth", value=0.03),
         )
@@ -233,6 +233,7 @@ class OfficeStabilizedAcquisitionPattern(PatternBase):
                 area=occupied_area,
                 base_rent_value=self.current_rent_psf,
                 base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
+                base_rent_frequency=FrequencyEnum.ANNUAL,  # Fix: current_rent_psf is annual
                 term_months=self.avg_lease_term_months,
                 start_date=self.acquisition_date,
                 upon_expiration=UponExpirationEnum.MARKET,
@@ -252,6 +253,7 @@ class OfficeStabilizedAcquisitionPattern(PatternBase):
                 market_terms=DirectLeaseTerms(
                     base_rent_value=self.current_rent_psf,
                     base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
+                    base_rent_frequency=FrequencyEnum.ANNUAL,  # Fix: current_rent_psf is annual
                     term_months=self.avg_lease_term_months,
                     upon_expiration=UponExpirationEnum.MARKET,
                 ),

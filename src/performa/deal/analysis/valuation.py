@@ -50,6 +50,8 @@ from dataclasses import dataclass
 
 import pandas as pd
 
+from ...core.ledger.records import SeriesMetadata
+from ...core.primitives import CashFlowCategoryEnum, ValuationSubcategoryEnum
 from .base import AnalysisSpecialist
 
 
@@ -110,6 +112,9 @@ class ValuationEngine(AnalysisSpecialist):
         """
         # Query NOI directly from ledger - already have queries from base class
         noi_series = self.queries.noi()
+        
+        # Set NOI series in context for downstream passes
+        self.context.noi_series = noi_series  # ← DirectCap valuation needs this!
 
         # REFINANCING VALUATION: Conservative cap rate on stabilized NOI (for DebtAnalyzer)
         refi_property_value = self._calculate_refi_property_value(noi_series)
@@ -124,7 +129,9 @@ class ValuationEngine(AnalysisSpecialist):
         self.context.exit_gross_proceeds = (
             exit_gross_proceeds  # ← For DispositionAnalyzer
         )
-        self.context.noi_series = noi_series  # ← For both analysts
+        
+        # Record calculated valuations in ledger for audit trail and API consistency
+        self._record_valuations_in_ledger(refi_property_value, exit_gross_proceeds)
 
     ###########################################################################
     # VALUATION CALCULATION METHODS
@@ -179,6 +186,10 @@ class ValuationEngine(AnalysisSpecialist):
             # Annualize and apply cap rate
             annual_noi = period_noi * 12
             property_value = annual_noi / refi_cap_rate
+            
+            # Ensure non-negative property values during development and lease-up phases
+            # Negative NOI during construction periods should not result in negative valuations
+            property_value = max(0.0, property_value)
             property_values.append(property_value)
 
         return pd.Series(property_values, index=self.context.timeline.period_index)
@@ -243,3 +254,56 @@ class ValuationEngine(AnalysisSpecialist):
             gross_proceeds[exit_period] = annual_noi / exit_cap_rate
 
         return gross_proceeds
+
+    def _record_valuations_in_ledger(
+        self, refi_property_value: pd.Series, exit_gross_proceeds: pd.Series
+    ) -> None:
+        """
+        Record calculated valuations in ledger as non-cash analytical entries.
+        
+        These entries represent property appraisals and valuation snapshots that
+        are recorded for audit trail purposes and API consistency. They are marked
+        with flow_purpose="Valuation" to distinguish them from actual cash transactions.
+        
+        Note: Valuation entries should be excluded from cash flow calculations,
+        balance validations, and financial analysis as they represent analytical
+        snapshots rather than actual monetary transactions.
+        
+        These entries are used for:
+        - API consistency (asset_value_at, disposition_valuation methods)  
+        - Audit trail of property valuations over time
+        - LTV calculation snapshots
+        - Refinancing analysis support
+        
+        Args:
+            refi_property_value: Refinancing property value time series
+            exit_gross_proceeds: Exit proceeds time series
+        """
+        # Only record non-zero valuations to avoid cluttering ledger
+        
+        # Record refinancing valuations
+        non_zero_refi = refi_property_value[refi_property_value > 0]
+        if not non_zero_refi.empty:
+            refi_metadata = SeriesMetadata(
+                category=CashFlowCategoryEnum.VALUATION,
+                subcategory=ValuationSubcategoryEnum.ASSET_VALUATION,
+                item_name="Non-Cash: Refinancing Valuation",
+                source_id=str(self.deal.uid),
+                asset_id=str(self.deal.asset.uid),
+                pass_num=1,  # Valuation pass
+            )
+            self.ledger.add_series(non_zero_refi, refi_metadata)
+        
+        # Record exit valuations
+        non_zero_exit = exit_gross_proceeds[exit_gross_proceeds > 0]
+        if not non_zero_exit.empty:
+            exit_metadata = SeriesMetadata(
+                category=CashFlowCategoryEnum.VALUATION,
+                subcategory=ValuationSubcategoryEnum.ASSET_VALUATION,
+                item_name="Non-Cash: Exit Appraisal",
+                source_id=str(self.deal.uid),
+                asset_id=str(self.deal.asset.uid),
+                pass_num=1,  # Valuation pass
+            )
+            self.ledger.add_series(non_zero_exit, exit_metadata)
+

@@ -17,6 +17,7 @@ This module also exports base classes for custom report development.
 from .assumptions import generate_assumptions_report
 from .base import BaseReport, ReportTemplate
 from .debug import (
+    analyze_cash_flow_timeline,
     analyze_configuration_intentionality,
     analyze_ledger_semantically,
     # Advanced debug utilities
@@ -37,6 +38,7 @@ from .debug import (
     format_performa_object,
     format_timeline_comparison,
     generate_configuration_report,
+    generate_ledger_pivot_analysis,
     ledger_sanity_check,
     quick_parity_check,
     validate_aggregate_flows,
@@ -57,6 +59,7 @@ __all__ = [
     # Model assumptions reporting
     "generate_assumptions_report",
     # Debug utilities
+    "analyze_cash_flow_timeline",
     "analyze_configuration_intentionality",
     "analyze_ledger_semantically",
     "analyze_ledger_shape",
@@ -76,6 +79,7 @@ __all__ = [
     "format_performa_object",
     "format_timeline_comparison",
     "generate_configuration_report",
+    "generate_ledger_pivot_analysis",
     "ledger_sanity_check",
     "quick_parity_check",
     "validate_aggregate_flows",

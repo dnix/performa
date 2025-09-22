@@ -676,8 +676,8 @@ def demonstrate_rolling_renovation_analysis():
         print(f"   Yield on Renovation Investment: {renovation_yield:.1%}")
 
         # Property value creation (using cap rates)
-        initial_cap_rate = 0.065  # 6.5% going-in cap rate (value-add property)
-        exit_cap_rate = 0.055  # 5.5% exit cap rate (premium stabilized property)
+        initial_cap_rate = 0.070  # 7.0% going-in cap rate (value-add property)
+        exit_cap_rate = 0.062  # 6.2% exit cap rate (stabilized property with some compression)
 
         initial_value = year1_noi / initial_cap_rate if year1_noi > 0 else 0
         stabilized_value = year7_noi / exit_cap_rate if year7_noi > 0 else 0

@@ -17,7 +17,6 @@ from typing import Union
 from .base.valuation import BaseValuation
 from .direct_cap import DirectCapValuation
 from .direct_entry import DirectEntry
-from .helpers import AssetValuation
 from .metrics import PropertyMetrics
 from .sales_comp import SalesComparable, SalesCompValuation
 
@@ -33,7 +32,6 @@ __all__ = [
     "SalesCompValuation",  # Sales comparison approach
     "SalesComparable",
     # Helpers and utilities
-    "AssetValuation",
     "PropertyMetrics",
     # Type unions
     "AnyValuation",

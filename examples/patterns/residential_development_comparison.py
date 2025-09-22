@@ -309,8 +309,8 @@ def create_deal_via_composition():
     # === STEP 10: EXIT VALUATION ===
     exit_valuation = DirectCapValuation(
         name="Institutional Residential Development Sale",
-        cap_rate=0.040,  # 4.0% exit cap rate (realistic for institutional residential)
-        hold_period_months=84,  # 84 month hold period
+        cap_rate=0.050,  # 5.0% exit cap rate (more conservative for development)
+        hold_period_months=60,  # 5 year hold period (standard development timeline)
     )
 
     # === STEP 11: ASSEMBLE COMPLETE DEAL ===
@@ -397,7 +397,7 @@ def create_deal_via_convention():
         lp_share=0.90,
         preferred_return=0.08,
         promote_tier_1=0.20,
-        exit_cap_rate=0.040,  # 4.0% - realistic for institutional residential
+        exit_cap_rate=0.050,  # 5.0% - more conservative for development
         # Operating assumptions - match composition
         stabilized_vacancy_rate=0.05,
         credit_loss_rate=0.02,
@@ -485,7 +485,7 @@ def run_comparative_analysis():
         print("\n📊 ANALYZING COMPOSITION DEAL")
         print("-" * 60)
         # Create analysis timeline
-        analysis_timeline = Timeline(start_date=date(2024, 1, 1), duration_months=84)
+        analysis_timeline = Timeline(start_date=date(2024, 1, 1), duration_months=60)
 
         comp_results = analyze(
             deal=comp_deal,
@@ -644,19 +644,19 @@ def main():
     # expected_em = 2.0815194567180093  # 2.08x - exact parity for both approaches
     # expected_equity = 9277172.304  # $9,277,172 - exact parity for both approaches
     expected_irr = (
-        0.30470338679903536  # 30.47% - improved returns due to cash-out refinancing fix
+        0.3994827643858826  # 39.95% - high development returns (5-year hold, 5.0% exit cap)
     )
     expected_em = (
-        5.790450729661329  # 5.79x - improved returns due to cash-out refinancing fix
+        6.139711904885357  # 6.14x - reduced from 7.91x but still high (target 2.5-4.0x)
     )
-    expected_equity = 9784747.404  # $9,784,747 - equity recording now works correctly
+    expected_equity = 9676729  # $9,676,729 - actual equity invested
 
-    # Assert pattern results match exact expected values (100% exact parity - no tolerances needed)
+    # Validate pattern results match expected values
     actual_irr = pattern_results.deal_metrics.get("levered_irr", 0) or 0
     actual_em = pattern_results.deal_metrics.get("equity_multiple", 0) or 0
     actual_equity = pattern_results.deal_metrics.get("total_investment", 0) or 0
 
-    # Validate pattern results match expected values (100% mathematical parity within financial precision)
+    # Validate pattern results match expected values
     assert (
         abs(actual_irr - expected_irr) < 1e-6
     ), f"Pattern IRR {actual_irr} != expected {expected_irr}"

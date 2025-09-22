@@ -43,6 +43,7 @@ Supports polymorphic object introspection - can debug any Performa component:
 - `validate_flow_reasonableness`: Industry benchmark validation by deal type
 - `validate_aggregate_flows`: Sources & uses balance validation
 - `quick_parity_check`: Fast boolean parity check with default tolerances
+- `validate_valuation_exclusion`: Ensures NON-CASH valuation entries are properly excluded
 
 ### Configuration Analysis
 - `analyze_configuration_intentionality`: Context-aware quality scoring (pattern vs manual)
@@ -88,9 +89,12 @@ from .introspection import (
     format_performa_object,
 )
 from .ledger_analysis import (
+    analyze_cash_flow_timeline,
     analyze_ledger_semantically,
     format_ledger_analysis,
+    generate_ledger_pivot_analysis,
     ledger_sanity_check,
+    validate_valuation_exclusion,
 )
 from .ledger_shape import (
     analyze_ledger_shape,
@@ -126,9 +130,12 @@ __all__ = [
     "_handle_pydantic_object",  # For test compatibility
     "_handle_primitive_object",  # For test compatibility
     # Ledger analysis
+    "analyze_cash_flow_timeline",
     "analyze_ledger_semantically",
     "ledger_sanity_check",
     "format_ledger_analysis",
+    "generate_ledger_pivot_analysis",
+    "validate_valuation_exclusion",
     # Configuration analysis
     "analyze_configuration_intentionality",
     "compare_configuration_intentionality",

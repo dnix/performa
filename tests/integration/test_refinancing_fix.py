@@ -223,10 +223,10 @@ class TestRefinancingIntegration:
 
         payoff_date = refinancing_payoffs.iloc[0]["date"]
 
-        # Expected refinancing date: construction_duration(18) + 1 = month 19
-        # Smart timing: refinance 1 month after construction completion
-        # Which is 2025-07-01
-        expected_month = 19  # 18 + 1
+        # Expected refinancing date: construction_duration(18) + 80% of lease_up(18) = month 32  
+        # Smart timing: refinance after substantial lease-up completion (80% of 18 months = ~14 months)
+        # Which is 2026-08-01
+        expected_month = 32  # 18 + 14 (80% of 18-month lease-up)
 
         # Convert to actual date for comparison
         if hasattr(payoff_date, "start_time"):  # PeriodIndex

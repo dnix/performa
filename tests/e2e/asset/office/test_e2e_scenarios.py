@@ -344,10 +344,10 @@ def test_full_scenario_kitchen_sink(complex_property_fixture):
         # Basic relationships
         assert egi <= pgr, f"{period}: EGI should be ≤ PGR (due to losses)"
         assert noi < egi, f"{period}: NOI should be < EGI (due to expenses)"
-        assert opex > 0, f"{period}: Operating expenses should be positive"
+        assert opex < 0, f"{period}: Operating expenses should be negative (costs)"
         assert noi == pytest.approx(
-            egi - opex, rel=0.01
-        ), f"{period}: NOI should equal EGI - OpEx"
+            egi + opex, rel=0.01
+        ), f"{period}: NOI should equal EGI + OpEx (OpEx is negative costs)"
 
 
 def test_e2e_recovery_gross_up_proves_phased_execution(complex_property_fixture):

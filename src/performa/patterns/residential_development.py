@@ -174,14 +174,7 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         description="Maximum LTC threshold - lender's hard gate (typically 0.75-0.85)",
     )
 
-    def _derive_timeline(self) -> Timeline:
-        """Override to add buffer for exit transaction."""
-        return Timeline(
-            start_date=self.acquisition_date,
-            duration_months=self.hold_period_years * 12
-            + 6,  # Add 6 months buffer for exit and wind-down
-            # NOTE: hold period includes construction, lease up, stabilization
-        )
+    # Removed duplicate _derive_timeline() method - using the one below with proper development logic
 
     @field_validator("unit_mix")
     @classmethod
@@ -245,19 +238,22 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         return self.land_cost + self.total_construction_cost + self.developer_fee
 
     def _derive_timeline(self) -> Timeline:
-        """Derive timeline from construction duration and hold period."""
-        # Use same approach as office development for consistency
-        # TODO: Factor in lease-up and stabilization timing
-        total_timeline_months = max(
-            self.construction_start_months
-            + self.construction_duration_months
-            + 18,  # +18 for residential lease-up and stabilization (vs 12 for office)
-            self.hold_period_years * 12,  # Or hold period, whichever is longer
-        )
-
+        """
+        Derive timeline from hold_period_years (stabilized hold after construction + lease-up).
+        
+        Residential Development Timeline: Acquisition → Construction → Lease-up → Stabilized Hold Period
+        - Total timeline = construction_start_months + construction_duration_months + 18 (lease-up) + hold_period_years * 12
+        """
+        # Calculate total development timeline
+        construction_period_months = self.construction_start_months + self.construction_duration_months
+        lease_up_months = 18  # Longer residential lease-up period vs 12 for office
+        stabilized_hold_months = self.hold_period_years * 12
+        
+        total_timeline_months = construction_period_months + lease_up_months + stabilized_hold_months
+        
         return Timeline(
             start_date=self.acquisition_date,
-            duration_months=total_timeline_months,
+            duration_months=total_timeline_months
         )
 
     def create(self) -> Deal:
@@ -432,9 +428,10 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
                 "loan_term_years": self.permanent_loan_term_years,  # Use years form for construct
                 "amortization_years": self.permanent_amortization_years,  # Use years form for construct
                 "origination_fee_rate": 0.005,
-                # Smart refinance timing: construct will calculate from construction_duration_months
+                # Smart refinance timing: construct will calculate from construction_duration_months + lease_up
             },
             project_value=self.total_project_cost,
+            lease_up_months=18,  # DEVELOPMENT FIX: Account for 18-month residential lease-up before refinancing
         )
 
         # === STEP 8: ARCHITECTURAL IMPROVEMENT ===

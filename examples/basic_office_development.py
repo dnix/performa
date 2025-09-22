@@ -135,7 +135,7 @@ def create_sample_development_deal():
         promote_tier_1=0.20,  # 20% promote above pref
         # Exit strategy - IMPROVED FOR BETTER RETURNS
         hold_period_years=5,  # 5-year hold period (faster exit)
-        exit_cap_rate=0.055,  # 5.5% exit cap rate (better market)
+        exit_cap_rate=0.065,  # 6.5% exit cap rate (realistic office market)
         exit_costs_rate=0.02,  # 2.0% transaction costs
     )
 
