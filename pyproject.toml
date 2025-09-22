@@ -127,6 +127,8 @@ extend-ignore = [
 # Scripts and examples need to be runnable (shebang first line), so ignore the copyright header.
 "scripts/**/*.py" = ["CPY001"]
 "examples/**/*.py" = ["CPY001"]
+"tests/unit/reporting/test_debug.py" = ["PLC2701"]  # ignore import private methods
+"deprecated_notebook.py" = ["ALL"]
 
 [tool.pytest.ini_options]
 # Ignore the pandas FutureWarning for freq='M'. The pd.Period() constructor
@@ -139,3 +141,7 @@ filterwarnings = [
 
 [tool.ruff.lint.flake8-copyright]
 notice-rgx = "# Copyright 2024-2025 David Gordon Nix\\n# SPDX-License-Identifier: Apache-2.0\\n\\n"
+
+[tool.ruff.lint.pydocstyle]
+# https://github.com/google/styleguide/blob/gh-pages/pyguide.md#38-comments-and-docstrings
+convention = "google"
