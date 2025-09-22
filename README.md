@@ -140,10 +140,10 @@ There is a better way. Let's build it! 🚀
 
 <br>
 
-<p align="center">
+<p align="right">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/wordmark-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="docs/wordmark-light.svg">
-    <img src="docs/wordmark.svg" alt="Performa" width="200">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/synthwave-footer-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/synthwave-footer-light.svg">
+    <img src="docs/synthwave-footer-light.svg" alt="Performa" width="200">
   </picture>
 </p>
