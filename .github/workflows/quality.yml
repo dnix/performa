@@ -13,22 +13,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+        uses: actions/checkout@v5
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v6
         with:
-          version: "latest"
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
           # Install project with dev dependencies from pyproject.toml
-          uv pip install --system -e .[dev]
+          uv sync --extra dev
 
       - name: Run Ruff Linter
         run: |
@@ -42,26 +37,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+        uses: actions/checkout@v5
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v6
         with:
-          version: "latest"
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
           # Install project with dev dependencies from pyproject.toml
-          uv pip install --system -e .[dev]
+          uv sync --extra dev
 
       - name: Run Tests
         run: |
-          pytest tests/ -v --cov=src/performa --cov-report=xml --cov-report=term
+          uv run pytest tests/ -v --cov=src/performa --cov-report=xml --cov-report=term
 
     # TODO: Uncomment this when we have codecov
     #   - name: Upload coverage to Codecov
