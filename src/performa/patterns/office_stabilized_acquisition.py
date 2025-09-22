@@ -203,7 +203,8 @@ class OfficeStabilizedAcquisitionPattern(PatternBase):
 
         # Create renewal terms (typically with modest discount)
         renewal_terms = OfficeRolloverLeaseTerms(
-            market_rent=self.current_rent_psf * 0.98,  # 2% renewal discount on annual rent PSF
+            market_rent=self.current_rent_psf
+            * 0.98,  # 2% renewal discount on annual rent PSF
             term_months=self.avg_lease_term_months,
             growth_rate=PercentageGrowthRate(name="Renewal Rent Growth", value=0.03),
         )

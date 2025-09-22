@@ -364,7 +364,9 @@ class PermanentFacility(DebtFacilityBase):
             property_value = 0
         elif self.refinance_timing <= len(context.refi_property_value):
             # Use property value at the specific refinance timing month
-            property_value = context.refi_property_value.iloc[self.refinance_timing - 1]  # Convert 1-based to 0-based index
+            property_value = context.refi_property_value.iloc[
+                self.refinance_timing - 1
+            ]  # Convert 1-based to 0-based index
         else:
             # Fallback to last available value if refinance timing exceeds series length
             property_value = context.refi_property_value.iloc[-1]
@@ -978,26 +980,30 @@ class PermanentFacility(DebtFacilityBase):
     ) -> None:
         """
         Validate that the property meets realistic refinancing requirements.
-        
+
         Real-world lenders require proven cash flow, occupancy, and stabilization
         before approving permanent financing. This prevents unrealistic scenarios
         like refinancing empty buildings or properties with negative NOI.
-        
+
         Args:
             context: Deal context with asset analysis results
             property_value: Calculated property value at refinance timing
-            
+
         Raises:
             ValueError: If refinancing requirements are not met, with specific guidance
         """
         # Get NOI at refinance timing to validate cash flow
-        if hasattr(context, 'noi_series') and context.noi_series is not None:
+        if hasattr(context, "noi_series") and context.noi_series is not None:
             noi_series = context.noi_series
             if len(noi_series) >= self.refinance_timing:
-                current_noi = noi_series.iloc[self.refinance_timing - 1]  # 1-based to 0-based
-                
+                current_noi = noi_series.iloc[
+                    self.refinance_timing - 1
+                ]  # 1-based to 0-based
+
                 # GUARDRAIL 1: Minimum NOI requirement
-                min_monthly_noi = 10_000  # $10K/month minimum for institutional financing
+                min_monthly_noi = (
+                    10_000  # $10K/month minimum for institutional financing
+                )
                 if current_noi < min_monthly_noi:
                     raise ValueError(
                         f"Refinancing failed for {self.name}: "
@@ -1005,14 +1011,18 @@ class PermanentFacility(DebtFacilityBase):
                         f"Lenders require minimum ${min_monthly_noi:,.0f}/month NOI for permanent financing. "
                         f"Consider delaying refinancing until higher occupancy is achieved."
                     )
-                
+
                 # GUARDRAIL 2: Stabilization period requirement
                 # Require at least 6 months of positive NOI before refinancing
                 stabilization_months = 6
                 if self.refinance_timing >= stabilization_months:
-                    recent_noi = noi_series.iloc[max(0, self.refinance_timing - stabilization_months):self.refinance_timing]
+                    recent_noi = noi_series.iloc[
+                        max(
+                            0, self.refinance_timing - stabilization_months
+                        ) : self.refinance_timing
+                    ]
                     positive_months = (recent_noi > min_monthly_noi).sum()
-                    
+
                     if positive_months < stabilization_months:
                         months_needed = stabilization_months - positive_months
                         raise ValueError(
@@ -1021,21 +1031,29 @@ class PermanentFacility(DebtFacilityBase):
                             f"Lenders require {stabilization_months} months of proven cash flow. "
                             f"Consider delaying refinancing by {months_needed} months until stabilization is achieved."
                         )
-                
+
                 # GUARDRAIL 3: DSCR requirement (basic check)
                 # Ensure the asset can service the proposed debt
-                if hasattr(self, 'interest_rate') and self.interest_rate > 0:
+                if hasattr(self, "interest_rate") and self.interest_rate > 0:
                     # Rough DSCR check using NOI and proposed loan size
-                    estimated_loan = property_value * (self.ltv_ratio or 0.75)  # Use 75% LTV default
-                    annual_debt_service = estimated_loan * self.interest_rate  # Simplified: interest-only approximation
+                    estimated_loan = property_value * (
+                        self.ltv_ratio or 0.75
+                    )  # Use 75% LTV default
+                    annual_debt_service = (
+                        estimated_loan * self.interest_rate
+                    )  # Simplified: interest-only approximation
                     annual_noi = current_noi * 12
-                    
+
                     if annual_noi > 0:
                         estimated_dscr = annual_noi / annual_debt_service
-                        min_dscr = 1.05  # Minimum DSCR threshold for permanent financing
-                        
+                        min_dscr = (
+                            1.05  # Minimum DSCR threshold for permanent financing
+                        )
+
                         if estimated_dscr < min_dscr:
-                            max_affordable_loan = annual_noi / self.interest_rate / min_dscr
+                            max_affordable_loan = (
+                                annual_noi / self.interest_rate / min_dscr
+                            )
                             raise ValueError(
                                 f"Refinancing failed for {self.name}: "
                                 f"Estimated DSCR of {estimated_dscr:.2f} is below lender minimum of {min_dscr}. "
@@ -1043,23 +1061,33 @@ class PermanentFacility(DebtFacilityBase):
                                 f"${max_affordable_loan:,.0f}, but property value suggests ${estimated_loan:,.0f}. "
                                 f"Consider increasing rents or reducing refinancing LTV."
                             )
-        
+
         # GUARDRAIL 4: Development-specific occupancy requirements
         # For development properties, ensure adequate lease-up before refinancing
-        if hasattr(context, 'deal') and context.deal:
+        if hasattr(context, "deal") and context.deal:
             # Check if this is a development deal by examining the asset type
             asset = context.deal.asset
-            if hasattr(asset, 'blueprints') or 'Development' in str(type(asset)):
+            if hasattr(asset, "blueprints") or "Development" in str(type(asset)):
                 # This is a development project - check occupancy proxy via revenue growth
-                if hasattr(context, 'noi_series') and len(context.noi_series) > 12:
+                if hasattr(context, "noi_series") and len(context.noi_series) > 12:
                     # Compare current NOI to peak NOI (proxy for occupancy)
-                    recent_noi = context.noi_series.iloc[self.refinance_timing - 1] if len(context.noi_series) >= self.refinance_timing else 0
-                    future_noi = context.noi_series.iloc[min(len(context.noi_series) - 1, self.refinance_timing + 12)]  # NOI 1 year later
-                    
-                    if future_noi > recent_noi * 1.1:  # If NOI is still growing significantly
-                        occupancy_estimate = recent_noi / future_noi if future_noi > 0 else 0
+                    recent_noi = (
+                        context.noi_series.iloc[self.refinance_timing - 1]
+                        if len(context.noi_series) >= self.refinance_timing
+                        else 0
+                    )
+                    future_noi = context.noi_series.iloc[
+                        min(len(context.noi_series) - 1, self.refinance_timing + 12)
+                    ]  # NOI 1 year later
+
+                    if (
+                        future_noi > recent_noi * 1.1
+                    ):  # If NOI is still growing significantly
+                        occupancy_estimate = (
+                            recent_noi / future_noi if future_noi > 0 else 0
+                        )
                         min_occupancy = 0.80  # 80% occupancy requirement for development refinancing
-                        
+
                         if occupancy_estimate < min_occupancy:
                             raise ValueError(
                                 f"Refinancing failed for {self.name}: "

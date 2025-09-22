@@ -531,10 +531,14 @@ def main():
     if composition_deal and pattern_deal:
         # Both approaches working - compare them using the same timeline
         # Get the pattern's timeline for fair comparison
-        pattern_timeline = pattern.get_timeline() if pattern else Timeline(
-            start_date=date(2024, 1, 1), duration_months=66
+        pattern_timeline = (
+            pattern.get_timeline()
+            if pattern
+            else Timeline(start_date=date(2024, 1, 1), duration_months=66)
         )
-        composition_results = analyze_composition_deal(composition_deal, pattern_timeline)
+        composition_results = analyze_composition_deal(
+            composition_deal, pattern_timeline
+        )
 
         # Analyze pattern deal too
         print("\n📊 ANALYZING PATTERN DEAL")
@@ -717,9 +721,7 @@ def main():
         if composition_results and pattern_results:
             # Expected values for office development comparison with realistic market assumptions
             # Both approaches produce identical results with realistic 6.5% exit cap rate and 2.5% transaction costs
-            expected_irr = (
-                0.3776928011664446  # 37.77% - expected development returns
-            )
+            expected_irr = 0.3776928011664446  # 37.77% - expected development returns
             expected_em = 7.348300922372328  # 7.35x - expected equity multiple
             expected_equity = (
                 6295701  # $6,295,701 - exact same equity invested for both approaches
@@ -756,7 +758,7 @@ def main():
             assert (
                 abs(pattern_equity - expected_equity) < 1.0
             ), f"Pattern Equity ${pattern_equity} != expected ${expected_equity}"
-            
+
             # Validate consistency between approaches
             assert (
                 abs(pattern_irr - comp_irr) < 1e-10

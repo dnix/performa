@@ -240,20 +240,23 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
     def _derive_timeline(self) -> Timeline:
         """
         Derive timeline from hold_period_years (stabilized hold after construction + lease-up).
-        
+
         Residential Development Timeline: Acquisition → Construction → Lease-up → Stabilized Hold Period
         - Total timeline = construction_start_months + construction_duration_months + 18 (lease-up) + hold_period_years * 12
         """
         # Calculate total development timeline
-        construction_period_months = self.construction_start_months + self.construction_duration_months
+        construction_period_months = (
+            self.construction_start_months + self.construction_duration_months
+        )
         lease_up_months = 18  # Longer residential lease-up period vs 12 for office
         stabilized_hold_months = self.hold_period_years * 12
-        
-        total_timeline_months = construction_period_months + lease_up_months + stabilized_hold_months
-        
+
+        total_timeline_months = (
+            construction_period_months + lease_up_months + stabilized_hold_months
+        )
+
         return Timeline(
-            start_date=self.acquisition_date,
-            duration_months=total_timeline_months
+            start_date=self.acquisition_date, duration_months=total_timeline_months
         )
 
     def create(self) -> Deal:

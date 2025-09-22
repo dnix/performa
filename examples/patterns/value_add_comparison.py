@@ -131,7 +131,9 @@ def create_deal_via_composition():
 
     # === STEP 1: PROJECT TIMELINE ===
     acquisition_date = date(2024, 1, 1)
-    timeline = Timeline(start_date=acquisition_date, duration_months=96)  # 7 years hold + 12 months renovation/lease-up = 8 years total
+    timeline = Timeline(
+        start_date=acquisition_date, duration_months=96
+    )  # 7 years hold + 12 months renovation/lease-up = 8 years total
 
     # Renovation timeline starts year 1
     renovation_start_date = date(
@@ -536,13 +538,13 @@ def analyze_deals(composition_deal, pattern_deal):
         print("\n✅ Analysis Complete!")
         print("\n   COMPOSITION RESULTS:")
         comp_irr_str = (
-            f"{comp_results.levered_irr:.2%}"
-            if comp_results.levered_irr
-            else "N/A"
+            f"{comp_results.levered_irr:.2%}" if comp_results.levered_irr else "N/A"
         )
         print(f"     Deal IRR: {comp_irr_str}")
         print(f"     Equity Multiple: {comp_results.equity_multiple:.2f}x")
-        print(f"     Total Equity: ${comp_results.deal_metrics.get('total_investment'):,.0f}")
+        print(
+            f"     Total Equity: ${comp_results.deal_metrics.get('total_investment'):,.0f}"
+        )
 
         print("\n   PATTERN RESULTS:")
         irr_str = (
@@ -552,20 +554,18 @@ def analyze_deals(composition_deal, pattern_deal):
         )
         print(f"     Deal IRR: {irr_str}")
         print(f"     Equity Multiple: {pattern_results.equity_multiple:.2f}x")
-        print(f"     Total Equity: ${pattern_results.deal_metrics.get('total_investment'):,.0f}")
+        print(
+            f"     Total Equity: ${pattern_results.deal_metrics.get('total_investment'):,.0f}"
+        )
 
         # Check for equivalence
         irr_diff = abs(
-            (comp_results.levered_irr or 0)
-            - (pattern_results.levered_irr or 0)
+            (comp_results.levered_irr or 0) - (pattern_results.levered_irr or 0)
         )
-        em_diff = abs(
-            comp_results.equity_multiple
-            - pattern_results.equity_multiple
-        )
+        em_diff = abs(comp_results.equity_multiple - pattern_results.equity_multiple)
         equity_diff = abs(
-            comp_results.deal_metrics.get('total_investment')
-            - pattern_results.deal_metrics.get('total_investment')
+            comp_results.deal_metrics.get("total_investment")
+            - pattern_results.deal_metrics.get("total_investment")
         )
 
         print(f"\n   EQUIVALENCE CHECK:")
@@ -660,7 +660,7 @@ def main():
             # Validate composition results against expected values
             comp_irr = comp_results.levered_irr
             comp_em = comp_results.equity_multiple
-            comp_equity = comp_results.deal_metrics.get('total_investment')
+            comp_equity = comp_results.deal_metrics.get("total_investment")
 
             # Validate composition results match expected values
             assert comp_irr is not None, f"Composition IRR should not be None"
@@ -677,7 +677,7 @@ def main():
             # Validate pattern results match composition
             pattern_irr = pattern_results.levered_irr
             pattern_em = pattern_results.equity_multiple
-            pattern_equity = pattern_results.deal_metrics.get('total_investment')
+            pattern_equity = pattern_results.deal_metrics.get("total_investment")
 
             # Pattern should match composition within financial calculation precision
             assert pattern_irr is not None, f"Pattern IRR should not be None"

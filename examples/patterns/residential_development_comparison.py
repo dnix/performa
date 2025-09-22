@@ -643,9 +643,7 @@ def main():
     # expected_irr = 0.14666695113502742  # 14.67% - exact parity for both approaches
     # expected_em = 2.0815194567180093  # 2.08x - exact parity for both approaches
     # expected_equity = 9277172.304  # $9,277,172 - exact parity for both approaches
-    expected_irr = (
-        0.3994827643858826  # 39.95% - high development returns (5-year hold, 5.0% exit cap)
-    )
+    expected_irr = 0.3994827643858826  # 39.95% - high development returns (5-year hold, 5.0% exit cap)
     expected_em = (
         6.139711904885357  # 6.14x - reduced from 7.91x but still high (target 2.5-4.0x)
     )

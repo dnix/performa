@@ -106,14 +106,14 @@ class DealResults:  # noqa: PLR0904
         contributions = self._queries.ledger[
             self._queries.ledger["subcategory"] == "Equity Contribution"
         ]["amount"].sum()
-        
+
         distributions = self._queries.ledger[
-            self._queries.ledger["subcategory"] == "Equity Distribution"  
+            self._queries.ledger["subcategory"] == "Equity Distribution"
         ]["amount"].sum()
-        
+
         if contributions <= 0:
             return None  # No equity investment to measure against
-            
+
         return abs(distributions) / contributions
 
     @cached_property
@@ -132,16 +132,16 @@ class DealResults:  # noqa: PLR0904
 
         This represents the project's net cash requirements after debt service payments.
         Industry standard formula: LCF = UCF - Debt Service
-        
+
         This is PROJECT-level analysis, not partner-level distributions.
         """
         # Get project cash flows and debt service
         project_cf = self._queries.project_cash_flow()
         debt_service = self._queries.debt_service()
-        
+
         # Calculate levered cash flow (debt service is already negative)
         levered_cf = project_cf + debt_service
-        
+
         # Align with timeline
         return self._timeline.align_series(levered_cf, fill_value=0.0)
 
@@ -149,12 +149,12 @@ class DealResults:  # noqa: PLR0904
     def equity_cash_flow(self) -> pd.Series:
         """
         Partner-level equity cash flows (investor perspective).
-        
+
         This represents actual cash flows to/from equity partners including:
         - Equity contributions (negative to investors)
-        - Operating distributions (positive to investors)  
+        - Operating distributions (positive to investors)
         - Disposition distributions (positive to investors)
-        
+
         This is PARTNER-level analysis for equity investor returns.
         """
         # Query equity partner flows and flip to investor perspective
@@ -169,12 +169,12 @@ class DealResults:  # noqa: PLR0904
     def unlevered_cash_flow(self) -> pd.Series:
         """
         Project-level cash flow before debt effects (industry standard definition).
-        
+
         ALWAYS includes:
         - Operational cash flows (NOI - CapEx - TI - LC)
         - Capital outflows: acquisition costs, construction costs
         - Capital inflows: disposition/sale proceeds
-        
+
         This is the standard real estate definition of UCF.
         """
         flows = self._queries.project_cash_flow()
@@ -199,11 +199,11 @@ class DealResults:  # noqa: PLR0904
         return flows.reindex(self._timeline.period_index, fill_value=0.0)
 
     # REMOVED: asset_value() - ambiguous "latest" concept replaced with explicit methods:
-    #   - asset_value_at(date) for specific dates  
+    #   - asset_value_at(date) for specific dates
     #   - disposition_valuation for exit value
     #   - refi_valuation for refinancing value
     #   - asset_valuations for complete time series
-    
+
     def asset_value_at(self, date: pd.Period) -> float:
         """
         NON-CASH asset valuation as of specific date.
@@ -226,7 +226,7 @@ class DealResults:  # noqa: PLR0904
             refi_value = results.asset_value_at(refi_date)  # Analytical snapshot
         """
         return self._queries.asset_value_at(date)
-    
+
     @cached_property
     def asset_valuations(self) -> pd.Series:
         """
@@ -251,34 +251,36 @@ class DealResults:  # noqa: PLR0904
     # ==========================================================================
     # CONVENIENT ASSET VALUATION PROPERTIES (POC)
     # ==========================================================================
-    
+
     @cached_property
     def acquisition_valuation(self) -> Optional[float]:
         """
         Asset valuation at acquisition (if recorded).
-        
+
         Returns:
             Asset value at or near acquisition date, None if not found
-            
+
         Note:
             This is a convenience property that may be too limiting for complex deals.
             Use asset_value_at() for more precise date control.
         """
         try:
             # Use acquisition date from deal
-            acq_date = pd.Period(self._deal.acquisition.acquisition_date, freq=self._timeline.frequency)
+            acq_date = pd.Period(
+                self._deal.acquisition.acquisition_date, freq=self._timeline.frequency
+            )
             return self._queries.asset_value_at(acq_date)
         except (ValueError, AttributeError):
             return None
-    
+
     @cached_property
     def refi_valuation(self) -> Optional[float]:
         """
         Asset valuation for refinancing purposes (if applicable).
-        
+
         Returns:
             Conservative valuation used for refinancing, None if not found
-            
+
         Note:
             This is a convenience property that may be too limiting for complex deals
             with multiple refinancings. Use asset_value_at() for more precise control.
@@ -290,15 +292,15 @@ class DealResults:  # noqa: PLR0904
             return self._queries.asset_value_at(target_date)
         except (ValueError, IndexError):
             return None
-    
+
     @cached_property
     def disposition_valuation(self) -> Optional[float]:
         """
         Asset valuation at disposition/exit (if recorded).
-        
+
         Returns:
             Market valuation used for disposition, None if not found
-            
+
         Note:
             This is a convenience property that may be too limiting for complex deals.
             Use asset_value_at() for more precise date control.
@@ -306,13 +308,13 @@ class DealResults:  # noqa: PLR0904
         try:
             # Use the last few periods of the timeline (typical disposition timing)
             final_periods = self._timeline.period_index[-3:]  # Last 3 periods
-            
+
             for period in reversed(final_periods):  # Check from most recent backwards
                 try:
                     return self._queries.asset_value_at(period)
                 except ValueError:
                     continue
-            
+
             # If no valuation in final periods, return None
             return None
         except (ValueError, IndexError):
@@ -367,7 +369,7 @@ class DealResults:  # noqa: PLR0904
         """
         # Calculate DSCR series directly from ledger (no circular dependencies)
         dscr_series = self._calculate_dscr_series()
-        
+
         if dscr_series.empty or dscr_series.sum() == 0:
             return {
                 "dscr_series": None,
@@ -381,12 +383,16 @@ class DealResults:  # noqa: PLR0904
 
         # Calculate comprehensive metrics directly
         non_zero_dscr = dscr_series[dscr_series > 0]
-        
+
         return {
             "dscr_series": dscr_series,
             "minimum_dscr": float(dscr_series.min()) if not dscr_series.empty else None,
-            "average_dscr": float(non_zero_dscr.mean()) if not non_zero_dscr.empty else None,
-            "median_dscr": float(dscr_series.median()) if not dscr_series.empty else None,
+            "average_dscr": float(non_zero_dscr.mean())
+            if not non_zero_dscr.empty
+            else None,
+            "median_dscr": float(dscr_series.median())
+            if not dscr_series.empty
+            else None,
             "covenant_analysis": self._calculate_covenant_analysis(dscr_series),
             "trend_slope": self._calculate_dscr_trend_slope(dscr_series),
             "trend_direction": self._determine_dscr_trend_direction(dscr_series),
@@ -416,10 +422,10 @@ class DealResults:  # noqa: PLR0904
         """Calculate covenant analysis for common DSCR thresholds."""
         if dscr_series.empty:
             return {}
-            
+
         # Common commercial real estate covenant thresholds
         thresholds = [1.0, 1.1, 1.15, 1.2, 1.25, 1.3, 1.35, 1.4, 1.5]
-        
+
         covenant_analysis = {}
         for threshold in thresholds:
             below_threshold = dscr_series < threshold
@@ -427,63 +433,67 @@ class DealResults:  # noqa: PLR0904
             consecutive_periods = self._find_max_consecutive_periods_below_threshold(
                 dscr_series, threshold
             )
-            
+
             covenant_analysis[f"below_{threshold}"] = {
                 "periods_count": int(periods_below),
-                "percentage": float(periods_below / len(dscr_series) * 100) if len(dscr_series) > 0 else 0.0,
+                "percentage": float(periods_below / len(dscr_series) * 100)
+                if len(dscr_series) > 0
+                else 0.0,
                 "max_consecutive": int(consecutive_periods),
             }
-            
+
         return covenant_analysis
-    
-    def _find_max_consecutive_periods_below_threshold(self, dscr_series: pd.Series, threshold: float) -> int:
+
+    def _find_max_consecutive_periods_below_threshold(
+        self, dscr_series: pd.Series, threshold: float
+    ) -> int:
         """Find maximum consecutive periods below a given threshold."""
         if dscr_series.empty:
             return 0
-            
+
         below_threshold = dscr_series < threshold
         max_consecutive = 0
         current_consecutive = 0
-        
+
         for is_below in below_threshold:
             if is_below:
                 current_consecutive += 1
                 max_consecutive = max(max_consecutive, current_consecutive)
             else:
                 current_consecutive = 0
-                
+
         return max_consecutive
-    
+
     def _calculate_dscr_trend_slope(self, dscr_series: pd.Series) -> Optional[float]:
         """Calculate the trend slope of DSCR over time."""
         if dscr_series.empty or len(dscr_series) < 2:
             return None
-            
+
         # Simple linear regression slope
         non_zero_periods = dscr_series[dscr_series > 0]
         if len(non_zero_periods) < 2:
             return None
-            
+
         x = range(len(non_zero_periods))
         y = non_zero_periods.values
-        
+
         # Calculate slope using least squares
         n = len(x)
         sum_x = sum(x)
         sum_y = sum(y)
         sum_xy = sum(x[i] * y[i] for i in range(n))
         sum_x2 = sum(x[i] ** 2 for i in range(n))
-        
+
         if n * sum_x2 - sum_x * sum_x == 0:
             return None
-            
+
         slope = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x * sum_x)
         return float(slope)
-    
+
     def _determine_dscr_trend_direction(self, dscr_series: pd.Series) -> Optional[str]:
         """Determine if DSCR trend is improving, declining, or stable."""
         slope = self._calculate_dscr_trend_slope(dscr_series)
-        
+
         if slope is None:
             return None
         elif slope > 0.01:  # Threshold for meaningful improvement

@@ -557,9 +557,7 @@ def main():
     ):
         if comp_results and pattern_results:
             # Golden values for stabilized comparison (updated for market reasonableness - institutional quality)
-            expected_irr = (
-                0.091363  # 9.14% - attractive returns for institutional multifamily ($1150 rent, 6.5% exit cap)
-            )
+            expected_irr = 0.091363  # 9.14% - attractive returns for institutional multifamily ($1150 rent, 6.5% exit cap)
             expected_em = 4.4077  # 4.41x - strong multiple reflecting rent growth and cap compression
             expected_equity = 3815680  # $3,815,680 - actual equity invested
 

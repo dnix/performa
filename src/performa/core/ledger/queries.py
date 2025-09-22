@@ -176,10 +176,10 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
     Important: All cash flow methods should exclude flow_purpose="Valuation" entries.
     These are non-cash analytical snapshots that represent property appraisals
     and should not be included in cash flow calculations.
-    
+
     Standard exclusion pattern:
         & (ledger["flow_purpose"] != TransactionPurpose.VALUATION.value)
-    
+
     New query methods should follow this pattern to maintain mathematical
     consistency across the system.
 
@@ -584,7 +584,10 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         """
         service = self.ledger[
             (self.ledger["subcategory"].isin(DEBT_SERVICE_SUBCATEGORIES))
-            & (self.ledger["flow_purpose"] == TransactionPurpose.FINANCING_SERVICE.value)
+            & (
+                self.ledger["flow_purpose"]
+                == TransactionPurpose.FINANCING_SERVICE.value
+            )
         ]
         if service.empty:
             return pd.Series(dtype=float, name="Debt Service")
@@ -727,23 +730,23 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
     # REMOVED: asset_value() - ambiguous "latest" concept replaced with explicit methods:
     #   - asset_value_at(date) for specific dates
     #   - asset_valuations() for complete time series
-    
+
     def asset_value_at(self, date: pd.Period) -> float:
         """
         Get NON-CASH asset valuation as of specific date.
-        
+
         Uses the most recent valuation on or before the specified date.
         These are analytical snapshots, not cash transactions.
-        
+
         Args:
             date: Target date for valuation lookup
-            
+
         Returns:
             NON-CASH asset valuation as of the specified date
-            
+
         Raises:
             ValueError: If no asset valuation found on or before the date
-            
+
         Example:
             refi_date = pd.Period("2025-06", freq="M")
             refi_value = queries.asset_value_at(refi_date)  # Non-cash analytical record
@@ -755,33 +758,33 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
                 "No asset valuation found in ledger. "
                 "Asset value must be explicitly set via a valuation transaction."
             )
-        
+
         # Filter to valuations on or before the target date
         valid_txns = valuation_txns[valuation_txns["date"] <= date]
-        
+
         if valid_txns.empty:
             raise ValueError(
                 f"No asset valuation found on or before {date}. "
                 f"First valuation is on {valuation_txns['date'].min()}."
             )
-        
+
         # Return most recent valuation on or before the date
         return valid_txns.sort_values("date")["amount"].iloc[-1]
-    
+
     def asset_valuations(self) -> pd.Series:
         """
         Get NON-CASH valuation records for analytical purposes.
-        
+
         These are calculated property valuations recorded for audit trail
         and reporting - NOT cash transactions. Used for LTV analysis,
         appraisal tracking, and valuation history.
-        
+
         Returns:
             Time series of NON-CASH asset valuations indexed by date
-            
+
         Raises:
             ValueError: If no asset valuations found in ledger
-            
+
         Example:
             valuations = queries.asset_valuations()  # Non-cash analytical records
             print(f"Valuations from {valuations.index.min()} to {valuations.index.max()}")
@@ -793,17 +796,17 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
                 "No asset valuations found in ledger. "
                 "Asset values must be explicitly set via valuation transactions."
             )
-        
+
         # Group by date and sum (in case of multiple valuations on same date)
         valuations = valuation_txns.groupby("date")["amount"].sum()
         valuations.name = "Asset Valuations"
-        
+
         return valuations.sort_index()
-    
+
     def _get_valuation_transactions(self) -> pd.DataFrame:
         """
         Helper method to get all asset valuation transactions.
-        
+
         Returns:
             DataFrame of asset valuation transactions
         """
@@ -996,14 +999,20 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         # Exclude financing sources (loans, equity, refinancing) but include genuine asset sales
         # Note: Real disposition proceeds have CAPITAL_SOURCE purpose (not VALUATION purpose)
         disposition_proceeds = self.ledger[
-            (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE.value) &
-            (~self.ledger["subcategory"].isin([
-                "Loan Proceeds", "Equity Contribution", "Refinancing Proceeds"
-            ]))
+            (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE.value)
+            & (
+                ~self.ledger["subcategory"].isin([
+                    "Loan Proceeds",
+                    "Equity Contribution",
+                    "Refinancing Proceeds",
+                ])
+            )
         ]
 
         # Combine capital uses and disposition proceeds
-        capital_transactions = pd.concat([capital_uses, disposition_proceeds], ignore_index=True)
+        capital_transactions = pd.concat(
+            [capital_uses, disposition_proceeds], ignore_index=True
+        )
 
         if capital_transactions.empty:
             # No capital events - return just operational flows
@@ -1080,7 +1089,11 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         partner_flows = self.ledger[
             (self.ledger["entity_type"].isin(["GP", "LP"]))
             & (self.ledger["flow_purpose"] == TransactionPurpose.CAPITAL_SOURCE.value)
-            & (~self.ledger["item_name"].str.contains("Exit Sale Proceeds", case=False, na=False))
+            & (
+                ~self.ledger["item_name"].str.contains(
+                    "Exit Sale Proceeds", case=False, na=False
+                )
+            )
             & (self.ledger["flow_purpose"] != TransactionPurpose.VALUATION.value)
         ]
 
@@ -1131,13 +1144,19 @@ class LedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         # 1. Principal payments (exact balance reduction)
         principal_payments = self.ledger[
             (self.ledger["subcategory"] == FinancingSubcategoryEnum.PRINCIPAL_PAYMENT)
-            & (self.ledger["flow_purpose"] == TransactionPurpose.FINANCING_SERVICE.value)
+            & (
+                self.ledger["flow_purpose"]
+                == TransactionPurpose.FINANCING_SERVICE.value
+            )
         ]
 
         # 2. Full loan payoffs
         debt_payoffs = self.ledger[
             (self.ledger["subcategory"].isin(DEBT_PAYOFF_SUBCATEGORIES))
-            & (self.ledger["flow_purpose"] == TransactionPurpose.FINANCING_SERVICE.value)
+            & (
+                self.ledger["flow_purpose"]
+                == TransactionPurpose.FINANCING_SERVICE.value
+            )
         ]
 
         # DEBT_SERVICE fully deprecated - all facilities now use disaggregated I&P approach

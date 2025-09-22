@@ -50,10 +50,12 @@ class PatternBase(Model, ABC):
     # Optional timeline overrides for advanced use cases
     # Most users should rely on pattern's hold_period_years for timeline
     analysis_start_date: Optional[date] = Field(
-        None, description="Override analysis start date (defaults to acquisition/project start)"
+        None,
+        description="Override analysis start date (defaults to acquisition/project start)",
     )
     analysis_end_date: Optional[date] = Field(
-        None, description="Override analysis end date (defaults to hold period + construction/lease-up)"
+        None,
+        description="Override analysis end date (defaults to hold period + construction/lease-up)",
     )
 
     # Optional global settings for analysis
@@ -81,9 +83,9 @@ class PatternBase(Model, ABC):
         Derive timeline from hold_period_years business parameter.
 
         Unified Timeline Approach:
-        - Stabilized patterns: Timeline = acquisition_date to (acquisition_date + hold_period_years) 
+        - Stabilized patterns: Timeline = acquisition_date to (acquisition_date + hold_period_years)
         - Development patterns: Timeline = acquisition_date to (construction_end + lease_up + hold_period_years)
-        
+
         This eliminates timeline mismatches by making hold_period_years the single source of truth.
         All exit valuations, analysis periods, and business calculations derive from this.
 
@@ -100,7 +102,7 @@ class PatternBase(Model, ABC):
         - Hold period drives everything (industry standard like Argus/Rockport)
         - Development patterns: hold_period_years = stabilized hold AFTER construction/lease-up
         - Stabilized patterns: hold_period_years = total operating period
-        
+
         Priority:
         1. If both analysis_start_date and analysis_end_date provided, use them (override)
         2. Otherwise, delegate to pattern-specific _derive_timeline() based on hold_period_years

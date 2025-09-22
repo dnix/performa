@@ -131,7 +131,9 @@ RolloverProfileIdentifier = str
 class DirectLeaseTerms(Model):
     base_rent_value: Optional[PositiveFloat] = None
     base_rent_reference: Optional[ReferenceKey] = None
-    base_rent_frequency: FrequencyEnum = FrequencyEnum.MONTHLY  # Keep existing default behavior
+    base_rent_frequency: FrequencyEnum = (
+        FrequencyEnum.MONTHLY
+    )  # Keep existing default behavior
     term_months: Optional[PositiveInt] = None
     upon_expiration: Optional[UponExpirationEnum] = None
     rent_escalation: Optional["RentEscalationBase"] = None

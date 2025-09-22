@@ -345,7 +345,9 @@ def create_construction_to_permanent_plan(
             if lease_up_months and lease_up_months > 0:
                 # Refinance after construction + most of lease-up is complete (80% occupancy buffer)
                 stabilization_buffer = max(1, int(lease_up_months * 0.8))
-                permanent_params["refinance_timing"] = construction_duration + stabilization_buffer
+                permanent_params["refinance_timing"] = (
+                    construction_duration + stabilization_buffer
+                )
             else:
                 # Legacy behavior: Fund 1 month after construction completion
                 # NOTE: This may cause auto-sizing failures if NOI is zero at refinance

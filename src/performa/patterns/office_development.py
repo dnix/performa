@@ -198,20 +198,23 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
     def _derive_timeline(self) -> Timeline:
         """
         Derive timeline from hold_period_years (stabilized hold after construction + lease-up).
-        
+
         Development Timeline: Acquisition → Construction → Lease-up → Stabilized Hold Period
         - Total timeline = construction_start_months + construction_duration_months + 12 (lease-up) + hold_period_years * 12
         """
         # Calculate total development timeline
-        construction_period_months = self.construction_start_months + self.construction_duration_months
+        construction_period_months = (
+            self.construction_start_months + self.construction_duration_months
+        )
         lease_up_months = 12  # Standard office lease-up period
         stabilized_hold_months = self.hold_period_years * 12
-        
-        total_timeline_months = construction_period_months + lease_up_months + stabilized_hold_months
-        
+
+        total_timeline_months = (
+            construction_period_months + lease_up_months + stabilized_hold_months
+        )
+
         return Timeline(
-            start_date=self.acquisition_date,
-            duration_months=total_timeline_months
+            start_date=self.acquisition_date, duration_months=total_timeline_months
         )
 
     @property
@@ -315,7 +318,8 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
                 frequency_months=self.leasing_frequency_months,
             ),
             leasing_assumptions=DirectLeaseTerms(
-                base_rent_value=self.target_rent_psf / 12,  # Convert annual $/SF to monthly
+                base_rent_value=self.target_rent_psf
+                / 12,  # Convert annual $/SF to monthly
                 base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 base_rent_frequency=FrequencyEnum.MONTHLY,  # Explicit: using monthly values
                 term_months=self.lease_term_months,

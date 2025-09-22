@@ -115,8 +115,8 @@ def main():
 
         print("✅ Analysis completed successfully!")
         # Access deal_summary as dict since it returns a dictionary
-        deal_summary = results.deal_summary if hasattr(results, 'deal_summary') else {}
-        if isinstance(deal_summary, dict) and 'deal_name' in deal_summary:
+        deal_summary = results.deal_summary if hasattr(results, "deal_summary") else {}
+        if isinstance(deal_summary, dict) and "deal_name" in deal_summary:
             print(f"   Deal name: {deal_summary['deal_name']}")
         else:
             print(f"   Deal name: {pattern_deal.name}")
