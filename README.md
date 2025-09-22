@@ -132,7 +132,7 @@ Our inspiration comes from countless sources, but especially [Pydantic](https://
 
 ## 📝 Note from the Author
 
-My name is [Dave](https://github.com/dnix) 👋. I am an entrepreneur and technologist; I like building useful tech for the real estate 🏢 and energy ⚡️ spaces.
+My name is [Dave](https://github.com/dnix). I am an entrepreneur and technologist -- a _real estate_ developer and a _software_ developer 🦄. I like building useful tech for the real estate 🏢 and energy ⚡️ spaces.
 
 I am building [Performa](https://github.com/dnix/performa) to try to nudge the real estate industry beyond brittle spreadsheets, closed-system software, and the coming scourge of generative AI slop -- toward better tooling and a standard protocol for all stakeholders. 👷
 
