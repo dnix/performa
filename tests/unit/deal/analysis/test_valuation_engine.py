@@ -65,11 +65,11 @@ def sample_deal() -> Mock:
     # Set up deal attributes for ValuationEngine tests
     deal.acquisition = None  # No acquisition price - use NOI-based valuation
     deal.exit_valuation = None  # No exit valuation - use default cap rate
-    
+
     # Add asset mock for non-cash valuation recording
     deal.asset = Mock()
     deal.asset.uid = "test-asset-001"
-    
+
     return deal
 
 

@@ -115,7 +115,9 @@ class TestCashFlowOrchestratorMathematical:
 
         # Total OpEx should include management fee (negative cost)
         total_opex = context.resolved_lookups["Total Operating Expenses"]
-        assert total_opex.sum() == pytest.approx(-6000.0, abs=0.01)  # Just the mgmt fee (negative)
+        assert total_opex.sum() == pytest.approx(
+            -6000.0, abs=0.01
+        )  # Just the mgmt fee (negative)
 
     def test_orchestrator_dependent_model_execution_order(self, context):
         """
@@ -273,7 +275,9 @@ class TestCashFlowOrchestratorMathematical:
         expected_pgr = 15000.0 * 12  # $180K
         expected_egi = expected_pgr  # No vacancy/abatement
         expected_mgmt_fee = expected_egi * 0.04  # $7.2K
-        expected_total_opex = -(4000.0 * 12 + expected_mgmt_fee)  # -(48K + 7.2K) = -55.2K (negative cost)
+        expected_total_opex = -(
+            4000.0 * 12 + expected_mgmt_fee
+        )  # -(48K + 7.2K) = -55.2K (negative cost)
         expected_noi = expected_egi + expected_total_opex  # $180K + (-$55.2K) = $124.8K
 
         # CRITICAL VALIDATIONS

@@ -372,7 +372,9 @@ class TestSystematicDependencyScenarios:
 
         # Basic sanity checks (detailed math would be complex with multiple iterations)
         assert mgmt_result.sum() > 0, "Management fee should be calculated"
-        assert admin_result.sum() < 0, "Admin fee should be calculated (negative: 8% of negative Total OpEx)"
+        assert (
+            admin_result.sum() < 0
+        ), "Admin fee should be calculated (negative: 8% of negative Total OpEx)"
         assert asset_result.sum() > 0, "Asset management fee should be calculated"
 
         # Validate fees are reasonable percentages
@@ -450,15 +452,17 @@ class TestSystematicDependencyScenarios:
         base_capex_result = context.resolved_lookups[base_capex.uid]
         mgmt_result = context.resolved_lookups[construction_mgmt.uid]
         total_capex = context.resolved_lookups["Total Capital Expenditures"]
-        
+
         print(f"DEBUG: Base CapEx result: {base_capex_result.sum():,.2f}")
         print(f"DEBUG: Mgmt fee result: {mgmt_result.sum():,.2f}")
         print(f"DEBUG: Total CapEx aggregate: {total_capex.sum():,.2f}")
 
         # Validate annual CapEx calculation (FrequencyEnum.ANNUAL)
         expected_base_capex_annual = 50000.0  # $50K annually
-        expected_mgmt_fee = -expected_base_capex_annual * 0.08  # 8% of negative aggregate = -$4K
-        
+        expected_mgmt_fee = (
+            -expected_base_capex_annual * 0.08
+        )  # 8% of negative aggregate = -$4K
+
         # Total = base CapEx (negated) + mgmt fee (already negative) = -$50K + (-$4K) = -$54K
         # BUT: orchestrator calculates mgmt fee as 8% of negative aggregate, giving -$4K
         # Then combines: -$50K from base, -$4K from mgmt = -$54K? No, we get -$46K

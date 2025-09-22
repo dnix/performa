@@ -388,10 +388,14 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
 
         # Should have breakdown by subcategory (negative costs)
         assert breakdown.loc[pd.Period("2024-01", freq="M"), "Purchase Price"] == -50000
-        assert breakdown.loc[pd.Period("2024-01", freq="M"), "Other"] == -7000  # TI + LC (negative costs)
+        assert (
+            breakdown.loc[pd.Period("2024-01", freq="M"), "Other"] == -7000
+        )  # TI + LC (negative costs)
         # Disaggregated debt service components (negative costs)
         assert breakdown.loc[pd.Period("2024-02", freq="M"), "Interest Payment"] == -500
-        assert breakdown.loc[pd.Period("2024-02", freq="M"), "Principal Payment"] == -300
+        assert (
+            breakdown.loc[pd.Period("2024-02", freq="M"), "Principal Payment"] == -300
+        )
 
     def test_sources_breakdown(self):
         """Test sources breakdown by subcategory."""

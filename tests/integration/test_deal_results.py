@@ -131,7 +131,9 @@ class TestDealResultsCore:
 
         # Test that disposition proceeds appear in final periods (proving UCF includes capital events)
         final_periods = results.unlevered_cash_flow.tail(12)  # Last year
-        has_large_positive_period = (final_periods > 10_000_000).any()  # Exit proceeds (realistic expectation)
+        has_large_positive_period = (
+            final_periods > 10_000_000
+        ).any()  # Exit proceeds (realistic expectation)
         assert has_large_positive_period, (
             f"Final periods should include large disposition proceeds. "
             f"UCF must include capital events. Final year max: ${final_periods.max():,.0f}"
@@ -275,7 +277,7 @@ class TestCashFlowHierarchy:
             f"got {dev_construction_ucf:,.0f}"
         )
 
-        # Test stabilized pattern  
+        # Test stabilized pattern
         stab_pattern = StabilizedOfficePattern(
             property_name="UCF Standard Test - Stabilized",
             acquisition_date=date(2024, 1, 1),
@@ -294,7 +296,7 @@ class TestCashFlowHierarchy:
             f"Stabilized UCF Period 1 should include acquisition costs (negative), "
             f"got ${period_1_ucf:,.0f}. UCF always includes capital events."
         )
-        
+
         # Later periods should be positive from operations
         operational_periods = stab_results.unlevered_cash_flow.iloc[1:13]
         positive_periods = (operational_periods > 0).sum()

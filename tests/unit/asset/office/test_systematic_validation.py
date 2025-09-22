@@ -253,11 +253,15 @@ class TestSystematicValidation:
         # Manual calculation
         expected_base_rent = 10000 * 25 / 12  # $20,833
         expected_opex = -(10000 * 10 / 12)  # -$8,333 (negative cost)
-        expected_recovery = abs(expected_opex)  # +$8,333 (100% recovery as positive income)
+        expected_recovery = abs(
+            expected_opex
+        )  # +$8,333 (100% recovery as positive income)
         expected_pgr = (
             expected_base_rent + expected_recovery
         )  # $29,166 (industry standard: all revenue)
-        expected_noi = expected_base_rent + expected_recovery + expected_opex  # $20,833 + $8,333 + (-$8,333) = $20,833
+        expected_noi = (
+            expected_base_rent + expected_recovery + expected_opex
+        )  # $20,833 + $8,333 + (-$8,333) = $20,833
 
         # Validate with perfect precision
         assert jan_pgr == pytest.approx(expected_pgr, rel=1e-6)
@@ -388,7 +392,9 @@ class TestSystematicValidation:
         tenant_b_rent = 8000 * 28 / 12  # $18,667
 
         total_opex = -(20000 * 8 / 12)  # -$13,333 (negative cost)
-        tenant_b_recovery = (8000 / 20000) * abs(total_opex)  # $5,333 (pro-rata share, positive recovery)
+        tenant_b_recovery = (8000 / 20000) * abs(
+            total_opex
+        )  # $5,333 (pro-rata share, positive recovery)
 
         total_pgr = (
             tenant_a_rent + tenant_b_rent + tenant_b_recovery
@@ -561,7 +567,9 @@ class TestSystematicValidation:
         collection_loss = (
             tenant_revenue * 0.01
         )  # $490 (collection loss based on tenant revenue)
-        expected_noi = egi - collection_loss + total_opex  # $47,530 - $490 + (-$13,333) = $33,707
+        expected_noi = (
+            egi - collection_loss + total_opex
+        )  # $47,530 - $490 + (-$13,333) = $33,707
 
         # Validate with perfect precision - this tests our loss calculation fix!
         assert jan_pgr == pytest.approx(
@@ -840,7 +848,9 @@ class TestSystematicValidation:
         assert (
             jan_recovery > 30000
         ), "Recovery should be substantial for multi-tenant property"
-        assert jan_opex < -50000, "OpEx should be realistic for 50k SF property (negative cost)"
+        assert (
+            jan_opex < -50000
+        ), "OpEx should be realistic for 50k SF property (negative cost)"
         assert jan_noi > 80000, "NOI should be strong and positive"
 
         # Per SF analysis - validate market reasonableness
@@ -975,7 +985,9 @@ class TestSystematicValidation:
         expected_base_opex = -(10000 * 8 / 12)  # -$6,667 (negative cost)
         # Note: Admin fee calculation may not be working as expected due to circular dependency
         # Adjusting to match actual system behavior for sign consistency test
-        expected_total_opex = -6333.333333333334  # Matching actual system calculation (negative cost)
+        expected_total_opex = (
+            -6333.333333333334
+        )  # Matching actual system calculation (negative cost)
         expected_noi = expected_rent + expected_total_opex  # Revenue + (negative costs)
 
         # Validate with perfect precision
@@ -1538,7 +1550,9 @@ class TestSystematicValidation:
         expected_current_opex = jan_opex  # Use actual calculated OpEx (negative cost)
         expected_recovery = jan_recovery  # Use actual recovery (positive income)
         expected_pgr = jan_pgr  # Use actual PGR to match system calculation
-        expected_noi = expected_base_rent + expected_recovery + expected_current_opex  # Revenue + recovery + (negative costs)
+        expected_noi = (
+            expected_base_rent + expected_recovery + expected_current_opex
+        )  # Revenue + recovery + (negative costs)
 
         # Validate with perfect precision
         assert jan_pgr == pytest.approx(expected_pgr, rel=1e-6)
@@ -1661,7 +1675,9 @@ class TestSystematicValidation:
         expected_current_opex = jan_opex  # Use actual calculated OpEx (negative cost)
         expected_recovery = jan_recovery  # Use actual recovery (positive income)
         expected_pgr = jan_pgr  # Use actual PGR to match system calculation
-        expected_noi = expected_base_rent + expected_recovery + expected_current_opex  # Revenue + recovery + (negative costs)
+        expected_noi = (
+            expected_base_rent + expected_recovery + expected_current_opex
+        )  # Revenue + recovery + (negative costs)
 
         # Validate with perfect precision
         assert jan_pgr == pytest.approx(expected_pgr, rel=1e-6)
@@ -2385,8 +2401,8 @@ class TestSystematicValidation:
         assert (
             abs(jan_opex_no_capital) > (base_recoverable_opex * 0.9) / 12
         ), "OpEx without capital should be reasonable"
-        assert (
-            abs(jan_opex) > abs(jan_opex_no_capital)
+        assert abs(jan_opex) > abs(
+            jan_opex_no_capital
         ), "Total OpEx should exceed OpEx without capital"
 
         # 3. Check if cap is working (this may reveal a library limitation)
@@ -2685,7 +2701,8 @@ class TestSystematicValidation:
         # 3. Current expenses should reflect 2024 market levels (~$7.74/SF)
         expected_2024_market = 15000 * 7.74 / 12  # Monthly for 15k SF
         assert (
-            abs(abs(opex_conservative) - expected_2024_market) / expected_2024_market < 0.10
+            abs(abs(opex_conservative) - expected_2024_market) / expected_2024_market
+            < 0.10
         ), f"Current OpEx ${abs(opex_conservative):,.0f} should be close to ${expected_2024_market:,.0f}"
 
         # 4. Multi-year cap effects: Lower caps should create more savings
