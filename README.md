@@ -136,7 +136,7 @@ My name is [Dave](https://github.com/dnix) 👋. I am an entrepreneur and techno
 
 I am building [Performa](https://github.com/dnix/performa) to try to nudge the real estate industry beyond brittle spreadsheets, closed-system software, and the coming scourge of generative AI slop -- toward better tooling and a standard protocol for all stakeholders. 🚀
 
-<p align="right">
+<p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/synthwave-footer-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="docs/synthwave-footer-light.svg">
