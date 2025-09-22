@@ -134,16 +134,12 @@ Our inspiration comes from countless sources, but especially [Pydantic](https://
 
 My name is [Dave](https://github.com/dnix) 👋. I am an entrepreneur and technologist; I like building useful tech for the real estate 🏢 and energy ⚡️ spaces.
 
-I am building [Performa](https://github.com/dnix/performa) to try to nudge the real estate industry beyond brittle spreadsheets, closed-system software, and the coming scourge of generative AI slop -- toward better tooling and a standard protocol for all stakeholders.
-
-There is a better way. Let's build it! 🚀
-
-<br>
+I am building [Performa](https://github.com/dnix/performa) to try to nudge the real estate industry beyond brittle spreadsheets, closed-system software, and the coming scourge of generative AI slop -- toward better tooling and a standard protocol for all stakeholders. 🚀
 
 <p align="right">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/synthwave-footer-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="docs/synthwave-footer-light.svg">
-    <img src="docs/synthwave-footer-light.svg" alt="Performa" width="200">
+    <img src="docs/synthwave-footer-light.svg" alt="Performa" width="300">
   </picture>
 </p>
