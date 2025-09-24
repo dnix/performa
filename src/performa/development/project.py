@@ -1,0 +1,97 @@
+# Copyright 2024-2025 David Gordon Nix
+# SPDX-License-Identifier: Apache-2.0
+
+"""
+Development Project Data Model
+
+The DevelopmentProject is a data container that bundles all the
+components needed to model the complete lifecycle of a real estate
+development project from ground-breaking to stabilized operations.
+
+This model uses the "Asset Factory" pattern where development blueprints
+create stabilized assets rather than becoming assets themselves.
+"""
+
+from __future__ import annotations
+
+from typing import Annotated, List, Union
+
+from pydantic import Discriminator
+
+from ..asset.office import OfficeDevelopmentBlueprint
+from ..asset.residential import ResidentialDevelopmentBlueprint
+from ..core.base import PropertyBaseModel
+from ..core.capital import CapitalPlan
+
+# Polymorphic union type for development blueprints
+AnyDevelopmentBlueprint = Annotated[
+    Union[OfficeDevelopmentBlueprint, ResidentialDevelopmentBlueprint],
+    Discriminator("use_type"),
+]  # Required by Pydantic for polymorphic validation - discriminator enables type safety
+
+
+class DevelopmentProject(PropertyBaseModel):
+    """
+    Development project asset model for real estate development modeling.
+
+    This model represents a development project containing physical specifications,
+    construction plans, and operational blueprints that define how the completed
+    project will operate once stabilized.
+
+    Key Components:
+    - Physical specifications (inherited from PropertyBaseModel)
+    - Construction plan (CapitalPlan with timeline and costs)
+    - Development blueprints (specifications for stabilized operations)
+
+    Implementation Pattern:
+    The `blueprints` field uses the "Asset Factory" pattern where each blueprint
+    knows how to create its stabilized asset type (OfficeProperty, ResidentialProperty, etc.).
+
+    Example:
+        ```python
+        project = DevelopmentProject(
+            name="Mixed-Use Urban Development",
+            property_type=AssetTypeEnum.MIXED_USE,
+            gross_area=1200000.0,
+            net_rentable_area=1050000.0,
+            construction_plan=construction_plan,
+            blueprints=[
+                OfficeDevelopmentBlueprint(
+                    name="Office Tower",
+                    vacant_inventory=[...],
+                    absorption_plan=office_absorption_plan
+                ),
+                ResidentialDevelopmentBlueprint(
+                    name="Residential Component",
+                    vacant_inventory=[...],
+                    absorption_plan=residential_absorption_plan
+                )
+            ]
+        )
+        ```
+    """
+
+    # Development projects must specify what property type they're developing
+    # This is required and should reflect the actual development type:
+    # - AssetTypeEnum.OFFICE for office-only developments
+    # - AssetTypeEnum.MULTIFAMILY for residential-only developments
+    # - AssetTypeEnum.MIXED_USE for true mixed-use developments
+    # property_type: AssetTypeEnum  # Required field inherited from PropertyBaseModel
+
+    # Asset Components - Physical Development
+    construction_plan: CapitalPlan
+    blueprints: List[AnyDevelopmentBlueprint]
+
+    @property
+    def unit_count(self) -> int:
+        """Total number of units across all residential blueprints."""
+        total_units = 0
+        for blueprint in self.blueprints:
+            # Only count units from residential blueprints (they have vacant_inventory with unit_count)
+            if (
+                hasattr(blueprint, "vacant_inventory")
+                and blueprint.use_type == "RESIDENTIAL"
+            ):
+                for vacant_unit in blueprint.vacant_inventory:
+                    total_units += vacant_unit.unit_count
+        return total_units

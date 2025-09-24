@@ -1,0 +1,147 @@
+[project]
+name = "performa"
+version = "0.1.0"
+description = "Real estate financial analysis framework purpose-built for the AI era"
+authors = [
+    { name = "David Gordon Nix", email = "hi@davidgnix.com" },
+]
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Legal Industry",
+    "Intended Audience :: Other Audience",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Office/Business",
+    "Topic :: Office/Business :: Financial",
+    "Topic :: Office/Business :: Financial :: Accounting",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Office/Business :: Financial :: Spreadsheet",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Other/Nonlisted Topic",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
+    "Operating System :: OS Independent",
+    "Framework :: Pydantic",
+    "Framework :: Pydantic :: 2",
+    "Framework :: MkDocs",
+    "Typing :: Typed",
+]
+dependencies = [
+    "numpy",
+    "numpy-financial",
+    "pandas",
+    "scipy",
+    "orjson",
+    "pydantic",
+    "matplotlib",
+    "pyxirr",
+    "pyobsplot",
+    "squarify",
+]
+
+[project.optional-dependencies]
+dev = [
+    "uv",
+    "ruff",
+    "pytest",
+    "pytest-cov",
+    "deptry",
+    "marimo",
+    "streamlit",
+    "streamlit-extras",
+    "streamlit-pydantic @ git+https://github.com/HIL340/streamlit-pydantic.git@pydantic-2.7",
+    "watchdog",
+    "complexipy",
+]
+
+[project.urls]
+Homepage = "https://performa.dev"
+Documentation = "https://docs.performa.dev"
+Repository = "https://github.com/dnix/performa"
+"Bug Tracker" = "https://github.com/dnix/performa/issues"
+Changelog = "https://github.com/dnix/performa/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/performa"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+preview = true
+
+[tool.ruff.lint]
+extend-select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "PL",  # Pylint
+    "CPY", # flake8-copyright
+]
+ignore = [
+    "E501",  # Ignore line length errors
+    "F541",  # Ignore f-string without any placeholders
+    "F841",  # Ignore unused variable
+    "E303",  # Ignore too many blank lines
+    "E722",  # Ignore bare except
+    "E266",  # Ignore too many leading '#' for block comment
+]
+extend-ignore = [
+    "PLR2004",  # Ignore magic value used
+    "PLR0911",  # Ignore too many return statements
+    "PLR0912",  # Ignore too many branches
+    "PLR0913",  # Ignore too many arguments in function definition
+    "PLR0914",  # Ignore too many local variables
+    "PLR0917",  # Ignore too many positional arguments
+    "PLR0915",  # Ignore too many statements in function
+    "PLR0916",  # Ignore too many branches in function
+    "PLR1702",  # Ignore too many nested blocks
+    "PLR6201",  # Ignore use set literal when testing for membership
+    "PLR6301",  # Ignore could be a function, class method, or static method
+    "PLR1714",  # Ignore consider merging multiple comparisons
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Marimo notebooks often need empty returns for display cells
+"examples/marimo/**/*.py" = [
+    "PLR1711",
+    "PLC0415",
+]
+# Scripts and examples need to be runnable (shebang first line), so ignore the copyright header.
+"scripts/**/*.py" = ["CPY001"]
+"examples/**/*.py" = ["CPY001"]
+"tests/unit/reporting/test_debug.py" = ["PLC2701"]  # ignore import private methods
+"deprecated_notebook.py" = ["ALL"]
+
+[tool.pytest.ini_options]
+# Ignore the pandas FutureWarning for freq='M'. The pd.Period() constructor
+# still requires 'M' while other functions are moving to 'ME', creating a
+# temporary incompatibility. We will remove this filter once the libraries
+# are consistent.
+filterwarnings = [
+    "ignore:'M' is deprecated:FutureWarning",
+]
+
+[tool.ruff.lint.flake8-copyright]
+notice-rgx = "# Copyright 2024-2025 David Gordon Nix\\n# SPDX-License-Identifier: Apache-2.0\\n\\n"
+
+[tool.ruff.lint.pydocstyle]
+# https://github.com/google/styleguide/blob/gh-pages/pyguide.md#38-comments-and-docstrings
+convention = "google"

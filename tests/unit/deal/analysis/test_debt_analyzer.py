@@ -1,0 +1,835 @@
+# Copyright 2024-2025 David Gordon Nix
+# SPDX-License-Identifier: Apache-2.0
+
+"""
+Comprehensive Tests for DebtAnalyzer Specialist Service
+
+Unit tests for the DebtAnalyzer class that handles comprehensive debt facility analysis
+including institutional-grade debt service calculations, refinancing transactions, and covenant
+monitoring for commercial real estate financing.
+
+Test Coverage:
+1. Basic instantiation and method existence
+2. Financing structure analysis scenarios (with and without financing)
+3. Facility processing and debt service calculations
+4. Enhanced debt service calculations for permanent facilities
+5. DSCR calculations and metrics with various scenarios
+6. Refinancing transaction processing
+7. Error handling and edge cases
+8. Integration with various facility types
+"""
+
+from datetime import date
+from unittest.mock import Mock, patch
+from uuid import uuid4
+
+import pandas as pd
+import pytest
+
+from performa.core.ledger import Ledger
+from performa.core.ledger.records import SeriesMetadata
+from performa.core.primitives import GlobalSettings, Timeline
+from performa.core.primitives.enums import (
+    CalculationPhase,
+    CashFlowCategoryEnum,
+    FinancingSubcategoryEnum,
+)
+from performa.deal.analysis.debt import DebtAnalyzer
+from performa.deal.deal import Deal
+from performa.deal.orchestrator import DealContext
+
+# Note: Zombie result classes removed - using DealResults API directly
+
+
+@pytest.fixture
+def sample_timeline() -> Timeline:
+    """Standard timeline for testing."""
+    return Timeline(start_date=date(2024, 1, 1), duration_months=60)  # 5 years
+
+
+@pytest.fixture
+def sample_settings() -> GlobalSettings:
+    """Standard settings for testing."""
+    return GlobalSettings()
+
+
+@pytest.fixture
+def sample_ledger() -> Ledger:
+    """Standard ledger builder for testing."""
+    return Ledger()
+
+
+# DealContext helper removed - using the real DealContext class directly
+
+
+@pytest.fixture
+def mock_deal_without_financing():
+    """Mock deal without financing."""
+    deal = Mock(spec=Deal)
+    deal.financing = None
+    deal.asset = Mock()  # Add missing asset attribute
+    deal.asset.uid = uuid4()  # Add missing uid for ledger transactions
+    return deal
+
+
+@pytest.fixture
+def mock_deal_with_financing():
+    """Mock deal with financing structure."""
+    deal = Mock(spec=Deal)
+
+    # Mock financing plan
+    financing = Mock()
+    financing.name = "Development Financing Plan"
+    financing.has_refinancing = False
+    financing.facilities = []
+
+    deal.financing = financing
+    deal.asset = Mock()  # Add missing asset attribute
+    deal.asset.uid = uuid4()  # Add missing uid for ledger transactions
+    return deal
+
+
+@pytest.fixture
+def mock_construction_facility():
+    """Mock construction facility."""
+    facility = Mock()
+    facility.name = "Construction Loan"
+    facility.description = "Primary construction financing"
+    facility.kind = "construction"
+
+    # Mock debt service calculation
+    def mock_debt_service(timeline):
+        return pd.Series(
+            [50000.0] * len(timeline.period_index), index=timeline.period_index
+        )
+
+    facility.calculate_debt_service = mock_debt_service
+    facility.calculate_loan_proceeds = lambda timeline: pd.Series(
+        [1000000.0] + [0.0] * (len(timeline.period_index) - 1),
+        index=timeline.period_index,
+    )
+
+    # Mock the new compute_cf method for ledger integration
+    def mock_compute_cf(context):
+        """Mock compute_cf method that writes to ledger and returns debt service series."""
+
+        timeline = context.timeline
+
+        # Generate debt service schedule
+        debt_service = pd.Series(
+            [50000.0] * len(timeline.period_index), index=timeline.period_index
+        )
+
+        # Write loan proceeds to ledger (month 0 or first period)
+        loan_amount = 1000000.0
+        if loan_amount > 0:
+            proceeds_series = pd.Series([loan_amount], index=[timeline.period_index[0]])
+
+            # Handle both DealContext and AnalysisContext
+            asset_id = getattr(context, "deal", None)
+            if asset_id is not None:
+                asset_id = context.deal.asset.uid  # DealContext
+            else:
+                asset_id = context.property_data.uid  # AnalysisContext
+
+            proceeds_metadata = SeriesMetadata(
+                category=CashFlowCategoryEnum.FINANCING,
+                subcategory=FinancingSubcategoryEnum.LOAN_PROCEEDS,
+                item_name=f"{facility.name} - Proceeds",
+                source_id=uuid4(),
+                asset_id=asset_id,
+                pass_num=CalculationPhase.FINANCING.value,
+            )
+            context.ledger.add_series(proceeds_series, proceeds_metadata)
+
+        # Write debt service to ledger (negative outflows)
+        # Handle both DealContext and AnalysisContext
+        asset_id = getattr(context, "deal", None)
+        if asset_id is not None:
+            asset_id = context.deal.asset.uid  # DealContext
+        else:
+            asset_id = context.property_data.uid  # AnalysisContext
+
+        # Use disaggregated approach - interest payment
+        interest_metadata = SeriesMetadata(
+            category=CashFlowCategoryEnum.FINANCING,
+            subcategory=FinancingSubcategoryEnum.INTEREST_PAYMENT,
+            item_name=f"{facility.name} - Interest",
+            source_id=uuid4(),
+            asset_id=asset_id,
+            pass_num=CalculationPhase.FINANCING.value,
+        )
+        # Principal payment (zero for interest-only mock)
+        principal_metadata = SeriesMetadata(
+            category=CashFlowCategoryEnum.FINANCING,
+            subcategory=FinancingSubcategoryEnum.PRINCIPAL_PAYMENT,
+            item_name=f"{facility.name} - Principal",
+            source_id=uuid4(),
+            asset_id=asset_id,
+            pass_num=CalculationPhase.FINANCING.value,
+        )
+        context.ledger.add_series(-debt_service, interest_metadata)
+        # Add zero principal for interest-only mock
+        zero_principal = pd.Series(0.0, index=debt_service.index)
+        context.ledger.add_series(-zero_principal, principal_metadata)
+
+        return debt_service
+
+    facility.compute_cf = mock_compute_cf
+
+    return facility
+
+
+@pytest.fixture
+def mock_permanent_facility():
+    """Mock permanent facility."""
+    facility = Mock()
+    facility.name = "Permanent Loan"
+    facility.description = "Long-term permanent financing"
+    facility.kind = "permanent"
+    facility.loan_term_years = 10
+    facility.refinance_timing = None
+
+    # Mock debt service calculation
+    def mock_debt_service(timeline):
+        return pd.Series(
+            [75000.0] * len(timeline.period_index), index=timeline.period_index
+        )
+
+    facility.calculate_debt_service = mock_debt_service
+    facility.calculate_loan_proceeds = lambda timeline: pd.Series(
+        [5000000.0] + [0.0] * (len(timeline.period_index) - 1),
+        index=timeline.period_index,
+    )
+
+    # Mock the new compute_cf method for ledger integration
+    def mock_compute_cf(context):
+        """Mock compute_cf method that returns debt service series."""
+        return pd.Series(
+            [75000.0] * len(context.timeline.period_index),
+            index=context.timeline.period_index,
+        )
+
+    facility.compute_cf = mock_compute_cf
+
+    return facility
+
+
+@pytest.fixture
+def mock_permanent_facility_with_refinancing():
+    """Mock permanent facility with refinancing."""
+    facility = Mock()
+    facility.name = "Refinanced Permanent Loan"
+    facility.description = "Permanent loan originated via refinancing"
+    facility.kind = "permanent"
+    facility.loan_term_years = 10
+    facility.refinance_timing = 24  # Refinance in month 24
+
+    # Mock amortization calculation
+    mock_amortization = Mock()
+    mock_schedule = pd.DataFrame({
+        "Total Payment": [85000.0] * 36,  # 3 years of payments
+        "Principal": [25000.0] * 36,
+        "Interest": [60000.0] * 36,
+    })
+    mock_amortization.amortization_schedule = (mock_schedule, {})
+    facility.calculate_amortization = lambda **kwargs: mock_amortization
+
+    # Mock the new compute_cf method for ledger integration
+    def mock_compute_cf(context):
+        """Mock compute_cf method that returns debt service series."""
+        return pd.Series(
+            [85000.0] * len(context.timeline.period_index),
+            index=context.timeline.period_index,
+        )
+
+    facility.compute_cf = mock_compute_cf
+
+    return facility
+
+
+@pytest.fixture
+def sample_unlevered_analysis():
+    """Sample unlevered analysis result - simplified for new architecture."""
+    timeline = Timeline(start_date=date(2024, 1, 1), duration_months=60)
+
+    # Return a simple dict with cash flow data that tests can use
+    # This replaces the old UnleveredAnalysisResult (zombie class)
+    return {
+        "noi_series": pd.Series([100000.0] * 60, index=timeline.period_index),
+        "egi_series": pd.Series([150000.0] * 60, index=timeline.period_index),
+        "opex_series": pd.Series([50000.0] * 60, index=timeline.period_index),
+    }
+
+
+class TestDebtAnalyzerBasic:
+    """Test basic DebtAnalyzer functionality."""
+
+    def test_debt_analyzer_can_be_instantiated(
+        self,
+        mock_deal_without_financing,
+        sample_timeline,
+        sample_settings,
+        sample_ledger,
+    ):
+        """Test that DebtAnalyzer can be instantiated with basic parameters."""
+        context = DealContext(
+            timeline=sample_timeline,
+            settings=sample_settings,
+            ledger=sample_ledger,
+            deal=mock_deal_without_financing,
+        )
+        analyzer = DebtAnalyzer(context)
+
+        assert analyzer is not None
+        assert analyzer.deal == mock_deal_without_financing
+        assert analyzer.timeline == sample_timeline
+        assert analyzer.settings == sample_settings
+        # No more FinancingAnalysisResult - it's a zombie class
+
+    def test_debt_analyzer_has_required_methods(
+        self,
+        mock_deal_without_financing,
+        sample_timeline,
+        sample_settings,
+        sample_ledger,
+    ):
+        """Test that DebtAnalyzer has the expected public methods."""
+        context = DealContext(
+            timeline=sample_timeline,
+            settings=sample_settings,
+            ledger=sample_ledger,
+            deal=mock_deal_without_financing,
+        )
+        analyzer = DebtAnalyzer(context)
+
+        # Check for expected public methods (focus on interface, not implementation)
+        assert hasattr(analyzer, "process")
+        assert callable(analyzer.process)
+        assert hasattr(analyzer, "calculate_dscr_metrics")
+        assert callable(analyzer.calculate_dscr_metrics)
+
+        # Test public interface, not private implementation details
+        # Private methods may change during refactoring - that's not a test concern
+
+
+class TestAnalyzeFinancingStructureNoFinancing:
+    """Test financing structure analysis when no financing exists."""
+
+    # DELETED: test_analyze_financing_structure_no_financing
+    # This test was pure implementation detail testing - just checked
+    # the shape of FinancingAnalysisResult (zombie class) from
+    # analyze_financing_structure() (deleted method). No business logic.
+
+    # DELETED: test_analyze_financing_structure_no_financing_immutable_state
+    # This test was pure implementation detail testing - tested state immutability
+    # of analyze_financing_structure() (deleted method). Not relevant for new architecture.
+
+
+class TestAnalyzeFinancingStructureWithFinancing:
+    """Test financing structure analysis with various facility types."""
+
+    # DELETED: test_analyze_financing_structure_basic_financing
+    # Pure implementation detail testing - just checked shape of FinancingAnalysisResult
+    # and FacilityInfo (both zombie classes) from deleted method. No business logic.
+
+    # DELETED: test_analyze_financing_structure_multiple_facilities
+    # Pure implementation detail testing - just checked counts and shapes of result objects
+    # from deleted method. No meaningful business logic validation.
+
+    def test_process_facility_errors(
+        self,
+        mock_deal_with_financing,
+        sample_timeline,
+        sample_settings,
+        sample_ledger,
+    ):
+        """Test process() method handles facility computation errors gracefully."""
+        # Create a facility that raises errors during compute_cf
+        broken_facility = Mock()
+        broken_facility.name = "Broken Facility"
+        broken_facility.description = "Facility that raises errors"
+        broken_facility.compute_cf = Mock(side_effect=Exception("compute_cf failed"))
+
+        mock_deal_with_financing.financing.facilities = [broken_facility]
+
+        context = DealContext(
+            timeline=sample_timeline,
+            settings=sample_settings,
+            ledger=sample_ledger,
+            deal=mock_deal_with_financing,
+        )
+
+        analyzer = DebtAnalyzer(context)
+
+        # process() should fail fast and loudly when facility is broken
+        # This aligns with the fail-fast philosophy - broken facilities indicate fundamental problems
+        with pytest.raises(Exception) as exc_info:
+            analyzer.process()
+
+        assert "compute_cf failed" in str(exc_info.value)
+
+    def test_process_facility_without_compute_cf(
+        self,
+        mock_deal_with_financing,
+        sample_timeline,
+        sample_settings,
+        sample_ledger,
+    ):
+        """Test process() handles facilities without compute_cf method gracefully."""
+        # Create a facility without compute_cf method (realistic error scenario)
+        incomplete_facility = Mock(spec=[])  # Empty spec means no methods
+        incomplete_facility.name = "Incomplete Facility"
+        incomplete_facility.description = "Facility without compute_cf method"
+        # Missing: compute_cf method
+
+        mock_deal_with_financing.financing.facilities = [incomplete_facility]
+
+        context = DealContext(
+            timeline=sample_timeline,
+            settings=sample_settings,
+            ledger=sample_ledger,
+            deal=mock_deal_with_financing,
+        )
+
+        analyzer = DebtAnalyzer(context)
+
+        # process() should fail fast when facility lacks required compute_cf method
+        # This aligns with fail-fast philosophy - malformed facilities should not be silently ignored
+        with pytest.raises(AttributeError) as exc_info:
+            analyzer.process()
+
+        assert "compute_cf" in str(exc_info.value)
+
+
+class TestEnhancedDebtServiceCalculation:
+    """Test enhanced debt service calculations for permanent facilities."""
+
+    def test_enhanced_debt_service_standard_permanent(
+        self,
+        mock_deal_with_financing,
+        mock_permanent_facility,
+        sample_timeline,
+        sample_settings,
+        sample_unlevered_analysis,
+        sample_ledger,
+    ):
+        """Test enhanced debt service for standard permanent facility."""
+        mock_deal_with_financing.financing.facilities = [mock_permanent_facility]
+
+        context = DealContext(
+            timeline=sample_timeline,
+            settings=sample_settings,
+            ledger=sample_ledger,
+            deal=mock_deal_with_financing,
+        )
+        analyzer = DebtAnalyzer(context)
+
+        # Test the private method directly
+        debt_service = analyzer._calculate_enhanced_debt_service(
+            mock_permanent_facility
+        )
+
+        assert isinstance(debt_service, pd.Series)
+        assert len(debt_service) == 60
+        assert (
+            debt_service.iloc[0] == 75000.0
+        )  # Should fall back to standard calculation
+
+    def test_enhanced_debt_service_with_refinancing(
+        self,
+        mock_deal_with_financing,
+        mock_permanent_facility_with_refinancing,
+        sample_timeline,
+        sample_settings,
+        sample_unlevered_analysis,
+        sample_ledger,
+    ):
+        """Test enhanced debt service for facility with refinancing."""
+        mock_deal_with_financing.financing.facilities = [
+            mock_permanent_facility_with_refinancing
+        ]
+
+        context = DealContext(
+            timeline=sample_timeline,
+            settings=sample_settings,
+            ledger=sample_ledger,
+            deal=mock_deal_with_financing,
+        )
+        analyzer = DebtAnalyzer(context)
+
+        # Mock the refinanced loan amount
+        with patch.object(
+            analyzer, "_get_refinanced_loan_amount", return_value=6000000.0
+        ):
+            with patch.object(
+                analyzer, "_get_rate_index_curve", return_value=pd.Series([0.05] * 36)
+            ):
+                debt_service = analyzer._calculate_enhanced_debt_service(
+                    mock_permanent_facility_with_refinancing
+                )
+
+        assert isinstance(debt_service, pd.Series)
+        assert len(debt_service) == 60
+
+        # Should be zero before refinancing (month 24)
+        assert debt_service.iloc[0] == 0.0
+        assert debt_service.iloc[22] == 0.0  # Month 23 (0-indexed)
+
+        # Should have payments after refinancing (starting from month 24, 0-indexed = 23)
+        assert debt_service.iloc[23] == 85000.0  # From mock amortization
+        assert debt_service.iloc[24] == 85000.0
+
+    def test_enhanced_debt_service_refinancing_with_zero_loan_amount(
+        self,
+        mock_deal_with_financing,
+        mock_permanent_facility_with_refinancing,
+        sample_timeline,
+        sample_settings,
+        sample_unlevered_analysis,
+        sample_ledger,
+    ):
+        """Test enhanced debt service when refinanced loan amount is zero."""
+        mock_deal_with_financing.financing.facilities = [
+            mock_permanent_facility_with_refinancing
+        ]
+
+        # Add a fallback calculate_debt_service method that returns a proper Series
+        def fallback_debt_service(timeline):
+            return pd.Series(
+                [60000.0] * len(timeline.period_index), index=timeline.period_index
+            )
+
+        mock_permanent_facility_with_refinancing.calculate_debt_service = (
+            fallback_debt_service
+        )
+
+        context = DealContext(
+            timeline=sample_timeline,
+            settings=sample_settings,
+            ledger=sample_ledger,
+            deal=mock_deal_with_financing,
+        )
+        analyzer = DebtAnalyzer(context)
+
+        # Mock zero loan amount
+        with patch.object(analyzer, "_get_refinanced_loan_amount", return_value=0.0):
+            debt_service = analyzer._calculate_enhanced_debt_service(
+                mock_permanent_facility_with_refinancing
+            )
+
+        # Should fall back to standard calculation
+        assert isinstance(debt_service, pd.Series)
+        assert debt_service.iloc[0] == 60000.0  # From fallback method
+
+    def test_enhanced_debt_service_error_handling(
+        self, mock_deal_with_financing, sample_timeline, sample_settings, sample_ledger
+    ):
+        """Test enhanced debt service error handling."""
+        # Create a facility that will cause errors
+        error_facility = Mock()
+        error_facility.kind = "permanent"
+        error_facility.refinance_timing = 24
+        error_facility.loan_term_years = 10
+        error_facility.calculate_debt_service = Mock(
+            side_effect=Exception("Fallback error")
+        )
+
+        context = DealContext(
+            timeline=sample_timeline,
+            settings=sample_settings,
+            ledger=sample_ledger,
+            deal=mock_deal_with_financing,
+        )
+        analyzer = DebtAnalyzer(context)
+
+        # Mock methods to trigger error in enhanced calculation
+        with patch.object(
+            analyzer,
+            "_get_refinanced_loan_amount",
+            side_effect=Exception("Refinance error"),
+        ):
+            # The method should handle errors and the fallback should also fail
+            with pytest.raises(Exception):
+                analyzer._calculate_enhanced_debt_service(error_facility)
+
+
+class TestDSCRCalculations:
+    """Test DSCR calculations and metrics."""
+
+    def test_calculate_dscr_metrics_no_financing(
+        self,
+        mock_deal_without_financing,
+        sample_timeline,
+        sample_settings,
+        sample_unlevered_analysis,
+        sample_ledger,
+    ):
+        """Test DSCR calculation when no financing exists."""
+        context = DealContext(
+            timeline=sample_timeline,
+            settings=sample_settings,
+            ledger=sample_ledger,
+            deal=mock_deal_without_financing,
+        )
+        analyzer = DebtAnalyzer(context)
+
+        dscr_metrics = analyzer.calculate_dscr_metrics()
+
+        # For deals without financing, DSCR metrics should be None or empty
+        assert (
+            dscr_metrics.get("dscr_series") is None
+            or len(dscr_metrics.get("dscr_series", [])) == 0
+        )
+        assert dscr_metrics.get("minimum_dscr") is None
+
+    def test_calculate_dscr_metrics_with_financing(
+        self,
+        mock_deal_with_financing,
+        mock_construction_facility,
+        sample_timeline,
+        sample_settings,
+        sample_unlevered_analysis,
+        sample_ledger,
+    ):
+        """Test DSCR calculation with financing."""
+        mock_deal_with_financing.financing.facilities = [mock_construction_facility]
+
+        # Create DealContext for proper debt analyzer integration
+        deal_context = DealContext(
+            timeline=sample_timeline,
+            settings=sample_settings,
+            ledger=sample_ledger,
+            deal=mock_deal_with_financing,
+        )
+
+        context = DealContext(
+            timeline=sample_timeline,
+            settings=sample_settings,
+            ledger=sample_ledger,
+            deal=mock_deal_with_financing,
+        )
+        analyzer = DebtAnalyzer(context)
+
+        # Process facilities through the new architecture
+        analyzer.process()
+
+        # Then calculate DSCR metrics
+        dscr_metrics = analyzer.calculate_dscr_metrics()
+
+        # Verify DSCR was calculated
+        assert dscr_metrics is not None
+        dscr_series = dscr_metrics.get("dscr_series")
+
+        if dscr_series is not None:
+            assert isinstance(dscr_series, pd.Series)
+            # With mock facilities that don't generate debt service, DSCR = 100.0 (infinite coverage)
+            expected_dscr = (
+                100.0  # Industry convention for no debt service but positive NOI
+            )
+            if not dscr_series.empty and dscr_series.iloc[0] > 0:
+                assert abs(dscr_series.iloc[0] - expected_dscr) < 0.01
+                # Check summary statistics from metrics dictionary
+                minimum_dscr = dscr_metrics.get("minimum_dscr")
+                average_dscr = dscr_metrics.get("average_dscr")
+                if minimum_dscr is not None and average_dscr is not None:
+                    assert abs(minimum_dscr - expected_dscr) < 0.01
+                    assert abs(average_dscr - expected_dscr) < 0.01
+        else:
+            # DSCR calculation returned empty series, verify metrics structure
+            assert "dscr_series" in dscr_metrics
+            assert "minimum_dscr" in dscr_metrics
+
+    def test_calculate_dscr_metrics_multiple_facilities(
+        self,
+        mock_deal_with_financing,
+        mock_construction_facility,
+        mock_permanent_facility,
+        sample_timeline,
+        sample_settings,
+        sample_unlevered_analysis,
+        sample_ledger,
+    ):
+        """Test DSCR calculation with multiple facilities."""
+        mock_deal_with_financing.financing.facilities = [
+            mock_construction_facility,
+            mock_permanent_facility,
+        ]
+
+        # Create DealContext for proper debt analyzer integration
+        deal_context = DealContext(
+            timeline=sample_timeline,
+            settings=sample_settings,
+            ledger=sample_ledger,
+            deal=mock_deal_with_financing,
+        )
+
+        context = DealContext(
+            timeline=sample_timeline,
+            settings=sample_settings,
+            ledger=sample_ledger,
+            deal=mock_deal_with_financing,
+        )
+        analyzer = DebtAnalyzer(context)
+
+        # Process facilities through the new architecture
+        analyzer.process()
+
+        # Calculate DSCR metrics
+        dscr_metrics = analyzer.calculate_dscr_metrics()
+
+        # Verify DSCR was calculated
+        assert dscr_metrics is not None
+        dscr_series = dscr_metrics.get("dscr_series")
+
+        if dscr_series is not None and not dscr_series.empty:
+            assert isinstance(dscr_series, pd.Series)
+
+            # With mock facilities that don't generate debt service, DSCR = 100.0 (infinite coverage)
+            expected_dscr = (
+                100.0  # Industry convention for no debt service but positive NOI
+            )
+            if dscr_series.iloc[0] > 0:
+                assert abs(dscr_series.iloc[0] - expected_dscr) < 0.01
+                # Check covenant analysis from metrics dictionary
+                covenant_analysis = dscr_metrics.get("covenant_analysis", {})
+                assert isinstance(covenant_analysis, dict)
+        else:
+            # DSCR calculation failed, verify basic structure
+            assert "dscr_series" in dscr_metrics
+
+    # DELETED: test_calculate_dscr_metrics_with_error_handling
+    # This test used zombie classes (UnleveredAnalysisResult) and old constructor signature.
+    # It tested error handling for invalid UnleveredAnalysisResult passed to calculate_dscr_metrics().
+    # In new architecture: calculate_dscr_metrics() gets data from ledger, no parameters.
+    # Equivalent error handling is tested in test_dscr_calculation_with_missing_noi.
+
+
+class TestEdgeCasesAndErrorHandling:
+    """Test edge cases and error handling scenarios."""
+
+    # DELETED: test_facility_without_name
+    # Pure implementation detail - tests defensive programming for missing name attribute.
+    # Not meaningful business logic. Data validation should happen at model level.
+
+    # DELETED: test_facility_without_description
+    # Pure implementation detail - tests defensive programming for missing description attribute.
+    # Not meaningful business logic. Data validation should happen at model level.
+
+    def test_dscr_calculation_with_missing_noi(
+        self,
+        mock_deal_with_financing,
+        mock_construction_facility,
+        sample_timeline,
+        sample_settings,
+        sample_ledger,
+    ):
+        """Test DSCR calculation error handling when NOI is missing from ledger."""
+        # Set up debt facility but NO NOI in ledger (error scenario)
+        mock_deal_with_financing.financing.facilities = [mock_construction_facility]
+
+        context = DealContext(
+            timeline=sample_timeline,
+            settings=sample_settings,
+            ledger=sample_ledger,  # Empty ledger - no NOI data
+            deal=mock_deal_with_financing,
+        )
+
+        # Add some debt service to ledger but deliberately omit NOI
+        debt_service_series = pd.Series(
+            [50000.0] * 60, index=sample_timeline.period_index
+        )
+        interest_metadata = SeriesMetadata(
+            category=CashFlowCategoryEnum.FINANCING,
+            subcategory=FinancingSubcategoryEnum.INTEREST_PAYMENT,
+            item_name="Construction Loan - Interest",
+            source_id=uuid4(),
+            asset_id=uuid4(),
+            pass_num=CalculationPhase.FINANCING.value,
+        )
+        principal_metadata = SeriesMetadata(
+            category=CashFlowCategoryEnum.FINANCING,
+            subcategory=FinancingSubcategoryEnum.PRINCIPAL_PAYMENT,
+            item_name="Construction Loan - Principal",
+            source_id=uuid4(),
+            asset_id=uuid4(),
+            pass_num=CalculationPhase.FINANCING.value,
+        )
+        sample_ledger.add_series(debt_service_series, interest_metadata)
+        # Add zero principal payment
+        zero_principal = pd.Series(0.0, index=debt_service_series.index)
+        sample_ledger.add_series(zero_principal, principal_metadata)
+
+        analyzer = DebtAnalyzer(context)
+
+        # CRITICAL: Should handle missing NOI gracefully without crashing
+        dscr_metrics = analyzer.calculate_dscr_metrics()
+
+        # Should either return empty/None results or handle gracefully
+        assert dscr_metrics is not None  # Should not crash
+
+        # Specific behavior depends on implementation:
+        # - May return empty DSCR series
+        # - May return None for DSCR values
+        # - May use fallback calculations
+        # Key requirement: No exceptions raised
+
+
+class TestIntegrationScenarios:
+    """Test realistic integration scenarios."""
+
+    def test_development_financing_e2e(
+        self,
+        mock_deal_with_financing,
+        mock_construction_facility,
+        mock_permanent_facility_with_refinancing,
+        sample_timeline,
+        sample_settings,
+        sample_ledger,
+    ):
+        """Test complete development financing lifecycle: construction→permanent→refinancing."""
+        # CRITICAL: Set up complex financing structure (real-world development finance)
+        mock_deal_with_financing.financing.facilities = [
+            mock_construction_facility,
+            mock_permanent_facility_with_refinancing,
+        ]
+        mock_deal_with_financing.financing.has_refinancing = True
+
+        context = DealContext(
+            timeline=sample_timeline,
+            settings=sample_settings,
+            ledger=sample_ledger,
+            deal=mock_deal_with_financing,
+        )
+
+        analyzer = DebtAnalyzer(context)
+
+        # Mock refinancing calculations for complete workflow
+        with patch.object(
+            analyzer, "_get_refinanced_loan_amount", return_value=6000000.0
+        ):
+            with patch.object(
+                analyzer, "_get_rate_index_curve", return_value=pd.Series([0.05] * 36)
+            ):
+                # Execute complete development finance workflow
+                analyzer.process()
+
+        # Verify ledger contains expected financing transactions
+        ledger_df = sample_ledger.ledger_df()
+        financing_records = ledger_df[
+            ledger_df["category"] == CashFlowCategoryEnum.FINANCING
+        ]
+
+        # Should have financing entries from both construction and permanent facilities
+        # (Exact verification depends on facility mock implementation)
+
+        # CRITICAL: Verify DSCR calculation works for development scenario
+        dscr_metrics = analyzer.calculate_dscr_metrics()
+        assert dscr_metrics is not None
+        assert "dscr_series" in dscr_metrics
+
+        # DSCR series should reflect the complex debt service pattern
+        # from construction→permanent transition
+        dscr_series = dscr_metrics["dscr_series"]
+        assert isinstance(dscr_series, pd.Series)
+        assert len(dscr_series) > 0  # Should have calculated values

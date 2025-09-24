@@ -1,0 +1,41 @@
+title: "performa - open-source real estate financial modeling"
+abstract: >-
+  Performa is an open-source real estate financial modeling framework 
+  designed as a common language for analysts, developers, investors, and 
+  AI systems. It provides transparent, composable building blocks for 
+  institutional-grade real estate analysis, offering a "glass box" 
+  alternative to proprietary software with auditable calculations and 
+  machine-executable models.
+cff-version: 1.2.0
+message: 'If you use this software, please cite it as below.'
+type: software
+authors:
+  - family-names: Nix
+    given-names: David Gordon
+    orcid: https://orcid.org/0009-0000-6784-8485
+repository-code: https://github.com/dnix/performa
+keywords:
+  - performa
+  - python
+  - pydantic
+  - "data modeling"
+  - "real estate"
+  - "commercial real estate"
+  - "real estate finance"
+  - "real estate development"
+  - "real estate investment"
+  - "real estate analysis"
+  - "real estate modeling"
+  - finance
+  - "financial modeling"
+  - "financial analysis"
+  - underwriting
+  - valuation
+  - "asset management"
+  - "artificial intelligence"
+  - "open source"
+  - dcf
+  - "discounted cash flow"
+  - "cash flow analysis"
+license: Apache-2.0
+license-url: https://github.com/dnix/performa/blob/main/LICENSE

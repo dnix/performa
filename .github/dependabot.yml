@@ -1,0 +1,88 @@
+version: 2
+
+updates:
+  # GitHub Actions dependencies
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+    labels:
+      - dependencies
+      - type:build
+      - semver:patch
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+
+  # Python dependencies - Minor & Patch updates (grouped)
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: "09:00"
+    labels:
+      - dependencies
+      - type:build
+      - semver:patch
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    # Group minor and patch updates together to reduce PR noise
+    groups:
+      python-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    # Allow version updates for all dependencies
+    allow:
+      - dependency-type: direct
+      - dependency-type: indirect
+    # Don't update git dependencies automatically (like streamlit-pydantic)
+    ignore:
+      - dependency-name: "streamlit-pydantic"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
+  # Python dependencies - Major updates (individual PRs)
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+      day: wednesday
+      time: "09:00"
+    labels:
+      - dependencies
+      - type:feat
+      - semver:major
+      - breaking-change
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    # Allow version updates for all dependencies
+    allow:
+      - dependency-type: direct
+      - dependency-type: indirect
+    # Don't update git dependencies automatically (like streamlit-pydantic)
+    ignore:
+      - dependency-name: "streamlit-pydantic"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+    
+  # Security updates - more frequent
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: daily
+    labels:
+      - dependencies
+      - security
+      - type:fix
+      - semver:patch
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    # Only security updates in this job
+    open-pull-requests-limit: 5

@@ -1,0 +1,66 @@
+# Copyright 2024-2025 David Gordon Nix
+# SPDX-License-Identifier: Apache-2.0
+
+"""
+Deal Analysis Specialist Services
+
+This module provides the specialist services that handle different aspects of deal analysis
+with clean separation of concerns and domain-driven design principles.
+
+The analysis workflow follows a systematic multi-pass approach:
+1. **Asset Analysis** - Unlevered asset performance analysis
+2. **Acquisition Analysis** - Initial costs and project cost calculation
+3. **Valuation Analysis** - Property valuation and disposition proceeds
+4. **Debt Analysis** - Financing structure and debt service calculations
+5. **Disposition Analysis** - Exit transaction processing
+6. **Cash Flow Analysis** - Institutional-grade funding cascade
+7. **Partnership Analysis** - Equity waterfall and partner distributions
+
+Architecture:
+    - Each service is a focused specialist with clear responsibilities
+    - Services use dataclass patterns for runtime state management
+    - All services return strongly-typed Pydantic models
+    - Services can be used independently or orchestrated together
+
+Example:
+    ```python
+    from performa.deal.analysis import (
+        DebtAnalyzer, CashFlowEngine,
+        PartnershipAnalyzer, ValuationEngine
+    )
+
+    # For asset analysis, use the new ledger-based API:
+    from performa.analysis import run
+    asset_results = run(model=deal.asset, timeline=timeline, settings=settings)
+
+    # Orchestrated usage (see orchestrator.py)
+    debt_analyzer = DebtAnalyzer(deal, timeline, settings)
+    financing_results = debt_analyzer.analyze_financing_structure(
+        property_value_series, noi_series, unlevered_results
+    )
+    ```
+
+Design Principles:
+    - **Single Responsibility**: Each service handles one aspect of analysis
+    - **Dependency Injection**: Services receive dependencies through constructor
+    - **Immutable Results**: All results are returned as immutable models
+    - **Type Safety**: Comprehensive type hints and Pydantic validation
+    - **Error Handling**: Graceful degradation with detailed error reporting
+    - **Institutional Grade**: Implements real-world financial modeling standards
+"""
+
+from .acquisition import AcquisitionAnalyzer
+from .cash_flow import CashFlowEngine
+from .debt import DebtAnalyzer
+from .disposition import DispositionAnalyzer
+from .partnership import PartnershipAnalyzer
+from .valuation import ValuationEngine
+
+__all__ = [
+    "AcquisitionAnalyzer",
+    "DebtAnalyzer",
+    "DispositionAnalyzer",
+    "PartnershipAnalyzer",
+    "ValuationEngine",
+    "CashFlowEngine",
+]

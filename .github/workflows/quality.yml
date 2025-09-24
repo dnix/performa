@@ -1,0 +1,63 @@
+name: Quality Checks
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Code Linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          # Install project with dev dependencies from pyproject.toml
+          uv sync --extra dev
+
+      - name: Run Ruff Linter
+        run: |
+          # Check formatting
+          uv run ruff format --check .
+          # Check linting (but skip copyright check - that's in the other workflow)
+          uv run ruff check . --ignore CPY001
+
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          # Install project with dev dependencies from pyproject.toml
+          uv sync --extra dev
+
+      - name: Run Tests
+        run: |
+          uv run pytest tests/ -v --cov=src/performa --cov-report=xml --cov-report=term
+
+    # TODO: Uncomment this when we have codecov
+    #   - name: Upload coverage to Codecov
+    #     uses: codecov/codecov-action@v4
+    #     if: success()
+    #     with:
+    #       token: ${{ secrets.CODECOV_TOKEN }}
+    #       file: ./coverage.xml
+    #       fail_ci_if_error: false
