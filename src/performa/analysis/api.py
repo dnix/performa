@@ -12,7 +12,7 @@ the deal module.
 from typing import Optional
 
 from performa.core.base.property import PropertyBaseModel
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import GlobalSettings, Timeline
 
 from .registry import get_scenario_for_model
@@ -23,7 +23,6 @@ def run(
     model: PropertyBaseModel,
     timeline: Timeline,
     settings: GlobalSettings,
-    ledger_settings: Optional[LedgerGenerationSettings] = None,
     ledger: Optional[Ledger] = None,
 ) -> AssetAnalysisResult:
     """
@@ -54,9 +53,7 @@ def run(
         current_ledger = ledger
     else:
         # Create new ledger
-        if ledger_settings is None:
-            ledger_settings = LedgerGenerationSettings()
-        current_ledger = Ledger(settings=ledger_settings)
+        current_ledger = Ledger()
 
     # Step 2: Get the appropriate scenario class from registry
     scenario_cls = get_scenario_for_model(model)

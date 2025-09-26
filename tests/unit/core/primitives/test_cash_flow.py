@@ -10,7 +10,7 @@ import pytest
 from pydantic import ValidationError
 
 from performa.analysis import AnalysisContext
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     CashFlowModel,
     FrequencyEnum,
@@ -39,7 +39,7 @@ def sample_context(sample_timeline: Timeline) -> AnalysisContext:
         timeline=sample_timeline,
         settings=GlobalSettings(),
         property_data=None,
-        ledger=Ledger(settings=LedgerGenerationSettings()),
+        ledger=Ledger(),
     )
 
 
@@ -148,7 +148,7 @@ def test_per_unit_residential_calculation_fix(sample_timeline: Timeline):
         timeline=sample_timeline,
         settings=GlobalSettings(),
         property_data=property_data,
-        ledger=Ledger(settings=LedgerGenerationSettings()),
+        ledger=Ledger(),
     )
 
     # Create per-unit expense (utilities example from multifamily)
@@ -197,7 +197,7 @@ def test_per_unit_office_calculation_unchanged(sample_timeline: Timeline):
         timeline=sample_timeline,
         settings=GlobalSettings(),
         property_data=property_data,
-        ledger=Ledger(settings=LedgerGenerationSettings()),
+        ledger=Ledger(),
     )
 
     # Create per-square-foot expense (insurance example from office)
@@ -244,7 +244,7 @@ def test_per_unit_edge_case_zero_unit_count(sample_timeline: Timeline):
         timeline=sample_timeline,
         settings=GlobalSettings(),
         property_data=property_data,
-        ledger=Ledger(settings=LedgerGenerationSettings()),
+        ledger=Ledger(),
     )
 
     # In the new architecture, be explicit about what we want

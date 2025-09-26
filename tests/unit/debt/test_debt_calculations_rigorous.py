@@ -13,7 +13,7 @@ from unittest.mock import Mock
 import pandas as pd
 import pytest
 
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import GlobalSettings, Timeline
 from performa.deal.orchestrator import DealContext
 from performa.debt.construction import ConstructionFacility
@@ -138,7 +138,7 @@ class TestDebtCalculationsAgainstBenchmarks:
         """Setup for each test."""
         self.timeline = Timeline.from_dates("2024-01-01", "2034-01-01")  # 10 years
         self.settings = GlobalSettings()
-        self.ledger = Ledger(LedgerGenerationSettings())
+        self.ledger = Ledger()
 
     def test_permanent_facility_payment_calculation(self):
         """
@@ -351,7 +351,7 @@ class TestDebtCalculationsAgainstBenchmarks:
         mock_deal.name = "Construction Test Deal"
 
         # Use fresh ledger builder for this test
-        fresh_ledger = Ledger(LedgerGenerationSettings())
+        fresh_ledger = Ledger()
 
         context = DealContext(
             timeline=self.timeline,

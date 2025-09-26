@@ -25,7 +25,7 @@ from performa.asset.office.rollover import (
     OfficeRolloverTenantImprovement,
 )
 from performa.asset.office.ti import OfficeTenantImprovement
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -126,7 +126,7 @@ class TestOfficeLease(unittest.TestCase):
         lease = OfficeLease.from_spec(
             spec, self.analysis_start_date, lease_timeline, self.settings
         )
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=lease_timeline,
             settings=self.settings,
@@ -188,7 +188,7 @@ class TestOfficeLease(unittest.TestCase):
         short_analysis_timeline = Timeline(
             start_date=date(2023, 1, 1), duration_months=36
         )  # Ends Dec 2025
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=short_analysis_timeline,
             settings=self.settings,
@@ -249,7 +249,7 @@ class TestOfficeLease(unittest.TestCase):
         short_analysis_timeline = Timeline(
             start_date=date(2023, 1, 1), duration_months=36
         )
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=short_analysis_timeline,
             settings=self.settings,
@@ -316,7 +316,7 @@ class TestOfficeLease(unittest.TestCase):
             expenses=OfficeExpenses(),
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=short_analysis_timeline,
             settings=self.settings,
@@ -368,7 +368,7 @@ class TestOfficeLease(unittest.TestCase):
         short_analysis_timeline = Timeline(
             start_date=date(2023, 1, 1), duration_months=36
         )
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=short_analysis_timeline,
             settings=self.settings,
@@ -472,7 +472,7 @@ class TestOfficeLease(unittest.TestCase):
             payment_timing="signing",
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=Timeline(start_date=date(2023, 12, 1), duration_months=12),
             settings=self.settings,

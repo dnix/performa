@@ -20,7 +20,7 @@ from performa.asset.office import (
     OfficeProperty,
     OfficeRentRoll,
 )
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import GlobalSettings, Timeline
 from performa.deal import Deal
 from performa.deal import analyze as analyze_deal
@@ -84,7 +84,7 @@ class TestDealAnalyzeValidation:
 
     def test_case_2_only_ledger_provided(self, simple_deal, timeline, settings):
         """Test Case 2: Only ledger provided."""
-        custom_ledger = Ledger(settings=LedgerGenerationSettings())
+        custom_ledger = Ledger()
 
         result = analyze_deal(
             deal=simple_deal,
@@ -163,7 +163,7 @@ class TestDealAnalyzeValidation:
         )
 
         # Create a DIFFERENT ledger builder instance
-        different_ledger = Ledger(settings=LedgerGenerationSettings())
+        different_ledger = Ledger()
 
         # This should raise ValueError
         with pytest.raises(ValueError, match="Conflicting ledgers provided"):
@@ -185,7 +185,7 @@ class TestDealAnalyzeValidation:
         )
 
         # Create different ledger
-        different_ledger = Ledger(settings=LedgerGenerationSettings())
+        different_ledger = Ledger()
 
         # Verify error message content
         with pytest.raises(ValueError) as exc_info:

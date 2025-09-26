@@ -14,7 +14,6 @@ Key Components:
     - Ledger: Progressive ledger construction with ownership pattern
     - LedgerQueries: Clean query interface for financial metrics
     - FlowPurposeMapper: Business logic for transaction classification
-    - LedgerGenerationSettings: Pydantic configuration model
 
 Architecture:
     The ledger follows a "series preservation" approach where CashFlowModel
@@ -53,7 +52,6 @@ from .ledger import Ledger
 from .mapper import FlowPurposeMapper
 from .queries import LedgerQueries
 from .records import SeriesMetadata, TransactionRecord
-from .settings import LedgerGenerationSettings
 
 __all__ = [
     # Core data models
@@ -64,5 +62,4 @@ __all__ = [
     "LedgerQueries",
     # Utilities
     "FlowPurposeMapper",
-    "LedgerGenerationSettings",
 ]

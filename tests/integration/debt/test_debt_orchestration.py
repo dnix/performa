@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import Timeline
 from performa.debt import DebtTranche
 from performa.debt.amortization import LoanAmortization
@@ -55,7 +55,7 @@ class TestEnhancedDebtServiceIntegration:
         context = Mock()
         context.timeline = timeline
         context.deal = mock_deal
-        context.ledger = Ledger(LedgerGenerationSettings())
+        context.ledger = Ledger()
 
         # Calculate debt service using new architecture
         debt_service = facility.compute_cf(context)

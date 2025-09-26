@@ -11,7 +11,7 @@ import pytest
 from performa.analysis import AnalysisContext
 from performa.asset.office.misc_income import OfficeMiscIncome
 from performa.asset.office.property import OfficeProperty
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -31,7 +31,7 @@ def sample_context() -> AnalysisContext:
         timeline=timeline,
         settings=GlobalSettings(),
         property_data=property_data,
-        ledger=Ledger(settings=LedgerGenerationSettings()),
+        ledger=Ledger(),
     )
 
 

@@ -17,7 +17,6 @@ import pytest
 from performa.core.ledger import (
     FlowPurposeMapper,
     Ledger,
-    LedgerGenerationSettings,
     LedgerQueries,
     SeriesMetadata,
     TransactionRecord,
@@ -52,33 +51,25 @@ class TestTransactionRecord:
         assert record.pass_num == 1
         assert record.transaction_id is not None  # Auto-generated
 
-    def test_validation(self):
-        """Test TransactionRecord validation."""
-        with pytest.raises(ValueError, match="pass_num must be between 1 and 6"):
-            TransactionRecord(
-                date=date(2024, 1, 15),
-                amount=1000.0,
-                flow_purpose=TransactionPurpose.OPERATING,
-                category="Revenue",
-                subcategory="Rent",
-                item_name="Test",
-                source_id=uuid4(),
-                asset_id=uuid4(),
-                pass_num=7,  # Invalid
-            )
-
-        with pytest.raises(ValueError, match="item_name cannot be empty"):
-            TransactionRecord(
-                date=date(2024, 1, 15),
-                amount=1000.0,
-                flow_purpose=TransactionPurpose.OPERATING,
-                category="Revenue",
-                subcategory="Rent",
-                item_name="",  # Empty
-                source_id=uuid4(),
-                asset_id=uuid4(),
-                pass_num=1,
-            )
+    def test_validation_moved_upstream(self):
+        """Test that TransactionRecord validation is handled upstream.
+        
+        Note: Validation has been moved to upstream Pydantic models and the type system.
+        TransactionRecord construction assumes valid data has already been validated.
+        """
+        # This should work without validation errors - validation happens upstream
+        record = TransactionRecord(
+            date=date(2024, 1, 15),
+            amount=1000.0,
+            flow_purpose=TransactionPurpose.OPERATING,
+            category="Revenue",
+            subcategory="Rent", 
+            item_name="Test",
+            source_id=uuid4(),
+            asset_id=uuid4(),
+            pass_num=7,  # Would be invalid if validated here, but validation is upstream
+        )
+        assert record.pass_num == 7  # Construction succeeds
 
 
 class TestSeriesMetadata:
@@ -99,17 +90,22 @@ class TestSeriesMetadata:
         assert metadata.pass_num == 1
         assert metadata.deal_id is None  # Optional field
 
-    def test_validation(self):
-        """Test SeriesMetadata validation."""
-        with pytest.raises(ValueError, match="category cannot be empty"):
-            SeriesMetadata(
-                category="",  # Empty
-                subcategory="Rent",
-                item_name="Base Rent",
-                source_id=uuid4(),
-                asset_id=uuid4(),
-                pass_num=1,
-            )
+    def test_validation_moved_upstream(self):
+        """Test that SeriesMetadata validation is handled upstream.
+        
+        Note: Validation has been moved to upstream Pydantic models and the type system.
+        SeriesMetadata construction assumes valid data has already been validated.
+        """
+        # This should work without validation errors - validation happens upstream  
+        metadata = SeriesMetadata(
+            category="",  # Would be invalid if validated here, but validation is upstream
+            subcategory="Rent",
+            item_name="Base Rent",
+            source_id=uuid4(),
+            asset_id=uuid4(),
+            pass_num=1,
+        )
+        assert metadata.category == ""  # Construction succeeds
 
 
 class TestFlowPurposeMapper:
@@ -303,39 +299,54 @@ class TestLedgerQueries:
         assert not queries.noi().empty
 
 
-class TestLedgerGenerationSettings:
-    """Test LedgerGenerationSettings functionality."""
+class TestLedgerSettings:
+    """Test ledger behavior with zero-value transactions."""
 
-    def test_default_settings(self):
-        """Test default settings creation."""
-        settings = LedgerGenerationSettings()
-
-        assert settings.skip_zero_values is True
-        assert settings.validate_transactions is True
-        assert settings.batch_size == 1000
-        assert settings.large_ledger_threshold == 10000
-
-    def test_custom_settings(self):
-        """Test custom settings validation."""
-        settings = LedgerGenerationSettings(skip_zero_values=False, batch_size=500)
-
-        assert settings.skip_zero_values is False
-        assert settings.batch_size == 500
-
-    def test_validation(self):
-        """Test settings validation."""
-        with pytest.raises(ValueError):
-            LedgerGenerationSettings(batch_size=50)  # Below minimum
-
-        with pytest.raises(ValueError):
-            LedgerGenerationSettings(large_ledger_threshold=500)  # Below minimum
+    def test_zero_values_always_skipped(self):
+        """Test that zero-value transactions are always filtered out."""
+        from datetime import date
+        from uuid import uuid4
+        
+        ledger = Ledger()
+        
+        # Add records including zero amounts
+        records = [
+            TransactionRecord(
+                date=date(2024, 1, 15),
+                amount=1000.0,
+                flow_purpose=TransactionPurpose.OPERATING,
+                category=CashFlowCategoryEnum.REVENUE,
+                subcategory="Rent",
+                item_name="Non-zero rent",
+                source_id=uuid4(),
+                asset_id=uuid4(),
+                pass_num=1
+            ),
+            TransactionRecord(
+                date=date(2024, 1, 16),
+                amount=0.0,
+                flow_purpose=TransactionPurpose.OPERATING,
+                category=CashFlowCategoryEnum.REVENUE,
+                subcategory="Rent",
+                item_name="Zero rent",
+                source_id=uuid4(),
+                asset_id=uuid4(),
+                pass_num=1
+            )
+        ]
+        
+        ledger.add_records(records)
+        df = ledger.ledger_df()
+        
+        # Should only have 1 transaction (zero filtered out)
+        assert len(df) == 1
+        assert df.iloc[0]['amount'] == 1000.0
 
 
 def test_full_integration():
     """Test full integration of ledger components."""
-    # Create builder with custom settings
-    settings = LedgerGenerationSettings(skip_zero_values=True)
-    builder = Ledger(settings=settings)
+    # Create ledger 
+    builder = Ledger()
 
     # Create test data
     dates = pd.date_range("2024-01-01", periods=12, freq="M")

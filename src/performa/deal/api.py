@@ -9,7 +9,7 @@ Main entry point for deal-level analysis functionality.
 
 from typing import TYPE_CHECKING, Optional
 
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import GlobalSettings, Timeline
 from performa.deal.deal import Deal
 from performa.deal.orchestrator import DealCalculator
@@ -128,7 +128,7 @@ def analyze(
     else:
         # CASE: Neither provided - create fresh analysis
         # Create new ledger for complete fresh analysis
-        current_ledger = Ledger(settings=LedgerGenerationSettings())
+        current_ledger = Ledger()
         calculator = DealCalculator(deal, timeline, settings)
 
     # Run deal analysis with the determined ledger
