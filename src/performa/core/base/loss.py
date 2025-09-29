@@ -159,7 +159,7 @@ class VacancyLossModel(CashFlowModel):
         if not hasattr(context, "resolved_lookups"):
             return pd.Series(0.0, index=self.timeline.period_index)
 
-        reference_series = context.resolved_lookups.get(self.reference)
+        reference_series = context.resolved_lookups.get(self.reference.value)
         if reference_series is None or reference_series.empty:
             return pd.Series(0.0, index=self.timeline.period_index)
 
@@ -216,7 +216,7 @@ class CreditLossModel(CashFlowModel):
         if not hasattr(context, "resolved_lookups"):
             return pd.Series(0.0, index=self.timeline.period_index)
 
-        reference_series = context.resolved_lookups.get(self.reference)
+        reference_series = context.resolved_lookups.get(self.reference.value)
         if reference_series is None or reference_series.empty:
             return pd.Series(0.0, index=self.timeline.period_index)
 

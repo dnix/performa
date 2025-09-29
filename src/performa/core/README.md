@@ -271,7 +271,7 @@ def analyze_deal(deal, timeline, ledger):
     return DealAnalysisResult(
         asset_analysis=asset_analysis,
         debt_analysis=debt_analysis,
-        ledger_queries=LedgerQueries(ledger.ledger_df())
+        ledger_queries=LedgerQueries(ledger)
     )
 ```
 

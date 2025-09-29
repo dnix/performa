@@ -228,6 +228,7 @@ class CashFlowOrchestrator:
         - Occupancy calculated once before any model computations
         - Intermediate aggregation enables dependent model calculations
         - Final aggregation creates summary views for reporting
+        - **Transaction batching**: All ledger operations are batched for optimal performance
 
         **Error Handling:**
         - Dependency validation provides actionable error messages
@@ -252,51 +253,57 @@ class CashFlowOrchestrator:
         )
         logger.info(f"Timeline periods: {len(self.context.timeline.period_index)}")
 
-        # === PHASE 0: DEFENSIVE VALIDATION ===
-        # Dependency validation removed - simplified ledger-based approach
-        validation_time = 0.0
+        # === PHASE 1: TRANSACTION-WRAPPED INDEPENDENT MODELS ===
+        # CRITICAL FIX: Separate transactions to ensure proper data visibility
+        with self.context.ledger.transaction():
+            logger.debug("Started Phase 1 transaction for independent models")
 
-        # === PRE-PHASE: CALCULATE DERIVED SYSTEM STATE ===
-        logger.info("Pre-Phase: Calculating derived system-wide state...")
-        pre_phase_start = time.time()
+            # === PHASE 0: DEFENSIVE VALIDATION ===
+            # Dependency validation removed - simplified ledger-based approach
+            validation_time = 0.0
 
-        # Calculate occupancy once for all models to use
-        # This can be done early since it only depends on static lease attributes
-        self.context.occupancy_rate_series = self._calculate_occupancy_series()
-        occupancy_periods = len(self.context.occupancy_rate_series)
-        avg_occupancy = self.context.occupancy_rate_series.mean()
+            # === PRE-PHASE: CALCULATE DERIVED SYSTEM STATE ===
+            logger.info("Pre-Phase: Calculating derived system-wide state...")
+            pre_phase_start = time.time()
 
-        pre_phase_time = time.time() - pre_phase_start
-        logger.info(f"Pre-Phase completed in {pre_phase_time:.3f}s")
-        logger.debug(
-            f"  Occupancy calculated for {occupancy_periods} periods, average: {avg_occupancy:.1%}"
-        )
+            # Calculate occupancy once for all models to use
+            # This can be done early since it only depends on static lease attributes
+            self.context.occupancy_rate_series = self._calculate_occupancy_series()
+            occupancy_periods = len(self.context.occupancy_rate_series)
+            avg_occupancy = self.context.occupancy_rate_series.mean()
 
-        # === PHASE 1: INDEPENDENT VALUES ===
-        logger.info(
-            "Phase 1: Calculating independent models (no aggregate dependencies)..."
-        )
-        phase1_start = time.time()
+            pre_phase_time = time.time() - pre_phase_start
+            logger.info(f"Pre-Phase completed in {pre_phase_time:.3f}s")
+            logger.debug(
+                f"  Occupancy calculated for {occupancy_periods} periods, average: {avg_occupancy:.1%}"
+            )
 
-        # Models that can be calculated without referring to aggregated results
-        independent_models = [
-            m
-            for m in self.models
-            if m.calculation_pass == OrchestrationPass.INDEPENDENT_MODELS
-        ]
+            # === PHASE 1: INDEPENDENT VALUES ===
+            logger.info(
+                "Phase 1: Calculating independent models (no aggregate dependencies)..."
+            )
+            phase1_start = time.time()
 
-        logger.info(f"  Processing {len(independent_models)} independent models:")
-        for model in independent_models:
-            logger.debug(f"    - {model.name} ({model.category}/{model.subcategory})")
+            # Models that can be calculated without referring to aggregated results
+            independent_models = [
+                m
+                for m in self.models
+                if m.calculation_pass == OrchestrationPass.INDEPENDENT_MODELS
+            ]
 
-        self._compute_model_subset(independent_models)
+            logger.info(f"  Processing {len(independent_models)} independent models:")
+            for model in independent_models:
+                logger.debug(f"    - {model.name} ({model.category}/{model.subcategory})")
 
-        phase1_time = time.time() - phase1_start
-        logger.info(
-            f"Phase 1 completed in {phase1_time:.3f}s - {len(independent_models)} models computed"
-        )
+            self._compute_model_subset(independent_models)
 
-        # === INTERMEDIATE PHASE: MINIMAL AGGREGATION FOR DEPENDENT MODELS ===
+            phase1_time = time.time() - phase1_start
+            logger.info(
+                f"Phase 1 completed in {phase1_time:.3f}s - {len(independent_models)} models computed"
+            )
+            logger.debug("Phase 1 transaction will commit on exit")
+
+        # === INTERMEDIATE PHASE: AGGREGATION OUTSIDE TRANSACTION ===
         logger.info(
             "Intermediate Phase: Computing minimal aggregates for dependent models..."
         )
@@ -305,47 +312,49 @@ class CashFlowOrchestrator:
         # For dependent models that reference aggregates, we need to provide ALL aggregates
         # This ensures dependent models never fail due to missing aggregate references
         if self.models:  # Only if we have models
-            # Get current ledger and create aggregates for dependent models
-            ledger_df = self.context.ledger.ledger_df()
-
             # Always populate aggregates - either from ledger data or as zeros
             # Use DRY helper method to avoid duplication
-            self._update_aggregates_from_ledger(ledger_df, "intermediate")
+            self._update_aggregates_from_ledger(self.context.ledger, "intermediate")
 
         intermediate_time = time.time() - intermediate_start
         logger.info(f"Intermediate Phase completed in {intermediate_time:.3f}s")
 
-        # === PHASE 2: DEPENDENT VALUES ===
-        logger.info(
-            "Phase 2: Calculating dependent models (require aggregate references)..."
-        )
-        phase2_start = time.time()
+        # === PHASE 2: TRANSACTION-WRAPPED DEPENDENT MODELS ===
+        with self.context.ledger.transaction():
+            logger.debug("Started Phase 2 transaction for dependent models")
 
-        # Models that depend on aggregate results from Phase 1
-        dependent_models = [
-            m
-            for m in self.models
-            if m.calculation_pass == OrchestrationPass.DEPENDENT_MODELS
-        ]
-
-        logger.info(f"  Processing {len(dependent_models)} dependent models:")
-        for model in dependent_models:
-            # Handle both UnleveredAggregateLineKey and other reference types safely
-            ref_name = (
-                model.reference.value
-                if (model.reference and hasattr(model.reference, "value"))
-                else str(model.reference)
-                if model.reference
-                else "None"
+            # === PHASE 2: DEPENDENT VALUES ===
+            logger.info(
+                "Phase 2: Calculating dependent models (require aggregate references)..."
             )
-            logger.debug(f"    - {model.name} → references [{ref_name}]")
+            phase2_start = time.time()
 
-        self._compute_model_subset(dependent_models)
+            # Models that depend on aggregate results from Phase 1
+            dependent_models = [
+                m
+                for m in self.models
+                if m.calculation_pass == OrchestrationPass.DEPENDENT_MODELS
+            ]
 
-        phase2_time = time.time() - phase2_start
-        logger.info(
-            f"Phase 2 completed in {phase2_time:.3f}s - {len(dependent_models)} models computed"
-        )
+            logger.info(f"  Processing {len(dependent_models)} dependent models:")
+            for model in dependent_models:
+                # Handle both UnleveredAggregateLineKey and other reference types safely
+                ref_name = (
+                    model.reference.value
+                    if (model.reference and hasattr(model.reference, "value"))
+                    else str(model.reference)
+                    if model.reference
+                    else "None"
+                )
+                logger.debug(f"    - {model.name} → references [{ref_name}]")
+
+            self._compute_model_subset(dependent_models)
+
+            phase2_time = time.time() - phase2_start
+            logger.info(
+                f"Phase 2 completed in {phase2_time:.3f}s - {len(dependent_models)} models computed"
+            )
+            logger.debug("Phase 2 transaction will commit on exit")
 
         # === FINAL PHASE: COMPLETE AGGREGATION ===
         logger.info("Final Phase: Aggregating all results into summary views...")
@@ -456,7 +465,7 @@ class CashFlowOrchestrator:
 
     def _update_aggregates_from_ledger(
         self,
-        ledger_df: pd.DataFrame,
+        ledger: Ledger,
         phase_name: Literal["intermediate", "final"] = "final",
     ) -> None:
         """
@@ -466,10 +475,10 @@ class CashFlowOrchestrator:
         Can be called at intermediate or final phases.
 
         Args:
-            ledger_df: Current ledger DataFrame
+            ledger: Current ledger instance (pandas or DuckDB-based)
             phase_name: Name of phase for logging ("intermediate" or "final")
         """
-        if ledger_df.empty:
+        if len(ledger) == 0:
             # Populate all aggregates with zeros
             zero_series = pd.Series(0.0, index=self.context.timeline.period_index)
 
@@ -482,7 +491,7 @@ class CashFlowOrchestrator:
             )
         else:
             # Create queries once (performance optimization)
-            queries = LedgerQueries(ledger_df)
+            queries = LedgerQueries(ledger)
 
             # Map aggregate keys to query methods (using aliased enum)
             aggregate_mappings = {
@@ -698,7 +707,7 @@ class CashFlowOrchestrator:
             # depend on aggregates that include other dependent models (like vacancy loss)
             if model.calculation_pass == OrchestrationPass.DEPENDENT_MODELS:
                 self._update_aggregates_from_ledger(
-                    self.context.ledger.ledger_df(), "intermediate"
+                    self.context.ledger, "intermediate"
                 )
 
     def _add_to_ledger(self, model: "CashFlowModel", result: Any) -> None:
@@ -830,15 +839,15 @@ class CashFlowOrchestrator:
 
         This is the ONLY place we query the complete ledger for final aggregates.
         """
-        # Get complete ledger data (includes Phase 1 and Phase 2 results)
-        ledger_df = self.context.ledger.ledger_df()
+        # Get complete ledger and analysis periods
+        ledger = self.context.ledger
         analysis_periods = self.context.timeline.period_index
 
         logger.info(
-            f"Finalizing aggregation from ledger with {len(ledger_df)} transactions"
+            f"Finalizing aggregation from ledger with {len(ledger)} transactions"
         )
 
-        if ledger_df.empty:
+        if len(ledger) == 0:
             logger.warning("Ledger is empty - creating zero-filled summary_df")
             # Create zero-filled summary with proper structure
             summary_data = {
@@ -859,8 +868,8 @@ class CashFlowOrchestrator:
 
             return
 
-        # Use elegant LedgerQueries for all aggregation (single query instance)
-        queries = LedgerQueries(ledger_df)
+        # Create high-performance DuckDB-based queries
+        queries = LedgerQueries(ledger)
 
         # Build all aggregate series with proper PeriodIndex conversion
         # This replaces both the old summary_df logic AND the resolved_lookups update

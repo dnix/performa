@@ -1,0 +1,2253 @@
+{
+  "configuration_views": {
+    "user_explicit": {
+      "deal": {
+        "_class_name": "Deal",
+        "_object_type": "Deal",
+        "name": "Riverside Gardens Value-Add Acquisition",
+        "acquisition": {
+          "name": "Riverside Gardens Acquisition",
+          "timeline": {
+            "start_date": "2024-01",
+            "duration_months": 3
+          },
+          "value": 11500000.0,
+          "acquisition_date": "2024-01-01"
+        }
+      },
+      "asset": {
+        "_class_name": "ResidentialProperty",
+        "_object_type": "Asset",
+        "name": "Riverside Gardens",
+        "gross_area": 80000.0,
+        "net_rentable_area": 80000.0,
+        "capital_plans": [
+          {
+            "name": "Value-Add Renovation Plan",
+            "capital_items": [
+              {
+                "name": "Unit Renovations",
+                "timeline": {
+                  "start_date": "2025-01",
+                  "duration_months": 25
+                },
+                "value": 1000000.0,
+                "work_type": "renovation"
+              }
+            ]
+          }
+        ],
+        "absorption_plans": [
+          {
+            "uid": "38df8538-ea96-4835-83b9-4feb50eb1d6f",
+            "name": "Post-Renovation Premium Leasing",
+            "start_date_anchor": "AnalysisStart",
+            "pace": {
+              "quantity": 2.0,
+              "unit": "Units"
+            },
+            "leasing_assumptions": {
+              "monthly_rent": 1320.0,
+              "stabilized_renewal_probability": 0.8
+            },
+            "stabilized_expenses": {
+              "operating_expenses": [
+                {
+                  "name": "Property Management",
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "duration_months": 96
+                  },
+                  "value": 0.05,
+                  "reference": "Effective Gross Income"
+                },
+                {
+                  "name": "Maintenance & Repairs",
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "duration_months": 96
+                  },
+                  "value": 600.0,
+                  "frequency": "annual",
+                  "reference": "unit_count",
+                  "growth_rate": {
+                    "name": "Maintenance Inflation",
+                    "value": 0.03
+                  }
+                },
+                {
+                  "name": "Insurance",
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "duration_months": 96
+                  },
+                  "value": 400.0,
+                  "frequency": "annual",
+                  "reference": "unit_count",
+                  "growth_rate": {
+                    "name": "Insurance Inflation",
+                    "value": 0.04
+                  }
+                },
+                {
+                  "name": "Property Taxes",
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "duration_months": 96
+                  },
+                  "value": 138000.0,
+                  "frequency": "annual",
+                  "growth_rate": {
+                    "name": "Tax Growth",
+                    "value": 0.025
+                  }
+                },
+                {
+                  "name": "Utilities (Common Area)",
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "duration_months": 96
+                  },
+                  "value": 200.0,
+                  "frequency": "annual",
+                  "reference": "unit_count",
+                  "growth_rate": {
+                    "name": "Utility Inflation",
+                    "value": 0.04
+                  }
+                },
+                {
+                  "name": "Marketing & Leasing",
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "duration_months": 96
+                  },
+                  "value": 150.0,
+                  "frequency": "annual",
+                  "reference": "unit_count"
+                },
+                {
+                  "name": "Admin & Professional",
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "duration_months": 96
+                  },
+                  "value": 100.0,
+                  "frequency": "annual",
+                  "reference": "unit_count"
+                }
+              ]
+            },
+            "stabilized_losses": {
+              "general_vacancy": {},
+              "credit_loss": {
+                "rate": 0.015
+              }
+            },
+            "stabilized_misc_income": []
+          }
+        ],
+        "expenses": {
+          "operating_expenses": [
+            {
+              "name": "Property Management",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 96
+              },
+              "value": 0.05,
+              "reference": "Effective Gross Income"
+            },
+            {
+              "name": "Maintenance & Repairs",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 96
+              },
+              "value": 600.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "growth_rate": {
+                "name": "Maintenance Inflation",
+                "value": 0.03
+              }
+            },
+            {
+              "name": "Insurance",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 96
+              },
+              "value": 400.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "growth_rate": {
+                "name": "Insurance Inflation",
+                "value": 0.04
+              }
+            },
+            {
+              "name": "Property Taxes",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 96
+              },
+              "value": 138000.0,
+              "frequency": "annual",
+              "growth_rate": {
+                "name": "Tax Growth",
+                "value": 0.025
+              }
+            },
+            {
+              "name": "Utilities (Common Area)",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 96
+              },
+              "value": 200.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "growth_rate": {
+                "name": "Utility Inflation",
+                "value": 0.04
+              }
+            },
+            {
+              "name": "Marketing & Leasing",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 96
+              },
+              "value": 150.0,
+              "frequency": "annual",
+              "reference": "unit_count"
+            },
+            {
+              "name": "Admin & Professional",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 96
+              },
+              "value": 100.0,
+              "frequency": "annual",
+              "reference": "unit_count"
+            }
+          ]
+        },
+        "losses": {
+          "general_vacancy": {},
+          "credit_loss": {
+            "rate": 0.015
+          }
+        }
+      },
+      "acquisition": {
+        "_class_name": "AcquisitionTerms",
+        "_object_type": "Unknown",
+        "name": "Riverside Gardens Acquisition",
+        "timeline": {
+          "start_date": "2024-01",
+          "duration_months": 3
+        },
+        "value": 11500000.0,
+        "acquisition_date": "2024-01-01"
+      },
+      "financing": {
+        "_class_name": "FinancingPlan",
+        "_object_type": "Debt",
+        "name": "Construction-to-Permanent",
+        "facilities": [
+          {
+            "name": "Renovation Loan",
+            "loan_amount": 8125000.0,
+            "interest_rate": {
+              "details": {
+                "rate": 0.075
+              }
+            },
+            "loan_term_months": 36,
+            "tranches": [
+              {
+                "name": "Bridge Financing",
+                "ltc_threshold": 0.65,
+                "interest_rate": {
+                  "details": {
+                    "rate": 0.075
+                  }
+                },
+                "fee_rate": 0.015
+              }
+            ],
+            "fund_interest_from_reserve": true,
+            "interest_reserve_rate": 0.1,
+            "_class_name": "ConstructionFacility",
+            "_object_type": "Debt"
+          },
+          {
+            "name": "Permanent Financing",
+            "loan_amount": 8125000.0,
+            "interest_rate": {
+              "details": {
+                "rate": 0.055
+              }
+            },
+            "loan_term_months": 120,
+            "ltv_ratio": 0.65,
+            "dscr_hurdle": 1.25,
+            "refinance_timing": 36,
+            "_class_name": "PermanentFacility",
+            "_object_type": "Debt"
+          }
+        ]
+      },
+      "partnership": {
+        "_class_name": "PartnershipStructure",
+        "_object_type": "Partnership",
+        "partners": [
+          {
+            "name": "GP",
+            "kind": "GP",
+            "share": 0.2
+          },
+          {
+            "name": "LP",
+            "kind": "LP",
+            "share": 0.8
+          }
+        ],
+        "distribution_method": "waterfall",
+        "promote": {
+          "final_promote_rate": 0.2,
+          "pref_hurdle_rate": 0.08,
+          "tiers": [
+            {
+              "promote_rate": 0.2,
+              "tier_hurdle_rate": 0.15
+            }
+          ]
+        },
+        "has_explicit_commitments": false,
+        "total_committed_capital": null,
+        "capital_shares": {
+          "GP": 0.2,
+          "LP": 0.8
+        }
+      },
+      "exit": {
+        "_class_name": "DirectCapValuation",
+        "_object_type": "Valuation",
+        "name": "Riverside Gardens Sale",
+        "cap_rate": 0.065,
+        "hold_period_months": 84
+      }
+    },
+    "user_plus_set_defaults": {
+      "deal": {
+        "_class_name": "Deal",
+        "_object_type": "Deal",
+        "uid": "0d577d47-8783-4167-bcb1-8d3a306ed72a",
+        "name": "Riverside Gardens Value-Add Acquisition",
+        "acquisition": {
+          "uid": "33b82e76-9983-4c88-8e2b-f491cf248b44",
+          "name": "Riverside Gardens Acquisition",
+          "timeline": {
+            "start_date": "2024-01",
+            "duration_months": 3
+          },
+          "value": 11500000.0,
+          "acquisition_date": "2024-01-01"
+        }
+      },
+      "asset": {
+        "_class_name": "ResidentialProperty",
+        "_object_type": "Asset",
+        "uid": "921756e0-1f5a-4794-8c42-8b94c566fed7",
+        "name": "Riverside Gardens",
+        "gross_area": 80000.0,
+        "net_rentable_area": 80000.0,
+        "capital_plans": [
+          {
+            "name": "Value-Add Renovation Plan",
+            "capital_items": [
+              {
+                "uid": "2c147021-22b1-4312-b6dc-f95552d1c72e",
+                "name": "Unit Renovations",
+                "timeline": {
+                  "start_date": "2025-01",
+                  "duration_months": 25
+                },
+                "value": 1000000.0,
+                "work_type": "renovation"
+              }
+            ],
+            "uid": "e49fe266-58a5-463a-8b2d-0c9ced4945a0"
+          }
+        ],
+        "absorption_plans": [
+          {
+            "uid": "38df8538-ea96-4835-83b9-4feb50eb1d6f",
+            "name": "Post-Renovation Premium Leasing",
+            "start_date_anchor": "AnalysisStart",
+            "pace": {
+              "quantity": 2.0,
+              "unit": "Units"
+            },
+            "leasing_assumptions": {
+              "monthly_rent": 1320.0,
+              "stabilized_renewal_probability": 0.8
+            },
+            "stabilized_expenses": {
+              "uid": "57b0b081-b642-4f7c-8c4c-2533a86197d2",
+              "operating_expenses": [
+                {
+                  "uid": "371b4425-b6ba-44df-ba8a-ea79f2234319",
+                  "name": "Property Management",
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "duration_months": 96
+                  },
+                  "value": 0.05,
+                  "reference": "Effective Gross Income"
+                },
+                {
+                  "uid": "fbf4e81c-d341-4c8e-b7e3-ceaef2a4a694",
+                  "name": "Maintenance & Repairs",
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "duration_months": 96
+                  },
+                  "value": 600.0,
+                  "frequency": "annual",
+                  "reference": "unit_count",
+                  "growth_rate": {
+                    "name": "Maintenance Inflation",
+                    "value": 0.03
+                  }
+                },
+                {
+                  "uid": "5404bbd4-b4ad-4460-af9e-dbd4606b6534",
+                  "name": "Insurance",
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "duration_months": 96
+                  },
+                  "value": 400.0,
+                  "frequency": "annual",
+                  "reference": "unit_count",
+                  "growth_rate": {
+                    "name": "Insurance Inflation",
+                    "value": 0.04
+                  }
+                },
+                {
+                  "uid": "827380ca-fe66-4989-aa08-ee2bce27c203",
+                  "name": "Property Taxes",
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "duration_months": 96
+                  },
+                  "value": 138000.0,
+                  "frequency": "annual",
+                  "growth_rate": {
+                    "name": "Tax Growth",
+                    "value": 0.025
+                  }
+                },
+                {
+                  "uid": "1999cd7f-ffaa-4798-8516-f527ed02c563",
+                  "name": "Utilities (Common Area)",
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "duration_months": 96
+                  },
+                  "value": 200.0,
+                  "frequency": "annual",
+                  "reference": "unit_count",
+                  "growth_rate": {
+                    "name": "Utility Inflation",
+                    "value": 0.04
+                  }
+                },
+                {
+                  "uid": "ac8b6f08-c4d4-44b8-91ec-8919d2c7809b",
+                  "name": "Marketing & Leasing",
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "duration_months": 96
+                  },
+                  "value": 150.0,
+                  "frequency": "annual",
+                  "reference": "unit_count"
+                },
+                {
+                  "uid": "a9ec9c75-449b-41ed-a8d9-afba7d47c5fc",
+                  "name": "Admin & Professional",
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "duration_months": 96
+                  },
+                  "value": 100.0,
+                  "frequency": "annual",
+                  "reference": "unit_count"
+                }
+              ]
+            },
+            "stabilized_losses": {
+              "uid": "7e88c5d6-c99c-4fc3-8bba-e95a34ea70cd",
+              "general_vacancy": {},
+              "credit_loss": {
+                "rate": 0.015
+              }
+            },
+            "stabilized_misc_income": []
+          }
+        ],
+        "expenses": {
+          "uid": "57b0b081-b642-4f7c-8c4c-2533a86197d2",
+          "operating_expenses": [
+            {
+              "uid": "371b4425-b6ba-44df-ba8a-ea79f2234319",
+              "name": "Property Management",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 96
+              },
+              "value": 0.05,
+              "reference": "Effective Gross Income"
+            },
+            {
+              "uid": "fbf4e81c-d341-4c8e-b7e3-ceaef2a4a694",
+              "name": "Maintenance & Repairs",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 96
+              },
+              "value": 600.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "growth_rate": {
+                "name": "Maintenance Inflation",
+                "value": 0.03
+              }
+            },
+            {
+              "uid": "5404bbd4-b4ad-4460-af9e-dbd4606b6534",
+              "name": "Insurance",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 96
+              },
+              "value": 400.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "growth_rate": {
+                "name": "Insurance Inflation",
+                "value": 0.04
+              }
+            },
+            {
+              "uid": "827380ca-fe66-4989-aa08-ee2bce27c203",
+              "name": "Property Taxes",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 96
+              },
+              "value": 138000.0,
+              "frequency": "annual",
+              "growth_rate": {
+                "name": "Tax Growth",
+                "value": 0.025
+              }
+            },
+            {
+              "uid": "1999cd7f-ffaa-4798-8516-f527ed02c563",
+              "name": "Utilities (Common Area)",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 96
+              },
+              "value": 200.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "growth_rate": {
+                "name": "Utility Inflation",
+                "value": 0.04
+              }
+            },
+            {
+              "uid": "ac8b6f08-c4d4-44b8-91ec-8919d2c7809b",
+              "name": "Marketing & Leasing",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 96
+              },
+              "value": 150.0,
+              "frequency": "annual",
+              "reference": "unit_count"
+            },
+            {
+              "uid": "a9ec9c75-449b-41ed-a8d9-afba7d47c5fc",
+              "name": "Admin & Professional",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 96
+              },
+              "value": 100.0,
+              "frequency": "annual",
+              "reference": "unit_count"
+            }
+          ]
+        },
+        "losses": {
+          "uid": "7e88c5d6-c99c-4fc3-8bba-e95a34ea70cd",
+          "general_vacancy": {},
+          "credit_loss": {
+            "rate": 0.015
+          }
+        }
+      },
+      "acquisition": {
+        "_class_name": "AcquisitionTerms",
+        "_object_type": "Unknown",
+        "uid": "33b82e76-9983-4c88-8e2b-f491cf248b44",
+        "name": "Riverside Gardens Acquisition",
+        "timeline": {
+          "start_date": "2024-01",
+          "duration_months": 3
+        },
+        "value": 11500000.0,
+        "acquisition_date": "2024-01-01"
+      },
+      "financing": {
+        "_class_name": "FinancingPlan",
+        "_object_type": "Debt",
+        "name": "Construction-to-Permanent",
+        "facilities": [
+          {
+            "uid": "f3d5d9d2-10b1-4956-9896-601dde963d34",
+            "name": "Renovation Loan",
+            "loan_amount": 8125000.0,
+            "interest_rate": {
+              "details": {
+                "rate": 0.075
+              }
+            },
+            "loan_term_months": 36,
+            "tranches": [
+              {
+                "name": "Bridge Financing",
+                "ltc_threshold": 0.65,
+                "interest_rate": {
+                  "details": {
+                    "rate": 0.075
+                  }
+                },
+                "fee_rate": 0.015
+              }
+            ],
+            "fund_interest_from_reserve": true,
+            "interest_reserve_rate": 0.1,
+            "_class_name": "ConstructionFacility",
+            "_object_type": "Debt"
+          },
+          {
+            "uid": "71964b32-73c1-4341-b0f1-db8471b4a6fa",
+            "name": "Permanent Financing",
+            "loan_amount": 8125000.0,
+            "interest_rate": {
+              "details": {
+                "rate": 0.055
+              }
+            },
+            "loan_term_months": 120,
+            "ltv_ratio": 0.65,
+            "dscr_hurdle": 1.25,
+            "refinance_timing": 36,
+            "_class_name": "PermanentFacility",
+            "_object_type": "Debt"
+          }
+        ]
+      },
+      "partnership": {
+        "_class_name": "PartnershipStructure",
+        "_object_type": "Partnership",
+        "partners": [
+          {
+            "uid": "5a86beb7-957f-4725-8b0a-c5a1be40a831",
+            "name": "GP",
+            "kind": "GP",
+            "share": 0.2
+          },
+          {
+            "uid": "a088f76f-4063-48b1-94da-a01115ad9794",
+            "name": "LP",
+            "kind": "LP",
+            "share": 0.8
+          }
+        ],
+        "distribution_method": "waterfall",
+        "promote": {
+          "final_promote_rate": 0.2,
+          "pref_hurdle_rate": 0.08,
+          "tiers": [
+            {
+              "promote_rate": 0.2,
+              "tier_hurdle_rate": 0.15
+            }
+          ]
+        },
+        "has_explicit_commitments": false,
+        "total_committed_capital": null,
+        "capital_shares": {
+          "GP": 0.2,
+          "LP": 0.8
+        }
+      },
+      "exit": {
+        "_class_name": "DirectCapValuation",
+        "_object_type": "Valuation",
+        "name": "Riverside Gardens Sale",
+        "uid": "1d8f9545-bdc7-4988-adf2-e3751a726420",
+        "cap_rate": 0.065,
+        "hold_period_months": 84
+      }
+    },
+    "full_with_all_defaults": {
+      "deal": {
+        "_class_name": "Deal",
+        "_object_type": "Deal",
+        "uid": "0d577d47-8783-4167-bcb1-8d3a306ed72a",
+        "name": "Riverside Gardens Value-Add Acquisition",
+        "description": null,
+        "acquisition": {
+          "uid": "33b82e76-9983-4c88-8e2b-f491cf248b44",
+          "name": "Riverside Gardens Acquisition",
+          "category": "Capital",
+          "subcategory": "Purchase Price",
+          "description": null,
+          "account": null,
+          "timeline": {
+            "start_date": "2024-01",
+            "start_offset_months": null,
+            "duration_months": 3
+          },
+          "value": 11500000.0,
+          "frequency": "monthly",
+          "reference": null,
+          "settings": {
+            "analysis_start_date": "2025-09-29",
+            "reporting": {
+              "reporting_frequency": "annual",
+              "fiscal_year_start_month": 1,
+              "decimal_precision": 2,
+              "property_area_unit": "sqft"
+            },
+            "calculation": {
+              "calculation_frequency": "monthly",
+              "day_count_convention": "Actual/Actual",
+              "fail_on_error": false,
+              "max_dependency_depth": 2,
+              "allow_complex_dependencies": false
+            },
+            "inflation": {
+              "inflation_timing": "Start of Year",
+              "inflation_timing_month": null
+            },
+            "recoveries": {
+              "gross_up_enabled": true,
+              "gross_up_occupancy_threshold": 0.95,
+              "gross_up_uses_fixed_rate": false,
+              "default_recovery_method": null
+            },
+            "valuation": {
+              "discount_rate": null,
+              "exit_valuation_method": "none",
+              "exit_cap_rate": null,
+              "refinancing_cap_rate": 0.065,
+              "refinancing_noi_method": "ltm",
+              "exit_noi_method": "ltm",
+              "costs_of_sale_percentage": 0.03
+            },
+            "percentage_rent": {
+              "enabled": false,
+              "breakpoint_method": "natural",
+              "include_recoveries_in_breakpoint": true
+            }
+          },
+          "growth_rate": null,
+          "closing_costs_rate": 0.02,
+          "acquisition_date": "2024-01-01"
+        },
+        "funding_cascade": "equity_first",
+        "deal_fees": null
+      },
+      "asset": {
+        "_class_name": "ResidentialProperty",
+        "_object_type": "Asset",
+        "uid": "921756e0-1f5a-4794-8c42-8b94c566fed7",
+        "name": "Riverside Gardens",
+        "description": null,
+        "external_id": null,
+        "address": null,
+        "year_built": null,
+        "property_type": "multifamily",
+        "gross_area": 80000.0,
+        "net_rentable_area": 80000.0,
+        "program_components": null,
+        "miscellaneous_income": [],
+        "capital_plans": [
+          {
+            "name": "Value-Add Renovation Plan",
+            "description": null,
+            "capital_items": [
+              {
+                "uid": "2c147021-22b1-4312-b6dc-f95552d1c72e",
+                "name": "Unit Renovations",
+                "category": "Capital",
+                "subcategory": "Hard Costs",
+                "description": null,
+                "account": null,
+                "timeline": {
+                  "start_date": "2025-01",
+                  "start_offset_months": null,
+                  "duration_months": 25
+                },
+                "value": 1000000.0,
+                "frequency": "monthly",
+                "reference": null,
+                "settings": {
+                  "analysis_start_date": "2025-09-29",
+                  "reporting": {
+                    "reporting_frequency": "annual",
+                    "fiscal_year_start_month": 1,
+                    "decimal_precision": 2,
+                    "property_area_unit": "sqft"
+                  },
+                  "calculation": {
+                    "calculation_frequency": "monthly",
+                    "day_count_convention": "Actual/Actual",
+                    "fail_on_error": false,
+                    "max_dependency_depth": 2,
+                    "allow_complex_dependencies": false
+                  },
+                  "inflation": {
+                    "inflation_timing": "Start of Year",
+                    "inflation_timing_month": null
+                  },
+                  "recoveries": {
+                    "gross_up_enabled": true,
+                    "gross_up_occupancy_threshold": 0.95,
+                    "gross_up_uses_fixed_rate": false,
+                    "default_recovery_method": null
+                  },
+                  "valuation": {
+                    "discount_rate": null,
+                    "exit_valuation_method": "none",
+                    "exit_cap_rate": null,
+                    "refinancing_cap_rate": 0.065,
+                    "refinancing_noi_method": "ltm",
+                    "exit_noi_method": "ltm",
+                    "costs_of_sale_percentage": 0.03
+                  },
+                  "percentage_rent": {
+                    "enabled": false,
+                    "breakpoint_method": "natural",
+                    "include_recoveries_in_breakpoint": true
+                  }
+                },
+                "growth_rate": null,
+                "work_type": "renovation",
+                "contractor": null,
+                "permit_required": false,
+                "draw_schedule": null
+              }
+            ],
+            "uid": "e49fe266-58a5-463a-8b2d-0c9ced4945a0"
+          }
+        ],
+        "absorption_plans": [
+          {
+            "uid": "38df8538-ea96-4835-83b9-4feb50eb1d6f",
+            "name": "Post-Renovation Premium Leasing",
+            "space_filter": {
+              "suite_ids": null,
+              "floors": null,
+              "use_types": null,
+              "min_area": null,
+              "max_area": null,
+              "unit_types": null,
+              "min_rent": null,
+              "max_rent": null
+            },
+            "start_date_anchor": "AnalysisStart",
+            "pace": {
+              "type": "FixedQuantity",
+              "quantity": 2.0,
+              "unit": "Units",
+              "frequency_months": 1
+            },
+            "leasing_assumptions": {
+              "base_rent_value": null,
+              "base_rent_reference": null,
+              "base_rent_frequency": "monthly",
+              "term_months": null,
+              "upon_expiration": null,
+              "rent_escalation": null,
+              "rent_abatement": null,
+              "recovery_method": null,
+              "ti_allowance": null,
+              "leasing_commission": null,
+              "market_rent_growth": null,
+              "monthly_rent": 1320.0,
+              "lease_term_months": 12,
+              "security_deposit_months": 1.0,
+              "concessions_months": 0,
+              "stabilized_renewal_probability": 0.8,
+              "stabilized_downtime_months": 1
+            },
+            "stabilized_expenses": {
+              "uid": "57b0b081-b642-4f7c-8c4c-2533a86197d2",
+              "operating_expenses": [
+                {
+                  "uid": "371b4425-b6ba-44df-ba8a-ea79f2234319",
+                  "name": "Property Management",
+                  "category": "Expense",
+                  "subcategory": "OpEx",
+                  "description": null,
+                  "account": null,
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "start_offset_months": null,
+                    "duration_months": 96
+                  },
+                  "value": 0.05,
+                  "frequency": "monthly",
+                  "reference": "Effective Gross Income",
+                  "settings": {
+                    "analysis_start_date": "2025-09-29",
+                    "reporting": {
+                      "reporting_frequency": "annual",
+                      "fiscal_year_start_month": 1,
+                      "decimal_precision": 2,
+                      "property_area_unit": "sqft"
+                    },
+                    "calculation": {
+                      "calculation_frequency": "monthly",
+                      "day_count_convention": "Actual/Actual",
+                      "fail_on_error": false,
+                      "max_dependency_depth": 2,
+                      "allow_complex_dependencies": false
+                    },
+                    "inflation": {
+                      "inflation_timing": "Start of Year",
+                      "inflation_timing_month": null
+                    },
+                    "recoveries": {
+                      "gross_up_enabled": true,
+                      "gross_up_occupancy_threshold": 0.95,
+                      "gross_up_uses_fixed_rate": false,
+                      "default_recovery_method": null
+                    },
+                    "valuation": {
+                      "discount_rate": null,
+                      "exit_valuation_method": "none",
+                      "exit_cap_rate": null,
+                      "refinancing_cap_rate": 0.065,
+                      "refinancing_noi_method": "ltm",
+                      "exit_noi_method": "ltm",
+                      "costs_of_sale_percentage": 0.03
+                    },
+                    "percentage_rent": {
+                      "enabled": false,
+                      "breakpoint_method": "natural",
+                      "include_recoveries_in_breakpoint": true
+                    }
+                  },
+                  "growth_rate": null,
+                  "group": null,
+                  "recoverable_ratio": 0.0,
+                  "variable_ratio": null
+                },
+                {
+                  "uid": "fbf4e81c-d341-4c8e-b7e3-ceaef2a4a694",
+                  "name": "Maintenance & Repairs",
+                  "category": "Expense",
+                  "subcategory": "OpEx",
+                  "description": null,
+                  "account": null,
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "start_offset_months": null,
+                    "duration_months": 96
+                  },
+                  "value": 600.0,
+                  "frequency": "annual",
+                  "reference": "unit_count",
+                  "settings": {
+                    "analysis_start_date": "2025-09-29",
+                    "reporting": {
+                      "reporting_frequency": "annual",
+                      "fiscal_year_start_month": 1,
+                      "decimal_precision": 2,
+                      "property_area_unit": "sqft"
+                    },
+                    "calculation": {
+                      "calculation_frequency": "monthly",
+                      "day_count_convention": "Actual/Actual",
+                      "fail_on_error": false,
+                      "max_dependency_depth": 2,
+                      "allow_complex_dependencies": false
+                    },
+                    "inflation": {
+                      "inflation_timing": "Start of Year",
+                      "inflation_timing_month": null
+                    },
+                    "recoveries": {
+                      "gross_up_enabled": true,
+                      "gross_up_occupancy_threshold": 0.95,
+                      "gross_up_uses_fixed_rate": false,
+                      "default_recovery_method": null
+                    },
+                    "valuation": {
+                      "discount_rate": null,
+                      "exit_valuation_method": "none",
+                      "exit_cap_rate": null,
+                      "refinancing_cap_rate": 0.065,
+                      "refinancing_noi_method": "ltm",
+                      "exit_noi_method": "ltm",
+                      "costs_of_sale_percentage": 0.03
+                    },
+                    "percentage_rent": {
+                      "enabled": false,
+                      "breakpoint_method": "natural",
+                      "include_recoveries_in_breakpoint": true
+                    }
+                  },
+                  "growth_rate": {
+                    "name": "Maintenance Inflation",
+                    "value": 0.03
+                  },
+                  "group": null,
+                  "recoverable_ratio": 0.0,
+                  "variable_ratio": null
+                },
+                {
+                  "uid": "5404bbd4-b4ad-4460-af9e-dbd4606b6534",
+                  "name": "Insurance",
+                  "category": "Expense",
+                  "subcategory": "OpEx",
+                  "description": null,
+                  "account": null,
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "start_offset_months": null,
+                    "duration_months": 96
+                  },
+                  "value": 400.0,
+                  "frequency": "annual",
+                  "reference": "unit_count",
+                  "settings": {
+                    "analysis_start_date": "2025-09-29",
+                    "reporting": {
+                      "reporting_frequency": "annual",
+                      "fiscal_year_start_month": 1,
+                      "decimal_precision": 2,
+                      "property_area_unit": "sqft"
+                    },
+                    "calculation": {
+                      "calculation_frequency": "monthly",
+                      "day_count_convention": "Actual/Actual",
+                      "fail_on_error": false,
+                      "max_dependency_depth": 2,
+                      "allow_complex_dependencies": false
+                    },
+                    "inflation": {
+                      "inflation_timing": "Start of Year",
+                      "inflation_timing_month": null
+                    },
+                    "recoveries": {
+                      "gross_up_enabled": true,
+                      "gross_up_occupancy_threshold": 0.95,
+                      "gross_up_uses_fixed_rate": false,
+                      "default_recovery_method": null
+                    },
+                    "valuation": {
+                      "discount_rate": null,
+                      "exit_valuation_method": "none",
+                      "exit_cap_rate": null,
+                      "refinancing_cap_rate": 0.065,
+                      "refinancing_noi_method": "ltm",
+                      "exit_noi_method": "ltm",
+                      "costs_of_sale_percentage": 0.03
+                    },
+                    "percentage_rent": {
+                      "enabled": false,
+                      "breakpoint_method": "natural",
+                      "include_recoveries_in_breakpoint": true
+                    }
+                  },
+                  "growth_rate": {
+                    "name": "Insurance Inflation",
+                    "value": 0.04
+                  },
+                  "group": null,
+                  "recoverable_ratio": 0.0,
+                  "variable_ratio": null
+                },
+                {
+                  "uid": "827380ca-fe66-4989-aa08-ee2bce27c203",
+                  "name": "Property Taxes",
+                  "category": "Expense",
+                  "subcategory": "OpEx",
+                  "description": null,
+                  "account": null,
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "start_offset_months": null,
+                    "duration_months": 96
+                  },
+                  "value": 138000.0,
+                  "frequency": "annual",
+                  "reference": null,
+                  "settings": {
+                    "analysis_start_date": "2025-09-29",
+                    "reporting": {
+                      "reporting_frequency": "annual",
+                      "fiscal_year_start_month": 1,
+                      "decimal_precision": 2,
+                      "property_area_unit": "sqft"
+                    },
+                    "calculation": {
+                      "calculation_frequency": "monthly",
+                      "day_count_convention": "Actual/Actual",
+                      "fail_on_error": false,
+                      "max_dependency_depth": 2,
+                      "allow_complex_dependencies": false
+                    },
+                    "inflation": {
+                      "inflation_timing": "Start of Year",
+                      "inflation_timing_month": null
+                    },
+                    "recoveries": {
+                      "gross_up_enabled": true,
+                      "gross_up_occupancy_threshold": 0.95,
+                      "gross_up_uses_fixed_rate": false,
+                      "default_recovery_method": null
+                    },
+                    "valuation": {
+                      "discount_rate": null,
+                      "exit_valuation_method": "none",
+                      "exit_cap_rate": null,
+                      "refinancing_cap_rate": 0.065,
+                      "refinancing_noi_method": "ltm",
+                      "exit_noi_method": "ltm",
+                      "costs_of_sale_percentage": 0.03
+                    },
+                    "percentage_rent": {
+                      "enabled": false,
+                      "breakpoint_method": "natural",
+                      "include_recoveries_in_breakpoint": true
+                    }
+                  },
+                  "growth_rate": {
+                    "name": "Tax Growth",
+                    "value": 0.025
+                  },
+                  "group": null,
+                  "recoverable_ratio": 0.0,
+                  "variable_ratio": null
+                },
+                {
+                  "uid": "1999cd7f-ffaa-4798-8516-f527ed02c563",
+                  "name": "Utilities (Common Area)",
+                  "category": "Expense",
+                  "subcategory": "OpEx",
+                  "description": null,
+                  "account": null,
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "start_offset_months": null,
+                    "duration_months": 96
+                  },
+                  "value": 200.0,
+                  "frequency": "annual",
+                  "reference": "unit_count",
+                  "settings": {
+                    "analysis_start_date": "2025-09-29",
+                    "reporting": {
+                      "reporting_frequency": "annual",
+                      "fiscal_year_start_month": 1,
+                      "decimal_precision": 2,
+                      "property_area_unit": "sqft"
+                    },
+                    "calculation": {
+                      "calculation_frequency": "monthly",
+                      "day_count_convention": "Actual/Actual",
+                      "fail_on_error": false,
+                      "max_dependency_depth": 2,
+                      "allow_complex_dependencies": false
+                    },
+                    "inflation": {
+                      "inflation_timing": "Start of Year",
+                      "inflation_timing_month": null
+                    },
+                    "recoveries": {
+                      "gross_up_enabled": true,
+                      "gross_up_occupancy_threshold": 0.95,
+                      "gross_up_uses_fixed_rate": false,
+                      "default_recovery_method": null
+                    },
+                    "valuation": {
+                      "discount_rate": null,
+                      "exit_valuation_method": "none",
+                      "exit_cap_rate": null,
+                      "refinancing_cap_rate": 0.065,
+                      "refinancing_noi_method": "ltm",
+                      "exit_noi_method": "ltm",
+                      "costs_of_sale_percentage": 0.03
+                    },
+                    "percentage_rent": {
+                      "enabled": false,
+                      "breakpoint_method": "natural",
+                      "include_recoveries_in_breakpoint": true
+                    }
+                  },
+                  "growth_rate": {
+                    "name": "Utility Inflation",
+                    "value": 0.04
+                  },
+                  "group": null,
+                  "recoverable_ratio": 0.0,
+                  "variable_ratio": null
+                },
+                {
+                  "uid": "ac8b6f08-c4d4-44b8-91ec-8919d2c7809b",
+                  "name": "Marketing & Leasing",
+                  "category": "Expense",
+                  "subcategory": "OpEx",
+                  "description": null,
+                  "account": null,
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "start_offset_months": null,
+                    "duration_months": 96
+                  },
+                  "value": 150.0,
+                  "frequency": "annual",
+                  "reference": "unit_count",
+                  "settings": {
+                    "analysis_start_date": "2025-09-29",
+                    "reporting": {
+                      "reporting_frequency": "annual",
+                      "fiscal_year_start_month": 1,
+                      "decimal_precision": 2,
+                      "property_area_unit": "sqft"
+                    },
+                    "calculation": {
+                      "calculation_frequency": "monthly",
+                      "day_count_convention": "Actual/Actual",
+                      "fail_on_error": false,
+                      "max_dependency_depth": 2,
+                      "allow_complex_dependencies": false
+                    },
+                    "inflation": {
+                      "inflation_timing": "Start of Year",
+                      "inflation_timing_month": null
+                    },
+                    "recoveries": {
+                      "gross_up_enabled": true,
+                      "gross_up_occupancy_threshold": 0.95,
+                      "gross_up_uses_fixed_rate": false,
+                      "default_recovery_method": null
+                    },
+                    "valuation": {
+                      "discount_rate": null,
+                      "exit_valuation_method": "none",
+                      "exit_cap_rate": null,
+                      "refinancing_cap_rate": 0.065,
+                      "refinancing_noi_method": "ltm",
+                      "exit_noi_method": "ltm",
+                      "costs_of_sale_percentage": 0.03
+                    },
+                    "percentage_rent": {
+                      "enabled": false,
+                      "breakpoint_method": "natural",
+                      "include_recoveries_in_breakpoint": true
+                    }
+                  },
+                  "growth_rate": null,
+                  "group": null,
+                  "recoverable_ratio": 0.0,
+                  "variable_ratio": null
+                },
+                {
+                  "uid": "a9ec9c75-449b-41ed-a8d9-afba7d47c5fc",
+                  "name": "Admin & Professional",
+                  "category": "Expense",
+                  "subcategory": "OpEx",
+                  "description": null,
+                  "account": null,
+                  "timeline": {
+                    "start_date": "2024-01",
+                    "start_offset_months": null,
+                    "duration_months": 96
+                  },
+                  "value": 100.0,
+                  "frequency": "annual",
+                  "reference": "unit_count",
+                  "settings": {
+                    "analysis_start_date": "2025-09-29",
+                    "reporting": {
+                      "reporting_frequency": "annual",
+                      "fiscal_year_start_month": 1,
+                      "decimal_precision": 2,
+                      "property_area_unit": "sqft"
+                    },
+                    "calculation": {
+                      "calculation_frequency": "monthly",
+                      "day_count_convention": "Actual/Actual",
+                      "fail_on_error": false,
+                      "max_dependency_depth": 2,
+                      "allow_complex_dependencies": false
+                    },
+                    "inflation": {
+                      "inflation_timing": "Start of Year",
+                      "inflation_timing_month": null
+                    },
+                    "recoveries": {
+                      "gross_up_enabled": true,
+                      "gross_up_occupancy_threshold": 0.95,
+                      "gross_up_uses_fixed_rate": false,
+                      "default_recovery_method": null
+                    },
+                    "valuation": {
+                      "discount_rate": null,
+                      "exit_valuation_method": "none",
+                      "exit_cap_rate": null,
+                      "refinancing_cap_rate": 0.065,
+                      "refinancing_noi_method": "ltm",
+                      "exit_noi_method": "ltm",
+                      "costs_of_sale_percentage": 0.03
+                    },
+                    "percentage_rent": {
+                      "enabled": false,
+                      "breakpoint_method": "natural",
+                      "include_recoveries_in_breakpoint": true
+                    }
+                  },
+                  "growth_rate": null,
+                  "group": null,
+                  "recoverable_ratio": 0.0,
+                  "variable_ratio": null
+                }
+              ],
+              "capital_expenses": []
+            },
+            "stabilized_losses": {
+              "uid": "7e88c5d6-c99c-4fc3-8bba-e95a34ea70cd",
+              "general_vacancy": {
+                "rate": 0.05,
+                "method": "Potential Gross Revenue",
+                "reduce_by_rollover_vacancy": true
+              },
+              "credit_loss": {
+                "rate": 0.015,
+                "basis": "Potential Gross Revenue"
+              }
+            },
+            "stabilized_misc_income": []
+          }
+        ],
+        "expenses": {
+          "uid": "57b0b081-b642-4f7c-8c4c-2533a86197d2",
+          "operating_expenses": [
+            {
+              "uid": "371b4425-b6ba-44df-ba8a-ea79f2234319",
+              "name": "Property Management",
+              "category": "Expense",
+              "subcategory": "OpEx",
+              "description": null,
+              "account": null,
+              "timeline": {
+                "start_date": "2024-01",
+                "start_offset_months": null,
+                "duration_months": 96
+              },
+              "value": 0.05,
+              "frequency": "monthly",
+              "reference": "Effective Gross Income",
+              "settings": {
+                "analysis_start_date": "2025-09-29",
+                "reporting": {
+                  "reporting_frequency": "annual",
+                  "fiscal_year_start_month": 1,
+                  "decimal_precision": 2,
+                  "property_area_unit": "sqft"
+                },
+                "calculation": {
+                  "calculation_frequency": "monthly",
+                  "day_count_convention": "Actual/Actual",
+                  "fail_on_error": false,
+                  "max_dependency_depth": 2,
+                  "allow_complex_dependencies": false
+                },
+                "inflation": {
+                  "inflation_timing": "Start of Year",
+                  "inflation_timing_month": null
+                },
+                "recoveries": {
+                  "gross_up_enabled": true,
+                  "gross_up_occupancy_threshold": 0.95,
+                  "gross_up_uses_fixed_rate": false,
+                  "default_recovery_method": null
+                },
+                "valuation": {
+                  "discount_rate": null,
+                  "exit_valuation_method": "none",
+                  "exit_cap_rate": null,
+                  "refinancing_cap_rate": 0.065,
+                  "refinancing_noi_method": "ltm",
+                  "exit_noi_method": "ltm",
+                  "costs_of_sale_percentage": 0.03
+                },
+                "percentage_rent": {
+                  "enabled": false,
+                  "breakpoint_method": "natural",
+                  "include_recoveries_in_breakpoint": true
+                }
+              },
+              "growth_rate": null,
+              "group": null,
+              "recoverable_ratio": 0.0,
+              "variable_ratio": null
+            },
+            {
+              "uid": "fbf4e81c-d341-4c8e-b7e3-ceaef2a4a694",
+              "name": "Maintenance & Repairs",
+              "category": "Expense",
+              "subcategory": "OpEx",
+              "description": null,
+              "account": null,
+              "timeline": {
+                "start_date": "2024-01",
+                "start_offset_months": null,
+                "duration_months": 96
+              },
+              "value": 600.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "settings": {
+                "analysis_start_date": "2025-09-29",
+                "reporting": {
+                  "reporting_frequency": "annual",
+                  "fiscal_year_start_month": 1,
+                  "decimal_precision": 2,
+                  "property_area_unit": "sqft"
+                },
+                "calculation": {
+                  "calculation_frequency": "monthly",
+                  "day_count_convention": "Actual/Actual",
+                  "fail_on_error": false,
+                  "max_dependency_depth": 2,
+                  "allow_complex_dependencies": false
+                },
+                "inflation": {
+                  "inflation_timing": "Start of Year",
+                  "inflation_timing_month": null
+                },
+                "recoveries": {
+                  "gross_up_enabled": true,
+                  "gross_up_occupancy_threshold": 0.95,
+                  "gross_up_uses_fixed_rate": false,
+                  "default_recovery_method": null
+                },
+                "valuation": {
+                  "discount_rate": null,
+                  "exit_valuation_method": "none",
+                  "exit_cap_rate": null,
+                  "refinancing_cap_rate": 0.065,
+                  "refinancing_noi_method": "ltm",
+                  "exit_noi_method": "ltm",
+                  "costs_of_sale_percentage": 0.03
+                },
+                "percentage_rent": {
+                  "enabled": false,
+                  "breakpoint_method": "natural",
+                  "include_recoveries_in_breakpoint": true
+                }
+              },
+              "growth_rate": {
+                "name": "Maintenance Inflation",
+                "value": 0.03
+              },
+              "group": null,
+              "recoverable_ratio": 0.0,
+              "variable_ratio": null
+            },
+            {
+              "uid": "5404bbd4-b4ad-4460-af9e-dbd4606b6534",
+              "name": "Insurance",
+              "category": "Expense",
+              "subcategory": "OpEx",
+              "description": null,
+              "account": null,
+              "timeline": {
+                "start_date": "2024-01",
+                "start_offset_months": null,
+                "duration_months": 96
+              },
+              "value": 400.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "settings": {
+                "analysis_start_date": "2025-09-29",
+                "reporting": {
+                  "reporting_frequency": "annual",
+                  "fiscal_year_start_month": 1,
+                  "decimal_precision": 2,
+                  "property_area_unit": "sqft"
+                },
+                "calculation": {
+                  "calculation_frequency": "monthly",
+                  "day_count_convention": "Actual/Actual",
+                  "fail_on_error": false,
+                  "max_dependency_depth": 2,
+                  "allow_complex_dependencies": false
+                },
+                "inflation": {
+                  "inflation_timing": "Start of Year",
+                  "inflation_timing_month": null
+                },
+                "recoveries": {
+                  "gross_up_enabled": true,
+                  "gross_up_occupancy_threshold": 0.95,
+                  "gross_up_uses_fixed_rate": false,
+                  "default_recovery_method": null
+                },
+                "valuation": {
+                  "discount_rate": null,
+                  "exit_valuation_method": "none",
+                  "exit_cap_rate": null,
+                  "refinancing_cap_rate": 0.065,
+                  "refinancing_noi_method": "ltm",
+                  "exit_noi_method": "ltm",
+                  "costs_of_sale_percentage": 0.03
+                },
+                "percentage_rent": {
+                  "enabled": false,
+                  "breakpoint_method": "natural",
+                  "include_recoveries_in_breakpoint": true
+                }
+              },
+              "growth_rate": {
+                "name": "Insurance Inflation",
+                "value": 0.04
+              },
+              "group": null,
+              "recoverable_ratio": 0.0,
+              "variable_ratio": null
+            },
+            {
+              "uid": "827380ca-fe66-4989-aa08-ee2bce27c203",
+              "name": "Property Taxes",
+              "category": "Expense",
+              "subcategory": "OpEx",
+              "description": null,
+              "account": null,
+              "timeline": {
+                "start_date": "2024-01",
+                "start_offset_months": null,
+                "duration_months": 96
+              },
+              "value": 138000.0,
+              "frequency": "annual",
+              "reference": null,
+              "settings": {
+                "analysis_start_date": "2025-09-29",
+                "reporting": {
+                  "reporting_frequency": "annual",
+                  "fiscal_year_start_month": 1,
+                  "decimal_precision": 2,
+                  "property_area_unit": "sqft"
+                },
+                "calculation": {
+                  "calculation_frequency": "monthly",
+                  "day_count_convention": "Actual/Actual",
+                  "fail_on_error": false,
+                  "max_dependency_depth": 2,
+                  "allow_complex_dependencies": false
+                },
+                "inflation": {
+                  "inflation_timing": "Start of Year",
+                  "inflation_timing_month": null
+                },
+                "recoveries": {
+                  "gross_up_enabled": true,
+                  "gross_up_occupancy_threshold": 0.95,
+                  "gross_up_uses_fixed_rate": false,
+                  "default_recovery_method": null
+                },
+                "valuation": {
+                  "discount_rate": null,
+                  "exit_valuation_method": "none",
+                  "exit_cap_rate": null,
+                  "refinancing_cap_rate": 0.065,
+                  "refinancing_noi_method": "ltm",
+                  "exit_noi_method": "ltm",
+                  "costs_of_sale_percentage": 0.03
+                },
+                "percentage_rent": {
+                  "enabled": false,
+                  "breakpoint_method": "natural",
+                  "include_recoveries_in_breakpoint": true
+                }
+              },
+              "growth_rate": {
+                "name": "Tax Growth",
+                "value": 0.025
+              },
+              "group": null,
+              "recoverable_ratio": 0.0,
+              "variable_ratio": null
+            },
+            {
+              "uid": "1999cd7f-ffaa-4798-8516-f527ed02c563",
+              "name": "Utilities (Common Area)",
+              "category": "Expense",
+              "subcategory": "OpEx",
+              "description": null,
+              "account": null,
+              "timeline": {
+                "start_date": "2024-01",
+                "start_offset_months": null,
+                "duration_months": 96
+              },
+              "value": 200.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "settings": {
+                "analysis_start_date": "2025-09-29",
+                "reporting": {
+                  "reporting_frequency": "annual",
+                  "fiscal_year_start_month": 1,
+                  "decimal_precision": 2,
+                  "property_area_unit": "sqft"
+                },
+                "calculation": {
+                  "calculation_frequency": "monthly",
+                  "day_count_convention": "Actual/Actual",
+                  "fail_on_error": false,
+                  "max_dependency_depth": 2,
+                  "allow_complex_dependencies": false
+                },
+                "inflation": {
+                  "inflation_timing": "Start of Year",
+                  "inflation_timing_month": null
+                },
+                "recoveries": {
+                  "gross_up_enabled": true,
+                  "gross_up_occupancy_threshold": 0.95,
+                  "gross_up_uses_fixed_rate": false,
+                  "default_recovery_method": null
+                },
+                "valuation": {
+                  "discount_rate": null,
+                  "exit_valuation_method": "none",
+                  "exit_cap_rate": null,
+                  "refinancing_cap_rate": 0.065,
+                  "refinancing_noi_method": "ltm",
+                  "exit_noi_method": "ltm",
+                  "costs_of_sale_percentage": 0.03
+                },
+                "percentage_rent": {
+                  "enabled": false,
+                  "breakpoint_method": "natural",
+                  "include_recoveries_in_breakpoint": true
+                }
+              },
+              "growth_rate": {
+                "name": "Utility Inflation",
+                "value": 0.04
+              },
+              "group": null,
+              "recoverable_ratio": 0.0,
+              "variable_ratio": null
+            },
+            {
+              "uid": "ac8b6f08-c4d4-44b8-91ec-8919d2c7809b",
+              "name": "Marketing & Leasing",
+              "category": "Expense",
+              "subcategory": "OpEx",
+              "description": null,
+              "account": null,
+              "timeline": {
+                "start_date": "2024-01",
+                "start_offset_months": null,
+                "duration_months": 96
+              },
+              "value": 150.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "settings": {
+                "analysis_start_date": "2025-09-29",
+                "reporting": {
+                  "reporting_frequency": "annual",
+                  "fiscal_year_start_month": 1,
+                  "decimal_precision": 2,
+                  "property_area_unit": "sqft"
+                },
+                "calculation": {
+                  "calculation_frequency": "monthly",
+                  "day_count_convention": "Actual/Actual",
+                  "fail_on_error": false,
+                  "max_dependency_depth": 2,
+                  "allow_complex_dependencies": false
+                },
+                "inflation": {
+                  "inflation_timing": "Start of Year",
+                  "inflation_timing_month": null
+                },
+                "recoveries": {
+                  "gross_up_enabled": true,
+                  "gross_up_occupancy_threshold": 0.95,
+                  "gross_up_uses_fixed_rate": false,
+                  "default_recovery_method": null
+                },
+                "valuation": {
+                  "discount_rate": null,
+                  "exit_valuation_method": "none",
+                  "exit_cap_rate": null,
+                  "refinancing_cap_rate": 0.065,
+                  "refinancing_noi_method": "ltm",
+                  "exit_noi_method": "ltm",
+                  "costs_of_sale_percentage": 0.03
+                },
+                "percentage_rent": {
+                  "enabled": false,
+                  "breakpoint_method": "natural",
+                  "include_recoveries_in_breakpoint": true
+                }
+              },
+              "growth_rate": null,
+              "group": null,
+              "recoverable_ratio": 0.0,
+              "variable_ratio": null
+            },
+            {
+              "uid": "a9ec9c75-449b-41ed-a8d9-afba7d47c5fc",
+              "name": "Admin & Professional",
+              "category": "Expense",
+              "subcategory": "OpEx",
+              "description": null,
+              "account": null,
+              "timeline": {
+                "start_date": "2024-01",
+                "start_offset_months": null,
+                "duration_months": 96
+              },
+              "value": 100.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "settings": {
+                "analysis_start_date": "2025-09-29",
+                "reporting": {
+                  "reporting_frequency": "annual",
+                  "fiscal_year_start_month": 1,
+                  "decimal_precision": 2,
+                  "property_area_unit": "sqft"
+                },
+                "calculation": {
+                  "calculation_frequency": "monthly",
+                  "day_count_convention": "Actual/Actual",
+                  "fail_on_error": false,
+                  "max_dependency_depth": 2,
+                  "allow_complex_dependencies": false
+                },
+                "inflation": {
+                  "inflation_timing": "Start of Year",
+                  "inflation_timing_month": null
+                },
+                "recoveries": {
+                  "gross_up_enabled": true,
+                  "gross_up_occupancy_threshold": 0.95,
+                  "gross_up_uses_fixed_rate": false,
+                  "default_recovery_method": null
+                },
+                "valuation": {
+                  "discount_rate": null,
+                  "exit_valuation_method": "none",
+                  "exit_cap_rate": null,
+                  "refinancing_cap_rate": 0.065,
+                  "refinancing_noi_method": "ltm",
+                  "exit_noi_method": "ltm",
+                  "costs_of_sale_percentage": 0.03
+                },
+                "percentage_rent": {
+                  "enabled": false,
+                  "breakpoint_method": "natural",
+                  "include_recoveries_in_breakpoint": true
+                }
+              },
+              "growth_rate": null,
+              "group": null,
+              "recoverable_ratio": 0.0,
+              "variable_ratio": null
+            }
+          ],
+          "capital_expenses": []
+        },
+        "losses": {
+          "uid": "7e88c5d6-c99c-4fc3-8bba-e95a34ea70cd",
+          "general_vacancy": {
+            "rate": 0.05,
+            "method": "Potential Gross Revenue",
+            "reduce_by_rollover_vacancy": true
+          },
+          "credit_loss": {
+            "rate": 0.015,
+            "basis": "Potential Gross Revenue"
+          }
+        }
+      },
+      "acquisition": {
+        "_class_name": "AcquisitionTerms",
+        "_object_type": "Unknown",
+        "uid": "33b82e76-9983-4c88-8e2b-f491cf248b44",
+        "name": "Riverside Gardens Acquisition",
+        "category": "Capital",
+        "subcategory": "Purchase Price",
+        "description": null,
+        "account": null,
+        "timeline": {
+          "start_date": "2024-01",
+          "start_offset_months": null,
+          "duration_months": 3
+        },
+        "value": 11500000.0,
+        "frequency": "monthly",
+        "reference": null,
+        "settings": {
+          "analysis_start_date": "2025-09-29",
+          "reporting": {
+            "reporting_frequency": "annual",
+            "fiscal_year_start_month": 1,
+            "decimal_precision": 2,
+            "property_area_unit": "sqft"
+          },
+          "calculation": {
+            "calculation_frequency": "monthly",
+            "day_count_convention": "Actual/Actual",
+            "fail_on_error": false,
+            "max_dependency_depth": 2,
+            "allow_complex_dependencies": false
+          },
+          "inflation": {
+            "inflation_timing": "Start of Year",
+            "inflation_timing_month": null
+          },
+          "recoveries": {
+            "gross_up_enabled": true,
+            "gross_up_occupancy_threshold": 0.95,
+            "gross_up_uses_fixed_rate": false,
+            "default_recovery_method": null
+          },
+          "valuation": {
+            "discount_rate": null,
+            "exit_valuation_method": "none",
+            "exit_cap_rate": null,
+            "refinancing_cap_rate": 0.065,
+            "refinancing_noi_method": "ltm",
+            "exit_noi_method": "ltm",
+            "costs_of_sale_percentage": 0.03
+          },
+          "percentage_rent": {
+            "enabled": false,
+            "breakpoint_method": "natural",
+            "include_recoveries_in_breakpoint": true
+          }
+        },
+        "growth_rate": null,
+        "closing_costs_rate": 0.02,
+        "acquisition_date": "2024-01-01"
+      },
+      "financing": {
+        "_class_name": "FinancingPlan",
+        "_object_type": "Debt",
+        "name": "Construction-to-Permanent",
+        "description": null,
+        "facilities": [
+          {
+            "uid": "f3d5d9d2-10b1-4956-9896-601dde963d34",
+            "name": "Renovation Loan",
+            "loan_amount": 8125000.0,
+            "interest_rate": {
+              "details": {
+                "rate_type": "fixed",
+                "rate": 0.075
+              }
+            },
+            "loan_term_months": 36,
+            "kind": "construction",
+            "tranches": [
+              {
+                "name": "Bridge Financing",
+                "ltc_threshold": 0.65,
+                "interest_rate": {
+                  "details": {
+                    "rate_type": "fixed",
+                    "rate": 0.075
+                  }
+                },
+                "fee_rate": 0.015
+              }
+            ],
+            "loan_term_years": null,
+            "draw_schedule": {},
+            "interest_only": true,
+            "fund_interest_from_reserve": true,
+            "interest_reserve_rate": 0.1,
+            "interest_calculation_method": "scheduled",
+            "simple_reserve_rate": null,
+            "ltc_ratio": null,
+            "ltc_max": 0.8,
+            "_class_name": "ConstructionFacility",
+            "_object_type": "Debt"
+          },
+          {
+            "uid": "71964b32-73c1-4341-b0f1-db8471b4a6fa",
+            "name": "Permanent Financing",
+            "loan_amount": 8125000.0,
+            "interest_rate": {
+              "details": {
+                "rate_type": "fixed",
+                "rate": 0.055
+              }
+            },
+            "loan_term_months": 120,
+            "kind": "permanent",
+            "ltv_ratio": 0.65,
+            "dscr_hurdle": 1.25,
+            "debt_yield_hurdle": null,
+            "sizing_method": "manual",
+            "loan_term_years": null,
+            "amortization_months": 360,
+            "amortization_years": null,
+            "interest_only_months": 0,
+            "refinance_timing": 36,
+            "ongoing_ltv_max": null,
+            "ongoing_dscr_min": null,
+            "ongoing_debt_yield_min": null,
+            "_class_name": "PermanentFacility",
+            "_object_type": "Debt"
+          }
+        ]
+      },
+      "partnership": {
+        "_class_name": "PartnershipStructure",
+        "_object_type": "Partnership",
+        "partners": [
+          {
+            "uid": "5a86beb7-957f-4725-8b0a-c5a1be40a831",
+            "name": "GP",
+            "kind": "GP",
+            "description": null,
+            "share": 0.2,
+            "capital_commitment": null
+          },
+          {
+            "uid": "a088f76f-4063-48b1-94da-a01115ad9794",
+            "name": "LP",
+            "kind": "LP",
+            "description": null,
+            "share": 0.8,
+            "capital_commitment": null
+          }
+        ],
+        "distribution_method": "waterfall",
+        "promote": {
+          "final_promote_rate": 0.2,
+          "pref_hurdle_rate": 0.08,
+          "tiers": [
+            {
+              "promote_rate": 0.2,
+              "tier_hurdle_rate": 0.15
+            }
+          ]
+        },
+        "has_explicit_commitments": false,
+        "total_committed_capital": null,
+        "capital_shares": {
+          "GP": 0.2,
+          "LP": 0.8
+        }
+      },
+      "exit": {
+        "_class_name": "DirectCapValuation",
+        "_object_type": "Valuation",
+        "name": "Riverside Gardens Sale",
+        "uid": "1d8f9545-bdc7-4988-adf2-e3751a726420",
+        "kind": "direct_cap",
+        "cap_rate": 0.065,
+        "transaction_costs_rate": 0.025,
+        "hold_period_months": 84,
+        "noi_basis_kind": "LTM",
+        "cap_rates_by_use": null
+      }
+    }
+  },
+  "intentionality_metrics": {
+    "user_explicit_count": 161,
+    "user_plus_set_count": 190,
+    "total_available_count": 855,
+    "explicit_ratio": 0.18830409356725147,
+    "defaulted_ratio": 0.7777777777777778,
+    "completeness_score": 0.2222222222222222,
+    "quality_score": 1.0,
+    "quality_interpretation": "Pattern Quality Score (defaults are a feature)",
+    "is_pattern_based": true
+  },
+  "risk_assessment": {},
+  "recommendations": [
+    "\u2705 EXCELLENT pattern configuration - optimal parameter specification"
+  ],
+  "defaulted_parameters": [
+    "deal.description",
+    "deal.acquisition.category",
+    "deal.acquisition.subcategory",
+    "deal.acquisition.description",
+    "deal.acquisition.account",
+    "deal.acquisition.timeline.start_offset_months",
+    "deal.acquisition.frequency",
+    "deal.acquisition.reference",
+    "deal.acquisition.settings",
+    "deal.acquisition.growth_rate",
+    "deal.acquisition.closing_costs_rate",
+    "deal.funding_cascade",
+    "deal.deal_fees",
+    "asset.description",
+    "asset.external_id",
+    "asset.address",
+    "asset.year_built",
+    "asset.property_type",
+    "asset.program_components",
+    "asset.miscellaneous_income",
+    "asset.capital_plans[0].description",
+    "asset.capital_plans[0].capital_items[0].category",
+    "asset.capital_plans[0].capital_items[0].subcategory",
+    "asset.capital_plans[0].capital_items[0].description",
+    "asset.capital_plans[0].capital_items[0].account",
+    "asset.capital_plans[0].capital_items[0].timeline.start_offset_months",
+    "asset.capital_plans[0].capital_items[0].frequency",
+    "asset.capital_plans[0].capital_items[0].reference",
+    "asset.capital_plans[0].capital_items[0].settings",
+    "asset.capital_plans[0].capital_items[0].growth_rate",
+    "asset.capital_plans[0].capital_items[0].contractor",
+    "asset.capital_plans[0].capital_items[0].permit_required",
+    "asset.capital_plans[0].capital_items[0].draw_schedule",
+    "asset.absorption_plans[0].space_filter",
+    "asset.absorption_plans[0].pace.type",
+    "asset.absorption_plans[0].pace.frequency_months",
+    "asset.absorption_plans[0].leasing_assumptions.base_rent_value",
+    "asset.absorption_plans[0].leasing_assumptions.base_rent_reference",
+    "asset.absorption_plans[0].leasing_assumptions.base_rent_frequency",
+    "asset.absorption_plans[0].leasing_assumptions.term_months",
+    "asset.absorption_plans[0].leasing_assumptions.upon_expiration",
+    "asset.absorption_plans[0].leasing_assumptions.rent_escalation",
+    "asset.absorption_plans[0].leasing_assumptions.rent_abatement",
+    "asset.absorption_plans[0].leasing_assumptions.recovery_method",
+    "asset.absorption_plans[0].leasing_assumptions.ti_allowance",
+    "asset.absorption_plans[0].leasing_assumptions.leasing_commission",
+    "asset.absorption_plans[0].leasing_assumptions.market_rent_growth",
+    "asset.absorption_plans[0].leasing_assumptions.lease_term_months",
+    "asset.absorption_plans[0].leasing_assumptions.security_deposit_months",
+    "asset.absorption_plans[0].leasing_assumptions.concessions_months",
+    "asset.absorption_plans[0].leasing_assumptions.stabilized_downtime_months",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[0].category",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[0].subcategory",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[0].description",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[0].account",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[0].timeline.start_offset_months",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[0].frequency",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[0].settings",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[0].growth_rate",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[0].group",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[0].recoverable_ratio",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[0].variable_ratio",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[1].category",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[1].subcategory",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[1].description",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[1].account",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[1].timeline.start_offset_months",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[1].settings",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[1].group",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[1].recoverable_ratio",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[1].variable_ratio",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[2].category",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[2].subcategory",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[2].description",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[2].account",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[2].timeline.start_offset_months",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[2].settings",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[2].group",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[2].recoverable_ratio",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[2].variable_ratio",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[3].category",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[3].subcategory",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[3].description",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[3].account",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[3].timeline.start_offset_months",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[3].reference",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[3].settings",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[3].group",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[3].recoverable_ratio",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[3].variable_ratio",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[4].category",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[4].subcategory",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[4].description",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[4].account",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[4].timeline.start_offset_months",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[4].settings",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[4].group",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[4].recoverable_ratio",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[4].variable_ratio",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[5].category",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[5].subcategory",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[5].description",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[5].account",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[5].timeline.start_offset_months",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[5].settings",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[5].growth_rate",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[5].group",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[5].recoverable_ratio",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[5].variable_ratio",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[6].category",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[6].subcategory",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[6].description",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[6].account",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[6].timeline.start_offset_months",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[6].settings",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[6].growth_rate",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[6].group",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[6].recoverable_ratio",
+    "asset.absorption_plans[0].stabilized_expenses.operating_expenses[6].variable_ratio",
+    "asset.absorption_plans[0].stabilized_expenses.capital_expenses",
+    "asset.absorption_plans[0].stabilized_losses.general_vacancy.rate",
+    "asset.absorption_plans[0].stabilized_losses.general_vacancy.method",
+    "asset.absorption_plans[0].stabilized_losses.general_vacancy.reduce_by_rollover_vacancy",
+    "asset.absorption_plans[0].stabilized_losses.credit_loss.basis",
+    "asset.expenses.operating_expenses[0].category",
+    "asset.expenses.operating_expenses[0].subcategory",
+    "asset.expenses.operating_expenses[0].description",
+    "asset.expenses.operating_expenses[0].account",
+    "asset.expenses.operating_expenses[0].timeline.start_offset_months",
+    "asset.expenses.operating_expenses[0].frequency",
+    "asset.expenses.operating_expenses[0].settings",
+    "asset.expenses.operating_expenses[0].growth_rate",
+    "asset.expenses.operating_expenses[0].group",
+    "asset.expenses.operating_expenses[0].recoverable_ratio",
+    "asset.expenses.operating_expenses[0].variable_ratio",
+    "asset.expenses.operating_expenses[1].category",
+    "asset.expenses.operating_expenses[1].subcategory",
+    "asset.expenses.operating_expenses[1].description",
+    "asset.expenses.operating_expenses[1].account",
+    "asset.expenses.operating_expenses[1].timeline.start_offset_months",
+    "asset.expenses.operating_expenses[1].settings",
+    "asset.expenses.operating_expenses[1].group",
+    "asset.expenses.operating_expenses[1].recoverable_ratio",
+    "asset.expenses.operating_expenses[1].variable_ratio",
+    "asset.expenses.operating_expenses[2].category",
+    "asset.expenses.operating_expenses[2].subcategory",
+    "asset.expenses.operating_expenses[2].description",
+    "asset.expenses.operating_expenses[2].account",
+    "asset.expenses.operating_expenses[2].timeline.start_offset_months",
+    "asset.expenses.operating_expenses[2].settings",
+    "asset.expenses.operating_expenses[2].group",
+    "asset.expenses.operating_expenses[2].recoverable_ratio",
+    "asset.expenses.operating_expenses[2].variable_ratio",
+    "asset.expenses.operating_expenses[3].category",
+    "asset.expenses.operating_expenses[3].subcategory",
+    "asset.expenses.operating_expenses[3].description",
+    "asset.expenses.operating_expenses[3].account",
+    "asset.expenses.operating_expenses[3].timeline.start_offset_months",
+    "asset.expenses.operating_expenses[3].reference",
+    "asset.expenses.operating_expenses[3].settings",
+    "asset.expenses.operating_expenses[3].group",
+    "asset.expenses.operating_expenses[3].recoverable_ratio",
+    "asset.expenses.operating_expenses[3].variable_ratio",
+    "asset.expenses.operating_expenses[4].category",
+    "asset.expenses.operating_expenses[4].subcategory",
+    "asset.expenses.operating_expenses[4].description",
+    "asset.expenses.operating_expenses[4].account",
+    "asset.expenses.operating_expenses[4].timeline.start_offset_months",
+    "asset.expenses.operating_expenses[4].settings",
+    "asset.expenses.operating_expenses[4].group",
+    "asset.expenses.operating_expenses[4].recoverable_ratio",
+    "asset.expenses.operating_expenses[4].variable_ratio",
+    "asset.expenses.operating_expenses[5].category",
+    "asset.expenses.operating_expenses[5].subcategory",
+    "asset.expenses.operating_expenses[5].description",
+    "asset.expenses.operating_expenses[5].account",
+    "asset.expenses.operating_expenses[5].timeline.start_offset_months",
+    "asset.expenses.operating_expenses[5].settings",
+    "asset.expenses.operating_expenses[5].growth_rate",
+    "asset.expenses.operating_expenses[5].group",
+    "asset.expenses.operating_expenses[5].recoverable_ratio",
+    "asset.expenses.operating_expenses[5].variable_ratio",
+    "asset.expenses.operating_expenses[6].category",
+    "asset.expenses.operating_expenses[6].subcategory",
+    "asset.expenses.operating_expenses[6].description",
+    "asset.expenses.operating_expenses[6].account",
+    "asset.expenses.operating_expenses[6].timeline.start_offset_months",
+    "asset.expenses.operating_expenses[6].settings",
+    "asset.expenses.operating_expenses[6].growth_rate",
+    "asset.expenses.operating_expenses[6].group",
+    "asset.expenses.operating_expenses[6].recoverable_ratio",
+    "asset.expenses.operating_expenses[6].variable_ratio",
+    "asset.expenses.capital_expenses",
+    "asset.losses.general_vacancy.rate",
+    "asset.losses.general_vacancy.method",
+    "asset.losses.general_vacancy.reduce_by_rollover_vacancy",
+    "asset.losses.credit_loss.basis",
+    "acquisition.category",
+    "acquisition.subcategory",
+    "acquisition.description",
+    "acquisition.account",
+    "acquisition.timeline.start_offset_months",
+    "acquisition.frequency",
+    "acquisition.reference",
+    "acquisition.settings",
+    "acquisition.growth_rate",
+    "acquisition.closing_costs_rate",
+    "financing.description",
+    "financing.facilities[0].interest_rate.details.rate_type",
+    "financing.facilities[0].kind",
+    "financing.facilities[0].tranches[0].interest_rate.details.rate_type",
+    "financing.facilities[0].loan_term_years",
+    "financing.facilities[0].draw_schedule",
+    "financing.facilities[0].interest_only",
+    "financing.facilities[0].interest_calculation_method",
+    "financing.facilities[0].simple_reserve_rate",
+    "financing.facilities[0].ltc_ratio",
+    "financing.facilities[0].ltc_max",
+    "financing.facilities[1].interest_rate.details.rate_type",
+    "financing.facilities[1].kind",
+    "financing.facilities[1].debt_yield_hurdle",
+    "financing.facilities[1].sizing_method",
+    "financing.facilities[1].loan_term_years",
+    "financing.facilities[1].amortization_months",
+    "financing.facilities[1].amortization_years",
+    "financing.facilities[1].interest_only_months",
+    "financing.facilities[1].ongoing_ltv_max",
+    "financing.facilities[1].ongoing_dscr_min",
+    "financing.facilities[1].ongoing_debt_yield_min",
+    "partnership.partners[0].description",
+    "partnership.partners[0].capital_commitment",
+    "partnership.partners[1].description",
+    "partnership.partners[1].capital_commitment",
+    "exit.kind",
+    "exit.transaction_costs_rate",
+    "exit.noi_basis_kind",
+    "exit.cap_rates_by_use"
+  ]
+}

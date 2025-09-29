@@ -1,0 +1,42 @@
+{
+  "revenue_analysis": {
+    "total_revenue": 23498957.470467694,
+    "warnings": [],
+    "benchmarks": {}
+  },
+  "expense_analysis": {
+    "total_expenses": 1745970.4491937496,
+    "warnings": []
+  },
+  "financing_analysis": {
+    "loan_proceeds": 8400000.0,
+    "interest_payments": 2090304.7750357734,
+    "principal_payments": 929903.7094274509,
+    "prepayments": 7470096.290572549,
+    "warnings": []
+  },
+  "capital_analysis": {
+    "purchase_price": 12000000.0,
+    "exit_proceeds": 0.0,
+    "warnings": [
+      {
+        "type": "no_exit_proceeds",
+        "message": "No exit proceeds recorded (check valuation)"
+      }
+    ]
+  },
+  "overall_analysis": {
+    "irr": 0.09136315998283871,
+    "equity_multiple": 4.4077012991474644,
+    "warnings": []
+  },
+  "warnings": [
+    {
+      "type": "no_exit_proceeds",
+      "message": "No exit proceeds recorded (check valuation)"
+    }
+  ],
+  "has_warnings": true,
+  "summary": "1 flow reasonableness issues detected",
+  "recommendations": []
+}

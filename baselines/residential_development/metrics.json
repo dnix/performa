@@ -1,0 +1,31 @@
+{
+  "generation_metadata": {
+    "timestamp": "2025-09-28T11:10:34.570158",
+    "example_info": {
+      "example_name": "Residential Development Comparison",
+      "script_path": "examples/patterns/residential_development_comparison.py",
+      "function_called": "create_deal_via_composition() + direct analyze()",
+      "timeline": "2024-01-01, 84 months",
+      "deal_type": "residential_development",
+      "approach": "composition_manual_assembly"
+    },
+    "git_branch": "main",
+    "git_commit": "632e006bfab676745700dff6458fbd7d71aec6de"
+  },
+  "core_metrics": {
+    "irr": 0.406679795466935,
+    "em": 6.84350304430055,
+    "equity": 9676037.682,
+    "net_profit": 36777908.14646617,
+    "timeline_months": 84,
+    "timeline_start": "2024-01",
+    "timeline_end": "2030-12"
+  },
+  "ledger_stats": {
+    "transaction_count": 9057,
+    "date_range_start": "2024-01-01",
+    "date_range_end": "2030-12-01",
+    "total_amount_including_valuations": 2471302865.2764707,
+    "cash_flow_amount": -20267776.72352921
+  }
+}

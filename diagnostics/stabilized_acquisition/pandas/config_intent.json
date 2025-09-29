@@ -1,0 +1,1108 @@
+{
+  "configuration_views": {
+    "user_explicit": {
+      "deal": {
+        "_class_name": "Deal",
+        "_object_type": "Deal",
+        "name": "Maple Ridge Apartments Stabilized Acquisition",
+        "description": "Manual composition - complete control",
+        "acquisition": {
+          "name": "Maple Ridge Apartments Acquisition",
+          "timeline": {
+            "start_date": "2024-01",
+            "duration_months": 1
+          },
+          "value": 12000000.0,
+          "closing_costs_rate": 0.025,
+          "acquisition_date": "2024-01-01"
+        }
+      },
+      "asset": {
+        "_class_name": "ResidentialProperty",
+        "_object_type": "Asset",
+        "name": "Maple Ridge Apartments",
+        "gross_area": 114000.0,
+        "net_rentable_area": 114000.0,
+        "expenses": {
+          "operating_expenses": [
+            {
+              "name": "Property Management",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 60
+              },
+              "value": 0.04,
+              "reference": "Effective Gross Income"
+            },
+            {
+              "name": "Maintenance & Repairs",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 60
+              },
+              "value": 500.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "growth_rate": {
+                "name": "Maintenance Inflation",
+                "value": 0.03
+              }
+            },
+            {
+              "name": "Insurance",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 60
+              },
+              "value": 350.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "growth_rate": {
+                "name": "Insurance Inflation",
+                "value": 0.04
+              }
+            },
+            {
+              "name": "Property Taxes",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 60
+              },
+              "value": 132000.0,
+              "frequency": "annual",
+              "growth_rate": {
+                "name": "Tax Growth",
+                "value": 0.025
+              }
+            },
+            {
+              "name": "Utilities (Common Area)",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 60
+              },
+              "value": 180.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "growth_rate": {
+                "name": "Utility Inflation",
+                "value": 0.04
+              }
+            },
+            {
+              "name": "Administrative",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 60
+              },
+              "value": 120.0,
+              "frequency": "annual",
+              "reference": "unit_count"
+            }
+          ]
+        },
+        "losses": {
+          "general_vacancy": {},
+          "credit_loss": {
+            "rate": 0.02
+          }
+        }
+      },
+      "acquisition": {
+        "_class_name": "AcquisitionTerms",
+        "_object_type": "Unknown",
+        "name": "Maple Ridge Apartments Acquisition",
+        "timeline": {
+          "start_date": "2024-01",
+          "duration_months": 1
+        },
+        "value": 12000000.0,
+        "closing_costs_rate": 0.025,
+        "acquisition_date": "2024-01-01"
+      },
+      "financing": {
+        "_class_name": "FinancingPlan",
+        "_object_type": "Debt",
+        "name": "Maple Ridge Apartments Financing",
+        "facilities": [
+          {
+            "name": "Maple Ridge Apartments Permanent Loan",
+            "loan_amount": 8400000.0,
+            "interest_rate": {
+              "details": {
+                "rate": 0.0525
+              }
+            },
+            "loan_term_months": 120,
+            "ltv_ratio": 0.7,
+            "dscr_hurdle": 1.25,
+            "loan_term_years": 10,
+            "amortization_months": 300,
+            "amortization_years": 25,
+            "_class_name": "PermanentFacility",
+            "_object_type": "Debt"
+          }
+        ]
+      },
+      "partnership": {
+        "_class_name": "PartnershipStructure",
+        "_object_type": "Partnership",
+        "partners": [
+          {
+            "name": "Sponsor",
+            "kind": "GP",
+            "share": 0.1
+          },
+          {
+            "name": "Investor",
+            "kind": "LP",
+            "share": 0.9
+          }
+        ],
+        "has_explicit_commitments": false,
+        "total_committed_capital": null,
+        "capital_shares": {
+          "Sponsor": 0.1,
+          "Investor": 0.9
+        }
+      },
+      "exit": {
+        "_class_name": "DirectCapValuation",
+        "_object_type": "Valuation",
+        "name": "Stabilized Disposition",
+        "cap_rate": 0.065,
+        "hold_period_months": 60
+      }
+    },
+    "user_plus_set_defaults": {
+      "deal": {
+        "_class_name": "Deal",
+        "_object_type": "Deal",
+        "uid": "3c738b6c-29cf-4ad3-8c3a-8baf1aec032a",
+        "name": "Maple Ridge Apartments Stabilized Acquisition",
+        "description": "Manual composition - complete control",
+        "acquisition": {
+          "uid": "f1eb1af5-5c58-43dd-86c2-2683697b9d7b",
+          "name": "Maple Ridge Apartments Acquisition",
+          "timeline": {
+            "start_date": "2024-01",
+            "duration_months": 1
+          },
+          "value": 12000000.0,
+          "closing_costs_rate": 0.025,
+          "acquisition_date": "2024-01-01"
+        }
+      },
+      "asset": {
+        "_class_name": "ResidentialProperty",
+        "_object_type": "Asset",
+        "uid": "2da6a7c6-ba04-4da5-9f61-2dda2dcae932",
+        "name": "Maple Ridge Apartments",
+        "gross_area": 114000.0,
+        "net_rentable_area": 114000.0,
+        "expenses": {
+          "uid": "60dcc025-2337-4ae0-af10-cb53959f3ba3",
+          "operating_expenses": [
+            {
+              "uid": "40a42eb6-b6c8-4aeb-8600-0d940d2bbedb",
+              "name": "Property Management",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 60
+              },
+              "value": 0.04,
+              "reference": "Effective Gross Income"
+            },
+            {
+              "uid": "4bac5b8c-1595-43bd-b5bc-95b77ce5e2f4",
+              "name": "Maintenance & Repairs",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 60
+              },
+              "value": 500.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "growth_rate": {
+                "name": "Maintenance Inflation",
+                "value": 0.03
+              }
+            },
+            {
+              "uid": "37dc1109-9d2c-4c5a-80a6-2e4ccf6ee0b4",
+              "name": "Insurance",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 60
+              },
+              "value": 350.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "growth_rate": {
+                "name": "Insurance Inflation",
+                "value": 0.04
+              }
+            },
+            {
+              "uid": "ed83aedf-0087-47ad-9ebe-c23511efbb7b",
+              "name": "Property Taxes",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 60
+              },
+              "value": 132000.0,
+              "frequency": "annual",
+              "growth_rate": {
+                "name": "Tax Growth",
+                "value": 0.025
+              }
+            },
+            {
+              "uid": "8346e5b6-8da6-4234-a118-0cfb690556a7",
+              "name": "Utilities (Common Area)",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 60
+              },
+              "value": 180.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "growth_rate": {
+                "name": "Utility Inflation",
+                "value": 0.04
+              }
+            },
+            {
+              "uid": "93700b92-3041-42f8-8678-550ee96b9909",
+              "name": "Administrative",
+              "timeline": {
+                "start_date": "2024-01",
+                "duration_months": 60
+              },
+              "value": 120.0,
+              "frequency": "annual",
+              "reference": "unit_count"
+            }
+          ]
+        },
+        "losses": {
+          "uid": "e4f3afa7-1ba3-456a-a262-a600cbd98d69",
+          "general_vacancy": {},
+          "credit_loss": {
+            "rate": 0.02
+          }
+        }
+      },
+      "acquisition": {
+        "_class_name": "AcquisitionTerms",
+        "_object_type": "Unknown",
+        "uid": "f1eb1af5-5c58-43dd-86c2-2683697b9d7b",
+        "name": "Maple Ridge Apartments Acquisition",
+        "timeline": {
+          "start_date": "2024-01",
+          "duration_months": 1
+        },
+        "value": 12000000.0,
+        "closing_costs_rate": 0.025,
+        "acquisition_date": "2024-01-01"
+      },
+      "financing": {
+        "_class_name": "FinancingPlan",
+        "_object_type": "Debt",
+        "name": "Maple Ridge Apartments Financing",
+        "facilities": [
+          {
+            "uid": "fc2777dc-f9a3-4faa-a86e-fc9dc14c4e8e",
+            "name": "Maple Ridge Apartments Permanent Loan",
+            "loan_amount": 8400000.0,
+            "interest_rate": {
+              "details": {
+                "rate": 0.0525
+              }
+            },
+            "loan_term_months": 120,
+            "ltv_ratio": 0.7,
+            "dscr_hurdle": 1.25,
+            "loan_term_years": 10,
+            "amortization_months": 300,
+            "amortization_years": 25,
+            "_class_name": "PermanentFacility",
+            "_object_type": "Debt"
+          }
+        ]
+      },
+      "partnership": {
+        "_class_name": "PartnershipStructure",
+        "_object_type": "Partnership",
+        "partners": [
+          {
+            "uid": "e080d864-6d6e-425e-b6f1-3735b819bde0",
+            "name": "Sponsor",
+            "kind": "GP",
+            "share": 0.1
+          },
+          {
+            "uid": "14e3bcd7-ebf1-4490-a575-90dbda496a70",
+            "name": "Investor",
+            "kind": "LP",
+            "share": 0.9
+          }
+        ],
+        "has_explicit_commitments": false,
+        "total_committed_capital": null,
+        "capital_shares": {
+          "Sponsor": 0.1,
+          "Investor": 0.9
+        }
+      },
+      "exit": {
+        "_class_name": "DirectCapValuation",
+        "_object_type": "Valuation",
+        "name": "Stabilized Disposition",
+        "uid": "7d4a7f6d-f5af-4694-ab4f-7e73b2dffc1b",
+        "cap_rate": 0.065,
+        "hold_period_months": 60
+      }
+    },
+    "full_with_all_defaults": {
+      "deal": {
+        "_class_name": "Deal",
+        "_object_type": "Deal",
+        "uid": "3c738b6c-29cf-4ad3-8c3a-8baf1aec032a",
+        "name": "Maple Ridge Apartments Stabilized Acquisition",
+        "description": "Manual composition - complete control",
+        "acquisition": {
+          "uid": "f1eb1af5-5c58-43dd-86c2-2683697b9d7b",
+          "name": "Maple Ridge Apartments Acquisition",
+          "category": "Capital",
+          "subcategory": "Purchase Price",
+          "description": null,
+          "account": null,
+          "timeline": {
+            "start_date": "2024-01",
+            "start_offset_months": null,
+            "duration_months": 1
+          },
+          "value": 12000000.0,
+          "frequency": "monthly",
+          "reference": null,
+          "settings": {
+            "analysis_start_date": "2025-09-29",
+            "reporting": {
+              "reporting_frequency": "annual",
+              "fiscal_year_start_month": 1,
+              "decimal_precision": 2,
+              "property_area_unit": "sqft"
+            },
+            "calculation": {
+              "calculation_frequency": "monthly",
+              "day_count_convention": "Actual/Actual",
+              "fail_on_error": false,
+              "max_dependency_depth": 2,
+              "allow_complex_dependencies": false
+            },
+            "inflation": {
+              "inflation_timing": "Start of Year",
+              "inflation_timing_month": null
+            },
+            "recoveries": {
+              "gross_up_enabled": true,
+              "gross_up_occupancy_threshold": 0.95,
+              "gross_up_uses_fixed_rate": false,
+              "default_recovery_method": null
+            },
+            "valuation": {
+              "discount_rate": null,
+              "exit_valuation_method": "none",
+              "exit_cap_rate": null,
+              "refinancing_cap_rate": 0.065,
+              "refinancing_noi_method": "ltm",
+              "exit_noi_method": "ltm",
+              "costs_of_sale_percentage": 0.03
+            },
+            "percentage_rent": {
+              "enabled": false,
+              "breakpoint_method": "natural",
+              "include_recoveries_in_breakpoint": true
+            }
+          },
+          "growth_rate": null,
+          "closing_costs_rate": 0.025,
+          "acquisition_date": "2024-01-01"
+        },
+        "funding_cascade": "equity_first",
+        "deal_fees": null
+      },
+      "asset": {
+        "_class_name": "ResidentialProperty",
+        "_object_type": "Asset",
+        "uid": "2da6a7c6-ba04-4da5-9f61-2dda2dcae932",
+        "name": "Maple Ridge Apartments",
+        "description": null,
+        "external_id": null,
+        "address": null,
+        "year_built": null,
+        "property_type": "multifamily",
+        "gross_area": 114000.0,
+        "net_rentable_area": 114000.0,
+        "program_components": null,
+        "miscellaneous_income": [],
+        "expenses": {
+          "uid": "60dcc025-2337-4ae0-af10-cb53959f3ba3",
+          "operating_expenses": [
+            {
+              "uid": "40a42eb6-b6c8-4aeb-8600-0d940d2bbedb",
+              "name": "Property Management",
+              "category": "Expense",
+              "subcategory": "OpEx",
+              "description": null,
+              "account": null,
+              "timeline": {
+                "start_date": "2024-01",
+                "start_offset_months": null,
+                "duration_months": 60
+              },
+              "value": 0.04,
+              "frequency": "monthly",
+              "reference": "Effective Gross Income",
+              "settings": {
+                "analysis_start_date": "2025-09-29",
+                "reporting": {
+                  "reporting_frequency": "annual",
+                  "fiscal_year_start_month": 1,
+                  "decimal_precision": 2,
+                  "property_area_unit": "sqft"
+                },
+                "calculation": {
+                  "calculation_frequency": "monthly",
+                  "day_count_convention": "Actual/Actual",
+                  "fail_on_error": false,
+                  "max_dependency_depth": 2,
+                  "allow_complex_dependencies": false
+                },
+                "inflation": {
+                  "inflation_timing": "Start of Year",
+                  "inflation_timing_month": null
+                },
+                "recoveries": {
+                  "gross_up_enabled": true,
+                  "gross_up_occupancy_threshold": 0.95,
+                  "gross_up_uses_fixed_rate": false,
+                  "default_recovery_method": null
+                },
+                "valuation": {
+                  "discount_rate": null,
+                  "exit_valuation_method": "none",
+                  "exit_cap_rate": null,
+                  "refinancing_cap_rate": 0.065,
+                  "refinancing_noi_method": "ltm",
+                  "exit_noi_method": "ltm",
+                  "costs_of_sale_percentage": 0.03
+                },
+                "percentage_rent": {
+                  "enabled": false,
+                  "breakpoint_method": "natural",
+                  "include_recoveries_in_breakpoint": true
+                }
+              },
+              "growth_rate": null,
+              "group": null,
+              "recoverable_ratio": 0.0,
+              "variable_ratio": null
+            },
+            {
+              "uid": "4bac5b8c-1595-43bd-b5bc-95b77ce5e2f4",
+              "name": "Maintenance & Repairs",
+              "category": "Expense",
+              "subcategory": "OpEx",
+              "description": null,
+              "account": null,
+              "timeline": {
+                "start_date": "2024-01",
+                "start_offset_months": null,
+                "duration_months": 60
+              },
+              "value": 500.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "settings": {
+                "analysis_start_date": "2025-09-29",
+                "reporting": {
+                  "reporting_frequency": "annual",
+                  "fiscal_year_start_month": 1,
+                  "decimal_precision": 2,
+                  "property_area_unit": "sqft"
+                },
+                "calculation": {
+                  "calculation_frequency": "monthly",
+                  "day_count_convention": "Actual/Actual",
+                  "fail_on_error": false,
+                  "max_dependency_depth": 2,
+                  "allow_complex_dependencies": false
+                },
+                "inflation": {
+                  "inflation_timing": "Start of Year",
+                  "inflation_timing_month": null
+                },
+                "recoveries": {
+                  "gross_up_enabled": true,
+                  "gross_up_occupancy_threshold": 0.95,
+                  "gross_up_uses_fixed_rate": false,
+                  "default_recovery_method": null
+                },
+                "valuation": {
+                  "discount_rate": null,
+                  "exit_valuation_method": "none",
+                  "exit_cap_rate": null,
+                  "refinancing_cap_rate": 0.065,
+                  "refinancing_noi_method": "ltm",
+                  "exit_noi_method": "ltm",
+                  "costs_of_sale_percentage": 0.03
+                },
+                "percentage_rent": {
+                  "enabled": false,
+                  "breakpoint_method": "natural",
+                  "include_recoveries_in_breakpoint": true
+                }
+              },
+              "growth_rate": {
+                "name": "Maintenance Inflation",
+                "value": 0.03
+              },
+              "group": null,
+              "recoverable_ratio": 0.0,
+              "variable_ratio": null
+            },
+            {
+              "uid": "37dc1109-9d2c-4c5a-80a6-2e4ccf6ee0b4",
+              "name": "Insurance",
+              "category": "Expense",
+              "subcategory": "OpEx",
+              "description": null,
+              "account": null,
+              "timeline": {
+                "start_date": "2024-01",
+                "start_offset_months": null,
+                "duration_months": 60
+              },
+              "value": 350.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "settings": {
+                "analysis_start_date": "2025-09-29",
+                "reporting": {
+                  "reporting_frequency": "annual",
+                  "fiscal_year_start_month": 1,
+                  "decimal_precision": 2,
+                  "property_area_unit": "sqft"
+                },
+                "calculation": {
+                  "calculation_frequency": "monthly",
+                  "day_count_convention": "Actual/Actual",
+                  "fail_on_error": false,
+                  "max_dependency_depth": 2,
+                  "allow_complex_dependencies": false
+                },
+                "inflation": {
+                  "inflation_timing": "Start of Year",
+                  "inflation_timing_month": null
+                },
+                "recoveries": {
+                  "gross_up_enabled": true,
+                  "gross_up_occupancy_threshold": 0.95,
+                  "gross_up_uses_fixed_rate": false,
+                  "default_recovery_method": null
+                },
+                "valuation": {
+                  "discount_rate": null,
+                  "exit_valuation_method": "none",
+                  "exit_cap_rate": null,
+                  "refinancing_cap_rate": 0.065,
+                  "refinancing_noi_method": "ltm",
+                  "exit_noi_method": "ltm",
+                  "costs_of_sale_percentage": 0.03
+                },
+                "percentage_rent": {
+                  "enabled": false,
+                  "breakpoint_method": "natural",
+                  "include_recoveries_in_breakpoint": true
+                }
+              },
+              "growth_rate": {
+                "name": "Insurance Inflation",
+                "value": 0.04
+              },
+              "group": null,
+              "recoverable_ratio": 0.0,
+              "variable_ratio": null
+            },
+            {
+              "uid": "ed83aedf-0087-47ad-9ebe-c23511efbb7b",
+              "name": "Property Taxes",
+              "category": "Expense",
+              "subcategory": "OpEx",
+              "description": null,
+              "account": null,
+              "timeline": {
+                "start_date": "2024-01",
+                "start_offset_months": null,
+                "duration_months": 60
+              },
+              "value": 132000.0,
+              "frequency": "annual",
+              "reference": null,
+              "settings": {
+                "analysis_start_date": "2025-09-29",
+                "reporting": {
+                  "reporting_frequency": "annual",
+                  "fiscal_year_start_month": 1,
+                  "decimal_precision": 2,
+                  "property_area_unit": "sqft"
+                },
+                "calculation": {
+                  "calculation_frequency": "monthly",
+                  "day_count_convention": "Actual/Actual",
+                  "fail_on_error": false,
+                  "max_dependency_depth": 2,
+                  "allow_complex_dependencies": false
+                },
+                "inflation": {
+                  "inflation_timing": "Start of Year",
+                  "inflation_timing_month": null
+                },
+                "recoveries": {
+                  "gross_up_enabled": true,
+                  "gross_up_occupancy_threshold": 0.95,
+                  "gross_up_uses_fixed_rate": false,
+                  "default_recovery_method": null
+                },
+                "valuation": {
+                  "discount_rate": null,
+                  "exit_valuation_method": "none",
+                  "exit_cap_rate": null,
+                  "refinancing_cap_rate": 0.065,
+                  "refinancing_noi_method": "ltm",
+                  "exit_noi_method": "ltm",
+                  "costs_of_sale_percentage": 0.03
+                },
+                "percentage_rent": {
+                  "enabled": false,
+                  "breakpoint_method": "natural",
+                  "include_recoveries_in_breakpoint": true
+                }
+              },
+              "growth_rate": {
+                "name": "Tax Growth",
+                "value": 0.025
+              },
+              "group": null,
+              "recoverable_ratio": 0.0,
+              "variable_ratio": null
+            },
+            {
+              "uid": "8346e5b6-8da6-4234-a118-0cfb690556a7",
+              "name": "Utilities (Common Area)",
+              "category": "Expense",
+              "subcategory": "OpEx",
+              "description": null,
+              "account": null,
+              "timeline": {
+                "start_date": "2024-01",
+                "start_offset_months": null,
+                "duration_months": 60
+              },
+              "value": 180.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "settings": {
+                "analysis_start_date": "2025-09-29",
+                "reporting": {
+                  "reporting_frequency": "annual",
+                  "fiscal_year_start_month": 1,
+                  "decimal_precision": 2,
+                  "property_area_unit": "sqft"
+                },
+                "calculation": {
+                  "calculation_frequency": "monthly",
+                  "day_count_convention": "Actual/Actual",
+                  "fail_on_error": false,
+                  "max_dependency_depth": 2,
+                  "allow_complex_dependencies": false
+                },
+                "inflation": {
+                  "inflation_timing": "Start of Year",
+                  "inflation_timing_month": null
+                },
+                "recoveries": {
+                  "gross_up_enabled": true,
+                  "gross_up_occupancy_threshold": 0.95,
+                  "gross_up_uses_fixed_rate": false,
+                  "default_recovery_method": null
+                },
+                "valuation": {
+                  "discount_rate": null,
+                  "exit_valuation_method": "none",
+                  "exit_cap_rate": null,
+                  "refinancing_cap_rate": 0.065,
+                  "refinancing_noi_method": "ltm",
+                  "exit_noi_method": "ltm",
+                  "costs_of_sale_percentage": 0.03
+                },
+                "percentage_rent": {
+                  "enabled": false,
+                  "breakpoint_method": "natural",
+                  "include_recoveries_in_breakpoint": true
+                }
+              },
+              "growth_rate": {
+                "name": "Utility Inflation",
+                "value": 0.04
+              },
+              "group": null,
+              "recoverable_ratio": 0.0,
+              "variable_ratio": null
+            },
+            {
+              "uid": "93700b92-3041-42f8-8678-550ee96b9909",
+              "name": "Administrative",
+              "category": "Expense",
+              "subcategory": "OpEx",
+              "description": null,
+              "account": null,
+              "timeline": {
+                "start_date": "2024-01",
+                "start_offset_months": null,
+                "duration_months": 60
+              },
+              "value": 120.0,
+              "frequency": "annual",
+              "reference": "unit_count",
+              "settings": {
+                "analysis_start_date": "2025-09-29",
+                "reporting": {
+                  "reporting_frequency": "annual",
+                  "fiscal_year_start_month": 1,
+                  "decimal_precision": 2,
+                  "property_area_unit": "sqft"
+                },
+                "calculation": {
+                  "calculation_frequency": "monthly",
+                  "day_count_convention": "Actual/Actual",
+                  "fail_on_error": false,
+                  "max_dependency_depth": 2,
+                  "allow_complex_dependencies": false
+                },
+                "inflation": {
+                  "inflation_timing": "Start of Year",
+                  "inflation_timing_month": null
+                },
+                "recoveries": {
+                  "gross_up_enabled": true,
+                  "gross_up_occupancy_threshold": 0.95,
+                  "gross_up_uses_fixed_rate": false,
+                  "default_recovery_method": null
+                },
+                "valuation": {
+                  "discount_rate": null,
+                  "exit_valuation_method": "none",
+                  "exit_cap_rate": null,
+                  "refinancing_cap_rate": 0.065,
+                  "refinancing_noi_method": "ltm",
+                  "exit_noi_method": "ltm",
+                  "costs_of_sale_percentage": 0.03
+                },
+                "percentage_rent": {
+                  "enabled": false,
+                  "breakpoint_method": "natural",
+                  "include_recoveries_in_breakpoint": true
+                }
+              },
+              "growth_rate": null,
+              "group": null,
+              "recoverable_ratio": 0.0,
+              "variable_ratio": null
+            }
+          ],
+          "capital_expenses": []
+        },
+        "losses": {
+          "uid": "e4f3afa7-1ba3-456a-a262-a600cbd98d69",
+          "general_vacancy": {
+            "rate": 0.05,
+            "method": "Potential Gross Revenue",
+            "reduce_by_rollover_vacancy": true
+          },
+          "credit_loss": {
+            "rate": 0.02,
+            "basis": "Potential Gross Revenue"
+          }
+        }
+      },
+      "acquisition": {
+        "_class_name": "AcquisitionTerms",
+        "_object_type": "Unknown",
+        "uid": "f1eb1af5-5c58-43dd-86c2-2683697b9d7b",
+        "name": "Maple Ridge Apartments Acquisition",
+        "category": "Capital",
+        "subcategory": "Purchase Price",
+        "description": null,
+        "account": null,
+        "timeline": {
+          "start_date": "2024-01",
+          "start_offset_months": null,
+          "duration_months": 1
+        },
+        "value": 12000000.0,
+        "frequency": "monthly",
+        "reference": null,
+        "settings": {
+          "analysis_start_date": "2025-09-29",
+          "reporting": {
+            "reporting_frequency": "annual",
+            "fiscal_year_start_month": 1,
+            "decimal_precision": 2,
+            "property_area_unit": "sqft"
+          },
+          "calculation": {
+            "calculation_frequency": "monthly",
+            "day_count_convention": "Actual/Actual",
+            "fail_on_error": false,
+            "max_dependency_depth": 2,
+            "allow_complex_dependencies": false
+          },
+          "inflation": {
+            "inflation_timing": "Start of Year",
+            "inflation_timing_month": null
+          },
+          "recoveries": {
+            "gross_up_enabled": true,
+            "gross_up_occupancy_threshold": 0.95,
+            "gross_up_uses_fixed_rate": false,
+            "default_recovery_method": null
+          },
+          "valuation": {
+            "discount_rate": null,
+            "exit_valuation_method": "none",
+            "exit_cap_rate": null,
+            "refinancing_cap_rate": 0.065,
+            "refinancing_noi_method": "ltm",
+            "exit_noi_method": "ltm",
+            "costs_of_sale_percentage": 0.03
+          },
+          "percentage_rent": {
+            "enabled": false,
+            "breakpoint_method": "natural",
+            "include_recoveries_in_breakpoint": true
+          }
+        },
+        "growth_rate": null,
+        "closing_costs_rate": 0.025,
+        "acquisition_date": "2024-01-01"
+      },
+      "financing": {
+        "_class_name": "FinancingPlan",
+        "_object_type": "Debt",
+        "name": "Maple Ridge Apartments Financing",
+        "description": null,
+        "facilities": [
+          {
+            "uid": "fc2777dc-f9a3-4faa-a86e-fc9dc14c4e8e",
+            "name": "Maple Ridge Apartments Permanent Loan",
+            "loan_amount": 8400000.0,
+            "interest_rate": {
+              "details": {
+                "rate_type": "fixed",
+                "rate": 0.0525
+              }
+            },
+            "loan_term_months": 120,
+            "kind": "permanent",
+            "ltv_ratio": 0.7,
+            "dscr_hurdle": 1.25,
+            "debt_yield_hurdle": null,
+            "sizing_method": "manual",
+            "loan_term_years": 10,
+            "amortization_months": 300,
+            "amortization_years": 25,
+            "interest_only_months": 0,
+            "refinance_timing": null,
+            "ongoing_ltv_max": null,
+            "ongoing_dscr_min": null,
+            "ongoing_debt_yield_min": null,
+            "_class_name": "PermanentFacility",
+            "_object_type": "Debt"
+          }
+        ]
+      },
+      "partnership": {
+        "_class_name": "PartnershipStructure",
+        "_object_type": "Partnership",
+        "partners": [
+          {
+            "uid": "e080d864-6d6e-425e-b6f1-3735b819bde0",
+            "name": "Sponsor",
+            "kind": "GP",
+            "description": null,
+            "share": 0.1,
+            "capital_commitment": null
+          },
+          {
+            "uid": "14e3bcd7-ebf1-4490-a575-90dbda496a70",
+            "name": "Investor",
+            "kind": "LP",
+            "description": null,
+            "share": 0.9,
+            "capital_commitment": null
+          }
+        ],
+        "distribution_method": "pari_passu",
+        "promote": null,
+        "has_explicit_commitments": false,
+        "total_committed_capital": null,
+        "capital_shares": {
+          "Sponsor": 0.1,
+          "Investor": 0.9
+        }
+      },
+      "exit": {
+        "_class_name": "DirectCapValuation",
+        "_object_type": "Valuation",
+        "name": "Stabilized Disposition",
+        "uid": "7d4a7f6d-f5af-4694-ab4f-7e73b2dffc1b",
+        "kind": "direct_cap",
+        "cap_rate": 0.065,
+        "transaction_costs_rate": 0.025,
+        "hold_period_months": 60,
+        "noi_basis_kind": "LTM",
+        "cap_rates_by_use": null
+      }
+    }
+  },
+  "intentionality_metrics": {
+    "user_explicit_count": 83,
+    "user_plus_set_count": 99,
+    "total_available_count": 407,
+    "explicit_ratio": 0.20393120393120392,
+    "defaulted_ratio": 0.7567567567567568,
+    "completeness_score": 0.24324324324324326,
+    "quality_score": 1.0,
+    "quality_interpretation": "Pattern Quality Score (defaults are a feature)",
+    "is_pattern_based": true
+  },
+  "risk_assessment": {},
+  "recommendations": [
+    "\u2705 EXCELLENT pattern configuration - optimal parameter specification"
+  ],
+  "defaulted_parameters": [
+    "deal.acquisition.category",
+    "deal.acquisition.subcategory",
+    "deal.acquisition.description",
+    "deal.acquisition.account",
+    "deal.acquisition.timeline.start_offset_months",
+    "deal.acquisition.frequency",
+    "deal.acquisition.reference",
+    "deal.acquisition.settings",
+    "deal.acquisition.growth_rate",
+    "deal.funding_cascade",
+    "deal.deal_fees",
+    "asset.description",
+    "asset.external_id",
+    "asset.address",
+    "asset.year_built",
+    "asset.property_type",
+    "asset.program_components",
+    "asset.miscellaneous_income",
+    "asset.expenses.operating_expenses[0].category",
+    "asset.expenses.operating_expenses[0].subcategory",
+    "asset.expenses.operating_expenses[0].description",
+    "asset.expenses.operating_expenses[0].account",
+    "asset.expenses.operating_expenses[0].timeline.start_offset_months",
+    "asset.expenses.operating_expenses[0].frequency",
+    "asset.expenses.operating_expenses[0].settings",
+    "asset.expenses.operating_expenses[0].growth_rate",
+    "asset.expenses.operating_expenses[0].group",
+    "asset.expenses.operating_expenses[0].recoverable_ratio",
+    "asset.expenses.operating_expenses[0].variable_ratio",
+    "asset.expenses.operating_expenses[1].category",
+    "asset.expenses.operating_expenses[1].subcategory",
+    "asset.expenses.operating_expenses[1].description",
+    "asset.expenses.operating_expenses[1].account",
+    "asset.expenses.operating_expenses[1].timeline.start_offset_months",
+    "asset.expenses.operating_expenses[1].settings",
+    "asset.expenses.operating_expenses[1].group",
+    "asset.expenses.operating_expenses[1].recoverable_ratio",
+    "asset.expenses.operating_expenses[1].variable_ratio",
+    "asset.expenses.operating_expenses[2].category",
+    "asset.expenses.operating_expenses[2].subcategory",
+    "asset.expenses.operating_expenses[2].description",
+    "asset.expenses.operating_expenses[2].account",
+    "asset.expenses.operating_expenses[2].timeline.start_offset_months",
+    "asset.expenses.operating_expenses[2].settings",
+    "asset.expenses.operating_expenses[2].group",
+    "asset.expenses.operating_expenses[2].recoverable_ratio",
+    "asset.expenses.operating_expenses[2].variable_ratio",
+    "asset.expenses.operating_expenses[3].category",
+    "asset.expenses.operating_expenses[3].subcategory",
+    "asset.expenses.operating_expenses[3].description",
+    "asset.expenses.operating_expenses[3].account",
+    "asset.expenses.operating_expenses[3].timeline.start_offset_months",
+    "asset.expenses.operating_expenses[3].reference",
+    "asset.expenses.operating_expenses[3].settings",
+    "asset.expenses.operating_expenses[3].group",
+    "asset.expenses.operating_expenses[3].recoverable_ratio",
+    "asset.expenses.operating_expenses[3].variable_ratio",
+    "asset.expenses.operating_expenses[4].category",
+    "asset.expenses.operating_expenses[4].subcategory",
+    "asset.expenses.operating_expenses[4].description",
+    "asset.expenses.operating_expenses[4].account",
+    "asset.expenses.operating_expenses[4].timeline.start_offset_months",
+    "asset.expenses.operating_expenses[4].settings",
+    "asset.expenses.operating_expenses[4].group",
+    "asset.expenses.operating_expenses[4].recoverable_ratio",
+    "asset.expenses.operating_expenses[4].variable_ratio",
+    "asset.expenses.operating_expenses[5].category",
+    "asset.expenses.operating_expenses[5].subcategory",
+    "asset.expenses.operating_expenses[5].description",
+    "asset.expenses.operating_expenses[5].account",
+    "asset.expenses.operating_expenses[5].timeline.start_offset_months",
+    "asset.expenses.operating_expenses[5].settings",
+    "asset.expenses.operating_expenses[5].growth_rate",
+    "asset.expenses.operating_expenses[5].group",
+    "asset.expenses.operating_expenses[5].recoverable_ratio",
+    "asset.expenses.operating_expenses[5].variable_ratio",
+    "asset.expenses.capital_expenses",
+    "asset.losses.general_vacancy.rate",
+    "asset.losses.general_vacancy.method",
+    "asset.losses.general_vacancy.reduce_by_rollover_vacancy",
+    "asset.losses.credit_loss.basis",
+    "acquisition.category",
+    "acquisition.subcategory",
+    "acquisition.description",
+    "acquisition.account",
+    "acquisition.timeline.start_offset_months",
+    "acquisition.frequency",
+    "acquisition.reference",
+    "acquisition.settings",
+    "acquisition.growth_rate",
+    "financing.description",
+    "financing.facilities[0].interest_rate.details.rate_type",
+    "financing.facilities[0].kind",
+    "financing.facilities[0].debt_yield_hurdle",
+    "financing.facilities[0].sizing_method",
+    "financing.facilities[0].interest_only_months",
+    "financing.facilities[0].refinance_timing",
+    "financing.facilities[0].ongoing_ltv_max",
+    "financing.facilities[0].ongoing_dscr_min",
+    "financing.facilities[0].ongoing_debt_yield_min",
+    "partnership.partners[0].description",
+    "partnership.partners[0].capital_commitment",
+    "partnership.partners[1].description",
+    "partnership.partners[1].capital_commitment",
+    "partnership.distribution_method",
+    "partnership.promote",
+    "exit.kind",
+    "exit.transaction_costs_rate",
+    "exit.noi_basis_kind",
+    "exit.cap_rates_by_use"
+  ]
+}

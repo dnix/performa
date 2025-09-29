@@ -1,0 +1,88 @@
+{
+  "report_metadata": {
+    "report_date": "September 29, 2025",
+    "deal_name": "Institutional Residential Development Development Deal",
+    "deal_type": "multifamily",
+    "report_type": "Model Assumptions Summary"
+  },
+  "executive_summary": "This Deal contains 452 configurable parameters. Of these, 108 (23.9%) are user-specified, while 324 (71.7%) rely on system defaults. \u2705 All critical parameters have been explicitly specified.",
+  "configuration_overview": {
+    "total_parameters": 452,
+    "user_specified": 108,
+    "explicit_ratio": 0.23893805309734514,
+    "defaulted_count": 324,
+    "defaulted_ratio": 0.7168141592920354,
+    "quality_score": 0.2831858407079646
+  },
+  "component_analysis": {
+    "asset": {
+      "class_name": "DevelopmentProject",
+      "object_type": "Asset",
+      "completeness": 0.24584717607973422,
+      "explicit_ratio": 0.20930232558139536,
+      "key_assumptions": [
+        "Net Rentable Area: 88,800",
+        "Property Type: AssetTypeEnum.MULTIFAMILY",
+        "Name: Institutional Residential Development Development",
+        "Gross Area: 104,471",
+        "Construction Plan: 2 parameters"
+      ],
+      "critical_defaults": []
+    },
+    "acquisition": {
+      "class_name": "AcquisitionTerms",
+      "object_type": "Unknown",
+      "completeness": 0.17073170731707318,
+      "explicit_ratio": 0.14634146341463414,
+      "key_assumptions": [
+        "Closing Costs Rate: 3.0%",
+        "Name: Institutional Residential Development Land Acquisition",
+        "Timeline: 2 parameters",
+        "Value: 8,000,000"
+      ],
+      "critical_defaults": []
+    },
+    "financing": {
+      "class_name": "FinancingPlan",
+      "object_type": "Debt",
+      "completeness": 0.4857142857142857,
+      "explicit_ratio": 0.4,
+      "key_assumptions": [
+        "Facilities: 2 items",
+        "Name: Construction-to-Permanent"
+      ],
+      "critical_defaults": []
+    },
+    "exit": {
+      "class_name": "DirectCapValuation",
+      "object_type": "Valuation",
+      "completeness": 0.5,
+      "explicit_ratio": 0.375,
+      "key_assumptions": [
+        "Cap Rate: 5.0%",
+        "Hold Period Months: 60",
+        "Name: Institutional Residential Development Sale"
+      ],
+      "critical_defaults": []
+    },
+    "partnership": {
+      "class_name": "PartnershipStructure",
+      "object_type": "Partnership",
+      "completeness": 0.8095238095238095,
+      "explicit_ratio": 0.7142857142857143,
+      "key_assumptions": [
+        "Partners: 2 items",
+        "Distribution Method: waterfall",
+        "Promote: 3 parameters"
+      ],
+      "critical_defaults": []
+    }
+  },
+  "quality_assessment": {
+    "overall_score": 0.2831858407079646,
+    "recommendations": [
+      "\u2705 EXCELLENT pattern configuration - optimal parameter specification"
+    ],
+    "critical_risks": []
+  }
+}

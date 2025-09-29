@@ -1,0 +1,119 @@
+{
+  "basic_info": {
+    "start_period": "2024-01",
+    "end_period": "2029-06",
+    "total_periods": 66,
+    "deal_archetype": "development"
+  },
+  "ucf_analysis": {
+    "total_flow": 30078250.716023095,
+    "positive_periods": 49,
+    "negative_periods": 17,
+    "zero_periods": 0,
+    "first_period_sign": "negative",
+    "last_period_sign": "positive",
+    "first_period_value": -5181400.0,
+    "last_period_value": 162053.54316461898,
+    "max_positive": 28627619.61695955,
+    "max_negative": -5181400.0,
+    "avg_positive": 736766.0114593174,
+    "avg_negative": -354310.8144402037
+  },
+  "lcf_analysis": {
+    "total_flow": 24673426.145716123,
+    "positive_periods": 46,
+    "negative_periods": 20,
+    "zero_periods": 0,
+    "first_period_sign": "negative",
+    "last_period_sign": "positive",
+    "first_period_value": -5263291.281368287,
+    "last_period_value": 80162.26179633154,
+    "max_positive": 28545728.33559126,
+    "max_negative": -5263291.281368287,
+    "avg_positive": 699718.4137067955,
+    "avg_negative": -375681.04423982353
+  },
+  "sign_flip_analysis": {
+    "UCF": {
+      "flip_periods": [
+        "2024-01",
+        "2025-06"
+      ],
+      "total_flips": 1,
+      "phases": [
+        {
+          "start": "2024-01",
+          "end": "2025-05",
+          "sign": "negative",
+          "periods": 17,
+          "total_flow": -6023283.845483463
+        },
+        {
+          "start": "2025-06",
+          "end": "2029-06",
+          "sign": "positive",
+          "periods": 49,
+          "total_flow": 36101534.561506554
+        }
+      ]
+    },
+    "LCF": {
+      "flip_periods": [
+        "2024-01",
+        "2025-09"
+      ],
+      "total_flips": 1,
+      "phases": [
+        {
+          "start": "2024-01",
+          "end": "2025-08",
+          "sign": "negative",
+          "periods": 20,
+          "total_flow": -7513620.88479647
+        },
+        {
+          "start": "2025-09",
+          "end": "2029-06",
+          "sign": "positive",
+          "periods": 46,
+          "total_flow": 32187047.030512594
+        }
+      ]
+    }
+  },
+  "timeline_validation": {
+    "construction_phase": {
+      "expected_sign": "negative",
+      "actual_sign": "negative",
+      "average_flow": -257009.94176285353,
+      "total_flow": -5654218.718782778,
+      "periods_analyzed": 22,
+      "meets_expectation": "True"
+    },
+    "operational_phase": {
+      "expected_sign": "positive",
+      "actual_sign": "positive",
+      "average_flow": 165599.98223534282,
+      "total_flow": 6292799.3249430265,
+      "periods_analyzed": 38,
+      "meets_expectation": "True"
+    },
+    "exit_phase": {
+      "expected_sign": "large_positive",
+      "actual_sign": "large_positive",
+      "max_flow": 28627619.61695955,
+      "total_flow": 29439670.109862838,
+      "periods_analyzed": 6,
+      "meets_expectation": "True"
+    },
+    "overall_pattern": {
+      "total_ucf_positive": "True",
+      "reasonable_progression": "True",
+      "lcf_follows_ucf": "True"
+    }
+  },
+  "warnings": [],
+  "insights": [
+    "UCF shows 2-phase pattern: negative then positive"
+  ]
+}

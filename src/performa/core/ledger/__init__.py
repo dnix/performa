@@ -2,64 +2,86 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Transactional Ledger System
+Dual-backend ledger system with environment-based switching.
 
-This module provides the unified transactional ledger infrastructure for Performa,
-replacing wide-format DataFrames with an immutable, auditable record-based system
-that serves as the single source of truth for all financial calculations.
-
-Key Components:
-    - TransactionRecord: Immutable transaction representation
-    - SeriesMetadata: Type-safe metadata for Series conversion
-    - Ledger: Progressive ledger construction with ownership pattern
-    - LedgerQueries: Clean query interface for financial metrics
-    - FlowPurposeMapper: Business logic for transaction classification
-
-Architecture:
-    The ledger follows a "series preservation" approach where CashFlowModel
-    instances continue to return pd.Series internally, with batch conversion to
-    TransactionRecord instances occurring at the final assembly stage. This
-    maintains performance while providing transparency and auditability.
+This module provides seamless switching between pandas (main branch compatible)
+and DuckDB (performance optimized) backends via the USE_DUCKDB_LEDGER environment variable.
 
 Usage:
-    ```python
-    from performa.core.ledger import Ledger, SeriesMetadata
-
-    # Create ledger
-    ledger = Ledger()
-
-    # Add series with metadata
-    metadata = SeriesMetadata(
-        category="Revenue",
-        subcategory="Rent",
-        item_name="Base Rent",
-        source_id=model.uid,
-        asset_id=property.uid,
-        pass_num=1
-    )
-    ledger.add_series(cash_flow_series, metadata)
-
-    # Get current state of ledger
-    ledger_df = ledger.ledger_df()
-    ```
+    # Use pandas backend (default, main branch compatible)
+    export USE_DUCKDB_LEDGER=false
+    
+    # Use DuckDB backend (performance optimized)  
+    export USE_DUCKDB_LEDGER=true
 """
 
-# Core data models
-# Ledger and query interface
-from .ledger import Ledger
+import os
+from typing import TYPE_CHECKING
 
-# Utilities
-from .mapper import FlowPurposeMapper
-from .queries import LedgerQueries
+# Environment variable for backend selection
+_USE_DUCKDB = os.environ.get("USE_DUCKDB_LEDGER", "false").lower() in ("true", "1", "yes")
+
+if _USE_DUCKDB:
+    # DuckDB backend (performance optimized)
+    from .ledger_duckdb import Ledger as DuckDBLedger
+    from .queries_duckdb import LedgerQueries as DuckDBQueries
+    
+    # Use DuckDB implementations
+    Ledger = DuckDBLedger
+    LedgerQueries = DuckDBQueries
+    
+    # Export backend info for diagnostics
+    BACKEND_NAME = "DuckDB"
+    BACKEND_TYPE = "duckdb"
+else:
+    # Pandas backend (main branch compatible)
+    from .ledger_pandas import Ledger as PandasLedger
+    from .queries_pandas import LedgerQueries as PandasQueries
+    
+    # Use pandas implementations  
+    Ledger = PandasLedger
+    LedgerQueries = PandasQueries
+    
+    # Export backend info for diagnostics
+    BACKEND_NAME = "Pandas"
+    BACKEND_TYPE = "pandas"
+
+# Always export common components
 from .records import SeriesMetadata, TransactionRecord
+from .settings import LedgerGenerationSettings
 
+# Export the active backend classes and metadata
 __all__ = [
-    # Core data models
-    "TransactionRecord",
-    "SeriesMetadata",
-    # Ledger and query interface
     "Ledger",
-    "LedgerQueries",
-    # Utilities
-    "FlowPurposeMapper",
+    "LedgerQueries", 
+    "SeriesMetadata",
+    "TransactionRecord",
+    "LedgerGenerationSettings",
+    "BACKEND_NAME",
+    "BACKEND_TYPE"
 ]
+
+
+def get_backend_info() -> dict:
+    """
+    Get information about the currently active backend.
+    
+    Returns:
+        Dictionary with backend name, type, and capabilities
+    """
+    return {
+        "name": BACKEND_NAME,
+        "type": BACKEND_TYPE,
+        "environment_variable": "USE_DUCKDB_LEDGER",
+        "current_value": os.environ.get("USE_DUCKDB_LEDGER", "false"),
+        "description": "Pandas backend (main branch compatible)" if BACKEND_TYPE == "pandas" 
+                      else "DuckDB backend (performance optimized)"
+    }
+
+
+if TYPE_CHECKING:
+    # For type checking, always import both backend types
+    from .ledger_duckdb import Ledger as DuckDBLedger
+    from .ledger_pandas import Ledger as PandasLedger
+    from .queries_duckdb import LedgerQueries as DuckDBQueries
+    from .queries_pandas import LedgerQueries as PandasQueries

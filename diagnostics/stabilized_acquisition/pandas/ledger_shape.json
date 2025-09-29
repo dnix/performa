@@ -1,0 +1,79 @@
+{
+  "transaction_summary": {
+    "total_count": 7108,
+    "by_category": {
+      "Capital": 3,
+      "Expense": 356,
+      "Financing": 303,
+      "Revenue": 6385,
+      "Valuation": 61
+    },
+    "by_subcategory": {
+      "Asset Valuation": 61,
+      "Closing Costs": 1,
+      "Equity Contribution": 60,
+      "Equity Distribution": 121,
+      "Interest Payment": 60,
+      "Lease": 6384,
+      "Loan Proceeds": 1,
+      "OpEx": 356,
+      "Prepayment": 1,
+      "Principal Payment": 60,
+      "Purchase Price": 1,
+      "Sale": 1,
+      "Transaction Costs": 1
+    },
+    "timeline_periods": 60,
+    "transactions_per_period": {
+      "mean": 118.46666666666667,
+      "min": "11",
+      "max": "131",
+      "std": 28.973668154510285
+    }
+  },
+  "flow_summary": {
+    "total_inflows": 1093862791.1928153,
+    "total_outflows": -41839374.439394146,
+    "net_flow": 1052023416.7534212,
+    "by_category": {
+      "Capital": -12784720.72411403,
+      "Expense": -1745970.4491937498,
+      "Financing": -15093003.085057855,
+      "Revenue": 23498957.470467694,
+      "Valuation": 1058148153.5413191
+    },
+    "top_subcategories": {
+      "Asset Valuation": 1058148153.5413191,
+      "Equity Distribution": -16818378.49105059,
+      "Sale": 16157357.470467694,
+      "Purchase Price": -12000000.0,
+      "Loan Proceeds": 8400000.0,
+      "Prepayment": -7470096.290572549,
+      "Lease": 7341600.0,
+      "Equity Contribution": 3815680.1810285076,
+      "Interest Payment": -2090304.7750357734,
+      "OpEx": -1745970.4491937498
+    }
+  },
+  "timeline_coverage": {
+    "period_count": 60,
+    "start_date": "2024-01",
+    "end_date": "2028-12",
+    "date_range": "<59 * MonthEnds>",
+    "periods_with_transactions": 60,
+    "transaction_frequency": 118.46666666666667
+  },
+  "balance_analysis": {
+    "total_inflows": 1093862791.1928153,
+    "total_outflows": -41839374.439394146,
+    "net_flow": 1052023416.7534212,
+    "balance_ratio": 0.03824919795815517,
+    "flow_health": "unusual"
+  },
+  "warnings": [
+    "Unusual balance ratio: 0.04"
+  ],
+  "recommendations": [
+    "Verify deal structure and expected cash flow patterns"
+  ]
+}

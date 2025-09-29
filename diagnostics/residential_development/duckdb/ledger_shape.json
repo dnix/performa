@@ -1,0 +1,79 @@
+{
+  "transaction_summary": {
+    "total_count": 9057,
+    "by_category": {
+      "Capital": 40,
+      "Financing": 347,
+      "Revenue": 8585,
+      "Valuation": 85
+    },
+    "by_subcategory": {
+      "Asset Valuation": 85,
+      "Closing Costs": 1,
+      "Equity Contribution": 7,
+      "Equity Distribution": 169,
+      "Hard Costs": 36,
+      "Interest Payment": 84,
+      "Lease": 8584,
+      "Loan Proceeds": 1,
+      "Principal Payment": 84,
+      "Purchase Price": 1,
+      "Refinancing Payoff": 1,
+      "Refinancing Proceeds": 1,
+      "Sale": 1,
+      "Soft Costs": 1,
+      "Transaction Costs": 1
+    },
+    "timeline_periods": 84,
+    "transactions_per_period": {
+      "mean": 107.82142857142857,
+      "min": "20",
+      "max": "121",
+      "std": 22.353760748951004
+    }
+  },
+  "flow_summary": {
+    "total_inflows": 2602339227.8235383,
+    "total_outflows": -131036362.54706767,
+    "net_flow": 2471302865.2764707,
+    "by_category": {
+      "Capital": -32253458.939999994,
+      "Financing": -44917019.78352921,
+      "Revenue": 56902702.0,
+      "Valuation": 2491570642.0
+    },
+    "top_subcategories": {
+      "Asset Valuation": 2491570642.0,
+      "Equity Distribution": -66217993.33353384,
+      "Sale": 42825042.0,
+      "Refinancing Proceeds": 22224978.46153846,
+      "Loan Proceeds": 21964867.679999996,
+      "Refinancing Payoff": -21964867.679999996,
+      "Hard Costs": -21772800.0,
+      "Lease": 14077660.0,
+      "Equity Contribution": 9676037.681999998,
+      "Interest Payment": -8114375.772299008
+    }
+  },
+  "timeline_coverage": {
+    "period_count": 84,
+    "start_date": "2024-01",
+    "end_date": "2030-12",
+    "date_range": "<83 * MonthEnds>",
+    "periods_with_transactions": 84,
+    "transaction_frequency": 107.82142857142857
+  },
+  "balance_analysis": {
+    "total_inflows": 2602339227.8235383,
+    "total_outflows": -131036362.54706767,
+    "net_flow": 2471302865.2764707,
+    "balance_ratio": 0.0503532979659457,
+    "flow_health": "unusual"
+  },
+  "warnings": [
+    "Unusual balance ratio: 0.05"
+  ],
+  "recommendations": [
+    "Verify deal structure and expected cash flow patterns"
+  ]
+}

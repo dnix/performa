@@ -64,14 +64,18 @@ class AssetAnalysisResult:
         """
         return self.ledger.ledger_df()
 
-    def get_ledger_queries(self) -> LedgerQueries:
+    def get_ledger_queries(self):
         """
         Create a LedgerQueries instance for comprehensive ledger analysis.
 
+        Uses the adapter pattern to automatically select the appropriate
+        query implementation based on the ledger type.
+
         Returns:
             LedgerQueries instance with all financial metrics available
+            (pandas-based or DuckDB-based depending on ledger type)
         """
-        return LedgerQueries(self.get_ledger_df)
+        return LedgerQueries(self.ledger)
 
     # === Query-Based Financial Properties ===
     # All metrics computed on-demand from ledger (single source of truth)

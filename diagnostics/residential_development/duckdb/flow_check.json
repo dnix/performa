@@ -1,0 +1,32 @@
+{
+  "revenue_analysis": {
+    "total_revenue": 56902702.0,
+    "warnings": [],
+    "benchmarks": {}
+  },
+  "expense_analysis": {
+    "total_expenses": 0.0,
+    "warnings": []
+  },
+  "financing_analysis": {
+    "loan_proceeds": 21964867.679999996,
+    "interest_payments": 8114375.772299009,
+    "principal_payments": 2485666.821234826,
+    "prepayments": 0.0,
+    "warnings": []
+  },
+  "capital_analysis": {
+    "purchase_price": 8000000.0,
+    "exit_proceeds": 0.0,
+    "warnings": []
+  },
+  "overall_analysis": {
+    "irr": 0.406679795466935,
+    "equity_multiple": 6.84350304430055,
+    "warnings": []
+  },
+  "warnings": [],
+  "has_warnings": false,
+  "summary": "All flows appear reasonable for deal type",
+  "recommendations": []
+}

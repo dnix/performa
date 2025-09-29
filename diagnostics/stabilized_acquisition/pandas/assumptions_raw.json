@@ -1,0 +1,88 @@
+{
+  "report_metadata": {
+    "report_date": "September 29, 2025",
+    "deal_name": "Maple Ridge Apartments Stabilized Acquisition",
+    "deal_type": "multifamily",
+    "report_type": "Model Assumptions Summary"
+  },
+  "executive_summary": "This Deal contains 407 configurable parameters. Of these, 83 (20.4%) are user-specified, while 308 (75.7%) rely on system defaults. \u2705 All critical parameters have been explicitly specified.",
+  "configuration_overview": {
+    "total_parameters": 407,
+    "user_specified": 83,
+    "explicit_ratio": 0.20393120393120392,
+    "defaulted_count": 308,
+    "defaulted_ratio": 0.7567567567567568,
+    "quality_score": 0.24324324324324326
+  },
+  "component_analysis": {
+    "asset": {
+      "class_name": "ResidentialProperty",
+      "object_type": "Asset",
+      "completeness": 0.22905027932960895,
+      "explicit_ratio": 0.19832402234636873,
+      "key_assumptions": [
+        "Net Rentable Area: 114,000",
+        "Expenses: 1 parameters",
+        "Name: Maple Ridge Apartments",
+        "Gross Area: 114,000",
+        "Unit Mix: 2 parameters"
+      ],
+      "critical_defaults": []
+    },
+    "acquisition": {
+      "class_name": "AcquisitionTerms",
+      "object_type": "Unknown",
+      "completeness": 0.17073170731707318,
+      "explicit_ratio": 0.14634146341463414,
+      "key_assumptions": [
+        "Closing Costs Rate: 2.5%",
+        "Name: Maple Ridge Apartments Acquisition",
+        "Timeline: 2 parameters",
+        "Value: 12,000,000"
+      ],
+      "critical_defaults": []
+    },
+    "financing": {
+      "class_name": "FinancingPlan",
+      "object_type": "Debt",
+      "completeness": 0.5238095238095238,
+      "explicit_ratio": 0.47619047619047616,
+      "key_assumptions": [
+        "Facilities: 1 items",
+        "Name: Maple Ridge Apartments Financing"
+      ],
+      "critical_defaults": []
+    },
+    "exit": {
+      "class_name": "DirectCapValuation",
+      "object_type": "Valuation",
+      "completeness": 0.5,
+      "explicit_ratio": 0.375,
+      "key_assumptions": [
+        "Cap Rate: 6.5%",
+        "Hold Period Months: 60",
+        "Name: Stabilized Disposition"
+      ],
+      "critical_defaults": []
+    },
+    "partnership": {
+      "class_name": "PartnershipStructure",
+      "object_type": "Partnership",
+      "completeness": 0.6666666666666666,
+      "explicit_ratio": 0.5555555555555556,
+      "key_assumptions": [
+        "Partners: 2 items",
+        "Has Explicit Commitments: 0",
+        "Total Committed Capital: None"
+      ],
+      "critical_defaults": []
+    }
+  },
+  "quality_assessment": {
+    "overall_score": 0.24324324324324326,
+    "recommendations": [
+      "\u2705 EXCELLENT pattern configuration - optimal parameter specification"
+    ],
+    "critical_risks": []
+  }
+}

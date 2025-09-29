@@ -68,11 +68,16 @@ class DealResults:  # noqa: PLR0904
         self._deal = deal
         self._timeline = timeline
         self._ledger = ledger
-        self._queries = LedgerQueries(ledger.ledger_df())
+        self._queries = LedgerQueries(ledger)
 
     # ==========================================================================
     # DIRECT DATA ACCESS
     # ==========================================================================
+
+    @property
+    def deal(self) -> "Deal":
+        """Access to the original deal configuration."""
+        return self._deal
 
     @property
     def timeline(self) -> "Timeline":
@@ -825,7 +830,7 @@ class PartnerMetrics:
         self.partner_id = partner_id
         self._ledger = ledger
         self._timeline = timeline
-        self._queries = LedgerQueries(ledger.ledger_df())
+        self._queries = LedgerQueries(ledger)
 
     @cached_property
     def irr(self) -> Optional[float]:
