@@ -56,6 +56,7 @@ Implementation examples:
 from __future__ import annotations
 
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from graphlib import CycleError, TopologicalSorter
@@ -509,7 +510,7 @@ class CashFlowOrchestrator:
                 AggKeys.TOTAL_CAPITAL_EXPENDITURES: queries.capex,
                 AggKeys.TOTAL_TENANT_IMPROVEMENTS: queries.ti,
                 AggKeys.TOTAL_LEASING_COMMISSIONS: queries.lc,
-                AggKeys.UNLEVERED_CASH_FLOW: queries.ucf,
+                AggKeys.UNLEVERED_CASH_FLOW: queries.project_cash_flow,
             }
 
             # Special cases that need zero values (not yet tracked in ledger)
@@ -702,13 +703,16 @@ class CashFlowOrchestrator:
             self._add_to_ledger(model, result)
 
             # Update aggregates after each model in Phase 2 to ensure dependent models
-            # have access to fresh aggregate data from previously processed models
-            # This is necessary because some dependent models (like credit loss)
-            # depend on aggregates that include other dependent models (like vacancy loss)
+            # have access to fresh aggregate data from previously processed models.
+            # IMPORTANT: Flush buffered writes so queries see newly added transactions.
             if model.calculation_pass == OrchestrationPass.DEPENDENT_MODELS:
-                self._update_aggregates_from_ledger(
-                    self.context.ledger, "intermediate"
-                )
+                # Optional skip of mid-model flush for performance A/B (set PERFORMA_SKIP_PHASE2_FLUSH=1)
+                skip_flush = os.environ.get("PERFORMA_SKIP_PHASE2_FLUSH") in {"1", "true", "True"}
+                if not skip_flush:
+                    # Ensure visibility of buffered transactions
+                    self.context.ledger.flush()
+                # Update aggregates
+                self._update_aggregates_from_ledger(self.context.ledger, "intermediate")
 
     def _add_to_ledger(self, model: "CashFlowModel", result: Any) -> None:
         """Add model cash flows to ledger with metadata."""
@@ -885,7 +889,7 @@ class CashFlowOrchestrator:
         capex_series = self._to_period_series(queries.capex())
         ti_series = self._to_period_series(queries.ti())
         lc_series = self._to_period_series(queries.lc())
-        ucf_series = self._to_period_series(queries.ucf())
+        ucf_series = self._to_period_series(queries.project_cash_flow())
 
         # Create summary DataFrame for reporting
         summary_data = {

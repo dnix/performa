@@ -60,7 +60,7 @@ def sample_settings() -> GlobalSettings:
 def sample_deal() -> Mock:
     """Mock deal with basic structure for valuation testing."""
     deal = Mock(spec=Deal)
-    deal.uid = "test-deal-001"
+    deal.uid = uuid4()
     deal.name = "Test Valuation Deal"
     # Set up deal attributes for ValuationEngine tests
     deal.acquisition = None  # No acquisition price - use NOI-based valuation
@@ -68,7 +68,7 @@ def sample_deal() -> Mock:
 
     # Add asset mock for non-cash valuation recording
     deal.asset = Mock()
-    deal.asset.uid = "test-asset-001"
+    deal.asset.uid = uuid4()
 
     return deal
 

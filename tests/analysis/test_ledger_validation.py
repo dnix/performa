@@ -332,9 +332,9 @@ class TestLedgerMetadata:
             len(unique_asset_ids) == 1
         ), f"Expected 1 asset ID, got {len(unique_asset_ids)}"
 
-        # Should match the property UID
+        # Should match the property UID (convert to string for DuckDB comparison)
         expected_asset_id = simple_residential_property.uid
-        assert unique_asset_ids[0] == expected_asset_id
+        assert unique_asset_ids[0] == str(expected_asset_id)
 
 
 class TestLedgerQuerying:

@@ -68,12 +68,10 @@ class AssetAnalysisResult:
         """
         Create a LedgerQueries instance for comprehensive ledger analysis.
 
-        Uses the adapter pattern to automatically select the appropriate
-        query implementation based on the ledger type.
+        Returns the single canonical DuckDBquery implementation.
 
         Returns:
             LedgerQueries instance with all financial metrics available
-            (pandas-based or DuckDB-based depending on ledger type)
         """
         return LedgerQueries(self.ledger)
 
@@ -133,12 +131,11 @@ class AssetAnalysisResult:
     @property
     def ucf(self) -> pd.Series:
         """
-        Unlevered Cash Flow computed from ledger.
+        Unlevered Cash Flow computed from ledger (project-level, pre-debt).
 
-        Returns:
-            Time series of unlevered cash flow by period
+        Alias to project_cash_flow() for legacy callers.
         """
-        return self.get_ledger_queries().ucf()
+        return self.get_ledger_queries().project_cash_flow()
 
     @cached_property
     def summary_df(self) -> pd.DataFrame:
@@ -156,21 +153,25 @@ class AssetAnalysisResult:
 
         # Build summary from query results, converting to PeriodIndex
         # Use enum values for column names to match expected test format
+        # NOTE: signs are preserved according to accounting conventions:
+        #   - Revenues and recoveries: positive
+        #   - Losses: positive magnitudes for display (vacancy, credit, abatement)
+        #   - Operating expenses: negative (cost)
         summary_data = {
             UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value: self._to_period_series(
                 queries.pgr()
             ),
             UnleveredAggregateLineKey.RENTAL_ABATEMENT.value: self._to_period_series(
-                queries.rental_abatement()
+                queries.rental_abatement().abs()
             ),
             UnleveredAggregateLineKey.MISCELLANEOUS_INCOME.value: self._to_period_series(
                 queries.misc_income()
             ),
             UnleveredAggregateLineKey.GENERAL_VACANCY_LOSS.value: self._to_period_series(
-                queries.vacancy_loss()
+                queries.vacancy_loss().abs()
             ),
             UnleveredAggregateLineKey.CREDIT_LOSS.value: self._to_period_series(
-                queries.credit_loss()
+                queries.credit_loss().abs()
             ),
             UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value: self._to_period_series(
                 queries.expense_reimbursements()
@@ -185,16 +186,16 @@ class AssetAnalysisResult:
                 queries.noi()
             ),
             UnleveredAggregateLineKey.TOTAL_CAPITAL_EXPENDITURES.value: self._to_period_series(
-                queries.capex()
+                queries.capex().abs()
             ),
             UnleveredAggregateLineKey.TOTAL_TENANT_IMPROVEMENTS.value: self._to_period_series(
-                queries.ti()
+                queries.ti().abs()
             ),
             UnleveredAggregateLineKey.TOTAL_LEASING_COMMISSIONS.value: self._to_period_series(
-                queries.lc()
+                queries.lc().abs()
             ),
             UnleveredAggregateLineKey.UNLEVERED_CASH_FLOW.value: self._to_period_series(
-                queries.ucf()
+                queries.project_cash_flow()
             ),
         }
 

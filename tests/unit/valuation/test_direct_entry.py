@@ -5,6 +5,7 @@
 
 from datetime import date
 from unittest.mock import Mock
+from uuid import uuid4
 
 import pandas as pd
 import pytest
@@ -20,7 +21,7 @@ def create_test_context(timeline: Timeline, noi_series=None) -> DealContext:
     # Use mock deal to bypass complex validation
     mock_deal = Mock()
     mock_deal.name = "Test Deal"
-    mock_deal.uid = "test-deal-uid"
+    mock_deal.uid = uuid4()
 
     # Create ledger and context
     ledger = Ledger()

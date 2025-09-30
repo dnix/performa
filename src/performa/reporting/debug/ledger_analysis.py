@@ -50,19 +50,9 @@ def analyze_ledger_semantically(ledger: Ledger) -> Dict[str, Any]:
         print(f"Timeline issues: {analysis['anomalies']['timeline']}")
         ```
     """
-    # Get ledger DataFrame
-    if hasattr(ledger, "_to_dataframe"):
-        df = ledger._to_dataframe()
-    elif isinstance(ledger, pd.DataFrame):
-        df = ledger
-    else:
-        # Try to get DataFrame from ledger object
-        df = getattr(ledger, "df", None) or getattr(ledger, "data", None)
-        if df is None:
-            return {
-                "error": "Could not extract DataFrame from ledger",
-                "ledger_type": type(ledger).__name__,
-            }
+    # DuckDB-only path: require active ledger connection and fail fast otherwise
+    con, table = ledger.get_query_connection()
+    df = con.execute(f"SELECT * FROM {table} ORDER BY date").df()
 
     if df.empty:
         return {"error": "Ledger is empty", "record_count": 0}

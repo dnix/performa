@@ -9,6 +9,7 @@ using inline financial formulas, ensuring we're not doing circular testing.
 """
 
 from unittest.mock import Mock
+from uuid import uuid4
 
 import pandas as pd
 import pytest
@@ -217,6 +218,9 @@ class TestDebtCalculationsAgainstBenchmarks:
         # Create a mock deal (required for DealContext)
         mock_deal = Mock()
         mock_deal.name = "Test Deal"
+        mock_deal.uid = uuid4()
+        mock_deal.asset = Mock()
+        mock_deal.asset.uid = uuid4()
 
         context = DealContext(
             timeline=self.timeline,
@@ -349,6 +353,9 @@ class TestDebtCalculationsAgainstBenchmarks:
         # Create context with project costs
         mock_deal = Mock()
         mock_deal.name = "Construction Test Deal"
+        mock_deal.uid = uuid4()
+        mock_deal.asset = Mock()
+        mock_deal.asset.uid = uuid4()
 
         # Use fresh ledger builder for this test
         fresh_ledger = Ledger()

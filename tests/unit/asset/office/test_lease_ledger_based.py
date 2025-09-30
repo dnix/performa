@@ -111,7 +111,7 @@ class TestOfficeLeaseLedgerBehavior(unittest.TestCase):
 
         # Verify business outcomes through ledger queries
         ledger_df = result.ledger.ledger_df()
-        queries = LedgerQueries(ledger_df)
+        queries = LedgerQueries(result.ledger)
 
         # Test 1: Monthly revenue should be $5k
         egi = queries.egi()
