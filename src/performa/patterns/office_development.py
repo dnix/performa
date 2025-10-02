@@ -242,6 +242,12 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
         # === STEP 1: PROJECT TIMELINE ===
         # Use unified timeline from _derive_timeline() method
         timeline = self._derive_timeline()
+        
+        # Construction-specific timeline (only construction duration, not full project)
+        construction_timeline = Timeline(
+            start_date=self.acquisition_date,
+            duration_months=self.construction_duration_months
+        )
 
         # === STEP 2: CAPITAL EXPENDITURE PLAN ===
         # NOTE: Land acquisition handled by AcquisitionTerms, not CapitalItem
@@ -254,7 +260,7 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
                 draw_schedule=SCurveDrawSchedule(
                     sigma=1.0
                 ),  # Realistic S-curve construction draws
-                timeline=timeline,
+                timeline=construction_timeline,  # Use construction duration, not full timeline
             ),
             CapitalItem(
                 name="Professional Fees",
@@ -263,14 +269,14 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
                 draw_schedule=SCurveDrawSchedule(
                     sigma=1.2
                 ),  # Slightly more gradual for soft costs
-                timeline=timeline,
+                timeline=construction_timeline,  # Use construction duration, not full timeline
             ),
             CapitalItem(
                 name="Developer Fee",
                 work_type="developer",
                 value=self.developer_fee,
                 draw_schedule=UniformDrawSchedule(),  # Flat monthly payments (industry standard)
-                timeline=timeline,
+                timeline=construction_timeline,  # Use construction duration, not full timeline
             ),
         ]
 
