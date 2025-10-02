@@ -515,7 +515,7 @@ class CashFlowEngine(AnalysisSpecialist):
                 excess = total_committed - required_equity
                 excess_pct = (excess / required_equity) * 100
                 logger.warning(
-                    f"📊 EXCESS EQUITY: Partner commitments (${total_committed:,.0f}) "
+                    f"EXCESS EQUITY: partner commitments (${total_committed:,.0f}) "
                     f"exceed estimated requirements (${required_equity:,.0f}) by {excess_pct:.1f}%. "
                     f"Verify LTC parameters or consider increasing debt."
                 )

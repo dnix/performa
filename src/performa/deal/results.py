@@ -550,15 +550,40 @@ class DealResults:  # noqa: PLR0904
         """
         partner_dict = {}
 
-        # Get unique partner IDs from ledger
-        partner_mask = self._queries.ledger["entity_type"].isin(["GP", "LP"])
-        if partner_mask.any():
-            unique_partners = self._queries.ledger[partner_mask]["entity_id"].unique()
+        # Enumerate partners with details (supports multiple partners of each type)
+        try:
+            details = self._queries.list_partner_details()
+            name_by_id = {}
+            kind_by_id = {}
+            share_by_id = {}
+            # Prefer configured partner names/types from deal if available
+            try:
+                if getattr(self._deal, "equity_partners", None) and self._deal.equity_partners.partners:
+                    for p in self._deal.equity_partners.partners:
+                        pid = str(p.uid)
+                        name_by_id[pid] = p.name
+                        kind_by_id[pid] = p.kind
+                        share_by_id[pid] = getattr(p, "share", None)
+            except Exception:
+                pass
 
-            for partner_id in unique_partners:
-                partner_dict[partner_id] = PartnerMetrics(
-                    partner_id=partner_id, ledger=self._ledger, timeline=self._timeline
-                )
+            if not details.empty:
+                for partner_id, entity_type in zip(details["entity_id"], details["entity_type"]):
+                    pid = str(partner_id)
+                    pname = name_by_id.get(pid)
+                    ptype = kind_by_id.get(pid, str(entity_type) if entity_type is not None else None)
+                    pshare = share_by_id.get(pid)
+                    partner_dict[pid] = PartnerMetrics(
+                        partner_id=pid,
+                        ledger=self._ledger,
+                        timeline=self._timeline,
+                        name=pname,
+                        entity_type=ptype,
+                        ownership_share=pshare,
+                    )
+        except Exception:
+            # If queries fail, leave empty; partner() access will raise
+            pass
 
         return partner_dict
 
@@ -567,6 +592,42 @@ class DealResults:  # noqa: PLR0904
         if partner_id not in self.partners:
             raise KeyError(f"Partner '{partner_id}' not found in deal")
         return self.partners[partner_id]
+
+    @cached_property
+    def partners_summary(self) -> list[Dict[str, Optional[str]]]:
+        """
+        Lightweight partner summary records.
+
+        Returns:
+            List of dicts with keys: id, name, entity_type
+        """
+        summary: list[Dict[str, Optional[str]]] = []
+
+        # Prefer PartnerMetrics (has resolved names/types)
+        for pid, pm in self.partners.items():
+            summary.append({
+                "id": pid,
+                "name": getattr(pm, "partner_name", None),
+                "entity_type": getattr(pm, "entity_type", None),
+                "share": getattr(pm, "ownership_share", None),
+            })
+
+        # Fallback if no partners were resolved
+        if not summary:
+            try:
+                details = self._queries.list_partner_details()
+                if not details.empty:
+                    for pid, et in zip(details["entity_id"], details["entity_type"]):
+                        summary.append({
+                            "id": str(pid),
+                            "name": None,
+                            "entity_type": str(et) if et is not None else None,
+                            "share": None,
+                        })
+            except Exception:
+                pass
+
+        return summary
 
     # ==========================================================================
     # LEGACY COMPATIBILITY INTERFACE
@@ -809,9 +870,12 @@ class PartnerMetrics:
     deal-level results for consistency.
     """
 
-    def __init__(self, partner_id: str, ledger: Ledger, timeline: Timeline):
-        """Initialize with partner ID and shared analysis components."""
+    def __init__(self, partner_id: str, ledger: Ledger, timeline: Timeline, name: Optional[str] = None, entity_type: Optional[str] = None, ownership_share: Optional[float] = None):
+        """Initialize with partner identity and shared analysis components."""
         self.partner_id = partner_id
+        self.partner_name = name
+        self.entity_type = entity_type
+        self.ownership_share = ownership_share
         self._ledger = ledger
         self._timeline = timeline
         self._queries = LedgerQueries(ledger)
@@ -857,6 +921,9 @@ class PartnerMetrics:
     def __repr__(self) -> str:
         try:
             irr_str = f"{self.irr:.2%}" if self.irr else "N/A"
-            return f"PartnerMetrics({self.partner_id}, irr={irr_str})"
+            label = self.partner_name or self.partner_id
+            etype = f", type={self.entity_type}" if self.entity_type else ""
+            return f"PartnerMetrics({label}{etype}, irr={irr_str})"
         except NotImplementedError:
-            return f"PartnerMetrics({self.partner_id}, not yet implemented)"
+            label = self.partner_name or self.partner_id
+            return f"PartnerMetrics({label}, not yet implemented)"

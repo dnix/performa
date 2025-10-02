@@ -230,6 +230,8 @@ class LedgerQueries:  # noqa: PLR0904
         # Require a DuckDB-backed Ledger
         self.con, self.table_name = ledger.get_query_connection()
         self._ledger = ledger
+        self._cache_version = ledger.get_version() if hasattr(ledger, "get_version") else -1
+        self._series_cache = {}
 
     @property
     def ledger(self) -> pd.DataFrame:
@@ -267,27 +269,43 @@ class LedgerQueries:  # noqa: PLR0904
             Pandas Series with PeriodIndex (monthly frequency) and float values
         """
         try:
-            result_df = self.con.execute(sql).df()
+            # Versioned cache: invalidate on ledger version change
+            current_version = self._ledger.get_version() if hasattr(self._ledger, "get_version") else -1
+            if current_version != self._cache_version:
+                self._series_cache.clear()
+                self._cache_version = current_version
 
-            if result_df.empty:
+            cache_key = (sql, date_col, value_col, series_name)
+            cached = self._series_cache.get(cache_key)
+            if cached is not None:
+                return cached.copy()
+
+            reader = self.con.execute(sql).arrow()
+            tbl = reader.read_all()
+            if tbl.num_rows == 0:
                 return pd.Series(dtype="float64", name=series_name)
 
-            # Convert date column to datetime
-            result_df[date_col] = pd.to_datetime(result_df[date_col])
-            
-            # Create Series with datetime index for resampling
-            series = result_df.set_index(date_col)[value_col]
-            
-            # Resample to monthly frequency first (using DatetimeIndex)
-            series = series.resample("M").sum()
-            
+            # Extract columns directly to pandas without building an intermediate DataFrame
+            dates = pd.to_datetime(tbl[date_col].to_pandas(date_as_object=False))
+            values = tbl[value_col].to_pandas()
+
+            # Build Series and ensure month aggregation (DATE_TRUNC already monthly)
+            series = pd.Series(values.values, index=dates.values)
+
             # Convert to PeriodIndex for compatibility with existing code expectations
             series.index = pd.PeriodIndex(series.index, freq="M")
+
+            # Reindex to full monthly range between first and last month (fill gaps with zeros)
+            if len(series.index) > 0:
+                full_range = pd.period_range(series.index.min(), series.index.max(), freq="M")
+                series = series.reindex(full_range, fill_value=0.0)
 
             if series_name:
                 series.name = series_name
 
-            return series
+            # Store in cache and return
+            self._series_cache[cache_key] = series
+            return series.copy()
 
         except Exception as e:
             # Return empty series on any error to maintain compatibility
@@ -606,17 +624,16 @@ class LedgerQueries:  # noqa: PLR0904
             ORDER BY month, subcategory
         """
         
-        result_df = self.con.execute(sql).df()
-        if result_df.empty:
+        tbl = self.con.execute(sql).arrow().read_all()
+        if tbl.num_rows == 0:
             return pd.DataFrame()
-            
-        result_df["month"] = pd.to_datetime(result_df["month"])
-        result_df["month"] = pd.PeriodIndex(result_df["month"], freq="M")
-        
-        # Pivot to wide format for compatibility
-        pivoted = result_df.pivot(index="month", columns="subcategory", values="amount")
-        pivoted = pivoted.fillna(0.0)
-        
+
+        months = pd.PeriodIndex(pd.to_datetime(tbl["month"].to_pandas(date_as_object=False)), freq="M")
+        subcats = tbl["subcategory"].to_pandas()
+        amounts = tbl["amount"].to_pandas()
+
+        df = pd.DataFrame({"month": months, "subcategory": subcats, "amount": amounts})
+        pivoted = df.pivot(index="month", columns="subcategory", values="amount").fillna(0.0)
         return pivoted
 
     def sources_breakdown(self) -> pd.DataFrame:
@@ -637,17 +654,16 @@ class LedgerQueries:  # noqa: PLR0904
             ORDER BY month, subcategory
         """
         
-        result_df = self.con.execute(sql).df()
-        if result_df.empty:
+        tbl = self.con.execute(sql).arrow().read_all()
+        if tbl.num_rows == 0:
             return pd.DataFrame()
-            
-        result_df["month"] = pd.to_datetime(result_df["month"])
-        result_df["month"] = pd.PeriodIndex(result_df["month"], freq="M")
-        
-        # Pivot to wide format for compatibility
-        pivoted = result_df.pivot(index="month", columns="subcategory", values="amount")
-        pivoted = pivoted.fillna(0.0)
-        
+
+        months = pd.PeriodIndex(pd.to_datetime(tbl["month"].to_pandas(date_as_object=False)), freq="M")
+        subcats = tbl["subcategory"].to_pandas()
+        amounts = tbl["amount"].to_pandas()
+
+        df = pd.DataFrame({"month": months, "subcategory": subcats, "amount": amounts})
+        pivoted = df.pivot(index="month", columns="subcategory", values="amount").fillna(0.0)
         return pivoted
 
     def debt_draws(self) -> pd.Series:
@@ -709,10 +725,68 @@ class LedgerQueries:  # noqa: PLR0904
             WHERE category = '{enum_to_string(CashFlowCategoryEnum.FINANCING)}'
               AND subcategory = '{enum_to_string(FinancingSubcategoryEnum.EQUITY_CONTRIBUTION)}'
             GROUP BY period
-            ORDER BY period
+            
         """
         return self._execute_query_to_series(sql, "period", "total", "Equity Contributions")
 
+    def equity_distributions(self) -> pd.Series:
+        """
+        Equity partner distributions from the ledger (pure distributions only).
+
+        Pure SQL implementation filtered strictly to Equity Distribution subcategory
+        to match historical semantics used in equity_multiple computation.
+
+        Returns:
+            Time series of equity distributions by period (negative values)
+        """
+        sql = f"""
+            SELECT 
+                DATE_TRUNC('month', date) AS period,
+                SUM(amount) AS total
+            FROM {self.table_name}
+            WHERE category = '{enum_to_string(CashFlowCategoryEnum.FINANCING)}'
+              AND subcategory = '{enum_to_string(FinancingSubcategoryEnum.EQUITY_DISTRIBUTION)}'
+            GROUP BY period
+            
+        """
+        return self._execute_query_to_series(sql, "period", "total", "Equity Distributions")
+
+    # NOTE: Prefetch methods removed for clarity; individual queries are cached per ledger version
+
+    def list_partners(self) -> list[str]:
+        """
+        List unique partner IDs (entity_id) for GP and LP.
+
+        Returns:
+            List of unique entity_id values present with entity_type in ('GP','LP').
+        """
+        con = self._ledger.get_query_connection()
+        sql = f"""
+            SELECT DISTINCT entity_id
+            FROM {self.table_name}
+            WHERE entity_type IN ('GP','LP')
+        """
+        df = con.execute(sql).arrow().read_all().to_pandas()
+        if df.empty:
+            return []
+        # entity_id is UUID in DuckDB; convert to string for external use
+        return [str(x) for x in df["entity_id"].tolist()]
+
+    def list_partner_details(self) -> pd.DataFrame:
+        """
+        List unique partners with their entity_type (GP/LP).
+
+        Returns:
+            pandas DataFrame with columns: entity_id (str), entity_type (str)
+        """
+        con = self._ledger.get_query_connection()
+        sql = f"""
+            SELECT DISTINCT entity_id, entity_type
+            FROM {self.table_name}
+            WHERE entity_type IN ('GP','LP')
+        """
+        df = con.execute(sql).arrow().read_all().to_pandas()
+        if df.empty:
             return pd.DataFrame({"entity_id": [], "entity_type": []})
         df["entity_id"] = df["entity_id"].astype(str)
         df["entity_type"] = df["entity_type"].astype(str)
@@ -956,8 +1030,10 @@ class LedgerQueries:  # noqa: PLR0904
         tbl = self.con.execute(sql).arrow().read_all()
         if tbl.num_rows == 0:
             return pd.Series(dtype="float64", name="Capital Uses by Category")
-            
-        return result_df.set_index("subcategory")["total_amount"]
+
+        subs = tbl["subcategory"].to_pandas()
+        amounts = tbl["total_amount"].to_pandas()
+        return pd.Series(amounts.values, index=subs.values, name="Capital Uses by Category")
 
     def capital_sources_by_category(self, as_of_date: pd.Period = None) -> pd.Series:
         """
@@ -982,14 +1058,16 @@ class LedgerQueries:  # noqa: PLR0904
             WHERE flow_purpose = 'Capital Source'
                 {date_filter}
             GROUP BY subcategory
-            ORDER BY subcategory
+            
         """
         
-        result_df = self.con.execute(sql).df()
-        if result_df.empty:
+        tbl = self.con.execute(sql).arrow().read_all()
+        if tbl.num_rows == 0:
             return pd.Series(dtype="float64", name="Capital Sources by Category")
-            
-        return result_df.set_index("subcategory")["total_amount"]
+
+        subs = tbl["subcategory"].to_pandas()
+        amounts = tbl["total_amount"].to_pandas()
+        return pd.Series(amounts.values, index=subs.values, name="Capital Sources by Category")
 
     def operational_cash_flow(self) -> pd.Series:
         """
@@ -1242,19 +1320,17 @@ class LedgerQueries:  # noqa: PLR0904
             ORDER BY month
         """
         
-        result_df = self.con.execute(sql).df()
-        if result_df.empty:
+        tbl = self.con.execute(sql).arrow().read_all()
+        if tbl.num_rows == 0:
             return pd.Series(dtype="float64", name="Debt Balance")
-            
-        result_df["month"] = pd.to_datetime(result_df["month"])
-        result_df["month"] = pd.PeriodIndex(result_df["month"], freq="M")
-        
-        # Calculate cumulative balance
-        series = result_df.set_index("month")["balance_change"]
-        cumulative_balance = series.cumsum()
-        cumulative_balance.name = "Debt Balance"
-        
-        return cumulative_balance
+
+        months = pd.PeriodIndex(pd.to_datetime(tbl["month"].to_pandas(date_as_object=False)), freq="M")
+        changes = tbl["balance_change"].to_pandas()
+        series = pd.Series(changes.values, index=months)
+        cumulative = series.cumsum()
+        cumulative.name = "Debt Balance"
+        return cumulative
+
 
     def construction_draws(self) -> pd.Series:
         """
@@ -1304,8 +1380,11 @@ class LedgerQueries:  # noqa: PLR0904
             ORDER BY date
         """
         
-        result_df = self.con.execute(sql).df()
-        if not result_df.empty:
-            result_df["date"] = pd.to_datetime(result_df["date"])
-            
-        return result_df
+        tbl = self.con.execute(sql).arrow().read_all()
+        if tbl.num_rows == 0:
+            return pd.DataFrame()
+
+        dates = pd.to_datetime(tbl["date"].to_pandas(date_as_object=False))
+        df = tbl.to_pandas()
+        df["date"] = dates
+        return df
