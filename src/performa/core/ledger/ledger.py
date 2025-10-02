@@ -24,6 +24,7 @@ import pandas as pd
 
 from ..primitives.enums import enum_to_string
 from .mapper import FlowPurposeMapper
+from .queries import LedgerQueries
 from .query_analyzer import DuckDBQueryAnalyzer
 from .records import SeriesMetadata, TransactionRecord
 
@@ -49,27 +50,6 @@ class Ledger:
     This class provides the same public interface as the original Ledger class,
     making it a drop-in replacement for performance optimization.
 
-    Example:
-        ```python
-        from performa.core.ledger import Ledger, SeriesMetadata
-
-        # Create ledger
-        ledger = Ledger()
-
-        # Add series with metadata
-        metadata = SeriesMetadata(
-            category="Revenue",
-            subcategory="Rent", 
-            item_name="Base Rent",
-            source_id=model.uid,
-            asset_id=property.uid,
-            pass_num=1
-        )
-        ledger.add_series(cash_flow_series, metadata)
-
-        # Get final DataFrame (lazy materialization)
-        ledger_df = ledger.to_dataframe()
-        ```
     """
 
     def __init__(self):
@@ -99,23 +79,27 @@ class Ledger:
         self.con.execute(create_table_sql)
         logger.debug(f"DuckDB table '{self.table_name}' created in memory.")
         
-        # Configure DuckDB for optimal performance
+        # Configure DuckDB for analytical workloads
         self._configure_duckdb_performance()
         
-        # Create strategic indexes for common query patterns
+        # Create indexes for common query patterns
         self._create_strategic_indexes()
 
         # Track state for compatibility with pandas implementation
         self._record_count = 0
         self._series_count = 0
+        # Monotonic version for cache invalidation in query layer
+        self._version = 0
         
         # Transaction support state
         self._transaction_buffer: List[TransactionRecord] = []
         self._in_transaction: bool = False
         # Stable UUID namespace for deterministic v5 mappings of non-UUID ids
-        self._id_namespace = uuid.UUID("6f2f6f86-0a1c-5f42-b6e9-6c5f3d6e4f80")
+        self._id_namespace = uuid.UUID("6f2f6f86-0a1c-5f42-b6e9-6c5f3d6e4f80")    
         
-        # TODO: Investigate orchestrator duplicate calls - removed defensive deduplication
+        # Cached DataFrame materialization (invalidate via version bumps)
+        self._cached_df = None
+        self._cached_df_version = -1
 
     def add_series_optimized(self, series: pd.Series, metadata: SeriesMetadata) -> None:
         """
@@ -246,6 +230,17 @@ class Ledger:
         """
         return self.con, self.table_name
 
+    def get_queries(self):
+        """
+        Return a cached LedgerQueries instance bound to this ledger.
+
+        This provides a convenient, single canonical query interface for
+        all ledger-derived series and reports, avoiding DataFrame materialization.
+        """
+        if getattr(self, "_queries", None) is None:
+            self._queries = LedgerQueries(self)
+        return self._queries
+
     def to_dataframe(self) -> pd.DataFrame:
         """
         Materialize the entire ledger from DuckDB into a pandas DataFrame.
@@ -264,21 +259,48 @@ class Ledger:
         - Sorts by date for improved downstream query performance
         """
         try:
-            # Use DuckDB's optimized conversion to pandas
-            df = self.con.execute(f"SELECT * FROM {self.table_name} ORDER BY date").df()
+            # Return cached DataFrame if version matches
+            if (
+                getattr(self, "_cached_df", None) is not None
+                and getattr(self, "_cached_df_version", -1) == self._version
+            ):
+                return self._cached_df
+
+            # Use Arrow path for faster conversion; keep ORDER BY for deterministic ordering
+            df = (
+                self.con.execute(f"SELECT * FROM {self.table_name} ORDER BY date")
+                .arrow()
+                .read_all()
+                .to_pandas()
+            )
 
             if df.empty:
-                return self._empty_ledger()
+                empty = self._empty_ledger()
+                self._cached_df = empty
+                self._cached_df_version = self._version
+                return empty
 
             # Apply the same optimizations as the original ledger for compatibility
             df = self._optimize_dataframe(df)
 
+            # Cache and return
+            self._cached_df = df
+            self._cached_df_version = self._version
             logger.info(f"Materialized ledger: {len(df)} transactions")
             return df
 
         except Exception as e:
             logger.error(f"Failed to materialize ledger DataFrame: {e}")
             raise
+
+    def get_version(self) -> int:
+        """
+        Return the current ledger version for query cache invalidation.
+
+        This value increments whenever new records are inserted or the
+        ledger is cleared, allowing query layers to detect staleness.
+        """
+        return self._version
 
     def ledger_df(self) -> pd.DataFrame:
         """
@@ -354,6 +376,8 @@ class Ledger:
             self.con.execute(f"DELETE FROM {self.table_name}")
             self._record_count = 0
             self._series_count = 0
+            # Bump version to invalidate query caches
+            self._bump_version()
             logger.debug("Cleared all records from DuckDB ledger")
         except Exception as e:
             logger.error(f"Failed to clear ledger: {e}")
@@ -516,26 +540,29 @@ class Ledger:
         # Create DataFrame directly from raw data (simple and fast)
         raw_df = pd.DataFrame(raw_data)
 
-        # Deterministic UUID adapter: map any non-UUID id strings to UUIDv5
-        def _to_uuid_like(value: Any) -> str | None:
-            if value is None:
-                return None
-            s = str(value)
-            try:
-                # pass through real UUIDs
-                return str(uuid.UUID(s))
-            except Exception:
-                # map human-readable ids/mocks deterministically
-                return str(uuid.uuid5(self._id_namespace, s))
+        # Deterministic UUID adapter with unique-value mapping per insert batch
+        def _map_uuid_column(df: pd.DataFrame, col: str) -> None:
+            if col not in df.columns:
+                return
+            series = df[col]
+            # Build map for unique values only
+            uniques = series.unique()
+            mapping: Dict[Any, Any] = {}
+            for val in uniques:
+                if val is None:
+                    mapping[val] = None
+                    continue
+                s = str(val)
+                try:
+                    mapping[val] = str(uuid.UUID(s))
+                except Exception:
+                    mapping[val] = str(uuid.uuid5(self._id_namespace, s))
+            df[col] = series.map(mapping)
 
-        if 'source_id_str' in raw_df.columns:
-            raw_df['source_id_str'] = raw_df['source_id_str'].map(_to_uuid_like)
-        if 'asset_id_str' in raw_df.columns:
-            raw_df['asset_id_str'] = raw_df['asset_id_str'].map(_to_uuid_like)
-        if 'deal_id_str' in raw_df.columns:
-            raw_df['deal_id_str'] = raw_df['deal_id_str'].map(_to_uuid_like)
-        if 'entity_id_str' in raw_df.columns:
-            raw_df['entity_id_str'] = raw_df['entity_id_str'].map(_to_uuid_like)
+        _map_uuid_column(raw_df, 'source_id_str')
+        _map_uuid_column(raw_df, 'asset_id_str')
+        _map_uuid_column(raw_df, 'deal_id_str')
+        _map_uuid_column(raw_df, 'entity_id_str')
         
         # Add UUID generation using efficient bulk method
         raw_df['transaction_id'] = self._bulk_generate_uuids(len(raw_df))
@@ -569,6 +596,8 @@ class Ledger:
             # Update counters
             self._record_count += len(raw_df)
             self._series_count += 1
+            # Invalidate query caches
+            self._bump_version()
 
             logger.debug(f"Optimized bulk inserted {len(raw_df)} transactions")
 
@@ -729,23 +758,30 @@ class Ledger:
         for analytical workloads with frequent aggregations and time-series queries.
         """
         try:
-            # Use all available CPU cores for parallel processing
-            threads = os.cpu_count() or 4
-            self.con.execute(f"SET threads = {threads}")
-            
-            # Set generous memory limit for better performance
-            # Users can override with DUCKDB_MEMORY_LIMIT environment variable
-            memory_limit = self._get_memory_limit()
-            self.con.execute(f"SET memory_limit = '{memory_limit}'")
-            
             # Disable progress bar for cleaner logs
             self.con.execute("SET enable_progress_bar = false")
             
             # Allow query optimizer to reorder operations for better performance
             self.con.execute("SET preserve_insertion_order = false")
             
-            # Enable profiling for diagnostics (can be disabled in production)
-            self.con.execute("SET enable_profiling = 'no_output'")  # Start disabled
+            # Disable profiling output for production runs
+            self.con.execute("SET enable_profiling = 'no_output'")
+            
+            # Performance pragmas: use all threads and a generous memory limit
+            try:
+                try:
+                    cpu_count = os.cpu_count() or 1
+                except Exception:
+                    cpu_count = 1
+                self.con.execute(f"SET threads = {cpu_count}")
+            except Exception:
+                pass
+            try:
+                # Set memory limit to a reasonable high watermark (adjustable by env)
+                mem_limit = os.getenv('PERFORMA_DUCKDB_MEM', '4GB')
+                self.con.execute(f"SET memory_limit = '{mem_limit}'")
+            except Exception:
+                pass
             
             # Optimize for analytical queries over transactional consistency
             self.con.execute("SET checkpoint_threshold = '1GB'")
@@ -783,9 +819,42 @@ class Ledger:
         - Category-based filtering (WHERE category = ...)
         - Combined date/category queries (common in financial analysis)
         """
-        # Temporarily disabled for performance investigations in test suite.
-        # Re-enable selectively if/when indexes demonstrate clear benefit at scale.
-        return
+        try:
+            # Primary index on date column - critical for time-series queries
+            self.con.execute(f"""
+                CREATE INDEX IF NOT EXISTS idx_{self.table_name}_date 
+                ON {self.table_name}(date)
+            """)
+            
+            # Index on category for filtering operations
+            self.con.execute(f"""
+                CREATE INDEX IF NOT EXISTS idx_{self.table_name}_category 
+                ON {self.table_name}(category)
+            """)
+            
+            # Compound index for date/category combinations (most common query pattern)
+            self.con.execute(f"""
+                CREATE INDEX IF NOT EXISTS idx_{self.table_name}_date_category 
+                ON {self.table_name}(date, category)
+            """)
+            
+            # Index on flow_purpose for Operating/Investing/Financing breakdowns
+            self.con.execute(f"""
+                CREATE INDEX IF NOT EXISTS idx_{self.table_name}_flow_purpose 
+                ON {self.table_name}(flow_purpose)
+            """)
+            
+            # Compound index for asset-based queries
+            self.con.execute(f"""
+                CREATE INDEX IF NOT EXISTS idx_{self.table_name}_asset_date 
+                ON {self.table_name}(asset_id, date)
+            """)
+            
+            logger.debug("Strategic indexes created successfully")
+            
+        except Exception as e:
+            logger.warning(f"Could not create all strategic indexes: {e}")
+            # Continue execution - indexes improve performance but aren't required for correctness
     
     def _sql_native_bulk_insert(self, records: List[TransactionRecord]) -> None:
         """
@@ -845,6 +914,8 @@ class Ledger:
             # Update counters
             self._record_count += len(raw_df)
             logger.debug(f"SQL-native bulk inserted {len(raw_df)} transaction records")
+            # Invalidate query caches
+            self._bump_version()
             
         except Exception as e:
             # Cleanup on error
@@ -895,6 +966,8 @@ class Ledger:
 
             self._record_count += len(temp_df)
             logger.debug(f"Bulk inserted {len(temp_df)} transaction records")
+            # Invalidate query caches
+            self._bump_version()
 
         except Exception as e:
             logger.error(f"Failed to bulk insert records into DuckDB: {e}")
@@ -979,6 +1052,13 @@ class Ledger:
             self._transaction_buffer.clear()
             
             logger.debug(f"Committed transaction buffer to DuckDB")
+
+    def _bump_version(self) -> None:
+        """Increment the ledger version counter and invalidate cached DataFrame."""
+        self._version += 1
+        if hasattr(self, "_cached_df"):
+            self._cached_df = None
+            self._cached_df_version = -1
     
     def _rollback_transaction(self) -> None:
         """
