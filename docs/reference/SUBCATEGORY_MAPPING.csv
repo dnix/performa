@@ -1,0 +1,40 @@
+category,subcategory,flow_purpose,expected_sign,description,notes
+Capital,Purchase Price,Capital Use,negative,Property acquisition purchase price,Acquisition
+Capital,Closing Costs,Capital Use,negative,Acquisition closing costs and fees,Acquisition
+Capital,Due Diligence,Capital Use,negative,Due diligence and inspection costs,Acquisition
+Capital,Hard Costs,Capital Use,negative,Direct construction costs - materials and labor,Construction
+Capital,Soft Costs,Capital Use,negative,Indirect construction costs - permits and fees,Construction
+Capital,Site Work,Capital Use,negative,Site preparation and infrastructure work,Construction
+Capital,Transaction Costs,Capital Use,negative,Disposition broker fees and legal costs,Disposition
+Capital,Other,Capital Use,negative,Miscellaneous capital expenditures,General
+Expense,OpEx,Operating,negative,Operating expenses for property operations,Operating
+Expense,CapEx,Operating,negative,Recurring capital expenditures (minor),Operating - NOTE: Major CapEx should use Capital category
+Revenue,Sale,Capital Source,positive,Revenue from property or unit sales,Disposition - SPECIAL CASE
+Revenue,Lease,Operating,positive,Revenue from property or unit leases,Operating
+Revenue,Miscellaneous,Operating,positive,Miscellaneous income (parking vending etc),Operating
+Revenue,Recovery,Operating,positive,Expense recoveries from tenants (CAM etc),Operating
+Revenue,Security Deposit,Operating,positive,Security deposits collected from tenants,Operating
+Revenue,Vacancy Loss,Operating,negative,Revenue reduction from vacant units/space,Operating - Contra-revenue
+Revenue,Credit Loss,Operating,negative,Revenue reduction from uncollectable rent,Operating - Contra-revenue
+Revenue,Abatement,Operating,negative,Rent abatement/concessions (free rent),Operating - Contra-revenue
+Financing,Equity Contribution,Capital Source,positive,Partner capital contributions,Equity inflow
+Financing,Equity Distribution,Financing Service,negative,Distributions to equity partners,Equity outflow
+Financing,Preferred Return,Financing Service,negative,Preferred return payments,Equity outflow
+Financing,Promote,Financing Service,negative,Carried interest/promote payments,Equity outflow
+Financing,Loan Proceeds,Capital Source,positive,Initial loan funding at origination,Debt inflow
+Financing,Interest Payment,Financing Service,negative,Interest portion of debt service,Debt outflow
+Financing,Principal Payment,Financing Service,negative,Principal portion of debt service,Debt outflow
+Financing,Refinancing Proceeds,Capital Source,positive,New loan proceeds replacing old loan,Debt inflow - Refinancing
+Financing,Refinancing Payoff,Financing Service,negative,Old loan payoff in refinancing transaction,Debt outflow - Refinancing
+Financing,Prepayment,Financing Service,negative,Loan payoff at property sale/disposition,Debt outflow - Disposition
+Financing,Origination Fee,Financing Service,negative,Loan origination fees,Debt cost - Fee
+Financing,Exit Fee,Financing Service,negative,Loan exit fees,Debt cost - Fee
+Financing,Prepayment Penalty,Financing Service,negative,Early repayment penalties,Debt cost - Penalty
+Financing,Interest Reserve,Capital Use,varies,Interest reserve funding or draws,Complex - consult documentation
+Valuation,Asset Valuation,Valuation,positive,Direct asset appraisals and valuations,Non-cash
+Valuation,Comparable Sales,Valuation,positive,Market-based comparable sales analysis,Non-cash
+Valuation,DCF Valuation,Valuation,positive,Discounted cash flow valuations,Non-cash
+Valuation,Direct Cap Valuation,Valuation,positive,Direct capitalization method valuations,Non-cash
+Valuation,Cost Approach,Valuation,positive,Cost approach valuations,Non-cash
+Valuation,Broker Opinion,Valuation,positive,Broker price opinions and estimates,Non-cash
+
