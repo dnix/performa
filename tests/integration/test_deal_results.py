@@ -469,7 +469,13 @@ class TestValidationFramework:
             "by_category": {},
         }
         # Minimal compatibility: ensure balance_checks is present
-        analysis.update({"balance_checks": {"total_net_flow": float(ledger_df["amount"].sum()) if not ledger_df.empty else 0.0}})
+        analysis.update({
+            "balance_checks": {
+                "total_net_flow": float(ledger_df["amount"].sum())
+                if not ledger_df.empty
+                else 0.0
+            }
+        })
         ledger_analysis = analysis
 
         # Validate that metrics are calculable (not None)

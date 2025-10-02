@@ -23,7 +23,7 @@ class TestPivotTableReport:
     @pytest.fixture(scope="class")
     def sample_analysis_results(self):
         """Create sample analysis results for testing.
-        
+
         Uses class scope to avoid regenerating the same analysis for each test,
         improving test suite performance by ~1.4s.
         """

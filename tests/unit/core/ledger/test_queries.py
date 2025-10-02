@@ -28,7 +28,9 @@ def create_test_ledger() -> Ledger:
     ledger = Ledger()
 
     # Helper to add a single transaction as a one-point Series
-    def add(amount: float, d: date, category: str, subcategory: str, item_name: str) -> None:
+    def add(
+        amount: float, d: date, category: str, subcategory: str, item_name: str
+    ) -> None:
         series = pd.Series({pd.Period(d, freq="M"): float(amount)})
         metadata = SeriesMetadata(
             category=category,
@@ -41,39 +43,117 @@ def create_test_ledger() -> Ledger:
         ledger.add_series(series, metadata)
 
     # Operating Revenue - Lease
-    add(10000, date(2024, 1, 1), CashFlowCategoryEnum.REVENUE, RevenueSubcategoryEnum.LEASE, "Base Rent")
-    add(10000, date(2024, 2, 1), CashFlowCategoryEnum.REVENUE, RevenueSubcategoryEnum.LEASE, "Base Rent")
+    add(
+        10000,
+        date(2024, 1, 1),
+        CashFlowCategoryEnum.REVENUE,
+        RevenueSubcategoryEnum.LEASE,
+        "Base Rent",
+    )
+    add(
+        10000,
+        date(2024, 2, 1),
+        CashFlowCategoryEnum.REVENUE,
+        RevenueSubcategoryEnum.LEASE,
+        "Base Rent",
+    )
 
     # Operating Revenue - Miscellaneous
-    add(500, date(2024, 1, 1), CashFlowCategoryEnum.REVENUE, RevenueSubcategoryEnum.MISC, "Parking Income")
+    add(
+        500,
+        date(2024, 1, 1),
+        CashFlowCategoryEnum.REVENUE,
+        RevenueSubcategoryEnum.MISC,
+        "Parking Income",
+    )
 
     # Operating Expenses
-    add(-2000, date(2024, 1, 1), CashFlowCategoryEnum.EXPENSE, ExpenseSubcategoryEnum.OPEX, "Property Management")
-    add(-2000, date(2024, 2, 1), CashFlowCategoryEnum.EXPENSE, ExpenseSubcategoryEnum.OPEX, "Property Management")
+    add(
+        -2000,
+        date(2024, 1, 1),
+        CashFlowCategoryEnum.EXPENSE,
+        ExpenseSubcategoryEnum.OPEX,
+        "Property Management",
+    )
+    add(
+        -2000,
+        date(2024, 2, 1),
+        CashFlowCategoryEnum.EXPENSE,
+        ExpenseSubcategoryEnum.OPEX,
+        "Property Management",
+    )
 
     # Vacancy Loss (negative revenue)
-    add(-1000, date(2024, 1, 1), CashFlowCategoryEnum.REVENUE, RevenueSubcategoryEnum.VACANCY_LOSS, "Vacancy Loss")
+    add(
+        -1000,
+        date(2024, 1, 1),
+        CashFlowCategoryEnum.REVENUE,
+        RevenueSubcategoryEnum.VACANCY_LOSS,
+        "Vacancy Loss",
+    )
 
     # Capital Use - Acquisition (excluded from operational CapEx)
-    add(-50000, date(2024, 1, 1), CashFlowCategoryEnum.CAPITAL, "Purchase Price", "Acquisition")
+    add(
+        -50000,
+        date(2024, 1, 1),
+        CashFlowCategoryEnum.CAPITAL,
+        "Purchase Price",
+        "Acquisition",
+    )
 
     # Capital Source - Equity
-    add(30000, date(2024, 1, 1), CashFlowCategoryEnum.FINANCING, FinancingSubcategoryEnum.EQUITY_CONTRIBUTION, "Equity Contribution")
+    add(
+        30000,
+        date(2024, 1, 1),
+        CashFlowCategoryEnum.FINANCING,
+        FinancingSubcategoryEnum.EQUITY_CONTRIBUTION,
+        "Equity Contribution",
+    )
 
     # Capital Source - Debt
-    add(20000, date(2024, 1, 1), CashFlowCategoryEnum.FINANCING, FinancingSubcategoryEnum.LOAN_PROCEEDS, "Loan Proceeds")
+    add(
+        20000,
+        date(2024, 1, 1),
+        CashFlowCategoryEnum.FINANCING,
+        FinancingSubcategoryEnum.LOAN_PROCEEDS,
+        "Loan Proceeds",
+    )
 
     # Financing Service - Interest Payment
-    add(-500, date(2024, 2, 1), CashFlowCategoryEnum.FINANCING, FinancingSubcategoryEnum.INTEREST_PAYMENT, "Interest Payment")
+    add(
+        -500,
+        date(2024, 2, 1),
+        CashFlowCategoryEnum.FINANCING,
+        FinancingSubcategoryEnum.INTEREST_PAYMENT,
+        "Interest Payment",
+    )
 
     # Financing Service - Principal Payment
-    add(-300, date(2024, 2, 1), CashFlowCategoryEnum.FINANCING, FinancingSubcategoryEnum.PRINCIPAL_PAYMENT, "Principal Payment")
+    add(
+        -300,
+        date(2024, 2, 1),
+        CashFlowCategoryEnum.FINANCING,
+        FinancingSubcategoryEnum.PRINCIPAL_PAYMENT,
+        "Principal Payment",
+    )
 
     # Tenant Improvements (by name pattern)
-    add(-5000, date(2024, 1, 1), CashFlowCategoryEnum.CAPITAL, "Other", "TI Allowance - Suite 100")
+    add(
+        -5000,
+        date(2024, 1, 1),
+        CashFlowCategoryEnum.CAPITAL,
+        "Other",
+        "TI Allowance - Suite 100",
+    )
 
     # Leasing Commissions (by name pattern)
-    add(-2000, date(2024, 1, 1), CashFlowCategoryEnum.CAPITAL, "Other", "LC Payment - Broker")
+    add(
+        -2000,
+        date(2024, 1, 1),
+        CashFlowCategoryEnum.CAPITAL,
+        "Other",
+        "LC Payment - Broker",
+    )
 
     return ledger
 
@@ -260,7 +340,10 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         queries = LedgerQueries(ledger)
 
         breakdown = queries.sources_breakdown()
-        assert breakdown.loc[pd.Period("2024-01", freq="M"), "Equity Contribution"] == 30000
+        assert (
+            breakdown.loc[pd.Period("2024-01", freq="M"), "Equity Contribution"]
+            == 30000
+        )
         assert breakdown.loc[pd.Period("2024-01", freq="M"), "Loan Proceeds"] == 20000
 
     def test_empty_ledger_handling(self):
@@ -291,7 +374,9 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
             pass_num=1,
         )
         ledger.add_series(series, meta)
-        last_txn = ledger.con.execute(f"SELECT transaction_id FROM {ledger.table_name} ORDER BY rowid DESC LIMIT 1").fetchone()[0]
+        last_txn = ledger.con.execute(
+            f"SELECT transaction_id FROM {ledger.table_name} ORDER BY rowid DESC LIMIT 1"
+        ).fetchone()[0]
         ledger.con.execute(
             f"UPDATE {ledger.table_name} SET entity_id = '{partner_id}', entity_type = 'GP' WHERE transaction_id = '{last_txn}'"
         )
@@ -336,6 +421,7 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
                 pass_num=1,
             )
             ledger.add_series(series, meta)
+
         add(-500, date(2024, 1, 1))
         add(-300, date(2024, 2, 1))
 
@@ -360,6 +446,7 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
                 pass_num=1,
             )
             ledger.add_series(series, meta)
+
         add(-200, date(2024, 1, 1))
         add(-150, date(2024, 2, 1))
 
@@ -384,6 +471,7 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
                 pass_num=1,
             )
             ledger.add_series(series, meta)
+
         add(100, date(2024, 1, 1))
         add(75, date(2024, 2, 1))
 
@@ -407,6 +495,7 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
                 pass_num=1,
             )
             ledger.add_series(series, meta)
+
         add(250, date(2024, 1, 1))
         add(300, date(2024, 2, 1))
 

@@ -98,7 +98,7 @@ class TestLedgerQueries:
         """Test that DuckDB queries initialize correctly."""
         ledger = Ledger()
         queries = LedgerQueries(ledger)
-        
+
         # Test that connection is established
         assert queries.con is not None
         assert queries.table_name == "transactions"
@@ -182,7 +182,9 @@ class TestLedgerQueries:
         revenue = queries.revenue()
         opex = queries.opex()
         capex = queries.capex()
-        expected_noi = revenue.sum() + opex.sum() + capex.sum()  # all expenses are negative
+        expected_noi = (
+            revenue.sum() + opex.sum() + capex.sum()
+        )  # all expenses are negative
         assert abs(noi.sum() - expected_noi) < 0.01
 
     def test_cash_flow_queries(self):
@@ -219,7 +221,7 @@ class TestLedgerQueries:
         """Test queries with single transaction."""
         ledger = Ledger()
         dates = pd.date_range("2024-01-01", periods=1, freq="M")
-        
+
         # Add single revenue transaction
         series = pd.Series([1000.0], index=dates)
         metadata = SeriesMetadata(
@@ -246,14 +248,14 @@ class TestLedgerQueries:
     def test_complex_multi_period_data(self):
         """Test queries with complex multi-period data."""
         ledger = Ledger()
-        
+
         # Create data over 12 months
         dates = pd.date_range("2024-01-01", periods=12, freq="M")
-        
+
         # Add monthly escalating rent
         rent_amounts = [1000 + (i * 10) for i in range(12)]  # $1000, $1010, $1020...
         rent_series = pd.Series(rent_amounts, index=dates)
-        
+
         rent_metadata = SeriesMetadata(
             category=CashFlowCategoryEnum.REVENUE,
             subcategory=RevenueSubcategoryEnum.LEASE,
@@ -269,7 +271,7 @@ class TestLedgerQueries:
         # Test 12-month data
         pgr = queries.pgr()
         assert len(pgr) == 12
-        
+
         # Verify escalation pattern
         expected_total = sum(rent_amounts)
         assert abs(pgr.sum() - expected_total) < 0.01
@@ -281,11 +283,11 @@ class TestLedgerQueries:
     def test_date_handling_and_resampling(self):
         """Test proper date handling and monthly resampling."""
         ledger = Ledger()
-        
+
         # Add data with specific dates
         specific_dates = pd.to_datetime(["2024-01-15", "2024-02-28", "2024-03-10"])
         series = pd.Series([1000.0, 2000.0, 3000.0], index=specific_dates)
-        
+
         metadata = SeriesMetadata(
             category=CashFlowCategoryEnum.REVENUE,
             subcategory=RevenueSubcategoryEnum.LEASE,
@@ -297,12 +299,12 @@ class TestLedgerQueries:
         ledger.add_series(series, metadata)
 
         queries = LedgerQueries(ledger)
-        
+
         # Test that dates are properly aggregated by month
         pgr = queries.pgr()
         assert len(pgr) == 3
         assert pgr.sum() == 6000.0
-        
+
         # Verify PeriodIndex type for compatibility
         assert isinstance(pgr.index, pd.PeriodIndex)
         assert pgr.index.freq == "M"
@@ -311,11 +313,11 @@ class TestLedgerQueries:
         """Test accuracy of SQL aggregations."""
         ledger = Ledger()
         dates = pd.date_range("2024-01-01", periods=3, freq="M")
-        
+
         # Add precise decimal amounts to test floating point accuracy
         precise_amounts = [1000.12, 2000.34, 3000.56]
         series = pd.Series(precise_amounts, index=dates)
-        
+
         metadata = SeriesMetadata(
             category=CashFlowCategoryEnum.REVENUE,
             subcategory=RevenueSubcategoryEnum.LEASE,
@@ -327,7 +329,7 @@ class TestLedgerQueries:
         ledger.add_series(series, metadata)
 
         queries = LedgerQueries(ledger)
-        
+
         # Test precise aggregation
         pgr = queries.pgr()
         expected_total = sum(precise_amounts)
@@ -337,10 +339,10 @@ class TestLedgerQueries:
         """Test that zero amounts are properly handled."""
         ledger = Ledger()
         dates = pd.date_range("2024-01-01", periods=3, freq="M")
-        
+
         # Include zero and non-zero amounts
         series = pd.Series([1000.0, 0.0, 2000.0], index=dates)
-        
+
         metadata = SeriesMetadata(
             category=CashFlowCategoryEnum.REVENUE,
             subcategory=RevenueSubcategoryEnum.LEASE,
@@ -352,11 +354,13 @@ class TestLedgerQueries:
         ledger.add_series(series, metadata)
 
         queries = LedgerQueries(ledger)
-        
+
         # Test that query handles zero amounts correctly
         # (Zero filtering happens at ledger level, but resampling fills gaps)
         pgr = queries.pgr()
-        assert len(pgr) == 3  # 3 periods due to monthly resampling (includes filled zero)
+        assert (
+            len(pgr) == 3
+        )  # 3 periods due to monthly resampling (includes filled zero)
         assert pgr.sum() == 3000.0  # 1000 + 0 + 2000 (zero added by resampling)
 
     def test_breakdown_queries(self):
@@ -369,7 +373,7 @@ class TestLedgerQueries:
         # Should be empty since our test data doesn't have capital uses
         assert isinstance(uses_breakdown, pd.DataFrame)
 
-        # Test sources breakdown  
+        # Test sources breakdown
         sources_breakdown = queries.sources_breakdown()
         # Should be empty since our test data doesn't have capital sources
         assert isinstance(sources_breakdown, pd.DataFrame)
@@ -378,7 +382,7 @@ class TestLedgerQueries:
         """Test valuation-related query methods."""
         ledger = Ledger()
         dates = pd.date_range("2024-01-01", periods=2, freq="M")
-        
+
         # Add valuation data
         valuation_series = pd.Series([1000000.0, 1050000.0], index=dates)
         valuation_metadata = SeriesMetadata(
@@ -392,7 +396,7 @@ class TestLedgerQueries:
         ledger.add_series(valuation_series, valuation_metadata)
 
         queries = LedgerQueries(ledger)
-        
+
         # Test asset valuations
         valuations = queries.asset_valuations()
         assert len(valuations) == 2
@@ -407,7 +411,7 @@ class TestLedgerQueries:
         """Test capital uses/sources by category queries."""
         ledger = Ledger()
         dates = pd.date_range("2024-01-01", periods=1, freq="M")
-        
+
         # Add capital data
         series = pd.Series([-1000000.0], index=dates)  # Negative for capital use
         metadata = SeriesMetadata(
@@ -421,12 +425,12 @@ class TestLedgerQueries:
         ledger.add_series(series, metadata)
 
         queries = LedgerQueries(ledger)
-        
+
         # Test capital uses by category
         uses_by_category = queries.capital_uses_by_category()
         assert isinstance(uses_by_category, pd.Series)
-        
-        # Test capital sources by category  
+
+        # Test capital sources by category
         sources_by_category = queries.capital_sources_by_category()
         assert isinstance(sources_by_category, pd.Series)
 
@@ -437,14 +441,36 @@ class TestLedgerQueries:
 
         # List of methods that should return pd.Series
         series_methods = [
-            "pgr", "gpr", "tenant_revenue", "vacancy_loss", "egi", "opex", "noi",
-            "capex", "ti", "lc", "project_cash_flow", "total_uses", "total_sources",
-            "debt_draws", "debt_service", "equity_contributions",
-            "gp_distributions", "lp_distributions", "rental_abatement",
-            "credit_loss", "misc_income", "expense_reimbursements", "revenue",
-            "operational_cash_flow", "project_cash_flow", "equity_partner_flows",
-            "debt_balance", "construction_draws", "cumulative_construction_draws",
-            "asset_valuations"
+            "pgr",
+            "gpr",
+            "tenant_revenue",
+            "vacancy_loss",
+            "egi",
+            "opex",
+            "noi",
+            "capex",
+            "ti",
+            "lc",
+            "project_cash_flow",
+            "total_uses",
+            "total_sources",
+            "debt_draws",
+            "debt_service",
+            "equity_contributions",
+            "gp_distributions",
+            "lp_distributions",
+            "rental_abatement",
+            "credit_loss",
+            "misc_income",
+            "expense_reimbursements",
+            "revenue",
+            "operational_cash_flow",
+            "project_cash_flow",
+            "equity_partner_flows",
+            "debt_balance",
+            "construction_draws",
+            "cumulative_construction_draws",
+            "asset_valuations",
         ]
 
         # Test that all series methods exist and return Series
@@ -452,17 +478,25 @@ class TestLedgerQueries:
             assert hasattr(queries, method_name), f"Missing method: {method_name}"
             method = getattr(queries, method_name)
             result = method()
-            assert isinstance(result, pd.Series), f"Method {method_name} should return Series"
+            assert isinstance(
+                result, pd.Series
+            ), f"Method {method_name} should return Series"
 
         # List of methods that should return pd.DataFrame
-        dataframe_methods = ["uses_breakdown", "sources_breakdown", "_get_valuation_transactions"]
+        dataframe_methods = [
+            "uses_breakdown",
+            "sources_breakdown",
+            "_get_valuation_transactions",
+        ]
 
         # Test that all DataFrame methods exist and return DataFrame
         for method_name in dataframe_methods:
             assert hasattr(queries, method_name), f"Missing method: {method_name}"
             method = getattr(queries, method_name)
             result = method()
-            assert isinstance(result, pd.DataFrame), f"Method {method_name} should return DataFrame"
+            assert isinstance(
+                result, pd.DataFrame
+            ), f"Method {method_name} should return DataFrame"
 
         # Special methods
         assert hasattr(queries, "asset_value_at")

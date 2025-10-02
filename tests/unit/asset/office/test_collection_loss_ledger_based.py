@@ -117,13 +117,16 @@ class TestCollectionLossLedgerBehavior(unittest.TestCase):
 
         # Prefer direct transaction lookup; if absent due to timing, fall back to query result
         collection_loss_transactions = jan_transactions[
-            jan_transactions["subcategory"].astype(str) == RevenueSubcategoryEnum.CREDIT_LOSS.value
+            jan_transactions["subcategory"].astype(str)
+            == RevenueSubcategoryEnum.CREDIT_LOSS.value
         ]
 
         if collection_loss_transactions.empty:
             # Fallback to computed series from queries (authoritative aggregate)
             cl_series = queries.credit_loss()
-            actual_collection_loss = abs(cl_series.loc[cl_series.index[0]]) if not cl_series.empty else 0.0
+            actual_collection_loss = (
+                abs(cl_series.loc[cl_series.index[0]]) if not cl_series.empty else 0.0
+            )
         else:
             actual_collection_loss = abs(collection_loss_transactions["amount"].sum())
 
