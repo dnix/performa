@@ -2,17 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Optimized ledger queries for high-performance financial analysis.
+Ledger query layer for DuckDB-backed transactions.
 
-This module implements all query methods against a DuckDB-backed transactional
-ledger. It is the single, canonical implementation (no alternate backends,
-no fallbacks). All results are produced via SQL and returned as pandas Series
-or DataFrames with consistent time-indexing.
+This module implements all query methods against the transactional ledger.
+There are no alternate backends or fallbacks; results are produced via SQL
+and returned as pandas objects with consistent time indexing.
 
 Features:
-    - SQL-optimized aggregations for financial calculations
-    - Consistent API used throughout the codebase
-    - Monthly PeriodIndex outputs for time series
+- SQL-optimized aggregations for financial calculations
+- Consistent API used throughout the codebase
+- Monthly PeriodIndex outputs for time series
 """
 
 from __future__ import annotations
@@ -338,7 +337,7 @@ class LedgerQueries:  # noqa: PLR0904
                     '{enum_to_string(RevenueSubcategoryEnum.RECOVERY)}'
                 )
             GROUP BY period
-            ORDER BY period
+            
         """
         return self._execute_query_to_series(sql, "period", "total", "Potential Gross Revenue")
 
@@ -361,7 +360,7 @@ class LedgerQueries:  # noqa: PLR0904
                 AND category = 'Revenue'
                 AND subcategory = '{enum_to_string(RevenueSubcategoryEnum.LEASE)}'
             GROUP BY period
-            ORDER BY period
+            
         """
         return self._execute_query_to_series(sql, "period", "total", "Gross Potential Revenue")
 
@@ -385,7 +384,7 @@ class LedgerQueries:  # noqa: PLR0904
                 AND category = 'Revenue'
                 AND subcategory IN {self._subcategory_in_clause(TENANT_REVENUE_SUBCATEGORIES)}
             GROUP BY month
-            ORDER BY month
+            
         """
         return self._execute_query_to_series(sql, "month", "total_amount", "Tenant Revenue")
 
@@ -405,7 +404,7 @@ class LedgerQueries:  # noqa: PLR0904
                 AND category = '{enum_to_string(CashFlowCategoryEnum.REVENUE)}'
                 AND subcategory = '{enum_to_string(RevenueSubcategoryEnum.VACANCY_LOSS)}'
             GROUP BY month
-            ORDER BY month
+            
         """
         return self._execute_query_to_series(sql, "month", "total_amount", "Vacancy Loss")
 
@@ -427,7 +426,7 @@ class LedgerQueries:  # noqa: PLR0904
             WHERE flow_purpose = 'Operating'
                 AND category = 'Revenue'
             GROUP BY month
-            ORDER BY month
+            
         """
         return self._execute_query_to_series(sql, "month", "total_amount", "Effective Gross Income")
 
@@ -447,7 +446,7 @@ class LedgerQueries:  # noqa: PLR0904
                 AND subcategory = '{enum_to_string(ExpenseSubcategoryEnum.OPEX)}'
                 AND flow_purpose != '{enum_to_string(TransactionPurpose.VALUATION)}'
             GROUP BY month
-            ORDER BY month
+            
         """
         return self._execute_query_to_series(sql, "month", "total_amount", "Operating Expenses")
 
@@ -468,7 +467,7 @@ class LedgerQueries:  # noqa: PLR0904
             FROM {self.table_name}
             WHERE flow_purpose = 'Operating'
             GROUP BY period
-            ORDER BY period
+            
         """
         return self._execute_query_to_series(sql, "period", "total", "Net Operating Income")
 
@@ -499,7 +498,7 @@ class LedgerQueries:  # noqa: PLR0904
             AND NOT regexp_matches(item_name, '^TI\\b|\\bTI\\b|Tenant Improvement|^LC\\b|\\bLC\\b|Leasing Commission', 'i')
             AND subcategory NOT IN ('Purchase Price', 'Closing Costs', 'Transaction Costs', 'Other')
             GROUP BY period
-            ORDER BY period
+            
         """
         return self._execute_query_to_series(sql, "period", "total", "Capital Expenditures")
 
@@ -522,7 +521,7 @@ class LedgerQueries:  # noqa: PLR0904
             FROM {self.table_name}
             WHERE regexp_matches(item_name, '^TI\\b|\\bTI\\b|Tenant Improvement', 'i')
             GROUP BY period
-            ORDER BY period
+            
         """
         return self._execute_query_to_series(sql, "period", "total", "Tenant Improvements")
 
@@ -545,7 +544,7 @@ class LedgerQueries:  # noqa: PLR0904
             FROM {self.table_name}
             WHERE regexp_matches(item_name, '^LC\\b|\\bLC\\b|Leasing Commission', 'i')
             GROUP BY period
-            ORDER BY period
+            
         """
         return self._execute_query_to_series(sql, "period", "total", "Leasing Commissions")
 
@@ -567,7 +566,7 @@ class LedgerQueries:  # noqa: PLR0904
             FROM {self.table_name}
             WHERE flow_purpose = 'Capital Use'
             GROUP BY month
-            ORDER BY month
+            
         """
         return self._execute_query_to_series(sql, "month", "total_amount", "Total Capital Uses")
 
@@ -585,7 +584,7 @@ class LedgerQueries:  # noqa: PLR0904
             FROM {self.table_name}
             WHERE flow_purpose = 'Capital Source'
             GROUP BY month
-            ORDER BY month
+            
         """
         return self._execute_query_to_series(sql, "month", "total_amount", "Total Capital Sources")
 
@@ -666,7 +665,7 @@ class LedgerQueries:  # noqa: PLR0904
             WHERE category = 'Financing'
                 AND subcategory IN {self._subcategory_in_clause(DEBT_FUNDING_SUBCATEGORIES)}
             GROUP BY month
-            ORDER BY month
+            
         """
         return self._execute_query_to_series(sql, "month", "total_amount", "Debt Draws")
 
@@ -688,7 +687,7 @@ class LedgerQueries:  # noqa: PLR0904
             WHERE category = '{enum_to_string(CashFlowCategoryEnum.FINANCING)}'
               AND subcategory IN {self._subcategory_in_clause(DEBT_SERVICE_SUBCATEGORIES)}
             GROUP BY period
-            ORDER BY period
+            
         """
         return self._execute_query_to_series(sql, "period", "total", "Debt Service")
 
@@ -714,6 +713,11 @@ class LedgerQueries:  # noqa: PLR0904
         """
         return self._execute_query_to_series(sql, "period", "total", "Equity Contributions")
 
+            return pd.DataFrame({"entity_id": [], "entity_type": []})
+        df["entity_id"] = df["entity_id"].astype(str)
+        df["entity_type"] = df["entity_type"].astype(str)
+        return df[["entity_id", "entity_type"]]
+
     def partner_flows(self, partner_id: UUID) -> pd.Series:
         """
         Cash flows for a specific partner.
@@ -733,7 +737,7 @@ class LedgerQueries:  # noqa: PLR0904
                 AND category = 'Financing'
                 AND subcategory IN {self._subcategory_in_clause(EQUITY_PARTNER_SUBCATEGORIES)}
             GROUP BY month
-            ORDER BY month
+            
         """
         return self._execute_query_to_series(sql, "month", "total_amount", "Partner Flows")
 
@@ -753,7 +757,7 @@ class LedgerQueries:  # noqa: PLR0904
                 AND subcategory IN ('Equity Distribution', 'Promote')
                 AND entity_type = 'GP'
             GROUP BY month
-            ORDER BY month
+            
         """
         return self._execute_query_to_series(sql, "month", "total_amount", "GP Distributions")
 
@@ -773,7 +777,7 @@ class LedgerQueries:  # noqa: PLR0904
                 AND subcategory IN ('Equity Distribution', 'Preferred Return')
                 AND entity_type = 'LP'
             GROUP BY month
-            ORDER BY month
+            
         """
         return self._execute_query_to_series(sql, "month", "total_amount", "LP Distributions")
 
@@ -793,7 +797,7 @@ class LedgerQueries:  # noqa: PLR0904
                 AND category = 'Revenue'
                 AND subcategory = 'Abatement'
             GROUP BY month
-            ORDER BY month
+            
         """
         return self._execute_query_to_series(sql, "month", "total_amount", "Rental Abatement")
 
@@ -813,7 +817,7 @@ class LedgerQueries:  # noqa: PLR0904
                 AND category = 'Revenue'
                 AND subcategory = 'Credit Loss'
             GROUP BY month
-            ORDER BY month
+            
         """
         return self._execute_query_to_series(sql, "month", "total_amount", "Credit Loss")
 
@@ -833,7 +837,7 @@ class LedgerQueries:  # noqa: PLR0904
                 AND category = 'Revenue'
                 AND subcategory = 'Miscellaneous'
             GROUP BY month
-            ORDER BY month
+            
         """
         return self._execute_query_to_series(sql, "month", "total_amount", "Miscellaneous Income")
 
@@ -853,7 +857,7 @@ class LedgerQueries:  # noqa: PLR0904
                 AND category = 'Revenue'
                 AND subcategory = 'Recovery'
             GROUP BY month
-            ORDER BY month
+            
         """
         return self._execute_query_to_series(sql, "month", "total_amount", "Expense Reimbursements")
 
@@ -872,7 +876,7 @@ class LedgerQueries:  # noqa: PLR0904
             WHERE flow_purpose = 'Operating'
                 AND category = 'Revenue'
             GROUP BY month
-            ORDER BY month
+            
         """
         return self._execute_query_to_series(sql, "month", "total_amount", "Total Revenue")
 
@@ -919,7 +923,7 @@ class LedgerQueries:  # noqa: PLR0904
             WHERE flow_purpose = 'Valuation'
                 AND category = 'Valuation'
             GROUP BY month
-            ORDER BY month
+            
         """
         return self._execute_query_to_series(sql, "month", "avg_valuation", "Asset Valuations")
 
@@ -946,11 +950,11 @@ class LedgerQueries:  # noqa: PLR0904
             WHERE flow_purpose = 'Capital Use'
                 {date_filter}
             GROUP BY subcategory
-            ORDER BY subcategory
+            
         """
         
-        result_df = self.con.execute(sql).df()
-        if result_df.empty:
+        tbl = self.con.execute(sql).arrow().read_all()
+        if tbl.num_rows == 0:
             return pd.Series(dtype="float64", name="Capital Uses by Category")
             
         return result_df.set_index("subcategory")["total_amount"]
@@ -1112,7 +1116,7 @@ class LedgerQueries:  # noqa: PLR0904
             FROM {self.table_name}
             WHERE flow_purpose = '{enum_to_string(TransactionPurpose.CAPITAL_USE)}'
             GROUP BY period
-            ORDER BY period
+            
         """
         capital_uses = self._execute_query_to_series(
             capital_uses_sql, "period", "total", "Capital Uses"
@@ -1131,7 +1135,7 @@ class LedgerQueries:  # noqa: PLR0904
                   '{enum_to_string(FinancingSubcategoryEnum.REFINANCING_PROCEEDS)}'
               )
             GROUP BY period
-            ORDER BY period
+            
         """
         disposition_proceeds = self._execute_query_to_series(
             disposition_sql, "period", "total", "Disposition Proceeds"
@@ -1267,7 +1271,7 @@ class LedgerQueries:  # noqa: PLR0904
             WHERE category = 'Financing'
                 AND subcategory = 'Construction Draw'
             GROUP BY month
-            ORDER BY month
+            
         """
         return self._execute_query_to_series(sql, "month", "total_amount", "Construction Draws")
 

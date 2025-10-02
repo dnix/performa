@@ -2,17 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-DealResults - Pure Ledger-Driven Architecture
+Deal results accessors (ledger-driven).
 
-This module provides the FINAL, CORRECTED implementation of the deal results
-interface following the three-layer architecture:
-- LedgerQueries: Pure data access
-- FinancialCalculations: Pure mathematical functions
-- DealResults: Orchestration layer
-
-ALL calculations delegate to FinancialCalculations.
-ALL data access delegates to LedgerQueries.
-This class is a THIN, INTELLIGENT WRAPPER with no calculation logic itself.
+This module exposes a clean, flat API for deal-level results that delegates
+data access to `LedgerQueries` and calculations to `FinancialCalculations`.
+It contains no business logic of its own and serves as a thin orchestration
+layer for ease of use and IDE discoverability.
 """
 
 from __future__ import annotations
@@ -37,23 +32,12 @@ from .deal import Deal
 
 class DealResults:  # noqa: PLR0904
     """
-    Clean, flat API following industry conventions.
+    Flat, ledger-driven API for deal analysis results.
 
-    This is the SINGLE interface for accessing all deal analysis results.
-    It orchestrates calls between LedgerQueries (data) and FinancialCalculations (math)
-    but contains NO calculation logic itself.
-
-    Key principles:
-    - Flat access: results.levered_irr (not results.metrics.levered.irr)
-    - Industry standard naming: levered_irr, equity_multiple, etc.
-    - Ledger-driven: All data comes from the ledger via queries
-    - Pure delegation: No business logic in this class
-
-    Example:
-        results = DealResults(deal, timeline, ledger)
-        irr = results.levered_irr          # Primary return metric
-        multiple = results.equity_multiple # Primary multiple metric
-        flows = results.levered_cash_flow  # Time series for analysis
+    Principles:
+    - Flat accessors (e.g., `levered_irr`, `equity_multiple`)
+    - Delegation: data via `LedgerQueries`, math via `FinancialCalculations`
+    - No calculation logic in this class
     """
 
     def __init__(self, deal: Deal, timeline: Timeline, ledger: Ledger):

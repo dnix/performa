@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Construction loan facility with explicit sizing and ledger integration.
+Construction loan facility with ledger integration.
 
-This module provides the Phase 1 implementation of ConstructionFacility that
-prioritizes explicitness and stability over complex multi-tranche functionality.
+Implements construction loan sizing and cash flow generation with optional
+interest reserve handling, multi-tranche support, and direct ledger recording
+of proceeds, interest capitalization, and debt service.
 """
 
 import logging

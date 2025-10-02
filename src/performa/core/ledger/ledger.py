@@ -2,12 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-High-performance DuckDB-based ledger implementation.
+DuckDB-backed transactional ledger.
 
-This module provides a drop-in replacement for the pandas-based Ledger class,
-using DuckDB's in-memory SQL engine for improved performance.
-The ledger accepts transaction data via bulk INSERT operations and materializes
-the full pandas DataFrame only on final demand.
+This module implements a high-performance ledger using DuckDB's in-memory SQL
+engine. It accepts transaction data via efficient bulk INSERT operations and
+materializes a pandas DataFrame only when explicitly requested. Query methods
+are provided in `performa.core.ledger.queries` and operate directly against
+the DuckDB connection for speed and consistency.
 """
 
 from __future__ import annotations

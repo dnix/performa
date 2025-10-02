@@ -4,27 +4,9 @@
 """
 Disposition Analysis Specialist
 
-This module provides the DispositionAnalyzer service that handles property disposition
-as a complex transaction, including debt payoff waterfall, transaction costs, and
-net proceeds calculation for equity distribution.
-
-The DispositionAnalyzer implements institutional standards for property sales, ensuring
-that debt obligations are satisfied before equity receives any proceeds, following the
-standard capital stack priority.
-
-Key capabilities:
-- **Debt Payoff Waterfall**: Priority-based debt repayment at disposition
-- **Outstanding Balance Calculation**: Accurate debt balances at exit
-- **Transaction Cost Handling**: Broker fees, legal costs, transfer taxes
-- **Net Proceeds Calculation**: Determines actual cash available for equity
-- **Comprehensive Ledger Recording**: Full audit trail of disposition transaction
-
-The service implements the standard real estate capital stack priority:
-1. Transaction costs (broker fees, legal, transfer taxes)
-2. Senior secured debt (construction/permanent loans)
-3. Mezzanine debt (if applicable)
-4. Preferred equity (if applicable)
-5. Common equity (residual)
+Handles property disposition as a ledger-recorded transaction: records gross
+proceeds, applies a payoff waterfall to debt, accounts for transaction costs,
+and computes net proceeds to equity. Ensures a clear audit trail in the ledger.
 """
 
 from __future__ import annotations

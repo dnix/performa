@@ -7,11 +7,15 @@ from pydantic import BaseModel, ConfigDict
 
 
 class Model(BaseModel):
-    """Base model with common configuration"""
+    """Base Pydantic model with common configuration.
+
+    Immutable, slot-based models for efficient attribute access and reduced
+    memory footprint. Mutable runtime state is handled outside of models.
+    """
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
-        frozen=True,  # Decision: Stick with frozen=True. Mutable state for specific processes (e.g., absorption, recovery pre-calcs) will be handled by external state objects.
-        # TODO: Add extra="forbid" after fixing existing parameter validation issues throughout codebase
-        # extra="forbid",  # Prevent silent parameter failures in financial models
+        frozen=True,  # Immutable models; runtime mutable state lives in external objects
+        slots=True,  # Faster attribute access and reduced memory usage
+        # extra="forbid",  # TODO: Enable after parameter validations are aligned
     )

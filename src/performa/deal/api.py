@@ -2,91 +2,53 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Performa Deal Analysis API
+Deal Analysis API
 
-Main entry point for deal-level analysis functionality.
+Public entry point for running complete deal analyses, including asset,
+financing, and partnership flows, with results backed by the transactional
+ledger. Asset-only analysis is provided in `performa.analysis.api`.
 """
+from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
 from performa.core.ledger import Ledger
 from performa.core.primitives import GlobalSettings, Timeline
-from performa.deal.deal import Deal
 from performa.deal.orchestrator import DealCalculator
-from performa.deal.results import DealResults
 
-if TYPE_CHECKING:
+# Localize heavy imports to call-sites to reduce import-time overhead
+if TYPE_CHECKING:  # keep type checking-friendly without runtime import side effects
     from performa.analysis.results import AssetAnalysisResult
-    from performa.core.ledger import Ledger
+    from performa.deal.deal import Deal
+    from performa.deal.results import DealResults
 
 
 def analyze(
-    deal: Deal,
-    timeline: Timeline,
-    settings: Optional[GlobalSettings] = None,
+    deal: "Deal",
+    timeline: "Timeline",
+    settings: Optional["GlobalSettings"] = None,
     asset_analysis: Optional["AssetAnalysisResult"] = None,
     ledger: Optional["Ledger"] = None,
-) -> DealResults:
+) -> "DealResults":
     """
-    Analyze a complete real estate deal with strongly-typed results.
+    Analyze a complete real estate deal and return strongly-typed results.
 
-    This is the public API for comprehensive deal-level analysis, providing
-    strongly-typed Pydantic models for all analysis components.
-
-    The analysis orchestrates the complete workflow from unlevered asset analysis
-    through financing integration to final partner distributions using the
-    DealCalculator service class.
+    Workflow:
+      1) Run asset analysis (or reuse an existing asset_analysis)
+      2) Execute deal-level analyzers (debt, cash flow, partnership)
+      3) Return a DealResults object backed by the ledger
 
     Args:
-        deal: Complete Deal specification with asset, financing, and equity structure
-        timeline: Analysis timeline for cash flow projections
-        settings: Optional analysis settings (defaults to standard settings)
-        asset_analysis: Optional pre-computed asset analysis result to reuse.
-            If provided, its ledger will be used (Pass-the-Builder pattern).
-            If not provided, a new analysis will be run on deal.asset.
-        ledger: Optional Ledger to use for the analysis.
-            Priority: asset_analysis.ledger > ledger > new Ledger.
-            This enables maximum flexibility for testing and complex workflows.
+        deal: Complete deal specification (asset, acquisition, financing, equity).
+        timeline: Timeline for the analysis (monthly PeriodIndex expected downstream).
+        settings: Optional global settings; created if not provided.
+        asset_analysis: Optional asset-level result to reuse; when present, its
+            ledger is used to ensure a single source of truth.
+        ledger: Optional ledger instance; used when asset_analysis is not given.
 
     Returns:
-        DealResults containing strongly-typed analysis components:
-        - deal_summary: Deal metadata and characteristics
-        - unlevered_analysis: Asset-level analysis results
-        - financing_analysis: Debt service and facility information
-        - levered_cash_flows: Cash flows after debt service
-        - partner_distributions: Equity waterfall results
-        - deal_metrics: IRR, equity multiple, and other deal-level metrics
-
-    Example:
-        ```python
-        from performa.deal import Deal, analyze
-        from performa.asset.office import OfficeProperty
-        from performa.debt import FinancingPlan
-        from performa.core.primitives import Timeline
-
-        # Create deal structure
-        deal = Deal(
-            name="Office Acquisition",
-            asset=office_property,
-            acquisition=acquisition_terms,
-            financing=FinancingPlan(facilities=[permanent_loan]),
-            disposition=disposition_valuation
-        )
-
-        # Analyze with strongly-typed results
-        timeline = Timeline.from_dates('2024-01-01', '2033-12-31')
-        results = analyze(deal, timeline)
-
-        # Access results with IDE autocompletion
-        print(f"Deal IRR: {results.deal_metrics.irr:.2%}")
-        print(f"Equity Multiple: {results.deal_metrics.equity_multiple:.2f}x")
-
-        # Access partner-specific results
-        if results.partner_distributions and results.partner_distributions.distribution_method == "waterfall":
-            waterfall_details = results.partner_distributions.waterfall_details
-            for partner_name, partner_result in waterfall_details.partner_results.items():
-                print(f"{partner_name} IRR: {partner_result.irr:.2%}")
-        ```
+        DealResults with summary, unlevered and levered flows, financing details,
+        partner distributions, and deal metrics. All series are derived from the ledger.
     """
     # Initialize default settings if not provided
     if settings is None:
