@@ -150,6 +150,11 @@ class DealContext:
     exit_gross_proceeds: Optional[pd.Series] = (
         None  # Exit proceeds from user-defined valuation
     )
+    
+    # --- Disposition Tracking ---
+    disposition_date: Optional[pd.Period] = (
+        None  # Date of property disposition/sale (set by DispositionAnalyzer)
+    )
 
     def __post_init__(self):
         """Validate required fields after initialization."""

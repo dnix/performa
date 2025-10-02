@@ -117,42 +117,79 @@ class DealResults:  # noqa: PLR0904
     @cached_property
     def levered_cash_flow(self) -> pd.Series:
         """
-        Project-level cash flows after debt service effects (foundation for levered_irr).
+        Levered cash flows from investor perspective (foundation for levered_irr).
 
-        This represents the project's net cash requirements after debt service payments.
-        Industry standard formula: LCF = UCF - Debt Service
+        This is the project-level aggregate of all equity partner cash flows after
+        accounting for debt effects, presented from the investor's perspective.
+        
+        **Sign Convention (Investor Perspective):**
+        - Equity contributions: NEGATIVE (investor pays money out)
+        - Equity distributions: POSITIVE (investor receives money)
+        - Operating distributions: POSITIVE (cash returned to investor)
+        - Refinancing cash-out: POSITIVE (cash returned to investor)
+        - Disposition proceeds: POSITIVE (cash returned to investor)
+        
+        This is the standard sign convention for IRR calculations and represents
+        what investors actually experience: money out (negative) and money in (positive).
+        
+        Debt effects are implicitly captured because distributions occur after
+        debt service is paid and include proceeds from debt refinancing.
+        
+        **Implementation:**
+        Uses equity_partner_flows() (which is in deal perspective) and flips the sign
+        to investor perspective. equity_partner_flows() aggregates all partner
+        transactions (GP, LP, etc.) per period into a single project-level time series.
+        
+        **Note:** This is the standard "levered cash flow" used for levered IRR
+        calculations in real estate. Project performance is a proxy for investor
+        performance - they use the same cash flows.
 
-        This is PROJECT-level analysis, not partner-level distributions.
+        Returns:
+            Time series of levered cash flows (investor perspective), indexed by period
+            
+        See Also:
+            - unlevered_cash_flow: Property performance before debt effects
+            - equity_partner_flows(): Underlying query (deal perspective)
         """
-        # Get project cash flows and debt service
-        project_cf = self._queries.project_cash_flow()
-        debt_service = self._queries.debt_service()
-
-        # Calculate levered cash flow (debt service is already negative)
-        levered_cf = project_cf + debt_service
-
-        # Align with timeline
-        return self._timeline.align_series(levered_cf, fill_value=0.0)
+        # Get equity flows from deal perspective and flip to investor perspective
+        # Deal perspective: contributions +, distributions -
+        # Investor perspective: contributions -, distributions +
+        deal_flows = self._queries.equity_partner_flows()
+        investor_flows = -1 * deal_flows  # Flip sign for investor perspective
+        
+        return self._timeline.align_series(investor_flows, fill_value=0.0)
 
     @cached_property
     def equity_cash_flow(self) -> pd.Series:
         """
-        Partner-level equity cash flows (investor perspective).
+        Investor equity cash flows (investor perspective).
 
-        This represents actual cash flows to/from equity partners including:
-        - Equity contributions (negative to investors)
-        - Operating distributions (positive to investors)
-        - Disposition distributions (positive to investors)
+        Alias for levered_cash_flow. Both represent the same thing: cash flows
+        to/from equity investors after all debt effects.
+        
+        **Sign Convention (Investor Perspective):**
+        - Equity contributions: NEGATIVE (cash OUT of investor pocket)
+        - Equity distributions: POSITIVE (cash INTO investor pocket)
+        - Operating distributions: POSITIVE (cash INTO investor pocket)
+        - Refinancing cash-out: POSITIVE (cash INTO investor pocket)  
+        - Disposition proceeds: POSITIVE (cash INTO investor pocket)
+        
+        This property exists for semantic clarity in different contexts:
+        - Use levered_cash_flow when emphasizing project-level analysis
+        - Use equity_cash_flow when emphasizing investor returns
+        
+        Both use the same investor perspective and produce identical results.
 
-        This is PARTNER-level analysis for equity investor returns.
+        Returns:
+            Time series of equity cash flows (investor perspective), indexed by period
+            
+        See Also:
+            - levered_cash_flow: Same data, emphasizes project performance
+            - unlevered_cash_flow: Property performance before debt effects
         """
-        # Query equity partner flows and flip to investor perspective
-        flows = self._queries.equity_partner_flows()
-        # CRITICAL: Flip sign for investor perspective (contributions negative, distributions positive)
-        investor_flows = -1 * flows
-
-        # Align with timeline
-        return self._timeline.align_series(investor_flows, fill_value=0.0)
+        # equity_cash_flow is simply an alias for levered_cash_flow
+        # Both are in investor perspective and represent the same cash flows
+        return self.levered_cash_flow
 
     @cached_property
     def unlevered_cash_flow(self) -> pd.Series:

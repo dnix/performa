@@ -59,6 +59,14 @@ DEBT_PAYOFF_SUBCATEGORIES = [
     FinancingSubcategoryEnum.REFINANCING_PAYOFF,  # Refinancing payoff
 ]
 
+# All debt cash outflows: recurring service + one-time payoffs [NEGATIVE AMOUNTS]
+# Use this for complete debt outflow calculations (levered CF, total debt costs)
+# Separates semantically:
+#   - DEBT_SERVICE_SUBCATEGORIES: Recurring obligations (I+P)
+#   - DEBT_PAYOFF_SUBCATEGORIES: One-time financing events (payoffs)
+#   - ALL_DEBT_OUTFLOWS_SUBCATEGORIES: Complete picture for cash flow analysis
+ALL_DEBT_OUTFLOWS_SUBCATEGORIES = DEBT_SERVICE_SUBCATEGORIES + DEBT_PAYOFF_SUBCATEGORIES
+
 # Equity partner flows [MIXED AMOUNTS]
 EQUITY_PARTNER_SUBCATEGORIES = [
     FinancingSubcategoryEnum.EQUITY_CONTRIBUTION,  # Partner contributions (+)
@@ -687,14 +695,85 @@ class LedgerQueries:  # noqa: PLR0904
 
     def debt_service(self) -> pd.Series:
         """
-        Debt service payments from the ledger.
+        Total debt cash outflows: recurring service + one-time payoffs.
 
-        Pure SQL implementation for interest and principal payments.
+        Includes all cash payments related to debt financing:
+        - Recurring service (interest + principal payments)
+        - One-time payoffs (refinancing payoffs + prepayments at disposition)
+        
+        This provides a complete picture of debt-related cash outflows for
+        cash flow analysis and levered return calculations.
+        
+        **Semantic Note:**
+        Traditionally, "debt service" means only recurring I+P payments. However,
+        for cash flow analysis, we need ALL debt outflows. The code maintains
+        semantic clarity by separating:
+        - DEBT_SERVICE_SUBCATEGORIES: Recurring I+P only
+        - DEBT_PAYOFF_SUBCATEGORIES: One-time payoff events
+        - ALL_DEBT_OUTFLOWS_SUBCATEGORIES: Combined (used here)
 
         Returns:
-            Time series of debt service by period (negative values)
+            Time series of all debt outflows by period (negative values)
+            
+        See Also:
+            - QUERY_DEFINITIONS.md Section 7 for canonical definition
         """
         # Pure SQL implementation - NO PANDAS FALLBACKS
+        sql = f"""
+            SELECT 
+                DATE_TRUNC('month', date) AS period,
+                SUM(amount) AS total
+            FROM {self.table_name}
+            WHERE category = '{enum_to_string(CashFlowCategoryEnum.FINANCING)}'
+              AND subcategory IN {self._subcategory_in_clause(ALL_DEBT_OUTFLOWS_SUBCATEGORIES)}
+            GROUP BY period
+            
+        """
+        return self._execute_query_to_series(sql, "period", "total", "Debt Service")
+
+    def recurring_debt_service(self) -> pd.Series:
+        """
+        Recurring debt service payments (interest + principal only).
+        
+        Returns only recurring debt service obligations (I+P), excluding one-time
+        payoff events like refinancing payoffs and prepayments at disposition.
+        
+        Use this for partnership distribution calculations where refinancing
+        proceeds and payoffs should net separately through Capital Source and
+        Financing Service flow_purposes.
+        
+        **When to use:**
+        - Partnership distribution calculations (net cash available)
+        - Monthly/annual debt service coverage analysis
+        - Operating period cash flow analysis
+        
+        **When NOT to use:**
+        - Total debt outflows for levered cash flow (use debt_service() instead)
+        - Complete debt cost analysis (use debt_service() instead)
+        
+        **Semantic distinction:**
+        - This method: DEBT_SERVICE_SUBCATEGORIES (recurring I+P only)
+        - debt_service(): ALL_DEBT_OUTFLOWS_SUBCATEGORIES (recurring + payoffs)
+        
+        Returns:
+            Time series of recurring debt service by period (negative values)
+            
+        See Also:
+            - debt_service(): All debt outflows including payoffs
+            - QUERY_DEFINITIONS.md Section 7 for canonical definition
+            
+        Example:
+            ```python
+            # For partnership distributions
+            noi = queries.noi()
+            recurring_ds = queries.recurring_debt_service()
+            available = noi + recurring_ds  # Refinancing nets separately
+            
+            # For levered cash flow
+            debt_total = queries.debt_service()  # Includes payoffs
+            ```
+        """
+        # Pure SQL implementation - uses DEBT_SERVICE_SUBCATEGORIES only
         sql = f"""
             SELECT 
                 DATE_TRUNC('month', date) AS period,
@@ -705,7 +784,7 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY period
             
         """
-        return self._execute_query_to_series(sql, "period", "total", "Debt Service")
+        return self._execute_query_to_series(sql, "period", "total", "Recurring Debt Service")
 
     def equity_contributions(self) -> pd.Series:
         """
@@ -1074,22 +1153,43 @@ class LedgerQueries:  # noqa: PLR0904
         Calculate operational cash flow from property operations.
 
         Operational cash flow represents the net cash generated from day-to-day
-        property operations, excluding capital events like acquisitions, construction,
-        or sales. This is a key metric for evaluating ongoing property performance.
-
-        **Formula:**
-        OCF = Net Operating Income - Capital Expenditures - Tenant Improvements - Leasing Commissions
-
-        **Components:**
-        - Net Operating Income (NOI): Rental income minus operating expenses
-        - Capital Expenditures: Major repairs and improvements to the property
-        - Tenant Improvements: Costs to prepare space for new tenants
-        - Leasing Commissions: Fees paid to lease up vacant space
+        property operations, including rental income, operating expenses, vacancy
+        losses, and recurring capital expenditures necessary for ongoing operations.
+        
+        **Implementation:**
+        Uses `flow_purpose='Operating'` exclusively to ensure mutually exclusive
+        categorization with capital deployment (`flow_purpose='Capital Use'`).
+        This prevents double-counting that would occur if major capital expenditures
+        (acquisition, construction, development) were incorrectly included here.
+        
+        **Includes:**
+        - Rental income (Lease revenue)
+        - Miscellaneous income (parking, vending, etc.)
+        - Expense recoveries (CAM, tax pass-throughs)
+        - Operating expenses (utilities, maintenance, management, taxes, insurance)
+        - Vacancy and credit losses (contra-revenue)
+        - Recurring capital expenditures (if categorized as Expense/CapEx with flow_purpose='Operating')
+        
+        **Excludes:**
+        - Major capital deployments (acquisition, construction, development)
+        - Disposition costs and proceeds
+        - Debt service and financing costs
+        - Equity contributions and distributions
+        
+        **Note:** This replaces the previous formula-based approach (NOI - CapEx - TI - LC)
+        with a direct query on `flow_purpose='Operating'`. The old approach caused
+        double-counting when major capital expenditures (category='Capital', 
+        flow_purpose='Capital Use') were incorrectly subtracted here and then also
+        included in project_cash_flow() via capital_uses().
 
         Returns:
             pandas.Series: Monthly operational cash flows with Period index.
-                          Positive values indicate net cash generation.
+                          Positive values indicate net cash generation from operations.
 
+        See Also:
+            - FLOW_PURPOSE_RULES.md for complete flow_purpose semantics
+            - QUERY_DEFINITIONS.md Section 4 for canonical definition
+            
         Example:
             ```python
             queries = LedgerQueries(ledger)
@@ -1102,44 +1202,21 @@ class LedgerQueries:  # noqa: PLR0904
             avg_monthly_ocf = ocf.mean()
             ```
         """
-        # EXACT PANDAS LOGIC FROM queries_main.py lines 695-739
-        # Get component series using existing optimized methods
-        noi_series = self.noi()
-        capex_series = self.capex()
-        ti_series = self.ti()
-        lc_series = self.lc()
-
-        # Use efficient index unification (exact logic from main branch)
-        non_empty_series = [s for s in [noi_series, capex_series, ti_series, lc_series] if not s.empty]
-
-        if not non_empty_series:
-            return pd.Series(dtype=float, name="Operational Cash Flow")
-
-        # Start with first series index
-        unified_index = non_empty_series[0].index
-
-        # Union with remaining series (sort=False for performance)
-        for s in non_empty_series[1:]:
-            unified_index = unified_index.union(s.index, sort=False)
-
-        # Sort once at the end
-        unified_index = unified_index.sort_values()
-
-        if len(unified_index) == 0:
-            return pd.Series(dtype=float, name="Operational Cash Flow")
-
-        # Vectorized calculation with proper reindexing
-        noi_aligned = noi_series.reindex(unified_index, fill_value=0.0)
-        capex_aligned = capex_series.reindex(unified_index, fill_value=0.0)
-        ti_aligned = ti_series.reindex(unified_index, fill_value=0.0)
-        lc_aligned = lc_series.reindex(unified_index, fill_value=0.0)
-
-        # Calculate operational cash flow
-        # Calculate operational cash flow using standard real estate formula
-        ocf = noi_aligned - capex_aligned - ti_aligned - lc_aligned
-        ocf.name = "Operational Cash Flow"
-
-        return ocf.sort_index()
+        sql = f"""
+            SELECT 
+                DATE_TRUNC('month', date) AS period,
+                SUM(amount) AS total
+            FROM {self.table_name}
+            WHERE flow_purpose = '{enum_to_string(TransactionPurpose.OPERATING)}'
+            GROUP BY period
+            ORDER BY period
+        """
+        return self._execute_query_to_series(
+            sql, 
+            "period", 
+            "total", 
+            "Operational Cash Flow"
+        )
 
     def project_cash_flow(self) -> pd.Series:
         """
@@ -1242,9 +1319,6 @@ class LedgerQueries:  # noqa: PLR0904
         """
         All cash flows to/from equity partners.
 
-        EXACT PORT of pandas logic from queries_main.py lines 1047-1107.
-        Uses pd.concat() + drop_duplicates() equivalent in SQL.
-
         Includes:
         - EQUITY_CONTRIBUTION: Partner capital contributions (positive inflow)
         - EQUITY_DISTRIBUTION: Distributions to equity partners (negative outflow)
@@ -1262,7 +1336,7 @@ class LedgerQueries:  # noqa: PLR0904
         Returns:
             Time series of equity partner cash flows by period
         """
-        # EXACT PANDAS LOGIC: Filter for equity partner transactions by subcategory
+        # Filter for equity partner transactions by subcategory
         sql_equity = f"""
             SELECT DATE_TRUNC('month', date) AS month, amount
             FROM {self.table_name}
@@ -1271,7 +1345,7 @@ class LedgerQueries:  # noqa: PLR0904
                 AND flow_purpose != '{enum_to_string(TransactionPurpose.VALUATION)}'
         """
         
-        # EXACT PANDAS LOGIC: Also capture partner-specific flows if entity_type indicates GP/LP
+        # Also capture partner-specific flows if entity_type indicates GP/LP
         sql_partner = f"""
             SELECT DATE_TRUNC('month', date) AS month, amount  
             FROM {self.table_name}
@@ -1281,8 +1355,7 @@ class LedgerQueries:  # noqa: PLR0904
                 AND flow_purpose != '{enum_to_string(TransactionPurpose.VALUATION)}'
         """
         
-        # EXACT PANDAS LOGIC: Combine equity subcategory flows and partner-specific flows
-        # pd.concat([equity_flows, partner_flows]).drop_duplicates() equivalent
+        # Combine equity subcategory flows and partner-specific flows
         combined_sql = f"""
             WITH combined_flows AS (
                 SELECT month, amount FROM ({sql_equity})
