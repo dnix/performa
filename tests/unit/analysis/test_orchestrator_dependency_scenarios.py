@@ -307,9 +307,9 @@ class TestSystematicDependencyScenarios:
         # CapEx: -$12K (negative cost, properly excluded from NOI as CAPITAL_USE)
         assert capex_total.sum() == pytest.approx(-12000.0, abs=0.01)
 
-        # Under project_cash_flow semantics, with no capital uses posted in this scenario,
-        # UCF equals NOI
-        assert ucf.sum() == pytest.approx(99960.0, abs=1.0)
+        # UCF = NOI + CapEx = $99,960 + (-$12,000) = $87,960
+        # Project cash flow correctly includes all capital expenditures
+        assert ucf.sum() == pytest.approx(87960.0, abs=1.0)
 
         print(
             f"✅ UCF Dependency: Asset mgmt fee ${asset_mgmt_result.sum():,.0f} based on NOI"

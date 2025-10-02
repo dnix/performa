@@ -195,8 +195,8 @@ class TestLedgerQueries:
         assert len(ucf) == 3
         # Project Cash Flow (PCF) = Operational CF + Capital Uses + Disposition Proceeds
         # For this dataset: no capital uses/sources beyond OpEx/CapEx, so
-        # Operational CF = Revenue (3465) + OpEx (-660) - CapEx (-800) = 2805
-        assert ucf.sum() == 2805.0
+        # Operational CF = Revenue (3465) + OpEx (-660) + CapEx (-800) = 2005
+        assert ucf.sum() == 2005.0
 
     def test_financing_queries(self):
         """Test financing-related query methods."""

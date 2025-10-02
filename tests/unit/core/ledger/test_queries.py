@@ -198,9 +198,9 @@ class TestLedgerQueries:  # noqa: PLR0904 (ignore too many public methods)
         queries = LedgerQueries(ledger)
 
         ucf = queries.project_cash_flow()
-        # For January under PCF definition, capital uses include the acquisition (-50000)
-        # Operational CF (NOI - CapEx - TI - LC) = 7500 - 0 - (-5000) - (-2000) = -42500
-        assert ucf.loc[pd.Period("2024-01", freq="M")] == -42500
+        # For January: Operational CF = 7500, Capital Uses = -50000 (acquisition) + -5000 (TI) + -2000 (LC)
+        # UCF = 7500 + (-50000) + (-5000) + (-2000) = -49500
+        assert ucf.loc[pd.Period("2024-01", freq="M")] == -49500
         # For February: NOI = 8000, CapEx = 0, TI = 0, LC = 0
         assert ucf.loc[pd.Period("2024-02", freq="M")] == 8000
 
