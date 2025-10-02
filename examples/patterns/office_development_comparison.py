@@ -120,7 +120,7 @@ def create_deal_via_composition():
     # === STEP 1: PROJECT TIMELINE ===
     start_date = date(2024, 1, 1)
     timeline = Timeline(start_date=start_date, duration_months=60)  # 5 year timeline
-    
+
     # Construction timeline (20 months for actual construction period)
     construction_timeline = Timeline(start_date=start_date, duration_months=20)
 
@@ -726,7 +726,9 @@ def main():
             # Expected values for office development comparison
             # Conservative parameters: $50/SF rent, 8.0% exit cap rate
             # 93-month analysis timeline (20-month construction + lease-up + 5-year hold)
-            expected_composition_irr = 0.257785  # 25.78% - conservative development returns
+            expected_composition_irr = (
+                0.257785  # 25.78% - conservative development returns
+            )
             expected_em = 2.930817  # 2.93x - within industry benchmarks (2.5-5.0x)
             expected_equity = 6167413  # $6,167,413 - actual equity invested
 

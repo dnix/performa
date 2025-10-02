@@ -121,32 +121,32 @@ class DealResults:  # noqa: PLR0904
 
         This is the project-level aggregate of all equity partner cash flows after
         accounting for debt effects, presented from the investor's perspective.
-        
+
         **Sign Convention (Investor Perspective):**
         - Equity contributions: NEGATIVE (investor pays money out)
         - Equity distributions: POSITIVE (investor receives money)
         - Operating distributions: POSITIVE (cash returned to investor)
         - Refinancing cash-out: POSITIVE (cash returned to investor)
         - Disposition proceeds: POSITIVE (cash returned to investor)
-        
+
         This is the standard sign convention for IRR calculations and represents
         what investors actually experience: money out (negative) and money in (positive).
-        
+
         Debt effects are implicitly captured because distributions occur after
         debt service is paid and include proceeds from debt refinancing.
-        
+
         **Implementation:**
         Uses equity_partner_flows() (which is in deal perspective) and flips the sign
         to investor perspective. equity_partner_flows() aggregates all partner
         transactions (GP, LP, etc.) per period into a single project-level time series.
-        
+
         **Note:** This is the standard "levered cash flow" used for levered IRR
         calculations in real estate. Project performance is a proxy for investor
         performance - they use the same cash flows.
 
         Returns:
             Time series of levered cash flows (investor perspective), indexed by period
-            
+
         See Also:
             - unlevered_cash_flow: Property performance before debt effects
             - equity_partner_flows(): Underlying query (deal perspective)
@@ -156,7 +156,7 @@ class DealResults:  # noqa: PLR0904
         # Investor perspective: contributions -, distributions +
         deal_flows = self._queries.equity_partner_flows()
         investor_flows = -1 * deal_flows  # Flip sign for investor perspective
-        
+
         return self._timeline.align_series(investor_flows, fill_value=0.0)
 
     @cached_property
@@ -166,23 +166,23 @@ class DealResults:  # noqa: PLR0904
 
         Alias for levered_cash_flow. Both represent the same thing: cash flows
         to/from equity investors after all debt effects.
-        
+
         **Sign Convention (Investor Perspective):**
         - Equity contributions: NEGATIVE (cash OUT of investor pocket)
         - Equity distributions: POSITIVE (cash INTO investor pocket)
         - Operating distributions: POSITIVE (cash INTO investor pocket)
-        - Refinancing cash-out: POSITIVE (cash INTO investor pocket)  
+        - Refinancing cash-out: POSITIVE (cash INTO investor pocket)
         - Disposition proceeds: POSITIVE (cash INTO investor pocket)
-        
+
         This property exists for semantic clarity in different contexts:
         - Use levered_cash_flow when emphasizing project-level analysis
         - Use equity_cash_flow when emphasizing investor returns
-        
+
         Both use the same investor perspective and produce identical results.
 
         Returns:
             Time series of equity cash flows (investor perspective), indexed by period
-            
+
         See Also:
             - levered_cash_flow: Same data, emphasizes project performance
             - unlevered_cash_flow: Property performance before debt effects
@@ -595,7 +595,10 @@ class DealResults:  # noqa: PLR0904
             share_by_id = {}
             # Prefer configured partner names/types from deal if available
             try:
-                if getattr(self._deal, "equity_partners", None) and self._deal.equity_partners.partners:
+                if (
+                    getattr(self._deal, "equity_partners", None)
+                    and self._deal.equity_partners.partners
+                ):
                     for p in self._deal.equity_partners.partners:
                         pid = str(p.uid)
                         name_by_id[pid] = p.name
@@ -605,10 +608,14 @@ class DealResults:  # noqa: PLR0904
                 pass
 
             if not details.empty:
-                for partner_id, entity_type in zip(details["entity_id"], details["entity_type"]):
+                for partner_id, entity_type in zip(
+                    details["entity_id"], details["entity_type"]
+                ):
                     pid = str(partner_id)
                     pname = name_by_id.get(pid)
-                    ptype = kind_by_id.get(pid, str(entity_type) if entity_type is not None else None)
+                    ptype = kind_by_id.get(
+                        pid, str(entity_type) if entity_type is not None else None
+                    )
                     pshare = share_by_id.get(pid)
                     partner_dict[pid] = PartnerMetrics(
                         partner_id=pid,
@@ -907,7 +914,15 @@ class PartnerMetrics:
     deal-level results for consistency.
     """
 
-    def __init__(self, partner_id: str, ledger: Ledger, timeline: Timeline, name: Optional[str] = None, entity_type: Optional[str] = None, ownership_share: Optional[float] = None):
+    def __init__(
+        self,
+        partner_id: str,
+        ledger: Ledger,
+        timeline: Timeline,
+        name: Optional[str] = None,
+        entity_type: Optional[str] = None,
+        ownership_share: Optional[float] = None,
+    ):
         """Initialize with partner identity and shared analysis components."""
         self.partner_id = partner_id
         self.partner_name = name

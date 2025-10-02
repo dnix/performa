@@ -144,7 +144,7 @@ class DispositionAnalyzer(AnalysisSpecialist):
             deal_uid=str(self.deal.uid),
             asset_uid=str(self.deal.asset.uid),
         )
-        
+
         # Store disposition date in context for other analysts to check
         # This prevents post-disposition phantom transactions
         self.context.disposition_date = disp_period

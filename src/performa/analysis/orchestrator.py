@@ -274,7 +274,9 @@ class CashFlowOrchestrator:
 
             logger.info(f"  Processing {len(independent_models)} independent models:")
             for model in independent_models:
-                logger.debug(f"    - {model.name} ({model.category}/{model.subcategory})")
+                logger.debug(
+                    f"    - {model.name} ({model.category}/{model.subcategory})"
+                )
 
             self._compute_model_subset(independent_models)
 
@@ -480,9 +482,7 @@ class CashFlowOrchestrator:
         except Exception:
             current_version = -1
 
-        requested_keys = (
-            frozenset(k.value for k in keys) if keys is not None else None
-        )
+        requested_keys = frozenset(k.value for k in keys) if keys is not None else None
 
         start_ts = time.time()
 
@@ -492,8 +492,12 @@ class CashFlowOrchestrator:
         ):
             cache_keys = self.context.aggregate_cache_keys
             # If no specific keys requested, reuse entire cache
-            if requested_keys is None or cache_keys is None or (
-                requested_keys is not None and cache_keys.issuperset(requested_keys)
+            if (
+                requested_keys is None
+                or cache_keys is None
+                or (
+                    requested_keys is not None and cache_keys.issuperset(requested_keys)
+                )
             ):
                 # Reuse cached aggregates (subset if requested)
                 if requested_keys is None:
@@ -560,7 +564,9 @@ class CashFlowOrchestrator:
 
             # If a subset of keys requested, filter mappings
             if keys is not None:
-                aggregate_mappings = {k: v for k, v in aggregate_mappings.items() if k in keys}
+                aggregate_mappings = {
+                    k: v for k, v in aggregate_mappings.items() if k in keys
+                }
 
             # Update requested aggregates
             for key, query_method in aggregate_mappings.items():
@@ -764,7 +770,8 @@ class CashFlowOrchestrator:
                 remaining_needed: Set[UnleveredAggregateLineKey] = set()
                 # Recompute list of remaining dependent models from context
                 remaining_models = [
-                    m for m in self.models
+                    m
+                    for m in self.models
                     if m.calculation_pass == OrchestrationPass.DEPENDENT_MODELS
                 ]
                 for rem in remaining_models:

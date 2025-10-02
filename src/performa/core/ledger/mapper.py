@@ -222,11 +222,11 @@ class FlowPurposeMapper:
     def generate_sql_flow_purpose_case() -> str:
         """
         Generate SQL CASE statement for flow purpose mapping.
-        
+
         This allows DuckDB to handle flow purpose calculation natively
         instead of expensive Python enum processing, providing
         performance improvements for bulk operations.
-        
+
         Returns:
             SQL CASE statement string for flow purpose determination
         """
@@ -244,29 +244,33 @@ class FlowPurposeMapper:
         """.strip()
 
     @staticmethod
-    def generate_optimized_raw_data(records: List["TransactionRecord"]) -> Dict[str, List]:
+    def generate_optimized_raw_data(
+        records: List["TransactionRecord"],
+    ) -> Dict[str, List]:
         """
         Generate minimal raw data structure optimized for SQL-native processing.
-        
+
         Avoids expensive Python object creation and enum processing by creating
         a minimal DataFrame with only the essential data needed for SQL operations.
-        
+
         Args:
             records: List of transaction records to process
-            
+
         Returns:
             Dictionary of lists suitable for DataFrame construction
         """
         return {
-            'date': [r.date for r in records],
-            'amount': [float(r.amount) for r in records],
-            'category': [r.category.value for r in records],
-            'subcategory': [r.subcategory.value for r in records], 
-            'item_name': [r.item_name for r in records],
-            'source_id_str': [str(r.source_id) for r in records],
-            'asset_id_str': [str(r.asset_id) for r in records],
-            'pass_num': [r.pass_num for r in records],
-            'deal_id_str': [str(r.deal_id) if r.deal_id else None for r in records],
-            'entity_id_str': [str(r.entity_id) if r.entity_id else None for r in records],
-            'entity_type': [r.entity_type for r in records],
+            "date": [r.date for r in records],
+            "amount": [float(r.amount) for r in records],
+            "category": [r.category.value for r in records],
+            "subcategory": [r.subcategory.value for r in records],
+            "item_name": [r.item_name for r in records],
+            "source_id_str": [str(r.source_id) for r in records],
+            "asset_id_str": [str(r.asset_id) for r in records],
+            "pass_num": [r.pass_num for r in records],
+            "deal_id_str": [str(r.deal_id) if r.deal_id else None for r in records],
+            "entity_id_str": [
+                str(r.entity_id) if r.entity_id else None for r in records
+            ],
+            "entity_type": [r.entity_type for r in records],
         }

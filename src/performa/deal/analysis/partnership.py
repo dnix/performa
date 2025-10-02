@@ -252,7 +252,9 @@ class PartnershipAnalyzer(AnalysisSpecialist):
 
         # Align indices for calculation
         noi_aligned = self.timeline.align_series(actual_noi, fill_value=0.0)
-        debt_service_aligned = self.timeline.align_series(recurring_debt_service, fill_value=0.0)
+        debt_service_aligned = self.timeline.align_series(
+            recurring_debt_service, fill_value=0.0
+        )
 
         # Calculate available cash: NOI + debt service (debt service is negative)
         # Refinancing proceeds and payoffs are handled separately through ledger flow purposes

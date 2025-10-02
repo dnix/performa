@@ -8,6 +8,7 @@ Public entry points for running unlevered asset analysis and obtaining
 results backed by the transactional ledger. Deal-level functions live in
 `performa.deal.api` to maintain clear module boundaries.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
@@ -23,11 +24,11 @@ if TYPE_CHECKING:
 
 
 def run(
-    model: 'PropertyBaseModel',
-    timeline: 'Timeline',
-    settings: 'GlobalSettings',
-    ledger: Optional['Ledger'] = None,
-) -> 'AssetAnalysisResult':
+    model: "PropertyBaseModel",
+    timeline: "Timeline",
+    settings: "GlobalSettings",
+    ledger: Optional["Ledger"] = None,
+) -> "AssetAnalysisResult":
     """
     Run asset-level analysis and return results with ledger support.
 

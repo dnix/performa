@@ -654,7 +654,9 @@ def main():
         if comp_results and pattern_results:
             # Expected values for value-add comparison
             expected_composition_irr = 0.189566  # 18.96% - realistic returns for value-add with renovation (7yr hold)
-            expected_em = 2.910000  # 2.91x - reasonable equity multiple for value-add strategy
+            expected_em = (
+                2.910000  # 2.91x - reasonable equity multiple for value-add strategy
+            )
             expected_equity = 5615756  # $5,615,756 - actual equity invested
 
             # Validate composition results against expected values

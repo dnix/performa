@@ -644,7 +644,9 @@ def main():
     # Expected values
     expected_composition_irr = 0.349070  # 34.91% - conservative development returns
     expected_pattern_irr = 0.349070  # Pattern should match composition closely
-    expected_em = 4.203967  # 4.20x - within industry benchmarks (2.5-5.0x for development)
+    expected_em = (
+        4.203967  # 4.20x - within industry benchmarks (2.5-5.0x for development)
+    )
     expected_equity = 9641628  # $9,641,628 - actual equity invested
 
     # Validate pattern results match expected values

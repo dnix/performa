@@ -33,7 +33,7 @@ class TransactionRecord:
     """
     Immutable record representing a single financial transaction.
 
-    **Architecture Note**: This dataclass is used for type-hinting and representing 
+    **Architecture Note**: This dataclass is used for type-hinting and representing
     individual transactions read from a ledger. For performance, the vectorized ledger
     implementation bypasses TransactionRecord creation during DataFrame construction,
     building DataFrames directly from Series data via columnar operations.
@@ -83,7 +83,6 @@ class TransactionRecord:
     transaction_id: UUID = field(default_factory=uuid4)
 
 
-
 @dataclass(frozen=True, slots=True)
 class SeriesMetadata:
     """
@@ -123,4 +122,3 @@ class SeriesMetadata:
     deal_id: Optional[UUID] = None
     entity_id: Optional[UUID] = None
     entity_type: Optional[str] = None
-

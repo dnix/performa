@@ -8,6 +8,7 @@ Public entry point for running complete deal analyses, including asset,
 financing, and partnership flows, with results backed by the transactional
 ledger. Asset-only analysis is provided in `performa.analysis.api`.
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,35 +32,35 @@ logger = logging.getLogger(__name__)
 def _extract_exit_period(deal: "Deal", timeline: Timeline) -> Optional[pd.Period]:
     """
     Extract exit period from deal's exit valuation if it occurs before timeline end.
-    
+
     This prevents post-disposition phantom transactions by allowing the timeline
     to be clipped at the known exit date before asset analysis runs.
-    
+
     Args:
         deal: Deal with potential exit valuation
         timeline: Analysis timeline
-        
+
     Returns:
         Exit period if exit occurs before timeline end, None otherwise
-        
+
     Returns None when:
     - No exit valuation exists (asset-only case)
     - Exit is at or beyond timeline end (no clipping needed)
     - Valuation doesn't specify hold_period_months
     """
     # Safely check for exit_valuation attribute and value
-    exit_valuation = getattr(deal, 'exit_valuation', None)
+    exit_valuation = getattr(deal, "exit_valuation", None)
     if exit_valuation is None:
         return None  # Asset-only case or no exit planned
-    
+
     # Check if valuation has hold_period_months attribute
-    hold_months = getattr(exit_valuation, 'hold_period_months', None)
+    hold_months = getattr(exit_valuation, "hold_period_months", None)
     if hold_months is None:
         return None  # Exit at timeline end (default behavior) or doesn't specify timing
-    
+
     if hold_months >= timeline.duration_months:
         return None  # Exit at or beyond timeline end
-    
+
     # Exit occurs before timeline end → return exit period for clipping
     return timeline.period_index[hold_months]
 
@@ -91,7 +92,7 @@ def analyze(
     Returns:
         DealResults with summary, unlevered and levered flows, financing details,
         partner distributions, and deal metrics. All series are derived from the ledger.
-        
+
     Note:
         If deal has exit_valuation with hold_period_months < timeline duration,
         the timeline is automatically clipped to prevent post-disposition phantom
@@ -100,10 +101,10 @@ def analyze(
     # Initialize default settings if not provided
     if settings is None:
         settings = GlobalSettings()
-    
+
     # Clip timeline at exit date if disposition occurs before timeline end
     exit_period = _extract_exit_period(deal, timeline)
-    
+
     if exit_period is not None:
         # Exit occurs before timeline end - clip to prevent post-disposition transactions
         logger.info(
@@ -111,7 +112,7 @@ def analyze(
             f"Original duration: {timeline.duration_months} months, "
             f"Effective duration: {timeline.period_index.get_loc(exit_period) + 1} months"
         )
-        
+
         # Create exit-bounded timeline
         exit_timeline = Timeline.from_dates(timeline.start_date, exit_period)
         effective_timeline = timeline.clip_to(exit_timeline)

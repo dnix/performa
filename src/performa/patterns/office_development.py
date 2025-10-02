@@ -242,11 +242,11 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
         # === STEP 1: PROJECT TIMELINE ===
         # Use unified timeline from _derive_timeline() method
         timeline = self._derive_timeline()
-        
+
         # Construction-specific timeline (only construction duration, not full project)
         construction_timeline = Timeline(
             start_date=self.acquisition_date,
-            duration_months=self.construction_duration_months
+            duration_months=self.construction_duration_months,
         )
 
         # === STEP 2: CAPITAL EXPENDITURE PLAN ===

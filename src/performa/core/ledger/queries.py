@@ -191,7 +191,7 @@ class LedgerQueries:  # noqa: PLR0904
 
     **Core Financial Metrics:**
     - **Revenue Analysis**: `tenant_revenue()`, `vacancy_loss()`, `credit_loss()`
-    - **Operating Expenses**: `opex()`, `property_management()`, `taxes_insurance()`  
+    - **Operating Expenses**: `opex()`, `property_management()`, `taxes_insurance()`
     - **Capital Expenditures**: `capex()`, `ti()` (tenant improvements), `lc()` (leasing commissions)
     - **Cash Flow Composition**: `noi()` (Net Operating Income), `operational_cash_flow()`
     - **Project Analysis**: `project_cash_flow()`, `levered_cash_flow()`
@@ -200,7 +200,7 @@ class LedgerQueries:  # noqa: PLR0904
 
     **Key Features:**
     - All methods return pandas Series with Period index (monthly frequency)
-    - Automatic exclusion of non-cash valuation entries from cash flow calculations  
+    - Automatic exclusion of non-cash valuation entries from cash flow calculations
     - Consistent sign conventions following real estate industry standards
     - Built-in data validation and error handling
     - High performance for large transaction datasets
@@ -209,15 +209,15 @@ class LedgerQueries:  # noqa: PLR0904
     ```python
     # Basic cash flow analysis
     queries = LedgerQueries(ledger)
-    
+
     # Get Net Operating Income time series
     noi_series = queries.noi()
     annual_noi = noi_series.sum()
-    
+
     # Calculate debt service coverage ratio
-    debt_payments = queries.debt_service() 
+    debt_payments = queries.debt_service()
     dscr_series = noi_series / debt_payments.abs()
-    
+
     # Project-level cash flows for IRR calculation
     project_cf = queries.project_cash_flow()
     levered_cf = queries.levered_cash_flow()
@@ -238,7 +238,9 @@ class LedgerQueries:  # noqa: PLR0904
         # Require a DuckDB-backed Ledger
         self.con, self.table_name = ledger.get_query_connection()
         self._ledger = ledger
-        self._cache_version = ledger.get_version() if hasattr(ledger, "get_version") else -1
+        self._cache_version = (
+            ledger.get_version() if hasattr(ledger, "get_version") else -1
+        )
         self._series_cache = {}
 
     @property
@@ -247,7 +249,7 @@ class LedgerQueries:  # noqa: PLR0904
         Access the ledger materialized as a read-only pandas DataFrame.
         Returned view is intended for ad hoc analysis not covered by
         dedicated query methods.
-        
+
         Returns:
             Complete ledger as a pandas DataFrame
         """
@@ -278,7 +280,11 @@ class LedgerQueries:  # noqa: PLR0904
         """
         try:
             # Versioned cache: invalidate on ledger version change
-            current_version = self._ledger.get_version() if hasattr(self._ledger, "get_version") else -1
+            current_version = (
+                self._ledger.get_version()
+                if hasattr(self._ledger, "get_version")
+                else -1
+            )
             if current_version != self._cache_version:
                 self._series_cache.clear()
                 self._cache_version = current_version
@@ -305,7 +311,9 @@ class LedgerQueries:  # noqa: PLR0904
 
             # Reindex to full monthly range between first and last month (fill gaps with zeros)
             if len(series.index) > 0:
-                full_range = pd.period_range(series.index.min(), series.index.max(), freq="M")
+                full_range = pd.period_range(
+                    series.index.min(), series.index.max(), freq="M"
+                )
                 series = series.reindex(full_range, fill_value=0.0)
 
             if series_name:
@@ -365,7 +373,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY period
             
         """
-        return self._execute_query_to_series(sql, "period", "total", "Potential Gross Revenue")
+        return self._execute_query_to_series(
+            sql, "period", "total", "Potential Gross Revenue"
+        )
 
     def gpr(self) -> pd.Series:
         """
@@ -388,7 +398,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY period
             
         """
-        return self._execute_query_to_series(sql, "period", "total", "Gross Potential Revenue")
+        return self._execute_query_to_series(
+            sql, "period", "total", "Gross Potential Revenue"
+        )
 
     def tenant_revenue(self) -> pd.Series:
         """
@@ -412,7 +424,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month
             
         """
-        return self._execute_query_to_series(sql, "month", "total_amount", "Tenant Revenue")
+        return self._execute_query_to_series(
+            sql, "month", "total_amount", "Tenant Revenue"
+        )
 
     def vacancy_loss(self) -> pd.Series:
         """
@@ -432,7 +446,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month
             
         """
-        return self._execute_query_to_series(sql, "month", "total_amount", "Vacancy Loss")
+        return self._execute_query_to_series(
+            sql, "month", "total_amount", "Vacancy Loss"
+        )
 
     def egi(self) -> pd.Series:
         """
@@ -454,7 +470,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month
             
         """
-        return self._execute_query_to_series(sql, "month", "total_amount", "Effective Gross Income")
+        return self._execute_query_to_series(
+            sql, "month", "total_amount", "Effective Gross Income"
+        )
 
     def opex(self) -> pd.Series:
         """
@@ -474,7 +492,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month
             
         """
-        return self._execute_query_to_series(sql, "month", "total_amount", "Operating Expenses")
+        return self._execute_query_to_series(
+            sql, "month", "total_amount", "Operating Expenses"
+        )
 
     def noi(self) -> pd.Series:
         """
@@ -495,7 +515,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY period
             
         """
-        return self._execute_query_to_series(sql, "period", "total", "Net Operating Income")
+        return self._execute_query_to_series(
+            sql, "period", "total", "Net Operating Income"
+        )
 
     def capex(self) -> pd.Series:
         """
@@ -526,7 +548,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY period
             
         """
-        return self._execute_query_to_series(sql, "period", "total", "Capital Expenditures")
+        return self._execute_query_to_series(
+            sql, "period", "total", "Capital Expenditures"
+        )
 
     def ti(self) -> pd.Series:
         """
@@ -538,7 +562,7 @@ class LedgerQueries:  # noqa: PLR0904
         Returns:
             Time series of tenant improvements by period (negative values)
         """
-        # Pure SQL implementation - NO PANDAS FALLBACKS  
+        # Pure SQL implementation - NO PANDAS FALLBACKS
         # Tiger Team Pattern: Use regexp_matches() for precise pattern matching
         sql = f"""
             SELECT 
@@ -549,7 +573,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY period
             
         """
-        return self._execute_query_to_series(sql, "period", "total", "Tenant Improvements")
+        return self._execute_query_to_series(
+            sql, "period", "total", "Tenant Improvements"
+        )
 
     def lc(self) -> pd.Series:
         """
@@ -572,7 +598,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY period
             
         """
-        return self._execute_query_to_series(sql, "period", "total", "Leasing Commissions")
+        return self._execute_query_to_series(
+            sql, "period", "total", "Leasing Commissions"
+        )
 
     # NOTE: No `ucf()` method by design. Use
     # - operational_cash_flow() for NOI − CapEx − TI − LC (operations only)
@@ -594,7 +622,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month
             
         """
-        return self._execute_query_to_series(sql, "month", "total_amount", "Total Capital Uses")
+        return self._execute_query_to_series(
+            sql, "month", "total_amount", "Total Capital Uses"
+        )
 
     def total_sources(self) -> pd.Series:
         """
@@ -612,7 +642,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month
             
         """
-        return self._execute_query_to_series(sql, "month", "total_amount", "Total Capital Sources")
+        return self._execute_query_to_series(
+            sql, "month", "total_amount", "Total Capital Sources"
+        )
 
     def uses_breakdown(self) -> pd.DataFrame:
         """
@@ -631,17 +663,21 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month, subcategory
             ORDER BY month, subcategory
         """
-        
+
         tbl = self.con.execute(sql).arrow().read_all()
         if tbl.num_rows == 0:
             return pd.DataFrame()
 
-        months = pd.PeriodIndex(pd.to_datetime(tbl["month"].to_pandas(date_as_object=False)), freq="M")
+        months = pd.PeriodIndex(
+            pd.to_datetime(tbl["month"].to_pandas(date_as_object=False)), freq="M"
+        )
         subcats = tbl["subcategory"].to_pandas()
         amounts = tbl["amount"].to_pandas()
 
         df = pd.DataFrame({"month": months, "subcategory": subcats, "amount": amounts})
-        pivoted = df.pivot(index="month", columns="subcategory", values="amount").fillna(0.0)
+        pivoted = df.pivot(
+            index="month", columns="subcategory", values="amount"
+        ).fillna(0.0)
         return pivoted
 
     def sources_breakdown(self) -> pd.DataFrame:
@@ -661,17 +697,21 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month, subcategory
             ORDER BY month, subcategory
         """
-        
+
         tbl = self.con.execute(sql).arrow().read_all()
         if tbl.num_rows == 0:
             return pd.DataFrame()
 
-        months = pd.PeriodIndex(pd.to_datetime(tbl["month"].to_pandas(date_as_object=False)), freq="M")
+        months = pd.PeriodIndex(
+            pd.to_datetime(tbl["month"].to_pandas(date_as_object=False)), freq="M"
+        )
         subcats = tbl["subcategory"].to_pandas()
         amounts = tbl["amount"].to_pandas()
 
         df = pd.DataFrame({"month": months, "subcategory": subcats, "amount": amounts})
-        pivoted = df.pivot(index="month", columns="subcategory", values="amount").fillna(0.0)
+        pivoted = df.pivot(
+            index="month", columns="subcategory", values="amount"
+        ).fillna(0.0)
         return pivoted
 
     def debt_draws(self) -> pd.Series:
@@ -700,10 +740,10 @@ class LedgerQueries:  # noqa: PLR0904
         Includes all cash payments related to debt financing:
         - Recurring service (interest + principal payments)
         - One-time payoffs (refinancing payoffs + prepayments at disposition)
-        
+
         This provides a complete picture of debt-related cash outflows for
         cash flow analysis and levered return calculations.
-        
+
         **Semantic Note:**
         Traditionally, "debt service" means only recurring I+P payments. However,
         for cash flow analysis, we need ALL debt outflows. The code maintains
@@ -714,7 +754,7 @@ class LedgerQueries:  # noqa: PLR0904
 
         Returns:
             Time series of all debt outflows by period (negative values)
-            
+
         See Also:
             - QUERY_DEFINITIONS.md Section 7 for canonical definition
         """
@@ -734,41 +774,41 @@ class LedgerQueries:  # noqa: PLR0904
     def recurring_debt_service(self) -> pd.Series:
         """
         Recurring debt service payments (interest + principal only).
-        
+
         Returns only recurring debt service obligations (I+P), excluding one-time
         payoff events like refinancing payoffs and prepayments at disposition.
-        
+
         Use this for partnership distribution calculations where refinancing
         proceeds and payoffs should net separately through Capital Source and
         Financing Service flow_purposes.
-        
+
         **When to use:**
         - Partnership distribution calculations (net cash available)
         - Monthly/annual debt service coverage analysis
         - Operating period cash flow analysis
-        
+
         **When NOT to use:**
         - Total debt outflows for levered cash flow (use debt_service() instead)
         - Complete debt cost analysis (use debt_service() instead)
-        
+
         **Semantic distinction:**
         - This method: DEBT_SERVICE_SUBCATEGORIES (recurring I+P only)
         - debt_service(): ALL_DEBT_OUTFLOWS_SUBCATEGORIES (recurring + payoffs)
-        
+
         Returns:
             Time series of recurring debt service by period (negative values)
-            
+
         See Also:
             - debt_service(): All debt outflows including payoffs
             - QUERY_DEFINITIONS.md Section 7 for canonical definition
-            
+
         Example:
             ```python
             # For partnership distributions
             noi = queries.noi()
             recurring_ds = queries.recurring_debt_service()
             available = noi + recurring_ds  # Refinancing nets separately
-            
+
             # For levered cash flow
             debt_total = queries.debt_service()  # Includes payoffs
             ```
@@ -784,7 +824,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY period
             
         """
-        return self._execute_query_to_series(sql, "period", "total", "Recurring Debt Service")
+        return self._execute_query_to_series(
+            sql, "period", "total", "Recurring Debt Service"
+        )
 
     def equity_contributions(self) -> pd.Series:
         """
@@ -806,7 +848,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY period
             
         """
-        return self._execute_query_to_series(sql, "period", "total", "Equity Contributions")
+        return self._execute_query_to_series(
+            sql, "period", "total", "Equity Contributions"
+        )
 
     def equity_distributions(self) -> pd.Series:
         """
@@ -828,7 +872,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY period
             
         """
-        return self._execute_query_to_series(sql, "period", "total", "Equity Distributions")
+        return self._execute_query_to_series(
+            sql, "period", "total", "Equity Distributions"
+        )
 
     # NOTE: Prefetch methods removed for clarity; individual queries are cached per ledger version
 
@@ -892,7 +938,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month
             
         """
-        return self._execute_query_to_series(sql, "month", "total_amount", "Partner Flows")
+        return self._execute_query_to_series(
+            sql, "month", "total_amount", "Partner Flows"
+        )
 
     def gp_distributions(self) -> pd.Series:
         """
@@ -912,7 +960,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month
             
         """
-        return self._execute_query_to_series(sql, "month", "total_amount", "GP Distributions")
+        return self._execute_query_to_series(
+            sql, "month", "total_amount", "GP Distributions"
+        )
 
     def lp_distributions(self) -> pd.Series:
         """
@@ -932,7 +982,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month
             
         """
-        return self._execute_query_to_series(sql, "month", "total_amount", "LP Distributions")
+        return self._execute_query_to_series(
+            sql, "month", "total_amount", "LP Distributions"
+        )
 
     def rental_abatement(self) -> pd.Series:
         """
@@ -952,7 +1004,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month
             
         """
-        return self._execute_query_to_series(sql, "month", "total_amount", "Rental Abatement")
+        return self._execute_query_to_series(
+            sql, "month", "total_amount", "Rental Abatement"
+        )
 
     def credit_loss(self) -> pd.Series:
         """
@@ -972,7 +1026,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month
             
         """
-        return self._execute_query_to_series(sql, "month", "total_amount", "Credit Loss")
+        return self._execute_query_to_series(
+            sql, "month", "total_amount", "Credit Loss"
+        )
 
     def misc_income(self) -> pd.Series:
         """
@@ -992,7 +1048,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month
             
         """
-        return self._execute_query_to_series(sql, "month", "total_amount", "Miscellaneous Income")
+        return self._execute_query_to_series(
+            sql, "month", "total_amount", "Miscellaneous Income"
+        )
 
     def expense_reimbursements(self) -> pd.Series:
         """
@@ -1012,7 +1070,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month
             
         """
-        return self._execute_query_to_series(sql, "month", "total_amount", "Expense Reimbursements")
+        return self._execute_query_to_series(
+            sql, "month", "total_amount", "Expense Reimbursements"
+        )
 
     def revenue(self) -> pd.Series:
         """
@@ -1031,7 +1091,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month
             
         """
-        return self._execute_query_to_series(sql, "month", "total_amount", "Total Revenue")
+        return self._execute_query_to_series(
+            sql, "month", "total_amount", "Total Revenue"
+        )
 
     # === Complex Analysis Methods ===
 
@@ -1047,7 +1109,7 @@ class LedgerQueries:  # noqa: PLR0904
         """
         # Convert Period to date string for SQL
         date_str = date.to_timestamp().strftime("%Y-%m-%d")
-        
+
         sql = f"""
             SELECT amount
             FROM {self.table_name}
@@ -1057,7 +1119,7 @@ class LedgerQueries:  # noqa: PLR0904
             ORDER BY date DESC
             LIMIT 1
         """
-        
+
         result = self.con.execute(sql).fetchone()
         return float(result[0]) if result else 0.0
 
@@ -1078,7 +1140,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month
             
         """
-        return self._execute_query_to_series(sql, "month", "avg_valuation", "Asset Valuations")
+        return self._execute_query_to_series(
+            sql, "month", "avg_valuation", "Asset Valuations"
+        )
 
     def capital_uses_by_category(self, as_of_date: pd.Period = None) -> pd.Series:
         """
@@ -1105,14 +1169,16 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY subcategory
             
         """
-        
+
         tbl = self.con.execute(sql).arrow().read_all()
         if tbl.num_rows == 0:
             return pd.Series(dtype="float64", name="Capital Uses by Category")
 
         subs = tbl["subcategory"].to_pandas()
         amounts = tbl["total_amount"].to_pandas()
-        return pd.Series(amounts.values, index=subs.values, name="Capital Uses by Category")
+        return pd.Series(
+            amounts.values, index=subs.values, name="Capital Uses by Category"
+        )
 
     def capital_sources_by_category(self, as_of_date: pd.Period = None) -> pd.Series:
         """
@@ -1139,14 +1205,16 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY subcategory
             
         """
-        
+
         tbl = self.con.execute(sql).arrow().read_all()
         if tbl.num_rows == 0:
             return pd.Series(dtype="float64", name="Capital Sources by Category")
 
         subs = tbl["subcategory"].to_pandas()
         amounts = tbl["total_amount"].to_pandas()
-        return pd.Series(amounts.values, index=subs.values, name="Capital Sources by Category")
+        return pd.Series(
+            amounts.values, index=subs.values, name="Capital Sources by Category"
+        )
 
     def operational_cash_flow(self) -> pd.Series:
         """
@@ -1155,13 +1223,13 @@ class LedgerQueries:  # noqa: PLR0904
         Operational cash flow represents the net cash generated from day-to-day
         property operations, including rental income, operating expenses, vacancy
         losses, and recurring capital expenditures necessary for ongoing operations.
-        
+
         **Implementation:**
         Uses `flow_purpose='Operating'` exclusively to ensure mutually exclusive
         categorization with capital deployment (`flow_purpose='Capital Use'`).
         This prevents double-counting that would occur if major capital expenditures
         (acquisition, construction, development) were incorrectly included here.
-        
+
         **Includes:**
         - Rental income (Lease revenue)
         - Miscellaneous income (parking, vending, etc.)
@@ -1169,16 +1237,16 @@ class LedgerQueries:  # noqa: PLR0904
         - Operating expenses (utilities, maintenance, management, taxes, insurance)
         - Vacancy and credit losses (contra-revenue)
         - Recurring capital expenditures (if categorized as Expense/CapEx with flow_purpose='Operating')
-        
+
         **Excludes:**
         - Major capital deployments (acquisition, construction, development)
         - Disposition costs and proceeds
         - Debt service and financing costs
         - Equity contributions and distributions
-        
+
         **Note:** This replaces the previous formula-based approach (NOI - CapEx - TI - LC)
         with a direct query on `flow_purpose='Operating'`. The old approach caused
-        double-counting when major capital expenditures (category='Capital', 
+        double-counting when major capital expenditures (category='Capital',
         flow_purpose='Capital Use') were incorrectly subtracted here and then also
         included in project_cash_flow() via capital_uses().
 
@@ -1189,15 +1257,15 @@ class LedgerQueries:  # noqa: PLR0904
         See Also:
             - FLOW_PURPOSE_RULES.md for complete flow_purpose semantics
             - QUERY_DEFINITIONS.md Section 4 for canonical definition
-            
+
         Example:
             ```python
             queries = LedgerQueries(ledger)
             ocf = queries.operational_cash_flow()
-            
+
             # Annual operational cash flow
             annual_ocf = ocf.sum()
-            
+
             # Average monthly OCF
             avg_monthly_ocf = ocf.mean()
             ```
@@ -1212,10 +1280,7 @@ class LedgerQueries:  # noqa: PLR0904
             ORDER BY period
         """
         return self._execute_query_to_series(
-            sql, 
-            "period", 
-            "total", 
-            "Operational Cash Flow"
+            sql, "period", "total", "Operational Cash Flow"
         )
 
     def project_cash_flow(self) -> pd.Series:
@@ -1248,13 +1313,13 @@ class LedgerQueries:  # noqa: PLR0904
             ```python
             queries = LedgerQueries(ledger)
             pcf = queries.project_cash_flow()
-            
+
             # Total project cash generation
             total_cash_generated = pcf.sum()
-            
+
             # Cash flow during construction (typically negative)
             construction_cf = pcf.loc['2024-01':'2025-12']
-            
+
             # Cash flow during operations (typically positive)
             operations_cf = pcf.loc['2026-01':'2029-12']
             ```
@@ -1262,7 +1327,7 @@ class LedgerQueries:  # noqa: PLR0904
         # Pure SQL implementation following tiger team pattern
         # Get operational cash flows using corrected SQL methods
         operational_cf = self.operational_cash_flow()
-        
+
         # Get capital uses using pure SQL
         capital_uses_sql = f"""
             SELECT 
@@ -1276,7 +1341,7 @@ class LedgerQueries:  # noqa: PLR0904
         capital_uses = self._execute_query_to_series(
             capital_uses_sql, "period", "total", "Capital Uses"
         )
-        
+
         # Get disposition proceeds using pure SQL (exclude financing sources)
         disposition_sql = f"""
             SELECT 
@@ -1295,7 +1360,7 @@ class LedgerQueries:  # noqa: PLR0904
         disposition_proceeds = self._execute_query_to_series(
             disposition_sql, "period", "total", "Disposition Proceeds"
         )
-        
+
         # Combine capital flows using pandas arithmetic (tiger team approved)
         capital_flows = capital_uses.add(disposition_proceeds, fill_value=0.0)
 
@@ -1308,11 +1373,11 @@ class LedgerQueries:  # noqa: PLR0904
         elif capital_flows.empty:
             operational_cf.name = "Project Cash Flow"
             return operational_cf.sort_index()
-        
+
         # Combine operational and capital flows using pandas arithmetic
         project_cf = operational_cf.add(capital_flows, fill_value=0.0)
         project_cf.name = "Project Cash Flow"
-        
+
         return project_cf.sort_index()
 
     def equity_partner_flows(self) -> pd.Series:
@@ -1322,7 +1387,7 @@ class LedgerQueries:  # noqa: PLR0904
         Includes:
         - EQUITY_CONTRIBUTION: Partner capital contributions (positive inflow)
         - EQUITY_DISTRIBUTION: Distributions to equity partners (negative outflow)
-        - PREFERRED_RETURN: Preferred return payments (negative outflow)  
+        - PREFERRED_RETURN: Preferred return payments (negative outflow)
         - PROMOTE: Carried interest/promote payments (negative outflow)
         - Partner-specific flows by entity_type (GP/LP)
 
@@ -1344,7 +1409,7 @@ class LedgerQueries:  # noqa: PLR0904
                 AND subcategory IN {self._subcategory_in_clause(EQUITY_PARTNER_SUBCATEGORIES)}
                 AND flow_purpose != '{enum_to_string(TransactionPurpose.VALUATION)}'
         """
-        
+
         # Also capture partner-specific flows if entity_type indicates GP/LP
         sql_partner = f"""
             SELECT DATE_TRUNC('month', date) AS month, amount  
@@ -1354,7 +1419,7 @@ class LedgerQueries:  # noqa: PLR0904
                 AND NOT regexp_matches(item_name, 'Exit Sale Proceeds', 'i')
                 AND flow_purpose != '{enum_to_string(TransactionPurpose.VALUATION)}'
         """
-        
+
         # Combine equity subcategory flows and partner-specific flows
         combined_sql = f"""
             WITH combined_flows AS (
@@ -1369,8 +1434,10 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month
             ORDER BY month
         """
-        
-        return self._execute_query_to_series(combined_sql, "month", "total_amount", "Equity Partner Flows")
+
+        return self._execute_query_to_series(
+            combined_sql, "month", "total_amount", "Equity Partner Flows"
+        )
 
     def debt_balance(self) -> pd.Series:
         """
@@ -1392,18 +1459,19 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month
             ORDER BY month
         """
-        
+
         tbl = self.con.execute(sql).arrow().read_all()
         if tbl.num_rows == 0:
             return pd.Series(dtype="float64", name="Debt Balance")
 
-        months = pd.PeriodIndex(pd.to_datetime(tbl["month"].to_pandas(date_as_object=False)), freq="M")
+        months = pd.PeriodIndex(
+            pd.to_datetime(tbl["month"].to_pandas(date_as_object=False)), freq="M"
+        )
         changes = tbl["balance_change"].to_pandas()
         series = pd.Series(changes.values, index=months)
         cumulative = series.cumsum()
         cumulative.name = "Debt Balance"
         return cumulative
-
 
     def construction_draws(self) -> pd.Series:
         """
@@ -1422,7 +1490,9 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY month
             
         """
-        return self._execute_query_to_series(sql, "month", "total_amount", "Construction Draws")
+        return self._execute_query_to_series(
+            sql, "month", "total_amount", "Construction Draws"
+        )
 
     def cumulative_construction_draws(self) -> pd.Series:
         """
@@ -1434,7 +1504,7 @@ class LedgerQueries:  # noqa: PLR0904
         construction_series = self.construction_draws()
         if construction_series.empty:
             return pd.Series(dtype="float64", name="Cumulative Construction Draws")
-            
+
         cumulative = construction_series.cumsum()
         cumulative.name = "Cumulative Construction Draws"
         return cumulative
@@ -1452,7 +1522,7 @@ class LedgerQueries:  # noqa: PLR0904
             WHERE flow_purpose = 'Valuation'
             ORDER BY date
         """
-        
+
         tbl = self.con.execute(sql).arrow().read_all()
         if tbl.num_rows == 0:
             return pd.DataFrame()

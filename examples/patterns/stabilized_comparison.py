@@ -102,7 +102,9 @@ def create_deal_via_composition():
 
     # === STEP 1: PROJECT TIMELINE ===
     acquisition_date = date(2024, 1, 1)
-    timeline = Timeline(start_date=acquisition_date, duration_months=84)  # 7-year analysis period
+    timeline = Timeline(
+        start_date=acquisition_date, duration_months=84
+    )  # 7-year analysis period
 
     # === STEP 2: RESIDENTIAL ROLLOVER PROFILE ===
     current_avg_rent = 1400.0  # Conservative rent for stabilized core multifamily
@@ -110,10 +112,10 @@ def create_deal_via_composition():
     # Market terms for new leases (match Pattern exactly)
     market_terms = ResidentialRolloverLeaseTerms(
         market_rent=current_avg_rent,  # $1800 like Pattern
-    market_rent_growth=PercentageGrowthRate(
-        name="Market Rent Growth",
-        value=0.03,  # 3% annual growth
-    ),
+        market_rent_growth=PercentageGrowthRate(
+            name="Market Rent Growth",
+            value=0.03,  # 3% annual growth
+        ),
         renewal_rent_increase_percent=0.04,  # 4% renewal increase like Pattern
         concession_months=0,  # No concessions like Pattern
     )
@@ -555,8 +557,10 @@ def main():
         if comp_results and pattern_results:
             # Expected values for stabilized comparison
             # Conservative parameters: $1,400/month rent, 8.5% exit cap, 7-year hold
-            expected_composition_irr = 0.116320  # 11.63% - conservative stabilized core returns
-            expected_em = 1.453303   # 1.45x - conservative stabilized equity multiple
+            expected_composition_irr = (
+                0.116320  # 11.63% - conservative stabilized core returns
+            )
+            expected_em = 1.453303  # 1.45x - conservative stabilized equity multiple
             expected_equity = 5193726  # $5,193,726 - actual equity invested
 
             # Allow small floating point tolerance
