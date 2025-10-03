@@ -2,18 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Pure financial calculation functions.
+Financial calculation functions.
 
-This module contains static methods for all core financial calculations
-used throughout the library. It maintains semantic purity by separating
-mathematical functions from data access queries.
-
-Key principles:
-- All methods are static (no state)
-- Pure functions (same input → same output)
-- Comprehensive edge case handling
-- Single source of truth for each calculation
-- Uses industry-standard libraries (PyXIRR)
+Contains static methods for core financial metrics. These functions are pure
+(math-only) and independent of data access; other modules should delegate to
+these to ensure a single source of truth for financial calculations.
 """
 
 from typing import Optional
@@ -26,18 +19,14 @@ class FinancialCalculations:
     """
     Pure mathematical functions for financial calculations.
 
-    This class provides static methods for core financial metrics
-    without any dependency on ledger structure or business logic.
-    All methods are pure functions suitable for testing and reuse.
+    Static methods for core financial metrics, independent of ledger structure
+    or business logic.
     """
 
     @staticmethod
     def calculate_irr(cash_flows: pd.Series) -> Optional[float]:
         """
         Calculate Internal Rate of Return using PyXIRR.
-
-        This is the SINGLE implementation of IRR calculation in the library.
-        All other IRR calculations must delegate to this method.
 
         Args:
             cash_flows: Series of cash flows with PeriodIndex
@@ -91,9 +80,6 @@ class FinancialCalculations:
         """
         Calculate equity multiple (total returns / total investment).
 
-        This is the SINGLE implementation of equity multiple calculation in the library.
-        All other multiple calculations must delegate to this method.
-
         Args:
             cash_flows: Series of cash flows with PeriodIndex
                        Negative values = investments/outflows
@@ -140,9 +126,6 @@ class FinancialCalculations:
     def calculate_npv(cash_flows: pd.Series, discount_rate: float) -> Optional[float]:
         """
         Calculate Net Present Value using PyXIRR.
-
-        This is the SINGLE implementation of NPV calculation in the library.
-        All other NPV calculations must delegate to this method.
 
         Args:
             cash_flows: Series of cash flows with PeriodIndex
@@ -201,5 +184,5 @@ class FinancialCalculations:
             ```
         """
         if debt_service <= 0:
-            return None if noi <= 0 else 999.0  # Industry convention for "no debt"
+            return None if noi <= 0 else 100.0  # Reporting cap for "no debt" periods
         return noi / debt_service

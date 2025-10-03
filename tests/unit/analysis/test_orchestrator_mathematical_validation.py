@@ -19,7 +19,7 @@ import pandas as pd
 import pytest
 
 from performa.analysis.orchestrator import AnalysisContext, CashFlowOrchestrator
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     CashFlowModel,
     ExpenseSubcategoryEnum,
@@ -46,7 +46,7 @@ class TestCashFlowOrchestratorMathematical:
             uid = "550e8400-e29b-41d4-a716-446655440005"  # Changed from id to uid with valid UUID
             net_rentable_area = 10000
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         return AnalysisContext(
             timeline=timeline,
             settings=GlobalSettings(),
@@ -416,7 +416,7 @@ def test_effective_gross_income_bug_reproduction():
         uid = "550e8400-e29b-41d4-a716-446655440006"  # Changed from id to uid with valid UUID
         net_rentable_area = 10000
 
-    ledger = Ledger(settings=LedgerGenerationSettings())
+    ledger = Ledger()
     context = AnalysisContext(
         timeline=timeline,
         settings=GlobalSettings(),

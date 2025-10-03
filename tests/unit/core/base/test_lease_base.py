@@ -11,7 +11,7 @@ import pytest
 
 from performa.analysis import AnalysisContext
 from performa.core.base import LeaseBase, LeaseSpecBase
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -130,7 +130,7 @@ def sample_context(sample_lease: LeaseBase) -> AnalysisContext:
         timeline=sample_lease.timeline,
         settings=GlobalSettings(),
         property_data=None,
-        ledger=Ledger(settings=LedgerGenerationSettings()),  # Add required ledger
+        ledger=Ledger(),  # Add required ledger
     )
 
 

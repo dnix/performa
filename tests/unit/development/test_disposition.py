@@ -23,7 +23,7 @@ import pytest
 from pydantic import ValidationError
 
 from performa.analysis import AnalysisContext
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     CashFlowModel,
     FrequencyEnum,
@@ -55,7 +55,7 @@ def empty_timeline() -> Timeline:
 @pytest.fixture
 def sample_context(sample_timeline: Timeline) -> AnalysisContext:
     """Standard analysis context for testing."""
-    ledger = Ledger(settings=LedgerGenerationSettings())
+    ledger = Ledger()
     return AnalysisContext(
         timeline=sample_timeline,
         settings=GlobalSettings(),
@@ -179,7 +179,7 @@ class TestDispositionCashFlowComputation:
 
     def test_compute_cf_single_period(self, single_period_timeline: Timeline):
         """Test computation with single period timeline."""
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=single_period_timeline,
             settings=GlobalSettings(),
@@ -202,7 +202,7 @@ class TestDispositionCashFlowComputation:
 
     def test_compute_cf_empty_timeline(self, empty_timeline: Timeline):
         """Test computation with empty timeline (edge case)."""
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=empty_timeline,
             settings=GlobalSettings(),
@@ -285,7 +285,7 @@ class TestDispositionCashFlowIntegration:
         assert cash_flow.iloc[0] == 500000.0
 
         # Test with proper context
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=sample_timeline,
             settings=GlobalSettings(),

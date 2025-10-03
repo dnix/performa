@@ -12,7 +12,7 @@ from performa.asset.office.property import OfficeProperty
 from performa.asset.office.recovery import ExpensePool, OfficeRecoveryMethod, Recovery
 from performa.asset.office.rent_abatement import OfficeRentAbatement
 from performa.core.base import RecoveryCalculationState
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -103,7 +103,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -162,7 +162,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -223,7 +223,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -296,7 +296,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             capital_plans=[],
             unit_mix=None,
         )
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -383,7 +383,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             capital_plans=[],
             unit_mix=None,
         )
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -469,7 +469,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             capital_plans=[],
             unit_mix=None,
         )
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -552,7 +552,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, short_timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=short_timeline,
             settings=self.settings,
@@ -601,7 +601,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, short_timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=short_timeline,
             settings=self.settings,
@@ -647,7 +647,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -703,7 +703,7 @@ class TestOfficeRentAbatement(unittest.TestCase):
             capital_plans=[],
             unit_mix=None,
         )
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,

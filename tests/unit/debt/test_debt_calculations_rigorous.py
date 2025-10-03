@@ -9,11 +9,12 @@ using inline financial formulas, ensuring we're not doing circular testing.
 """
 
 from unittest.mock import Mock
+from uuid import uuid4
 
 import pandas as pd
 import pytest
 
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import GlobalSettings, Timeline
 from performa.deal.orchestrator import DealContext
 from performa.debt.construction import ConstructionFacility
@@ -138,7 +139,7 @@ class TestDebtCalculationsAgainstBenchmarks:
         """Setup for each test."""
         self.timeline = Timeline.from_dates("2024-01-01", "2034-01-01")  # 10 years
         self.settings = GlobalSettings()
-        self.ledger = Ledger(LedgerGenerationSettings())
+        self.ledger = Ledger()
 
     def test_permanent_facility_payment_calculation(self):
         """
@@ -217,6 +218,9 @@ class TestDebtCalculationsAgainstBenchmarks:
         # Create a mock deal (required for DealContext)
         mock_deal = Mock()
         mock_deal.name = "Test Deal"
+        mock_deal.uid = uuid4()
+        mock_deal.asset = Mock()
+        mock_deal.asset.uid = uuid4()
 
         context = DealContext(
             timeline=self.timeline,
@@ -349,9 +353,12 @@ class TestDebtCalculationsAgainstBenchmarks:
         # Create context with project costs
         mock_deal = Mock()
         mock_deal.name = "Construction Test Deal"
+        mock_deal.uid = uuid4()
+        mock_deal.asset = Mock()
+        mock_deal.asset.uid = uuid4()
 
         # Use fresh ledger builder for this test
-        fresh_ledger = Ledger(LedgerGenerationSettings())
+        fresh_ledger = Ledger()
 
         context = DealContext(
             timeline=self.timeline,

@@ -10,7 +10,7 @@ import pytest
 
 from performa.analysis import AnalysisContext
 from performa.core.base.expense import CapExItemBase, OpExItemBase
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     CashFlowModel,
     ExpenseSubcategoryEnum,
@@ -53,7 +53,7 @@ def sample_timeline() -> Timeline:
 
 @pytest.fixture
 def sample_context(sample_timeline: Timeline) -> AnalysisContext:
-    ledger = Ledger(settings=LedgerGenerationSettings())
+    ledger = Ledger()
     return AnalysisContext(
         timeline=sample_timeline,
         settings=GlobalSettings(),
@@ -98,7 +98,7 @@ def test_per_unit_capex_residential_vs_cashflow_model():
     property_data.uid = (
         "550e8400-e29b-41d4-a716-446655440099"  # Ensure uid exists with valid UUID
     )
-    ledger = Ledger(settings=LedgerGenerationSettings())
+    ledger = Ledger()
     context = AnalysisContext(
         timeline=timeline,
         settings=GlobalSettings(),
@@ -160,7 +160,7 @@ def test_per_unit_capex_office_vs_cashflow_model():
     property_data.uid = (
         "550e8400-e29b-41d4-a716-446655440099"  # Ensure uid exists with valid UUID
     )
-    ledger = Ledger(settings=LedgerGenerationSettings())
+    ledger = Ledger()
     context = AnalysisContext(
         timeline=timeline,
         settings=GlobalSettings(),
@@ -210,7 +210,7 @@ def test_capex_now_applies_growth_rates():
     property_data.uid = (
         "550e8400-e29b-41d4-a716-446655440099"  # Ensure uid exists with valid UUID
     )
-    ledger = Ledger(settings=LedgerGenerationSettings())
+    ledger = Ledger()
     context = AnalysisContext(
         timeline=timeline,
         settings=GlobalSettings(),
@@ -271,7 +271,7 @@ def test_capex_without_growth_rate_stays_flat():
     property_data.uid = (
         "550e8400-e29b-41d4-a716-446655440099"  # Ensure uid exists with valid UUID
     )
-    ledger = Ledger(settings=LedgerGenerationSettings())
+    ledger = Ledger()
     context = AnalysisContext(
         timeline=timeline,
         settings=GlobalSettings(),

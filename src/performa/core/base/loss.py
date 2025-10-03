@@ -33,6 +33,15 @@ from ..primitives.types import FloatBetween0And1
 if TYPE_CHECKING:
     from performa.analysis import AnalysisContext
 
+# Allowed non-cumulative aggregate references for dependent models
+# These aggregates are defined strictly from operating revenue components and
+# do not depend on other dependent models' outputs in a way that creates cycles.
+ALLOWED_DEPENDENT_REFERENCE_KEYS = {
+    UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE,
+    UnleveredAggregateLineKey.GROSS_POTENTIAL_RENT,
+    UnleveredAggregateLineKey.TENANT_REVENUE,
+}
+
 
 # ============================================================================
 # CONFIGURATION CLASSES (stored on properties)
@@ -79,13 +88,8 @@ class CreditLossConfig(Model):
     @classmethod
     def validate_basis(cls, v):
         """Validate that basis is one of the allowed revenue-based aggregate keys."""
-        allowed_bases = {
-            UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE,
-            UnleveredAggregateLineKey.GROSS_POTENTIAL_RENT,
-            UnleveredAggregateLineKey.TENANT_REVENUE,
-        }
-        if v not in allowed_bases:
-            allowed_names = [basis.value for basis in allowed_bases]
+        if v not in ALLOWED_DEPENDENT_REFERENCE_KEYS:
+            allowed_names = [basis.value for basis in ALLOWED_DEPENDENT_REFERENCE_KEYS]
             raise ValueError(
                 f"Credit loss basis must be a revenue-based aggregate key. "
                 f"Allowed: {allowed_names}. Got: {v.value if hasattr(v, 'value') else v}"
@@ -131,6 +135,7 @@ class VacancyLossModel(CashFlowModel):
     # All losses are negative revenue
     category: CashFlowCategoryEnum = CashFlowCategoryEnum.REVENUE
     subcategory: RevenueSubcategoryEnum = RevenueSubcategoryEnum.VACANCY_LOSS
+    # Calculation pass is assigned by scenarios
 
     # Runtime configuration
     rate: float = Field(description="Vacancy rate as decimal")
@@ -159,7 +164,14 @@ class VacancyLossModel(CashFlowModel):
         if not hasattr(context, "resolved_lookups"):
             return pd.Series(0.0, index=self.timeline.period_index)
 
-        reference_series = context.resolved_lookups.get(self.reference)
+        # Enforce non-cumulative aggregate references for dependent models
+        if self.reference not in ALLOWED_DEPENDENT_REFERENCE_KEYS:
+            raise ValueError(
+                f"Unsupported vacancy loss reference '{self.reference.value}'. "
+                f"Allowed: {[k.value for k in ALLOWED_DEPENDENT_REFERENCE_KEYS]}"
+            )
+
+        reference_series = context.resolved_lookups.get(self.reference.value)
         if reference_series is None or reference_series.empty:
             return pd.Series(0.0, index=self.timeline.period_index)
 
@@ -187,6 +199,7 @@ class CreditLossModel(CashFlowModel):
     # All losses are negative revenue
     category: CashFlowCategoryEnum = CashFlowCategoryEnum.REVENUE
     subcategory: RevenueSubcategoryEnum = RevenueSubcategoryEnum.CREDIT_LOSS
+    # Calculation pass is assigned by scenarios
 
     # Runtime configuration
     rate: float = Field(description="Credit loss rate as decimal")
@@ -216,7 +229,14 @@ class CreditLossModel(CashFlowModel):
         if not hasattr(context, "resolved_lookups"):
             return pd.Series(0.0, index=self.timeline.period_index)
 
-        reference_series = context.resolved_lookups.get(self.reference)
+        # Enforce non-cumulative aggregate references for dependent models
+        if self.reference not in ALLOWED_DEPENDENT_REFERENCE_KEYS:
+            raise ValueError(
+                f"Unsupported credit loss basis '{self.reference.value}'. "
+                f"Allowed: {[k.value for k in ALLOWED_DEPENDENT_REFERENCE_KEYS]}"
+            )
+
+        reference_series = context.resolved_lookups.get(self.reference.value)
         if reference_series is None or reference_series.empty:
             return pd.Series(0.0, index=self.timeline.period_index)
 

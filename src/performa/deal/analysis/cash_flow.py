@@ -2,77 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Cash Flow Engine Specialist
+Funding cascade and levered cash flow engine.
 
-This module provides the CashFlowEngine service that handles institutional-grade funding cascade
-and levered cash flow calculations with interest reserves and
-sophisticated equity/debt coordination mechanisms.
-
-The CashFlowEngine represents the core financial engineering component of the deal analysis framework,
-implementing the complex funding cascade logic that determines how project uses are funded and
-how cash flows are distributed to equity investors.
-
-Key capabilities:
-- **Institutional Funding Cascade**: Period-by-period funding logic with equity-first, debt-second priority
-- **Multi-Tranche Debt Funding**: Sophisticated LTC threshold-based debt draw management
-- **Interest Compounding**: Comprehensive interest calculations with cash interest
-- **Interest Reserve Management**: Institutional-grade interest reserve capacity and utilization
-- **Equity Coordination**: Dynamic equity target calculation with funding gap analysis
-- **Cash Flow Assembly**: Complete levered cash flow assembly with component tracking
-
-The service implements institutional standards used in commercial real estate development financing,
-including the complex funding cascade logic that determines:
-- How equity and debt are sequenced during the funding process
-- When and how interest compounds into additional funding requirements
-- How interest reserves are utilized vs. cash interest payments
-- How funding gaps are identified and managed
-
-Funding Cascade Logic:
-    The engine implements a sophisticated period-by-period funding cascade:
-
-    1. **Calculate Period Uses**: Acquisition, construction, fees, and other project costs
-    2. **Initialize Funding State**: Set up equity targets and debt tranche tracking
-    3. **Iterative Funding Loop**: For each period:
-       - Calculate interest on previous period's outstanding debt balance
-       - Add interest to current period's uses (if cash interest) or reserve (if reserve-funded)
-       - Fund period uses with equity-first, then debt-second priority
-       - Update outstanding balances and cumulative funding tracking
-    4. **Assemble Results**: Create comprehensive cash flow components and summaries
-
-Example:
-    ```python
-    from performa.deal.analysis import CashFlowEngine
-
-    # Create cash flow engine
-    engine = CashFlowEngine(deal, timeline, settings)
-
-    # Calculate levered cash flows through funding cascade
-    levered_results = engine.calculate_levered_cash_flows(
-        unlevered_analysis=unlevered_analysis,
-        financing_analysis=financing_analysis,
-        disposition_proceeds=disposition_proceeds
-    )
-
-    # Access comprehensive results
-    cascade_details = levered_results.funding_cascade_details
-    print(f"Total project cost: ${cascade_details.interest_compounding_details.total_project_cost:,.0f}")
-    print(f"Equity funded: ${cascade_details.interest_compounding_details.equity_funded:,.0f}")
-    print(f"Debt funded: ${cascade_details.interest_compounding_details.debt_funded:,.0f}")
-    ```
-
-Architecture:
-    - Uses dataclass pattern for runtime service state management
-    - Implements institutional-grade funding cascade algorithms
-    - Provides comprehensive component tracking and audit trails
-    - Supports complex multi-tranche debt structures
-    - Integrates with broader deal analysis workflow through typed interfaces
-
-Institutional Standards:
-    - Follows commercial real estate development financing practices
-    - Implements funding cascade logic used by institutional lenders
-    - Provides comprehensive interest calculations per institutional standards
-    - Supports interest reserve management used in institutional deals
-    - Maintains audit trails required for institutional financing
+Provides period-by-period funding logic and levered cash flow assembly using the
+ledger as the single source of truth. Equity contributions are recorded here;
+debt facilities write their own transactions via their `compute_cf` methods.
 """
 
 from __future__ import annotations
@@ -106,61 +40,16 @@ logger = logging.getLogger(__name__)
 @dataclass
 class CashFlowEngine(AnalysisSpecialist):
     """
-    Specialist service for calculating levered cash flows through institutional-grade funding cascade.
+    Calculate levered cash flows via a funding cascade.
 
-    This service represents the core financial engineering component that implements the sophisticated
-    funding cascade logic used in commercial real estate development financing. It handles the complex
-    sequencing of equity and debt funding, interest calculations, and cash flow assembly.
-
-    The CashFlowEngine implements institutional standards for funding cascade logic, including:
-    - Period-by-period iterative funding with proper state management
-    - Dynamic equity target calculation based on total project costs
-    - Multi-tranche debt funding with LTC threshold enforcement
-    - Comprehensive interest handling (cash vs. reserve-funded)
-    - Detailed component tracking for audit and analysis purposes
-
-    Key features:
-    - **Institutional Funding Cascade**: Implements the standard equity-first, debt-second funding priority
-    - **Multi-Tranche Debt Support**: Handles complex debt structures with multiple tranches and LTC thresholds
-    - **Interest Compounding**: Sophisticated interest calculations with cash and reserve options
-    - **Dynamic Equity Targets**: Calculates equity targets that adjust as interest compounds
-    - **Component Tracking**: Maintains detailed audit trails of all funding components
-
-    The funding cascade process:
-    1. Calculate period-by-period uses (acquisition, construction, fees)
-    2. Initialize funding state with equity targets and debt tranche tracking
-    3. Execute iterative funding loop with interest compounding
-    4. Assemble comprehensive levered cash flow results
+    The engine sequences equity and debt funding, handles interest (cash or
+    reserve-funded), and records equity contributions. Debt facilities write
+    their own transactions via their `compute_cf` methods.
 
     Attributes:
-        deal: The deal containing asset, financing, and partnership structures
-        timeline: Analysis timeline for funding cascade calculations
-        settings: Global settings for cash flow configuration
-        levered_cash_flows: Runtime state populated during analysis (internal use)
-
-    Example:
-        ```python
-        # Create cash flow engine
-        engine = CashFlowEngine(deal, timeline, settings)
-
-        # Execute funding cascade
-        results = engine.calculate_levered_cash_flows(
-            unlevered_analysis=unlevered_analysis,
-            financing_analysis=financing_analysis,
-            disposition_proceeds=disposition_proceeds
-        )
-
-        # Analyze funding cascade results
-        cascade_details = results.funding_cascade_details
-        print(f"Equity target: ${cascade_details.equity_target:,.0f}")
-        print(f"Debt funded: ${cascade_details.interest_compounding_details.debt_funded:,.0f}")
-        print(f"Funding gap: ${cascade_details.interest_compounding_details.funding_gap:,.0f}")
-
-        # Access component cash flows
-        components = results.cash_flow_components
-        print(f"Total uses: ${components.total_uses.sum():,.0f}")
-        print(f"Interest expense: ${components.interest_expense.sum():,.0f}")
-        ```
+        deal: Deal with asset, financing, and partnership structures.
+        timeline: Analysis timeline.
+        settings: Global settings for cash flow configuration.
     """
 
     # Fields inherited from AnalysisSpecialist base class:
@@ -610,16 +499,15 @@ class CashFlowEngine(AnalysisSpecialist):
 
                 if shortfall_pct > 10:  # >10% shortfall = error
                     raise ValueError(
-                        f"💰 CAPITAL SHORTFALL: Partner commitments (${total_committed:,.0f}) "
-                        f"fall ${shortfall_pct:.1f}% short of required equity (${required_equity:,.0f}). "
-                        f"Shortfall: ${shortfall:,.0f}. "
-                        f"Either increase partner commitments or reduce LTC ratio."
+                        f"CAPITAL SHORTFALL: partner commitments (${total_committed:,.0f}) "
+                        f"are {shortfall_pct:.1f}% below required equity (${required_equity:,.0f}). "
+                        f"shortfall: ${shortfall:,.0f}. Increase commitments or reduce LTC ratio."
                     )
                 elif shortfall_pct > 5:  # 5-10% shortfall = warning
                     logger.warning(
-                        f"⚠️ THIN EQUITY MARGIN: Partner commitments (${total_committed:,.0f}) "
-                        f"only ${shortfall_pct:.1f}% above required equity (${required_equity:,.0f}). "
-                        f"Consider increasing equity buffer for cost overruns."
+                        f"THIN EQUITY MARGIN: partner commitments (${total_committed:,.0f}) "
+                        f"are only {shortfall_pct:.1f}% above required equity (${required_equity:,.0f}). "
+                        f"Consider increasing equity buffer."
                     )
 
             # Check for over-commitment (might indicate parameter issues)
@@ -627,7 +515,7 @@ class CashFlowEngine(AnalysisSpecialist):
                 excess = total_committed - required_equity
                 excess_pct = (excess / required_equity) * 100
                 logger.warning(
-                    f"📊 EXCESS EQUITY: Partner commitments (${total_committed:,.0f}) "
+                    f"EXCESS EQUITY: partner commitments (${total_committed:,.0f}) "
                     f"exceed estimated requirements (${required_equity:,.0f}) by {excess_pct:.1f}%. "
                     f"Verify LTC parameters or consider increasing debt."
                 )
@@ -945,10 +833,7 @@ class CashFlowEngine(AnalysisSpecialist):
         total_debt_payoff = sum(transaction.debt_payoffs.values())
 
         logger.info(
-            f"📊 DISPOSITION SUMMARY:\n"
-            f"  Gross proceeds: ${gross_amount:,.0f}\n"
-            f"  Debt payoff: ${total_debt_payoff:,.0f}\n"
-            f"  Net to equity: ${transaction.net_to_equity:,.0f}"
+            f"Disposition summary: gross=${gross_amount:,.0f}, debt_payoff=${total_debt_payoff:,.0f}, net_to_equity=${transaction.net_to_equity:,.0f}"
         )
 
         return net_proceeds

@@ -22,7 +22,7 @@ from performa.asset.office.loss import (
 )
 from performa.asset.office.property import OfficeProperty
 from performa.asset.office.rent_roll import OfficeRentRoll
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -55,7 +55,7 @@ def sample_context(sample_timeline: Timeline) -> AnalysisContext:
         ),
         expenses=OfficeExpenses(),
     )
-    ledger = Ledger(settings=LedgerGenerationSettings())
+    ledger = Ledger()
     return AnalysisContext(
         timeline=sample_timeline,
         settings=GlobalSettings(),

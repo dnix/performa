@@ -4,62 +4,9 @@
 """
 Debt Analysis Specialist
 
-This module provides the DebtAnalyzer service that handles comprehensive debt facility analysis
-including institutional-grade debt service calculations, refinancing transactions, and covenant
-monitoring for commercial real estate financing.
-
-The DebtAnalyzer serves as the central hub for all debt-related analysis within the deal
-analysis framework, providing sophisticated capabilities that mirror industry-standard
-institutional lending practices.
-
-Key capabilities:
-- **Debt Service Calculations**: Enhanced debt service with floating rates
-  and institutional features like interest-only periods
-- **Refinancing Analysis**: Complete refinancing transaction processing with cash flow
-  impacts and covenant monitoring setup
-- **DSCR Analysis**: Comprehensive debt service coverage ratio calculations with
-  stress testing and forward-looking projections
-- **Covenant Monitoring**: Institutional-grade covenant tracking and breach detection
-- **Multi-Facility Support**: Handles complex financing structures with multiple facilities
-
-The service implements sophisticated algorithms used by institutional lenders, including:
-- Enhanced amortization scheduling with dynamic rates
-- Covenant monitoring frameworks with risk assessment
-- Stress testing scenarios for underwriting analysis
-- Forward-looking DSCR projections for covenant compliance
-
-Example:
-    ```python
-    from performa.deal.analysis import DebtAnalyzer
-
-    # Create debt analyzer
-    debt_analyzer = DebtAnalyzer(deal, timeline, settings)
-
-    # Analyze complete financing structure
-    financing_results = debt_analyzer.analyze_financing_structure(
-        property_value_series=property_values,
-        noi_series=noi_series,
-        unlevered_analysis=unlevered_results
-    )
-
-    # Access comprehensive results
-    print(f"DSCR Summary: {financing_results.dscr_summary}")
-    print(f"Facilities: {len(financing_results.facilities)}")
-    print(f"Refinancing Events: {len(financing_results.refinancing_transactions)}")
-    ```
-
-Architecture:
-    - Uses dataclass pattern for runtime service state management
-    - Implements institutional-grade calculation standards
-    - Provides comprehensive error handling with graceful degradation
-    - Supports both construction and permanent facility analysis
-    - Integrates with broader deal analysis workflow through typed interfaces
-
-Institutional Standards:
-    - Follows commercial real estate lending industry practices
-    - Implements DSCR calculations per institutional underwriting standards
-    - Provides covenant monitoring frameworks used by institutional lenders
-    - Supports stress testing scenarios required for institutional analysis
+Provides debt facility processing (construction and permanent), refinancing
+integration, DSCR calculations, and covenant metrics. All transactions are
+recorded to the ledger; queries against the ledger provide inputs for metrics.
 """
 
 from __future__ import annotations
@@ -98,46 +45,10 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DebtAnalyzer(AnalysisSpecialist):
     """
-    Specialist service for analyzing debt facilities and financing structures with institutional-grade capabilities.
+    Analyze debt facilities and financing structure.
 
-    This service provides comprehensive debt analysis that mirrors the sophistication of institutional
-    commercial real estate lending practices. It handles complex financing structures including
-    construction loans, permanent financing, refinancing transactions, and covenant monitoring.
-
-    The DebtAnalyzer is designed to support the full lifecycle of commercial real estate financing,
-    from initial construction funding through permanent loan monitoring and refinancing analysis.
-
-    Key features:
-    - **Enhanced Debt Service**: Floating rates, interest-only periods
-    - **Refinancing Analysis**: Complete transaction processing with cash flow impacts
-    - **DSCR Monitoring**: Institutional-grade covenant monitoring and breach detection
-    - **Multi-Facility Support**: Handles complex financing structures with multiple facilities
-    - **Stress Testing**: Forward-looking analysis with sensitivity scenarios
-    - **Risk Assessment**: Comprehensive covenant monitoring and breach detection
-
-    Attributes:
-        deal: The deal containing financing structure and asset information
-        timeline: Analysis timeline for debt service and covenant calculations
-        settings: Global settings for debt analysis configuration
-        financing_analysis: Runtime state populated during analysis (internal use)
-
-    Example:
-        ```python
-        # Create analyzer with dependencies
-        analyzer = DebtAnalyzer(deal, timeline, settings)
-
-        # Execute comprehensive financing analysis
-        results = analyzer.analyze_financing_structure(
-            property_value_series=property_values,
-            noi_series=noi_series,
-            unlevered_analysis=unlevered_results
-        )
-
-        # Access institutional-grade results
-        print(f"DSCR minimum: {results.dscr_summary.minimum_dscr:.2f}")
-        print(f"Covenant breaches: {len(results.covenant_monitoring)}")
-        print(f"Refinancing proceeds: {sum(results.refinancing_cash_flows.values())}")
-        ```
+    Processes facilities (which write transactions to the ledger), then handles
+    refinancing and computes DSCR metrics from ledger queries.
     """
 
     # Fields inherited from AnalysisSpecialist base class:

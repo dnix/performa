@@ -151,6 +151,11 @@ class DealContext:
         None  # Exit proceeds from user-defined valuation
     )
 
+    # --- Disposition Tracking ---
+    disposition_date: Optional[pd.Period] = (
+        None  # Date of property disposition/sale (set by DispositionAnalyzer)
+    )
+
     def __post_init__(self):
         """Validate required fields after initialization."""
         # Validate that ledger is provided (critical for Pass-the-Builder pattern)

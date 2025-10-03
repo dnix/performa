@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Permanent loan facility with explicit sizing and ledger integration.
+Permanent loan facility with ledger integration.
 
-This module provides the Phase 1 implementation of PermanentFacility that
-prioritizes explicitness and stability over automatic sizing complexity.
+Implements manual and auto-sized permanent loans, amortization with optional
+interest-only periods, refinancing integration, covenant monitoring, and ledger
+recording of debt service.
 """
 
 import logging
@@ -501,9 +502,9 @@ class PermanentFacility(DebtFacilityBase):
                         # FAIL FAST if DSCR violation
                         if min_dscr < self.dscr_hurdle:
                             raise ValueError(
-                                f"❌ DSCR COVENANT VIOLATION: Minimum DSCR {min_dscr:.2f}x "
-                                f"below required {self.dscr_hurdle:.2f}x hurdle for {self.name}. "
-                                f"Deal cannot proceed with this capital structure."
+                                f"DSCR covenant violation: minimum DSCR {min_dscr:.2f}x "
+                                f"is below required {self.dscr_hurdle:.2f}x for {self.name}. "
+                                f"Deal structure is not compliant with covenant requirements."
                             )
         except Exception as e:
             if "DSCR COVENANT VIOLATION" in str(e):

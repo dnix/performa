@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Development-specific reports using industry-standard terminology.
+Development reports.
 
-These reports transform Performa's internal development models into
-familiar real estate industry formats and language.
+Transforms ledger-backed analysis results into standard Sources & Uses reporting
+with industry terminology.
 """
 
 from datetime import date
@@ -19,23 +19,21 @@ from .base import BaseReport
 
 class SourcesAndUsesReport(BaseReport):
     """
-    Sources & Uses report operating on DealResults.
+    Sources & Uses report for completed analyses.
 
-    This report extracts final uses breakdown and funding sources from
-    the completed analysis results, ensuring accuracy and consistency
-    with the actual financial analysis.
+    Extracts capital uses and funding sources from the ledger to produce a
+    standard Sources & Uses summary.
     """
 
     def generate(self) -> Dict[str, Any]:
         """
-        Generate Sources & Uses report using ledger-first architecture.
+        Generate Sources & Uses report from the ledger.
 
         Returns:
-            Dictionary with structured Sources & Uses data
+            Dictionary with structured Sources & Uses data.
         """
-        # Get ledger and create queries
-        ledger_df = self._results.ledger.ledger_df()
-        queries = LedgerQueries(ledger_df)
+        # Create queries directly from the Ledger (avoid DataFrame materialization)
+        queries = LedgerQueries(self._results.ledger)
 
         # Extract uses and sources from ledger
         uses_data = queries.capital_uses_by_category()

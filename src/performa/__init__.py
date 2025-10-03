@@ -1,13 +1,13 @@
 # Copyright 2024-2025 David Gordon Nix
 # SPDX-License-Identifier: Apache-2.0
 
+import importlib
 import logging
 import warnings
 
-from . import analysis, asset, core, deal, debt, development, reporting, valuation
-
-# Silence pandas FutureWarning about 'M' frequency being deprecated
-# This warning is misleading - pandas has threatened this for years without action
+# Silence pandas FutureWarning related to monthly frequency alias 'M'.
+# Performa standardizes monthly PeriodIndex usage across modules and
+# suppresses this warning to reduce log noise during analysis.
 warnings.filterwarnings(
     "ignore",
     message=".*'M' is deprecated and will be removed in a future version.*",
@@ -56,8 +56,8 @@ Example Usage:
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 
-# Guide users to the new, explicit API surface
-__all__ = [
+# Public API surface (lazy-loaded on first attribute access)
+__all__ = [  # noqa: F822 - lazy loading
     "analysis",
     "asset",
     "core",
@@ -67,3 +67,24 @@ __all__ = [
     "reporting",
     "valuation",
 ]
+
+
+_LAZY_MODULES = {
+    "analysis": "performa.analysis",
+    "asset": "performa.asset",
+    "core": "performa.core",
+    "deal": "performa.deal",
+    "debt": "performa.debt",
+    "development": "performa.development",
+    "reporting": "performa.reporting",
+    "valuation": "performa.valuation",
+}
+
+
+def __getattr__(name: str):
+    module_path = _LAZY_MODULES.get(name)
+    if module_path is None:
+        raise AttributeError(f"module 'performa' has no attribute '{name}'")
+    module = importlib.import_module(module_path)
+    globals()[name] = module
+    return module

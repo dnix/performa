@@ -2,55 +2,31 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Real Estate Cash Flow Orchestration Engine.
+Cash Flow Orchestration Engine
 
-ARCHITECTURE: ASSEMBLER PATTERN WITH ANALYSIS CONTEXT
-======================================================
+This module coordinates asset-level cash flow calculations across models
+using a context-driven orchestration pattern. It resolves references and
+derives shared state once per analysis to reduce runtime overhead, then
+executes models in phases to respect dependencies.
 
-This module orchestrates cash flow calculations across all models in a property analysis.
-The core design uses an "assembler pattern" to resolve object references once during
-analysis setup, eliminating runtime lookups during cash flow calculations.
+Key concepts:
+- AnalysisContext: Central container for timeline, settings, ledger, and
+  derived state (e.g., occupancy). It also holds lookup maps to avoid
+  repeated resolution during model execution.
+- Two-phase execution: Independent models compute first, followed by
+  dependent models that reference aggregated results (e.g., % of EGI).
+- Topological order: Within a phase, models are computed in dependency-safe
+  order.
 
-KEY COMPONENTS:
+Overview of flow:
+1) Build derived system state (e.g., occupancy) once
+2) Phase 1: compute independent models
+3) Aggregate intermediate results needed by dependent models
+4) Phase 2: compute dependent models and update aggregates incrementally
+5) Final aggregation: create summary views from the ledger
 
-1. ANALYSIS CONTEXT - CENTRAL DATA CONTAINER
-   ==========================================
-   AnalysisContext holds all analysis state in one location:
-   - Timeline and global settings
-   - Direct object references (resolved from UUIDs during assembly)
-   - Lookup maps for recovery methods, capital plans, rollover profiles
-   - Pre-calculated derived state (occupancy rates)
-
-   This design eliminates UUID resolution overhead during cash flow calculations.
-
-2. TWO-PHASE EXECUTION
-   ===================
-   Phase 1: Independent Models - Calculate base rents, base expenses
-   Phase 2: Dependent Models - Calculate models that reference aggregates
-
-   This separation prevents circular dependencies while supporting models like
-   "management fee based on total operating expenses".
-
-3. ASSEMBLER PATTERN WORKFLOW
-   ===========================
-   Assembly Time (once per analysis):
-   - Resolve UUID references to direct object references
-   - Populate AnalysisContext lookup maps
-   - Inject resolved references into model instances
-
-   Runtime (per cash flow calculation):
-   - Direct attribute access only (no UUID lookups)
-   - Models call context.recovery_method_lookup[name] instead of resolving UUIDs
-
-TESTED SCENARIOS:
-- Single tenant buildings through multi-tenant complexes
-- Multiple recovery method types and rollover profiles
-- Properties with 40+ tenants and complex lease structures
-
-
-Implementation examples:
-- ResidentialAnalysisScenario: Basic assembler pattern
-- OfficeAnalysisScenario: Commercial-specific assembler with recovery methods
+The orchestrator writes results to the ledger as models execute, ensuring a
+single source of truth for reporting and downstream metrics.
 """
 
 from __future__ import annotations
@@ -59,7 +35,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from graphlib import CycleError, TopologicalSorter
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Set, Tuple, Union
 from uuid import UUID
 
 import pandas as pd
@@ -172,6 +148,11 @@ class AnalysisContext:
         None  # Current lease context for TI/LC calculations
     )
 
+    # --- Aggregate Cache (Phase 4 efficiency) ---
+    aggregate_cache_version: int = -1
+    aggregate_cache_keys: Optional[frozenset] = None
+    aggregate_cache: Dict[str, pd.Series] = field(default_factory=dict)
+
     def __post_init__(self):
         """Validate required fields after initialization."""
         # Validate that ledger is provided
@@ -228,6 +209,7 @@ class CashFlowOrchestrator:
         - Occupancy calculated once before any model computations
         - Intermediate aggregation enables dependent model calculations
         - Final aggregation creates summary views for reporting
+        - **Transaction batching**: All ledger operations are batched for optimal performance
 
         **Error Handling:**
         - Dependency validation provides actionable error messages
@@ -252,51 +234,59 @@ class CashFlowOrchestrator:
         )
         logger.info(f"Timeline periods: {len(self.context.timeline.period_index)}")
 
-        # === PHASE 0: DEFENSIVE VALIDATION ===
-        # Dependency validation removed - simplified ledger-based approach
-        validation_time = 0.0
+        # === PHASE 1: TRANSACTION-WRAPPED INDEPENDENT MODELS ===
+        # CRITICAL FIX: Separate transactions to ensure proper data visibility
+        with self.context.ledger.transaction():
+            logger.debug("Started Phase 1 transaction for independent models")
 
-        # === PRE-PHASE: CALCULATE DERIVED SYSTEM STATE ===
-        logger.info("Pre-Phase: Calculating derived system-wide state...")
-        pre_phase_start = time.time()
+            # === PHASE 0: DEFENSIVE VALIDATION ===
+            # Dependency validation removed - simplified ledger-based approach
+            validation_time = 0.0
 
-        # Calculate occupancy once for all models to use
-        # This can be done early since it only depends on static lease attributes
-        self.context.occupancy_rate_series = self._calculate_occupancy_series()
-        occupancy_periods = len(self.context.occupancy_rate_series)
-        avg_occupancy = self.context.occupancy_rate_series.mean()
+            # === PRE-PHASE: CALCULATE DERIVED SYSTEM STATE ===
+            logger.info("Pre-Phase: Calculating derived system-wide state...")
+            pre_phase_start = time.time()
 
-        pre_phase_time = time.time() - pre_phase_start
-        logger.info(f"Pre-Phase completed in {pre_phase_time:.3f}s")
-        logger.debug(
-            f"  Occupancy calculated for {occupancy_periods} periods, average: {avg_occupancy:.1%}"
-        )
+            # Calculate occupancy once for all models to use
+            # This can be done early since it only depends on static lease attributes
+            self.context.occupancy_rate_series = self._calculate_occupancy_series()
+            occupancy_periods = len(self.context.occupancy_rate_series)
+            avg_occupancy = self.context.occupancy_rate_series.mean()
 
-        # === PHASE 1: INDEPENDENT VALUES ===
-        logger.info(
-            "Phase 1: Calculating independent models (no aggregate dependencies)..."
-        )
-        phase1_start = time.time()
+            pre_phase_time = time.time() - pre_phase_start
+            logger.info(f"Pre-Phase completed in {pre_phase_time:.3f}s")
+            logger.debug(
+                f"  Occupancy calculated for {occupancy_periods} periods, average: {avg_occupancy:.1%}"
+            )
 
-        # Models that can be calculated without referring to aggregated results
-        independent_models = [
-            m
-            for m in self.models
-            if m.calculation_pass == OrchestrationPass.INDEPENDENT_MODELS
-        ]
+            # === PHASE 1: INDEPENDENT VALUES ===
+            logger.info(
+                "Phase 1: Calculating independent models (no aggregate dependencies)..."
+            )
+            phase1_start = time.time()
 
-        logger.info(f"  Processing {len(independent_models)} independent models:")
-        for model in independent_models:
-            logger.debug(f"    - {model.name} ({model.category}/{model.subcategory})")
+            # Models that can be calculated without referring to aggregated results
+            independent_models = [
+                m
+                for m in self.models
+                if m.calculation_pass == OrchestrationPass.INDEPENDENT_MODELS
+            ]
 
-        self._compute_model_subset(independent_models)
+            logger.info(f"  Processing {len(independent_models)} independent models:")
+            for model in independent_models:
+                logger.debug(
+                    f"    - {model.name} ({model.category}/{model.subcategory})"
+                )
 
-        phase1_time = time.time() - phase1_start
-        logger.info(
-            f"Phase 1 completed in {phase1_time:.3f}s - {len(independent_models)} models computed"
-        )
+            self._compute_model_subset(independent_models)
 
-        # === INTERMEDIATE PHASE: MINIMAL AGGREGATION FOR DEPENDENT MODELS ===
+            phase1_time = time.time() - phase1_start
+            logger.info(
+                f"Phase 1 completed in {phase1_time:.3f}s - {len(independent_models)} models computed"
+            )
+            logger.debug("Phase 1 transaction will commit on exit")
+
+        # === INTERMEDIATE PHASE: AGGREGATION OUTSIDE TRANSACTION ===
         logger.info(
             "Intermediate Phase: Computing minimal aggregates for dependent models..."
         )
@@ -305,47 +295,63 @@ class CashFlowOrchestrator:
         # For dependent models that reference aggregates, we need to provide ALL aggregates
         # This ensures dependent models never fail due to missing aggregate references
         if self.models:  # Only if we have models
-            # Get current ledger and create aggregates for dependent models
-            ledger_df = self.context.ledger.ledger_df()
+            # Determine aggregate keys required by dependent models
+            needed_keys: Set[UnleveredAggregateLineKey] = set()
+            for m in self.models:
+                if (
+                    m.calculation_pass == OrchestrationPass.DEPENDENT_MODELS
+                    and getattr(m, "reference", None)
+                    and isinstance(m.reference, UnleveredAggregateLineKey)
+                ):
+                    needed_keys.add(m.reference)
 
-            # Always populate aggregates - either from ledger data or as zeros
-            # Use DRY helper method to avoid duplication
-            self._update_aggregates_from_ledger(ledger_df, "intermediate")
+            # Populate only needed aggregates; skip if none required
+            if needed_keys:
+                self._update_aggregates_from_ledger(
+                    self.context.ledger,
+                    "intermediate",
+                    keys=needed_keys,
+                )
 
         intermediate_time = time.time() - intermediate_start
         logger.info(f"Intermediate Phase completed in {intermediate_time:.3f}s")
 
-        # === PHASE 2: DEPENDENT VALUES ===
-        logger.info(
-            "Phase 2: Calculating dependent models (require aggregate references)..."
-        )
-        phase2_start = time.time()
+        # === PHASE 2: TRANSACTION-WRAPPED DEPENDENT MODELS ===
+        with self.context.ledger.transaction():
+            logger.debug("Started Phase 2 transaction for dependent models")
 
-        # Models that depend on aggregate results from Phase 1
-        dependent_models = [
-            m
-            for m in self.models
-            if m.calculation_pass == OrchestrationPass.DEPENDENT_MODELS
-        ]
-
-        logger.info(f"  Processing {len(dependent_models)} dependent models:")
-        for model in dependent_models:
-            # Handle both UnleveredAggregateLineKey and other reference types safely
-            ref_name = (
-                model.reference.value
-                if (model.reference and hasattr(model.reference, "value"))
-                else str(model.reference)
-                if model.reference
-                else "None"
+            # === PHASE 2: DEPENDENT VALUES ===
+            logger.info(
+                "Phase 2: Calculating dependent models (require aggregate references)..."
             )
-            logger.debug(f"    - {model.name} → references [{ref_name}]")
+            phase2_start = time.time()
 
-        self._compute_model_subset(dependent_models)
+            # Models that depend on aggregate results from Phase 1
+            dependent_models = [
+                m
+                for m in self.models
+                if m.calculation_pass == OrchestrationPass.DEPENDENT_MODELS
+            ]
 
-        phase2_time = time.time() - phase2_start
-        logger.info(
-            f"Phase 2 completed in {phase2_time:.3f}s - {len(dependent_models)} models computed"
-        )
+            logger.info(f"  Processing {len(dependent_models)} dependent models:")
+            for model in dependent_models:
+                # Handle both UnleveredAggregateLineKey and other reference types safely
+                ref_name = (
+                    model.reference.value
+                    if (model.reference and hasattr(model.reference, "value"))
+                    else str(model.reference)
+                    if model.reference
+                    else "None"
+                )
+                logger.debug(f"    - {model.name} → references [{ref_name}]")
+
+            self._compute_model_subset(dependent_models)
+
+            phase2_time = time.time() - phase2_start
+            logger.info(
+                f"Phase 2 completed in {phase2_time:.3f}s - {len(dependent_models)} models computed"
+            )
+            logger.debug("Phase 2 transaction will commit on exit")
 
         # === FINAL PHASE: COMPLETE AGGREGATION ===
         logger.info("Final Phase: Aggregating all results into summary views...")
@@ -456,8 +462,9 @@ class CashFlowOrchestrator:
 
     def _update_aggregates_from_ledger(
         self,
-        ledger_df: pd.DataFrame,
+        ledger: Ledger,
         phase_name: Literal["intermediate", "final"] = "final",
+        keys: Optional[Set[UnleveredAggregateLineKey]] = None,
     ) -> None:
         """
         DRY method to update aggregates from ledger state.
@@ -466,10 +473,48 @@ class CashFlowOrchestrator:
         Can be called at intermediate or final phases.
 
         Args:
-            ledger_df: Current ledger DataFrame
+            ledger: Current ledger instance (pandas or DuckDB-based)
             phase_name: Name of phase for logging ("intermediate" or "final")
         """
-        if ledger_df.empty:
+        # Short-circuit using versioned cache when ledger hasn't changed
+        try:
+            current_version = ledger.get_version()  # DuckDB ledger supports this
+        except Exception:
+            current_version = -1
+
+        requested_keys = frozenset(k.value for k in keys) if keys is not None else None
+
+        start_ts = time.time()
+
+        if (
+            current_version == self.context.aggregate_cache_version
+            and self.context.aggregate_cache
+        ):
+            cache_keys = self.context.aggregate_cache_keys
+            # If no specific keys requested, reuse entire cache
+            if (
+                requested_keys is None
+                or cache_keys is None
+                or (
+                    requested_keys is not None and cache_keys.issuperset(requested_keys)
+                )
+            ):
+                # Reuse cached aggregates (subset if requested)
+                if requested_keys is None:
+                    for key, series in self.context.aggregate_cache.items():
+                        self.context.resolved_lookups[key] = series
+                else:
+                    for key in requested_keys:
+                        series = self.context.aggregate_cache.get(key)
+                        if series is not None:
+                            self.context.resolved_lookups[key] = series
+                elapsed = (time.time() - start_ts) * 1000
+                logger.debug(
+                    f"Aggregate cache reused (version={current_version}, keys={len(requested_keys) if requested_keys else 'all'}) in {elapsed:.1f}ms"
+                )
+                return
+
+        if len(ledger) == 0:
             # Populate all aggregates with zeros
             zero_series = pd.Series(0.0, index=self.context.timeline.period_index)
 
@@ -480,9 +525,16 @@ class CashFlowOrchestrator:
             logger.debug(
                 f"Populated {len(UnleveredAggregateLineKey)} zero-valued aggregates for empty ledger ({phase_name} phase)"
             )
+            # Cache zeros for this version as well
+            self.context.aggregate_cache = {
+                key.value: self.context.resolved_lookups[key.value]
+                for key in UnleveredAggregateLineKey
+            }
+            self.context.aggregate_cache_version = current_version
+            self.context.aggregate_cache_keys = None
         else:
             # Create queries once (performance optimization)
-            queries = LedgerQueries(ledger_df)
+            queries = LedgerQueries(ledger)
 
             # Map aggregate keys to query methods (using aliased enum)
             aggregate_mappings = {
@@ -500,7 +552,7 @@ class CashFlowOrchestrator:
                 AggKeys.TOTAL_CAPITAL_EXPENDITURES: queries.capex,
                 AggKeys.TOTAL_TENANT_IMPROVEMENTS: queries.ti,
                 AggKeys.TOTAL_LEASING_COMMISSIONS: queries.lc,
-                AggKeys.UNLEVERED_CASH_FLOW: queries.ucf,
+                AggKeys.UNLEVERED_CASH_FLOW: queries.project_cash_flow,
             }
 
             # Special cases that need zero values (not yet tracked in ledger)
@@ -510,7 +562,13 @@ class CashFlowOrchestrator:
                 AggKeys.ROLLOVER_VACANCY_LOSS: zero_series,
             }
 
-            # Update all aggregates
+            # If a subset of keys requested, filter mappings
+            if keys is not None:
+                aggregate_mappings = {
+                    k: v for k, v in aggregate_mappings.items() if k in keys
+                }
+
+            # Update requested aggregates
             for key, query_method in aggregate_mappings.items():
                 try:
                     result = query_method()
@@ -526,6 +584,16 @@ class CashFlowOrchestrator:
             # Add special cases
             for key, value in special_cases.items():
                 self.context.resolved_lookups[key.value] = value
+
+            # Update cache after recompute with computed series (include special cases)
+            cache: Dict[str, pd.Series] = {}
+            for k in aggregate_mappings.keys():
+                cache[k.value] = self.context.resolved_lookups[k.value]
+            for k in special_cases.keys():
+                cache[k.value] = self.context.resolved_lookups[k.value]
+            self.context.aggregate_cache = cache
+            self.context.aggregate_cache_version = current_version
+            self.context.aggregate_cache_keys = requested_keys
 
             logger.debug(
                 f"Updated {len(aggregate_mappings) + len(special_cases)} aggregates from ledger ({phase_name} phase)"
@@ -693,13 +761,32 @@ class CashFlowOrchestrator:
             self._add_to_ledger(model, result)
 
             # Update aggregates after each model in Phase 2 to ensure dependent models
-            # have access to fresh aggregate data from previously processed models
-            # This is necessary because some dependent models (like credit loss)
-            # depend on aggregates that include other dependent models (like vacancy loss)
+            # have access to fresh aggregate data from previously processed models.
+            # IMPORTANT: Flush buffered writes so queries see newly added transactions.
             if model.calculation_pass == OrchestrationPass.DEPENDENT_MODELS:
-                self._update_aggregates_from_ledger(
-                    self.context.ledger.ledger_df(), "intermediate"
-                )
+                # Ensure visibility of buffered transactions
+                self.context.ledger.flush()
+                # Update only needed aggregates for remaining dependent models
+                remaining_needed: Set[UnleveredAggregateLineKey] = set()
+                # Recompute list of remaining dependent models from context
+                remaining_models = [
+                    m
+                    for m in self.models
+                    if m.calculation_pass == OrchestrationPass.DEPENDENT_MODELS
+                ]
+                for rem in remaining_models:
+                    if rem.uid == model.uid:
+                        continue
+                    if getattr(rem, "reference", None) and isinstance(
+                        rem.reference, UnleveredAggregateLineKey
+                    ):
+                        remaining_needed.add(rem.reference)
+                if remaining_needed:
+                    self._update_aggregates_from_ledger(
+                        self.context.ledger,
+                        "intermediate",
+                        keys=remaining_needed,
+                    )
 
     def _add_to_ledger(self, model: "CashFlowModel", result: Any) -> None:
         """Add model cash flows to ledger with metadata."""
@@ -830,15 +917,15 @@ class CashFlowOrchestrator:
 
         This is the ONLY place we query the complete ledger for final aggregates.
         """
-        # Get complete ledger data (includes Phase 1 and Phase 2 results)
-        ledger_df = self.context.ledger.ledger_df()
+        # Get complete ledger and analysis periods
+        ledger = self.context.ledger
         analysis_periods = self.context.timeline.period_index
 
         logger.info(
-            f"Finalizing aggregation from ledger with {len(ledger_df)} transactions"
+            f"Finalizing aggregation from ledger with {len(ledger)} transactions"
         )
 
-        if ledger_df.empty:
+        if len(ledger) == 0:
             logger.warning("Ledger is empty - creating zero-filled summary_df")
             # Create zero-filled summary with proper structure
             summary_data = {
@@ -859,8 +946,8 @@ class CashFlowOrchestrator:
 
             return
 
-        # Use elegant LedgerQueries for all aggregation (single query instance)
-        queries = LedgerQueries(ledger_df)
+        # Create high-performance DuckDB-based queries
+        queries = LedgerQueries(ledger)
 
         # Build all aggregate series with proper PeriodIndex conversion
         # This replaces both the old summary_df logic AND the resolved_lookups update
@@ -876,7 +963,7 @@ class CashFlowOrchestrator:
         capex_series = self._to_period_series(queries.capex())
         ti_series = self._to_period_series(queries.ti())
         lc_series = self._to_period_series(queries.lc())
-        ucf_series = self._to_period_series(queries.ucf())
+        ucf_series = self._to_period_series(queries.project_cash_flow())
 
         # Create summary DataFrame for reporting
         summary_data = {

@@ -21,7 +21,7 @@ from performa.asset.office import (
     OfficeProperty,
     OfficeRentRoll,
 )
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -85,11 +85,8 @@ class TestLedgerFlexibility:
     ):
         """Test that asset analysis can accept a pre-configured LedgerBuilder."""
         # Create custom ledger with specific settings
-        custom_settings = LedgerGenerationSettings(
-            validate_transactions=True,
-            include_transaction_ids=True,
-        )
-        custom_ledger = Ledger(settings=custom_settings)
+        # Use default ledger settings
+        custom_ledger = Ledger()
 
         # Run asset analysis with custom ledger
         result = analyze_asset(
@@ -160,7 +157,7 @@ class TestLedgerFlexibility:
     ):
         """Test that deal analysis can accept a custom LedgerBuilder."""
         # Create custom ledger
-        custom_ledger = Ledger(settings=LedgerGenerationSettings())
+        custom_ledger = Ledger()
 
         # Create a deal
         deal = Deal(
@@ -195,7 +192,7 @@ class TestLedgerFlexibility:
     def test_multi_phase_analysis_with_shared_ledger(self, timeline, settings):
         """Test that multiple analysis phases can share a single LedgerBuilder."""
         # Create shared ledger
-        shared_ledger = Ledger(settings=LedgerGenerationSettings())
+        shared_ledger = Ledger()
 
         # Phase 1: Analyze first property
         property1 = OfficeProperty(
@@ -284,8 +281,8 @@ class TestLedgerFlexibility:
     ):
         """Test that asset_analysis takes priority over ledger in deal.analyze()."""
         # Create two different ledgers
-        ledger1 = Ledger(settings=LedgerGenerationSettings())
-        ledger2 = Ledger(settings=LedgerGenerationSettings())
+        ledger1 = Ledger()
+        ledger2 = Ledger()
 
         # Run asset analysis with ledger1
         asset_result = analyze_asset(

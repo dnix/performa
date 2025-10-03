@@ -8,10 +8,11 @@ import traceback
 from abc import abstractmethod
 from typing import List, Optional
 
-from performa.analysis import AnalysisScenarioBase
-from performa.analysis.orchestrator import AnalysisContext
-from performa.core.base import LeaseSpecBase
-from performa.core.primitives import CashFlowModel
+from ...analysis import AnalysisScenarioBase
+from ...analysis.orchestrator import AnalysisContext
+from ...core.base import LeaseSpecBase
+from ...core.base.loss import CreditLossModel, VacancyLossModel
+from ...core.primitives import CashFlowModel
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +162,24 @@ class CommercialAnalysisScenarioBase(AnalysisScenarioBase):
 
             # Process absorption plans for vacant suites
             # Generate lease models from absorption plan specs for revenue generation
+
+            # Get absorption plans from different sources depending on asset type
+            absorption_plans = []
+
+            # Method 1: Direct absorption_plans attribute (office properties)
             if hasattr(self.model, "absorption_plans") and self.model.absorption_plans:
+                absorption_plans.extend(self.model.absorption_plans)
+
+            # Method 2: Blueprint absorption_plan (development projects)
+            if hasattr(self.model, "blueprints") and self.model.blueprints:
+                for blueprint in self.model.blueprints:
+                    if (
+                        hasattr(blueprint, "absorption_plan")
+                        and blueprint.absorption_plan
+                    ):
+                        absorption_plans.append(blueprint.absorption_plan)
+
+            if absorption_plans:
                 # TODO: REABSORB→Absorption Transformation Support (Office)
                 # ============================================================
                 # Currently, office properties do NOT support the REABSORB→absorption workflow
@@ -184,12 +202,33 @@ class CommercialAnalysisScenarioBase(AnalysisScenarioBase):
                 # See ResidentialAnalysisScenario._find_transformative_leases() and
                 # _create_post_renovation_lease() for reference implementation.
 
-                for absorption_plan in self.model.absorption_plans:
+                for absorption_plan in absorption_plans:
                     try:
+                        # Get vacant suites from appropriate source
+                        vacant_suites = []
+
+                        # Method 1: From rent roll (stabilized properties)
+                        if hasattr(self.model, "rent_roll") and self.model.rent_roll:
+                            if hasattr(self.model.rent_roll, "vacant_suites"):
+                                vacant_suites = self.model.rent_roll.vacant_suites or []
+
+                        # Method 2: From blueprint vacant inventory (development projects)
+                        if (
+                            not vacant_suites
+                            and hasattr(self.model, "blueprints")
+                            and self.model.blueprints
+                        ):
+                            for blueprint in self.model.blueprints:
+                                if (
+                                    hasattr(blueprint, "vacant_inventory")
+                                    and blueprint.vacant_inventory
+                                ):
+                                    vacant_suites.extend(blueprint.vacant_inventory)
+
                         # Generate lease specs from absorption plan
                         # NOTE: Currently only passes static vacant_suites, not REABSORB space
                         generated_specs = absorption_plan.generate_lease_specs(
-                            available_vacant_suites=self.model.rent_roll.vacant_suites,
+                            available_vacant_suites=vacant_suites,
                             analysis_start_date=self.timeline.start_date.to_timestamp().date(),
                             analysis_end_date=self.timeline.end_date.to_timestamp().date(),
                             lookup_fn=None,
@@ -216,6 +255,47 @@ class CommercialAnalysisScenarioBase(AnalysisScenarioBase):
                                 and lease_model.leasing_commission
                             ):
                                 all_models.append(lease_model.leasing_commission)
+
+                        # CRITICAL FIX: Process absorption plan stabilized losses
+                        if (
+                            hasattr(absorption_plan, "stabilized_losses")
+                            and absorption_plan.stabilized_losses
+                        ):
+                            absorption_losses = absorption_plan.stabilized_losses
+
+                            # Create vacancy loss model if configured
+                            if (
+                                hasattr(absorption_losses, "general_vacancy")
+                                and absorption_losses.general_vacancy
+                                and absorption_losses.general_vacancy.rate > 0
+                            ):
+                                vacancy_model = VacancyLossModel(
+                                    name=f"{absorption_plan.name} - Vacancy Loss",
+                                    timeline=self.timeline,
+                                    rate=absorption_losses.general_vacancy.rate,
+                                    reference_line=absorption_losses.general_vacancy.method.value,
+                                )
+                                all_models.append(vacancy_model)
+                                logger.info(
+                                    f"Added vacancy loss model: {vacancy_model.name} ({vacancy_model.rate:.1%})"
+                                )
+
+                            # Create credit loss model if configured
+                            if (
+                                hasattr(absorption_losses, "credit_loss")
+                                and absorption_losses.credit_loss
+                                and absorption_losses.credit_loss.rate > 0
+                            ):
+                                credit_model = CreditLossModel(
+                                    name=f"{absorption_plan.name} - Credit Loss",
+                                    timeline=self.timeline,
+                                    rate=absorption_losses.credit_loss.rate,
+                                    reference_line=absorption_losses.credit_loss.basis.value,
+                                )
+                                all_models.append(credit_model)
+                                logger.info(
+                                    f"Added credit loss model: {credit_model.name} ({credit_model.rate:.1%})"
+                                )
 
                     except Exception as e:
                         logger.error(

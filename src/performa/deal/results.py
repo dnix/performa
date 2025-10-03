@@ -2,17 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-DealResults - Pure Ledger-Driven Architecture
+Deal results accessors (ledger-driven).
 
-This module provides the FINAL, CORRECTED implementation of the deal results
-interface following the three-layer architecture:
-- LedgerQueries: Pure data access
-- FinancialCalculations: Pure mathematical functions
-- DealResults: Orchestration layer
-
-ALL calculations delegate to FinancialCalculations.
-ALL data access delegates to LedgerQueries.
-This class is a THIN, INTELLIGENT WRAPPER with no calculation logic itself.
+This module exposes a clean, flat API for deal-level results that delegates
+data access to `LedgerQueries` and calculations to `FinancialCalculations`.
+It contains no business logic of its own and serves as a thin orchestration
+layer for ease of use and IDE discoverability.
 """
 
 from __future__ import annotations
@@ -37,23 +32,12 @@ from .deal import Deal
 
 class DealResults:  # noqa: PLR0904
     """
-    Clean, flat API following industry conventions.
+    Flat, ledger-driven API for deal analysis results.
 
-    This is the SINGLE interface for accessing all deal analysis results.
-    It orchestrates calls between LedgerQueries (data) and FinancialCalculations (math)
-    but contains NO calculation logic itself.
-
-    Key principles:
-    - Flat access: results.levered_irr (not results.metrics.levered.irr)
-    - Industry standard naming: levered_irr, equity_multiple, etc.
-    - Ledger-driven: All data comes from the ledger via queries
-    - Pure delegation: No business logic in this class
-
-    Example:
-        results = DealResults(deal, timeline, ledger)
-        irr = results.levered_irr          # Primary return metric
-        multiple = results.equity_multiple # Primary multiple metric
-        flows = results.levered_cash_flow  # Time series for analysis
+    Principles:
+    - Flat accessors (e.g., `levered_irr`, `equity_multiple`)
+    - Delegation: data via `LedgerQueries`, math via `FinancialCalculations`
+    - No calculation logic in this class
     """
 
     def __init__(self, deal: Deal, timeline: Timeline, ledger: Ledger):
@@ -68,11 +52,16 @@ class DealResults:  # noqa: PLR0904
         self._deal = deal
         self._timeline = timeline
         self._ledger = ledger
-        self._queries = LedgerQueries(ledger.ledger_df())
+        self._queries = LedgerQueries(ledger)
 
     # ==========================================================================
     # DIRECT DATA ACCESS
     # ==========================================================================
+
+    @property
+    def deal(self) -> "Deal":
+        """Access to the original deal configuration."""
+        return self._deal
 
     @property
     def timeline(self) -> "Timeline":
@@ -128,42 +117,79 @@ class DealResults:  # noqa: PLR0904
     @cached_property
     def levered_cash_flow(self) -> pd.Series:
         """
-        Project-level cash flows after debt service effects (foundation for levered_irr).
+        Levered cash flows from investor perspective (foundation for levered_irr).
 
-        This represents the project's net cash requirements after debt service payments.
-        Industry standard formula: LCF = UCF - Debt Service
+        This is the project-level aggregate of all equity partner cash flows after
+        accounting for debt effects, presented from the investor's perspective.
 
-        This is PROJECT-level analysis, not partner-level distributions.
+        **Sign Convention (Investor Perspective):**
+        - Equity contributions: NEGATIVE (investor pays money out)
+        - Equity distributions: POSITIVE (investor receives money)
+        - Operating distributions: POSITIVE (cash returned to investor)
+        - Refinancing cash-out: POSITIVE (cash returned to investor)
+        - Disposition proceeds: POSITIVE (cash returned to investor)
+
+        This is the standard sign convention for IRR calculations and represents
+        what investors actually experience: money out (negative) and money in (positive).
+
+        Debt effects are implicitly captured because distributions occur after
+        debt service is paid and include proceeds from debt refinancing.
+
+        **Implementation:**
+        Uses equity_partner_flows() (which is in deal perspective) and flips the sign
+        to investor perspective. equity_partner_flows() aggregates all partner
+        transactions (GP, LP, etc.) per period into a single project-level time series.
+
+        **Note:** This is the standard "levered cash flow" used for levered IRR
+        calculations in real estate. Project performance is a proxy for investor
+        performance - they use the same cash flows.
+
+        Returns:
+            Time series of levered cash flows (investor perspective), indexed by period
+
+        See Also:
+            - unlevered_cash_flow: Property performance before debt effects
+            - equity_partner_flows(): Underlying query (deal perspective)
         """
-        # Get project cash flows and debt service
-        project_cf = self._queries.project_cash_flow()
-        debt_service = self._queries.debt_service()
+        # Get equity flows from deal perspective and flip to investor perspective
+        # Deal perspective: contributions +, distributions -
+        # Investor perspective: contributions -, distributions +
+        deal_flows = self._queries.equity_partner_flows()
+        investor_flows = -1 * deal_flows  # Flip sign for investor perspective
 
-        # Calculate levered cash flow (debt service is already negative)
-        levered_cf = project_cf + debt_service
-
-        # Align with timeline
-        return self._timeline.align_series(levered_cf, fill_value=0.0)
+        return self._timeline.align_series(investor_flows, fill_value=0.0)
 
     @cached_property
     def equity_cash_flow(self) -> pd.Series:
         """
-        Partner-level equity cash flows (investor perspective).
+        Investor equity cash flows (investor perspective).
 
-        This represents actual cash flows to/from equity partners including:
-        - Equity contributions (negative to investors)
-        - Operating distributions (positive to investors)
-        - Disposition distributions (positive to investors)
+        Alias for levered_cash_flow. Both represent the same thing: cash flows
+        to/from equity investors after all debt effects.
 
-        This is PARTNER-level analysis for equity investor returns.
+        **Sign Convention (Investor Perspective):**
+        - Equity contributions: NEGATIVE (cash OUT of investor pocket)
+        - Equity distributions: POSITIVE (cash INTO investor pocket)
+        - Operating distributions: POSITIVE (cash INTO investor pocket)
+        - Refinancing cash-out: POSITIVE (cash INTO investor pocket)
+        - Disposition proceeds: POSITIVE (cash INTO investor pocket)
+
+        This property exists for semantic clarity in different contexts:
+        - Use levered_cash_flow when emphasizing project-level analysis
+        - Use equity_cash_flow when emphasizing investor returns
+
+        Both use the same investor perspective and produce identical results.
+
+        Returns:
+            Time series of equity cash flows (investor perspective), indexed by period
+
+        See Also:
+            - levered_cash_flow: Same data, emphasizes project performance
+            - unlevered_cash_flow: Property performance before debt effects
         """
-        # Query equity partner flows and flip to investor perspective
-        flows = self._queries.equity_partner_flows()
-        # CRITICAL: Flip sign for investor perspective (contributions negative, distributions positive)
-        investor_flows = -1 * flows
-
-        # Align with timeline
-        return self._timeline.align_series(investor_flows, fill_value=0.0)
+        # equity_cash_flow is simply an alias for levered_cash_flow
+        # Both are in investor perspective and represent the same cash flows
+        return self.levered_cash_flow
 
     @cached_property
     def unlevered_cash_flow(self) -> pd.Series:
@@ -561,15 +587,47 @@ class DealResults:  # noqa: PLR0904
         """
         partner_dict = {}
 
-        # Get unique partner IDs from ledger
-        partner_mask = self._queries.ledger["entity_type"].isin(["GP", "LP"])
-        if partner_mask.any():
-            unique_partners = self._queries.ledger[partner_mask]["entity_id"].unique()
+        # Enumerate partners with details (supports multiple partners of each type)
+        try:
+            details = self._queries.list_partner_details()
+            name_by_id = {}
+            kind_by_id = {}
+            share_by_id = {}
+            # Prefer configured partner names/types from deal if available
+            try:
+                if (
+                    getattr(self._deal, "equity_partners", None)
+                    and self._deal.equity_partners.partners
+                ):
+                    for p in self._deal.equity_partners.partners:
+                        pid = str(p.uid)
+                        name_by_id[pid] = p.name
+                        kind_by_id[pid] = p.kind
+                        share_by_id[pid] = getattr(p, "share", None)
+            except Exception:
+                pass
 
-            for partner_id in unique_partners:
-                partner_dict[partner_id] = PartnerMetrics(
-                    partner_id=partner_id, ledger=self._ledger, timeline=self._timeline
-                )
+            if not details.empty:
+                for partner_id, entity_type in zip(
+                    details["entity_id"], details["entity_type"]
+                ):
+                    pid = str(partner_id)
+                    pname = name_by_id.get(pid)
+                    ptype = kind_by_id.get(
+                        pid, str(entity_type) if entity_type is not None else None
+                    )
+                    pshare = share_by_id.get(pid)
+                    partner_dict[pid] = PartnerMetrics(
+                        partner_id=pid,
+                        ledger=self._ledger,
+                        timeline=self._timeline,
+                        name=pname,
+                        entity_type=ptype,
+                        ownership_share=pshare,
+                    )
+        except Exception:
+            # If queries fail, leave empty; partner() access will raise
+            pass
 
         return partner_dict
 
@@ -578,6 +636,42 @@ class DealResults:  # noqa: PLR0904
         if partner_id not in self.partners:
             raise KeyError(f"Partner '{partner_id}' not found in deal")
         return self.partners[partner_id]
+
+    @cached_property
+    def partners_summary(self) -> list[Dict[str, Optional[str]]]:
+        """
+        Lightweight partner summary records.
+
+        Returns:
+            List of dicts with keys: id, name, entity_type
+        """
+        summary: list[Dict[str, Optional[str]]] = []
+
+        # Prefer PartnerMetrics (has resolved names/types)
+        for pid, pm in self.partners.items():
+            summary.append({
+                "id": pid,
+                "name": getattr(pm, "partner_name", None),
+                "entity_type": getattr(pm, "entity_type", None),
+                "share": getattr(pm, "ownership_share", None),
+            })
+
+        # Fallback if no partners were resolved
+        if not summary:
+            try:
+                details = self._queries.list_partner_details()
+                if not details.empty:
+                    for pid, et in zip(details["entity_id"], details["entity_type"]):
+                        summary.append({
+                            "id": str(pid),
+                            "name": None,
+                            "entity_type": str(et) if et is not None else None,
+                            "share": None,
+                        })
+            except Exception:
+                pass
+
+        return summary
 
     # ==========================================================================
     # LEGACY COMPATIBILITY INTERFACE
@@ -820,12 +914,23 @@ class PartnerMetrics:
     deal-level results for consistency.
     """
 
-    def __init__(self, partner_id: str, ledger: Ledger, timeline: Timeline):
-        """Initialize with partner ID and shared analysis components."""
+    def __init__(
+        self,
+        partner_id: str,
+        ledger: Ledger,
+        timeline: Timeline,
+        name: Optional[str] = None,
+        entity_type: Optional[str] = None,
+        ownership_share: Optional[float] = None,
+    ):
+        """Initialize with partner identity and shared analysis components."""
         self.partner_id = partner_id
+        self.partner_name = name
+        self.entity_type = entity_type
+        self.ownership_share = ownership_share
         self._ledger = ledger
         self._timeline = timeline
-        self._queries = LedgerQueries(ledger.ledger_df())
+        self._queries = LedgerQueries(ledger)
 
     @cached_property
     def irr(self) -> Optional[float]:
@@ -868,6 +973,9 @@ class PartnerMetrics:
     def __repr__(self) -> str:
         try:
             irr_str = f"{self.irr:.2%}" if self.irr else "N/A"
-            return f"PartnerMetrics({self.partner_id}, irr={irr_str})"
+            label = self.partner_name or self.partner_id
+            etype = f", type={self.entity_type}" if self.entity_type else ""
+            return f"PartnerMetrics({label}{etype}, irr={irr_str})"
         except NotImplementedError:
-            return f"PartnerMetrics({self.partner_id}, not yet implemented)"
+            label = self.partner_name or self.partner_id
+            return f"PartnerMetrics({label}, not yet implemented)"

@@ -10,7 +10,10 @@ principles and the existing Performa categorization system.
 """
 
 from functools import lru_cache
-from typing import Union
+from typing import TYPE_CHECKING, Dict, List, Union
+
+if TYPE_CHECKING:
+    from .records import TransactionRecord
 
 from performa.core.primitives import (
     CapExCategoryEnum,
@@ -33,7 +36,7 @@ class FlowPurposeMapper:
     standard real estate accounting principles.
     """
 
-    # PERFORMANCE OPTIMIZATION: Cache enum value lists to avoid repeated list comprehensions
+    # Cache enum value lists to avoid repeated list comprehensions
     @staticmethod
     @lru_cache(maxsize=None)
     def _get_capital_subcategory_values():
@@ -125,7 +128,7 @@ class FlowPurposeMapper:
         amount: float,
     ) -> TransactionPurpose:
         """
-        Enhanced purpose determination considering subcategory.
+        Comprehensive purpose determination considering subcategory.
 
         Uses actual enum values instead of brittle string patterns.
 
@@ -214,3 +217,60 @@ class FlowPurposeMapper:
     def is_financing_flow(purpose: TransactionPurpose) -> bool:
         """Check if a transaction purpose represents financing activity."""
         return purpose == TransactionPurpose.FINANCING_SERVICE
+
+    @staticmethod
+    def generate_sql_flow_purpose_case() -> str:
+        """
+        Generate SQL CASE statement for flow purpose mapping.
+
+        This allows DuckDB to handle flow purpose calculation natively
+        instead of expensive Python enum processing, providing
+        performance improvements for bulk operations.
+
+        Returns:
+            SQL CASE statement string for flow purpose determination
+        """
+        return """
+        CASE 
+            WHEN category = 'Revenue' THEN 'Operating'
+            WHEN category = 'Expense' THEN 'Operating'
+            WHEN category = 'Capital' AND amount < 0 THEN 'Capital Use'
+            WHEN category = 'Capital' AND amount >= 0 THEN 'Capital Source' 
+            WHEN category = 'Financing' AND amount < 0 THEN 'Financing Service'
+            WHEN category = 'Financing' AND amount >= 0 THEN 'Capital Source'
+            WHEN category = 'Valuation' THEN 'Valuation'
+            ELSE 'Operating'
+        END
+        """.strip()
+
+    @staticmethod
+    def generate_optimized_raw_data(
+        records: List["TransactionRecord"],
+    ) -> Dict[str, List]:
+        """
+        Generate minimal raw data structure optimized for SQL-native processing.
+
+        Avoids expensive Python object creation and enum processing by creating
+        a minimal DataFrame with only the essential data needed for SQL operations.
+
+        Args:
+            records: List of transaction records to process
+
+        Returns:
+            Dictionary of lists suitable for DataFrame construction
+        """
+        return {
+            "date": [r.date for r in records],
+            "amount": [float(r.amount) for r in records],
+            "category": [r.category.value for r in records],
+            "subcategory": [r.subcategory.value for r in records],
+            "item_name": [r.item_name for r in records],
+            "source_id_str": [str(r.source_id) for r in records],
+            "asset_id_str": [str(r.asset_id) for r in records],
+            "pass_num": [r.pass_num for r in records],
+            "deal_id_str": [str(r.deal_id) if r.deal_id else None for r in records],
+            "entity_id_str": [
+                str(r.entity_id) if r.entity_id else None for r in records
+            ],
+            "entity_type": [r.entity_type for r in records],
+        }

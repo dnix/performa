@@ -628,8 +628,8 @@ class AssumptionsReport(BaseReport):
 
         return {
             "report_date": date.today().strftime("%B %d, %Y"),
-            "deal_name": deal_summary.deal_name or "Untitled Deal",
-            "deal_type": deal_summary.asset_type or "Unknown",
+            "deal_name": deal_summary.get("deal_name", "Untitled Deal"),
+            "deal_type": deal_summary.get("asset_type", "Unknown"),
             "report_type": "Model Assumptions Summary",
         }
 

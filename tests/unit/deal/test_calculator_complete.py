@@ -165,7 +165,7 @@ class TestAnalyzeDeal:
         assert queries is not None
 
         # Test that basic unlevered cash flow queries work
-        unlevered_cf = queries.ucf()  # unlevered cash flow
+        unlevered_cf = queries.project_cash_flow()  # unlevered cash flow
         assert isinstance(unlevered_cf, pd.Series)
 
     def test_financing_analysis_no_financing(
@@ -371,7 +371,7 @@ class TestAnalyzeDeal:
         queries = results.queries
 
         # Test that we can access individual cash flow components
-        unlevered_cf = queries.ucf()  # unlevered cash flow
+        unlevered_cf = queries.project_cash_flow()  # unlevered cash flow
         assert unlevered_cf is not None
         assert isinstance(unlevered_cf, pd.Series)
 

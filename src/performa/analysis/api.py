@@ -2,51 +2,51 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Asset-level analysis API.
+Asset-level Analysis API
 
-This module provides clean, user-facing API functions for asset-only analysis,
-maintaining strict module boundaries by keeping deal-related functions in
-the deal module.
+Public entry points for running unlevered asset analysis and obtaining
+results backed by the transactional ledger. Deal-level functions live in
+`performa.deal.api` to maintain clear module boundaries.
 """
 
-from typing import Optional
+from __future__ import annotations
 
-from performa.core.base.property import PropertyBaseModel
-from performa.core.ledger import Ledger, LedgerGenerationSettings
-from performa.core.primitives import GlobalSettings, Timeline
+from typing import TYPE_CHECKING, Optional
 
+from ..core.ledger import Ledger
 from .registry import get_scenario_for_model
 from .results import AssetAnalysisResult
 
+if TYPE_CHECKING:
+    from ..core.base.property import PropertyBaseModel
+    from ..core.ledger import Ledger
+    from ..core.primitives import GlobalSettings, Timeline
+
 
 def run(
-    model: PropertyBaseModel,
-    timeline: Timeline,
-    settings: GlobalSettings,
-    ledger_settings: Optional[LedgerGenerationSettings] = None,
-    ledger: Optional[Ledger] = None,
-) -> AssetAnalysisResult:
+    model: "PropertyBaseModel",
+    timeline: "Timeline",
+    settings: "GlobalSettings",
+    ledger: Optional["Ledger"] = None,
+) -> "AssetAnalysisResult":
     """
-    Run asset-level analysis with full scenario execution and ledger generation.
+    Run asset-level analysis and return results with ledger support.
 
-    This function executes the complete analysis workflow:
-    1. Selects the appropriate scenario based on property type
-    2. Runs the scenario (prepare_models, orchestration, etc.)
-    3. Generates the transactional ledger
-    4. Returns comprehensive results with ledger-based data
+    Workflow:
+      1) Select scenario based on the property model
+      2) Create scenario with the provided timeline, settings, and ledger
+      3) Execute orchestration to compute cash flows
+      4) Return results that query the ledger for metrics
 
     Args:
-        model: Property model to analyze
-        timeline: Analysis timeline
-        settings: Global analysis settings
-        ledger_settings: Optional ledger generation settings
+        model: Property model to analyze.
+        timeline: Timeline for the analysis (monthly PeriodIndex expected downstream).
+        settings: Global analysis settings.
+        ledger: Optional ledger to use; when omitted, a new ledger is created.
 
     Returns:
-        AssetAnalysisResult containing scenario, ledger, cash flows, and key metrics
-
-    Note:
-        This function provides comprehensive analysis results with full ledger support.
-        The result includes the full scenario for detailed model introspection.
+        AssetAnalysisResult with scenario, ledger, models, and accessors for
+        metrics drawn directly from the ledger.
     """
     # Step 1: Create or use existing Ledger
     if ledger is not None:
@@ -54,9 +54,7 @@ def run(
         current_ledger = ledger
     else:
         # Create new ledger
-        if ledger_settings is None:
-            ledger_settings = LedgerGenerationSettings()
-        current_ledger = Ledger(settings=ledger_settings)
+        current_ledger = Ledger()
 
     # Step 2: Get the appropriate scenario class from registry
     scenario_cls = get_scenario_for_model(model)

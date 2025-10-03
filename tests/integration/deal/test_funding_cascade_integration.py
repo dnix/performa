@@ -12,7 +12,7 @@ import os
 import sys
 from unittest.mock import Mock
 
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import GlobalSettings, Timeline
 from performa.deal.orchestrator import DealContext
 from performa.debt.construction import ConstructionFacility
@@ -29,7 +29,7 @@ class TestMultiTrancheFundingIntegration:
         """Setup for each test."""
         self.timeline = Timeline.from_dates("2024-01-01", "2026-12-01")  # 3 years
         self.settings = GlobalSettings()
-        self.ledger = Ledger(LedgerGenerationSettings())
+        self.ledger = Ledger()
 
     def test_senior_junior_tranche_funding_priority(self):
         """
@@ -244,7 +244,7 @@ class TestFundingCascadeComponentIntegration:
         """Setup for each test."""
         self.timeline = Timeline.from_dates("2024-01-01", "2025-12-01")  # 2 years
         self.settings = GlobalSettings()
-        self.ledger = Ledger(LedgerGenerationSettings())
+        self.ledger = Ledger()
 
     def test_debt_proceeds_equal_debt_draws(self):
         """
@@ -322,7 +322,7 @@ class TestEndToEndFundingValidation:
         """
         timeline = Timeline.from_dates("2024-01-01", "2027-01-01")  # 3 years
         settings = GlobalSettings()
-        ledger = Ledger(LedgerGenerationSettings())
+        ledger = Ledger()
 
         # Create realistic development financing
         facility = ConstructionFacility(

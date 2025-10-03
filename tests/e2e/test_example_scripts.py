@@ -52,21 +52,23 @@ class TestPatternExamples:
     """Test that pattern-based examples execute without errors."""
 
     def test_office_development_comparison(self):
-        """Test office development pattern comparison."""
+        """Test office development pattern comparison with performance insights."""
         patterns_dir = examples_dir / "patterns"
         sys.path.insert(0, str(patterns_dir))
 
         import office_development_comparison  # noqa  # type:ignore
 
+        # Execute the full example (no benchmark fixture)
         office_development_comparison.main()
 
     def test_residential_development_comparison(self):
-        """Test residential development pattern comparison."""
+        """Test residential development pattern comparison with performance insights."""
         patterns_dir = examples_dir / "patterns"
         sys.path.insert(0, str(patterns_dir))
 
         import residential_development_comparison  # noqa  # type:ignore
 
+        # Execute the full example (no benchmark fixture)
         residential_development_comparison.main()
 
     def test_stabilized_comparison(self):

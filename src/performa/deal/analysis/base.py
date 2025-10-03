@@ -28,7 +28,7 @@ class AnalysisSpecialist(ABC):
 
     def __post_init__(self):
         """Set up common resources."""
-        self._queries = LedgerQueries(self.context.ledger.ledger_df())
+        self._queries = LedgerQueries(self.context.ledger)
         # Allow subclasses to add additional setup
         self._post_init_hook()
 

@@ -33,8 +33,10 @@ class TransactionRecord:
     """
     Immutable record representing a single financial transaction.
 
-    This is the atomic unit of the transactional ledger, designed for
-    performance with frozen=True and slots=True optimizations.
+    **Architecture Note**: This dataclass is used for type-hinting and representing
+    individual transactions read from a ledger. For performance, the vectorized ledger
+    implementation bypasses TransactionRecord creation during DataFrame construction,
+    building DataFrames directly from Series data via columnar operations.
 
     Attributes:
         transaction_id: Unique identifier for auditability
@@ -80,15 +82,6 @@ class TransactionRecord:
     # Unique identifier for auditability
     transaction_id: UUID = field(default_factory=uuid4)
 
-    def __post_init__(self):
-        """Validate transaction data."""
-        if self.pass_num not in (1, 2, 3, 4, 5, 6):
-            raise ValueError(f"pass_num must be between 1 and 6, got {self.pass_num}")
-            # TODO: should we allow so many passes?
-
-        if not self.item_name.strip():
-            raise ValueError("item_name cannot be empty")
-
 
 @dataclass(frozen=True, slots=True)
 class SeriesMetadata:
@@ -129,17 +122,3 @@ class SeriesMetadata:
     deal_id: Optional[UUID] = None
     entity_id: Optional[UUID] = None
     entity_type: Optional[str] = None
-
-    def __post_init__(self):
-        """Validate metadata."""
-        if not (1 <= self.pass_num <= 6):
-            raise ValueError(f"pass_num must be between 1 and 6, got {self.pass_num}")
-
-        if not self.item_name.strip():
-            raise ValueError("item_name cannot be empty")
-
-        if not self.category.strip():
-            raise ValueError("category cannot be empty")
-
-        if not self.subcategory.strip():
-            raise ValueError("subcategory cannot be empty")

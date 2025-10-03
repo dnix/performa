@@ -23,7 +23,7 @@ from performa.asset.office.rollover import (
     OfficeRolloverLeaseTerms,
     OfficeRolloverProfile,
 )
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -63,7 +63,7 @@ def sample_analysis_context(sample_global_settings: GlobalSettings) -> AnalysisC
         timeline=timeline,
         settings=sample_global_settings,
         property_data=property_data,
-        ledger=Ledger(settings=LedgerGenerationSettings()),
+        ledger=Ledger(),
     )
 
 

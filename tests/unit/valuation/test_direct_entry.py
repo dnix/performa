@@ -5,11 +5,12 @@
 
 from datetime import date
 from unittest.mock import Mock
+from uuid import uuid4
 
 import pandas as pd
 import pytest
 
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import GlobalSettings, Timeline
 from performa.deal.orchestrator import DealContext
 from performa.valuation import DirectEntry
@@ -20,10 +21,10 @@ def create_test_context(timeline: Timeline, noi_series=None) -> DealContext:
     # Use mock deal to bypass complex validation
     mock_deal = Mock()
     mock_deal.name = "Test Deal"
-    mock_deal.uid = "test-deal-uid"
+    mock_deal.uid = uuid4()
 
     # Create ledger and context
-    ledger = Ledger(settings=LedgerGenerationSettings())
+    ledger = Ledger()
     return DealContext(
         timeline=timeline,
         settings=GlobalSettings(),

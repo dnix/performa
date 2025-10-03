@@ -13,7 +13,7 @@ from performa.asset.office.lc import CommissionTier, OfficeLeasingCommission
 from performa.asset.office.lease import OfficeLease
 from performa.asset.office.lease_spec import OfficeLeaseSpec
 from performa.asset.office.property import OfficeProperty
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     GlobalSettings,
     LeaseTypeEnum,
@@ -34,7 +34,7 @@ def sample_context() -> AnalysisContext:
     property_data = OfficeProperty.model_construct(
         net_rentable_area=1.0, uid="550e8400-e29b-41d4-a716-446655440031"
     )
-    ledger = Ledger(settings=LedgerGenerationSettings())
+    ledger = Ledger()
     return AnalysisContext(
         timeline=timeline,
         settings=GlobalSettings(),

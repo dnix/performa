@@ -10,7 +10,7 @@ from performa.analysis import AnalysisContext
 from performa.asset.office.lease import OfficeLease
 from performa.asset.office.lease_spec import OfficeLeaseSpec
 from performa.asset.office.rent_escalation import OfficeRentEscalation
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
@@ -85,7 +85,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -144,7 +144,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -213,7 +213,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -271,7 +271,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -329,7 +329,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -398,7 +398,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -456,7 +456,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -502,7 +502,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             self.base_lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -549,7 +549,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -632,7 +632,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -705,7 +705,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -804,7 +804,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -881,7 +881,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -953,7 +953,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, self.timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=self.timeline,
             settings=self.settings,
@@ -1003,7 +1003,7 @@ class TestOfficeRentEscalation(unittest.TestCase):
             lease_spec, self.analysis_start_date, short_timeline, self.settings
         )
 
-        ledger = Ledger(settings=LedgerGenerationSettings())
+        ledger = Ledger()
         context = AnalysisContext(
             timeline=short_timeline,
             settings=self.settings,

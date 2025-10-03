@@ -18,7 +18,7 @@ from unittest.mock import Mock
 import pytest
 
 from performa.core.capital import CapitalItem, CapitalPlan
-from performa.core.ledger import Ledger, LedgerGenerationSettings
+from performa.core.ledger import Ledger
 from performa.core.primitives import AssetTypeEnum, Timeline
 from performa.core.primitives.draw_schedule import FirstOnlyDrawSchedule
 from performa.core.primitives.settings import GlobalSettings
@@ -123,7 +123,7 @@ class TestCapitalValidationGuardrails:
     def run_capital_validation_test(self, deal, total_cost, ledger=None):
         """Helper to run capital validation with standard setup."""
         if ledger is None:
-            ledger = Ledger(LedgerGenerationSettings())
+            ledger = Ledger()
 
         context = DealContext(
             deal=deal,
@@ -457,7 +457,7 @@ class TestCapitalValidationGuardrails:
             name="LTC Calculation Test",
         )
 
-        ledger = Ledger(LedgerGenerationSettings())
+        ledger = Ledger()
         context = DealContext(
             deal=deal,
             timeline=self.timeline,
@@ -563,7 +563,7 @@ class TestCapitalValidationGuardrails:
         mock_facility.ltc_ratio = 0.75  # 75% LTC
         mock_deal.financing.facilities = [mock_facility]
 
-        ledger = Ledger(LedgerGenerationSettings())
+        ledger = Ledger()
         context = DealContext(
             deal=mock_deal,
             timeline=self.timeline,

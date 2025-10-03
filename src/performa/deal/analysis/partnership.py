@@ -236,52 +236,59 @@ class PartnershipAnalyzer(AnalysisSpecialist):
         acquisition_fee_rate = fee_rates["acquisition"]
         development_fee_rate = fee_rates["development"]
 
-        # CRITICAL FIX: Get available cash for distribution from ACTUAL ledger transactions only
+        # Get available cash for distribution from ledger transactions
 
-        # Step 1: Get ACTUAL NOI from ledger transactions (much cleaner than reconstructing)
-        actual_noi = self.queries.noi()  # Direct NOI from operating transactions only
+        # Get NOI from operating transactions
+        actual_noi = self.queries.noi()
 
-        # Step 2: Get ACTUAL debt service from ledger transactions
-        debt_service = self.queries.debt_service()
+        # Get recurring debt service (interest and principal payments only)
+        # Refinancing proceeds and payoffs are handled separately through Capital Source
+        # and Financing Service flow purposes to ensure proper accounting
+        recurring_debt_service = self.queries.recurring_debt_service()
 
-        # TODO: create a net cash flow (noi minus debt service) in LedgerQueries
-
-        # Step 3: Validate we have actual operations to distribute
-        if actual_noi.empty and debt_service.empty:
+        # Validate we have operations to distribute
+        if actual_noi.empty and recurring_debt_service.empty:
             return  # No operations to distribute
 
-        # Step 4: Align indices for calculation using Timeline.align_series()
+        # Align indices for calculation
         noi_aligned = self.timeline.align_series(actual_noi, fill_value=0.0)
-        debt_service_aligned = self.timeline.align_series(debt_service, fill_value=0.0)
+        debt_service_aligned = self.timeline.align_series(
+            recurring_debt_service, fill_value=0.0
+        )
 
-        # Step 5: Calculate ONLY actual available cash (no phantom proceeds)
-        # CRITICAL FIX: debt_service() returns POSITIVE values, so subtract them from NOI
-        available_for_distribution = (
-            noi_aligned - debt_service_aligned
-        )  # Subtract positive debt service
+        # Calculate available cash: NOI + debt service (debt service is negative)
+        # Refinancing proceeds and payoffs are handled separately through ledger flow purposes
+        available_for_distribution = noi_aligned + debt_service_aligned
+
+        # Truncate distributions after disposition date
+        # After property sale, no ongoing operating distributions should occur
+        if self.context.disposition_date is not None:
+            # Only keep cash flows up to and including disposition month
+            available_for_distribution = available_for_distribution[
+                available_for_distribution.index <= self.context.disposition_date
+            ]
 
         # Validate available cash for distribution
 
         if available_for_distribution.empty or available_for_distribution.sum() == 0:
             return  # No cash available for distribution
 
-        # Use available cash as input to waterfall (NOT equity_partner_flows!)
+        # Use available cash as input to waterfall distribution
         levered_flows = available_for_distribution
 
-        # PRESERVE CRITICAL LOGIC: Apply full waterfall distribution algorithm
-        # Check if deal has equity partners for waterfall distribution
+        # Apply waterfall distribution algorithm if deal has equity partners
         has_partners = self.deal.has_equity_partners
 
         if has_partners:
-            # Step 1: Calculate fee priority payments with settings (ESSENTIAL)
+            # Calculate fee priority payments
             fee_details = PartnershipAnalyzer._calculate_fee_distributions(
                 levered_flows, self.context
             )
             remaining_cash_flows = fee_details["remaining_cash_flows_after_fee"]
 
-            # Step 2: Apply waterfall to remaining flows (ESSENTIAL)
+            # Apply waterfall to remaining flows
             if DistributionCalculator is not None:
-                # Use existing DistributionCalculator for waterfall logic
+                # Use DistributionCalculator for waterfall logic
                 calculator = DistributionCalculator(self.context.deal.equity_partners)
                 waterfall_results = calculator.calculate_distributions(
                     remaining_cash_flows, self.context.timeline
@@ -292,16 +299,16 @@ class PartnershipAnalyzer(AnalysisSpecialist):
                     remaining_cash_flows, self.context
                 )
 
-            # Step 3: Combine fee and waterfall results (ESSENTIAL)
+            # Combine fee and waterfall results
             combined_results = self._combine_fee_and_waterfall_results(
                 fee_details, waterfall_results, self.context
             )
 
-            # ESSENTIAL: Write distribution transactions to ledger
+            # Write distribution transactions to ledger
             self._write_distributions_to_ledger(combined_results, self.context.ledger)
 
         else:
-            # Single entity - apply single entity distribution logic (ESSENTIAL)
+            # Single entity distribution logic
             self._calculate_single_entity_distributions(levered_flows, self.context)
 
         # Partnership analysis complete - all transactions written to ledger
