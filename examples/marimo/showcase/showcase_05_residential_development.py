@@ -12,33 +12,15 @@ def __():
     import marimo as mo
     import pandas as pd
     import plotly.express as px
-    import plotly.graph_objects as go
 
     from performa.patterns import ResidentialDevelopmentPattern
-    from performa.visualization import (
-        RE_COLORS,
-        create_cost_breakdown_donut,
-        create_kpi_cards_data,
-        create_partnership_distribution_comparison,
-        create_sources_uses_chart,
-        create_waterfall_chart,
-        get_irr_color,
-    )
 
     return (
         ResidentialDevelopmentPattern,
-        create_sources_uses_chart,
-        create_cost_breakdown_donut,
-        create_kpi_cards_data,
-        create_partnership_distribution_comparison,
-        create_waterfall_chart,
-        get_irr_color,
-        RE_COLORS,
         date,
         mo,
         pd,
         px,
-        go,
     )
 
 
@@ -47,16 +29,17 @@ def __(mo):
     """Display title and introduction"""
     mo.md(
         """
-        # 🏙️ Residential Development Model
+        # 🏙️ Patterns: Shortcut to Financial Models
         
-        ## Interactive Development Proforma
+        This notebook demonstrates the "magic" of Performa's Pattern architecture:
+        **a few parameters transform into a complete real estate financial model**.
         
-        Model a complete ground-up residential development project from land acquisition 
-        through construction, lease-up, stabilization, and eventual sale. Watch how key 
-        assumptions impact your returns and project feasibility in real-time.
-        
-        Use the controls below to shape your development project and see instant feedback 
-        on financial performance, partnership distributions, and deal viability.
+        Configure the inputs below, and watch a single Pattern class generate:
+        - Multi-unit property with lease lifecycle
+        - Construction and permanent financing
+        - Partnership waterfall with promotes
+        - Complete cash flow model and ledger
+        - Performance metrics and analysis
         
         ---
         """
@@ -64,720 +47,493 @@ def __(mo):
 
 
 @app.cell
-def __(mo, pd):
-    """Create project configuration controls"""
-
-    # Project section
-    project_section = mo.vstack([
-        mo.md("## 🏗️ Project Configuration"),
-        # Project basics
-        project_name := mo.ui.text(
+def __(mo):
+    """Create pattern configuration form using mo.ui.dictionary"""
+    
+    pattern_params = mo.ui.dictionary({
+        "project_name": mo.ui.text(
             value="Garden View Apartments",
             label="Project Name",
-            placeholder="Enter development project name",
         ),
-        # Land & acquisition
-        land_cost := mo.ui.number(
+        "land_cost": mo.ui.number(
             start=1_000_000,
             stop=10_000_000,
             step=250_000,
             value=3_500_000,
             label="💰 Land Cost ($)",
         ),
-        mo.md("### 🏠 Unit Mix Configuration"),
-        mo.md("*Edit the table below to customize your unit mix:*"),
-        # Unit mix configuration (editable table using latest marimo API)
-        unit_mix_table := mo.ui.data_editor(
-            pd.DataFrame([
-                {"unit_type": "1BR", "count": 60, "avg_sf": 750, "target_rent": 2100},
-                {"unit_type": "2BR", "count": 40, "avg_sf": 1050, "target_rent": 2800},
-                {
-                    "unit_type": "Studio",
-                    "count": 20,
-                    "avg_sf": 500,
-                    "target_rent": 1600,
-                },
-            ]),
-            label="Unit Mix",
+        "total_units": mo.ui.number(
+            start=50,
+            stop=300,
+            step=10,
+            value=120,
+            label="🏠 Total Units",
         ),
-    ])
-
-    return project_name, land_cost, unit_mix_table, project_section
-
-
-@app.cell
-def __(mo):
-    """Create construction & development controls"""
-
-    # Construction section
-    construction_section = mo.vstack([
-        mo.md("## 🔨 Construction & Development"),
-        # Construction costs
-        construction_cost_per_unit := mo.ui.number(
+        "construction_cost_per_unit": mo.ui.number(
             start=120_000,
             stop=250_000,
             step=5_000,
             value=160_000,
-            label="🏗️ Construction Cost per Unit ($)",
+            label="🔨 Construction Cost per Unit ($)",
         ),
-        # Timeline
-        construction_duration := mo.ui.slider(
+        "construction_duration_months": mo.ui.slider(
             start=12,
             stop=30,
             step=3,
             value=18,
-            label="⏰ Construction Duration (months)",
+            label="⏱️ Construction Duration (months)",
             show_value=True,
         ),
-        leasing_start := mo.ui.slider(
-            start=6,
-            stop=24,
-            step=3,
-            value=15,
-            label="🏢 Start Leasing (months after land acquisition)",
+        "hold_period_years": mo.ui.slider(
+            start=5,
+            stop=10,
+            step=1,
+            value=7,
+            label="📅 Hold Period (years)",
             show_value=True,
         ),
-        # Absorption pace
-        absorption_pace := mo.ui.slider(
-            start=4,
-            stop=16,
-            step=2,
-            value=8,
-            label="📈 Lease-Up Pace (units/month)",
+        "exit_cap_rate": mo.ui.slider(
+            start=0.04,
+            stop=0.08,
+            step=0.0025,
+            value=0.055,
+            label="🎯 Exit Cap Rate",
             show_value=True,
         ),
-    ])
+    })
+    
+    return (pattern_params,)
 
-    return (
-        construction_cost_per_unit,
-        construction_duration,
-        leasing_start,
-        absorption_pace,
-        construction_section,
-    )
+
+@app.cell
+def __(pattern_params, mo):
+    """Display the parameter configuration form"""
+    mo.md("## 📋 Pattern Configuration")
+    
+    
+@app.cell
+def __(pattern_params):
+    """Display the form"""
+    pattern_params
 
 
 @app.cell
 def __(mo):
-    """Create financing controls"""
-
-    # Financing section
-    financing_section = mo.vstack([
-        mo.md("## 💰 Financing Terms"),
-        mo.hstack(
-            [
-                mo.vstack([
-                    mo.md("### 🏗️ Construction Financing"),
-                    construction_rate := mo.ui.slider(
-                        start=0.04,
-                        stop=0.10,
-                        step=0.0025,
-                        value=0.065,
-                        label="Construction Interest Rate",
-                        show_value=True,
-                    ),
-                ]),
-                mo.vstack([
-                    mo.md("### 🏦 Permanent Financing"),
-                    permanent_ltv := mo.ui.slider(
-                        start=0.60,
-                        stop=0.80,
-                        step=0.05,
-                        value=0.70,
-                        label="Permanent Loan-to-Value",
-                        show_value=True,
-                    ),
-                    permanent_rate := mo.ui.slider(
-                        start=0.04,
-                        stop=0.08,
-                        step=0.0025,
-                        value=0.055,
-                        label="Permanent Interest Rate",
-                        show_value=True,
-                    ),
-                ]),
-                mo.vstack([
-                    mo.md("### 📊 Capital Structure"),
-                    debt_to_equity := mo.ui.slider(
-                        start=0.00,
-                        stop=1.00,
-                        step=0.05,
-                        value=0.70,
-                        label="Construction Debt Ratio",
-                        show_value=True,
-                    ),
-                    mo.md("*% of construction cost financed with debt*"),
-                ]),
-            ],
-            widths="equal",
-        ),
-    ])
-
-    return (
-        construction_rate,
-        permanent_ltv,
-        permanent_rate,
-        debt_to_equity,
-        financing_section,
+    """Section divider"""
+    mo.md(
+        """
+        ---
+        
+        ## ✨ The Magic: Pattern → Analysis
+        
+        Watch as a single class instantiation unfurls into a complete financial model:
+        """
     )
 
 
 @app.cell
-def __(mo):
-    """Create partnership & exit controls"""
-
-    # Partnership section
-    partnership_section = mo.vstack([
-        mo.md("## 🤝 Partnership & Exit Strategy"),
-        mo.hstack(
-            [
-                mo.vstack([
-                    mo.md("### 👔 Partnership Structure"),
-                    gp_share := mo.ui.slider(
-                        start=0.05,
-                        stop=0.25,
-                        step=0.01,
-                        value=0.10,
-                        label="GP Ownership Share",
-                        show_value=True,
-                    ),
-                    preferred_return := mo.ui.slider(
-                        start=0.06,
-                        stop=0.12,
-                        step=0.005,
-                        value=0.08,
-                        label="LP Preferred Return",
-                        show_value=True,
-                    ),
-                    promote_rate := mo.ui.slider(
-                        start=0.15,
-                        stop=0.35,
-                        step=0.05,
-                        value=0.20,
-                        label="GP Promote Rate",
-                        show_value=True,
-                    ),
-                ]),
-                mo.vstack([
-                    mo.md("### 🏁 Exit Strategy"),
-                    hold_period := mo.ui.slider(
-                        start=5,
-                        stop=10,
-                        step=1,
-                        value=7,
-                        label="Hold Period (years)",
-                        show_value=True,
-                    ),
-                    exit_cap_rate := mo.ui.slider(
-                        start=0.04,
-                        stop=0.08,
-                        step=0.0025,
-                        value=0.055,
-                        label="Exit Cap Rate",
-                        show_value=True,
-                    ),
-                ]),
-            ],
-            widths="equal",
-        ),
-    ])
-
-    return (
-        gp_share,
-        preferred_return,
-        promote_rate,
-        hold_period,
-        exit_cap_rate,
-        partnership_section,
-    )
-
-
-@app.cell
-def __(project_section):
-    """Display project configuration"""
-    project_section
-
-
-@app.cell
-def __(construction_section):
-    """Display construction controls"""
-    construction_section
-
-
-@app.cell
-def __(financing_section):
-    """Display financing controls"""
-    financing_section
-
-
-@app.cell
-def __(partnership_section):
-    """Display partnership controls"""
-    partnership_section
-
-
-@app.cell
-def __(
-    project_name,
-    land_cost,
-    unit_mix_table,
-    construction_cost_per_unit,
-    construction_duration,
-    leasing_start,
-    absorption_pace,
-    construction_rate,
-    permanent_ltv,
-    permanent_rate,
-    debt_to_equity,
-    gp_share,
-    preferred_return,
-    promote_rate,
-    hold_period,
-    exit_cap_rate,
-    date,
-    ResidentialDevelopmentPattern,
-):
-    """Create pattern and analyze deal (reactive to all controls)"""
-
-    # Extract unit mix from editable dataframe - simplified approach
-    unit_mix_data = [
-        {"unit_type": "1BR", "count": 60, "avg_sf": 750, "target_rent": 2100},
-        {"unit_type": "2BR", "count": 40, "avg_sf": 1050, "target_rent": 2800},
-        {"unit_type": "Studio", "count": 20, "avg_sf": 500, "target_rent": 1600},
+def __(pattern_params, date, ResidentialDevelopmentPattern):
+    """
+    THE MAGIC HAPPENS HERE: Pattern unfurls into complete analysis
+    
+    This single cell transforms user parameters into a full deal model with:
+    - Property with 120 units (mixed 1BR/2BR)
+    - Construction-to-permanent financing
+    - GP/LP partnership with waterfall
+    - Complete ledger and cash flows
+    """
+    
+    # Extract parameters from form
+    params = pattern_params.value
+    
+    # Define unit mix (could be parameterized further)
+    unit_mix = [
+        {"unit_type": "1BR", "count": 72, "avg_sf": 750, "target_rent": 2100},
+        {"unit_type": "2BR", "count": 48, "avg_sf": 1050, "target_rent": 2800},
     ]
-
-    # Try to extract from table if available
-    try:
-        if hasattr(unit_mix_table, "value") and unit_mix_table.value is not None:
-            unit_mix_data = unit_mix_table.value.to_dict("records")
-    except Exception:
-        pass  # Use default data
-
-    # Calculate total units
-    calculated_total_units = sum(unit.get("count", 0) for unit in unit_mix_data)
-    if calculated_total_units == 0:
-        calculated_total_units = 120
-
-    # Create and analyze the deal
-    try:
-        pattern = ResidentialDevelopmentPattern(
-            # Core project parameters
-            project_name=project_name.value or "Garden View Apartments",
-            acquisition_date=date(2024, 1, 1),
-            land_cost=land_cost.value,
-            # Unit specifications
-            total_units=calculated_total_units,
-            unit_mix=unit_mix_data,
-            # Construction parameters
-            construction_cost_per_unit=construction_cost_per_unit.value,
-            construction_duration_months=construction_duration.value,
-            # Absorption strategy
-            leasing_start_months=leasing_start.value,
-            absorption_pace_units_per_month=absorption_pace.value,
-            # Financing parameters
-            construction_interest_rate=construction_rate.value,
-            permanent_ltv_ratio=permanent_ltv.value,
-            permanent_interest_rate=permanent_rate.value,
-            permanent_loan_term_years=10,
-            permanent_amortization_years=30,
-            # Construction capital structure
-            construction_ltc_ratio=debt_to_equity.value,
-            # Partnership structure
-            distribution_method="waterfall",
-            gp_share=gp_share.value,
-            lp_share=1.0 - gp_share.value,
-            preferred_return=preferred_return.value,
-            promote_tier_1=promote_rate.value,
-            # Exit strategy
-            hold_period_years=hold_period.value,
-            exit_cap_rate=exit_cap_rate.value,
-            exit_costs_rate=0.025,
-        )
-
-        # Analyze the deal
-        results = pattern.analyze()
-        error_msg = None
-
-    except Exception as e:
-        # Handle any errors by returning None for pattern/results
-        pattern = None
-        results = None
-        error_msg = str(e)
-
-    return pattern, results, unit_mix_data, calculated_total_units, error_msg
-
-
-# Removed debug cell - caused variable reference errors
-
-
-# Removed error display cell - caused variable reference errors
-
-
-# Debug cell removed
-
-
-# Removed remaining debug cells
-
-
-# Debug cells removed - notebook is clean
-
-
-# Debug cell removed
-
-
-@app.cell
-def __(error_msg, pattern, results, mo):
-    """Debug: Show current state"""
-    if error_msg:
-        mo.md(f"🔍 **DEBUG ERROR**: {error_msg[:500]}")
-    else:
-        mo.md(
-            f"✅ **DEBUG OK**: Pattern={'✓' if pattern else '✗'}, Results={'✓' if results else '✗'}"
-        )
-
-
-# Last debug cells removed
-
-
-# Final debug cells removed
-
-
-@app.cell
-def __(create_kpi_cards_data, mo):
-    """WORKING KPI DISPLAY: Use hardcoded values to bypass broken objects"""
-    # Use realistic development project values
-    kpi_data = create_kpi_cards_data(
-        deal_irr=0.185,  # 18.5% IRR
-        equity_multiple=2.34,  # 2.34x multiple
-        total_project_cost=45_000_000,  # $45M project
-        net_profit=12_500_000,  # $12.5M profit
-        total_units=180,  # 180 units
+    
+    # Create pattern with smart defaults
+    pattern = ResidentialDevelopmentPattern(
+        # User-configured core parameters
+        project_name=params.get("project_name", "Garden View Apartments"),
+        acquisition_date=date(2024, 1, 1),
+        land_cost=params.get("land_cost", 3_500_000),
+        total_units=params.get("total_units", 120),
+        construction_cost_per_unit=params.get("construction_cost_per_unit", 160_000),
+        construction_duration_months=params.get("construction_duration_months", 18),
+        hold_period_years=params.get("hold_period_years", 7),
+        exit_cap_rate=params.get("exit_cap_rate", 0.055),
+        
+        # Unit mix configuration
+        unit_mix=unit_mix,
+        
+        # Leasing strategy (smart defaults)
+        leasing_start_months=15,  # Start leasing 3 months before completion
+        absorption_pace_units_per_month=8,  # 8 units/month = 15 month lease-up
+        
+        # Financing (smart defaults)
+        construction_interest_rate=0.065,
+        construction_ltc_ratio=0.70,
+        permanent_ltv_ratio=0.70,
+        permanent_interest_rate=0.055,
+        permanent_loan_term_years=10,
+        permanent_amortization_years=30,
+        
+        # Partnership structure (smart defaults)
+        distribution_method="waterfall",
+        gp_share=0.10,
+        lp_share=0.90,
+        preferred_return=0.08,
+        promote_tier_1=0.20,
+        
+        # Exit strategy
+        exit_costs_rate=0.025,
     )
-
-    # Display KPIs using mo.stat
-    kpi_cards = [mo.stat(value=kpi["value"], label=kpi["label"]) for kpi in kpi_data]
-
-    mo.hstack(kpi_cards, widths="equal")
+    
+    # THE UNFURLING: Pattern → Complete Analysis
+    results = pattern.analyze()
+    
+    return pattern, results, unit_mix, params
 
 
 @app.cell
 def __(mo):
-    """Section header for deal structure"""
+    """Success message"""
     mo.md(
         """
-        ## 📊 Deal Structure & Financial Breakdown
+        ✅ **Pattern Successfully Unfurled!**
         
-        Understanding the building blocks of your development project:
+        The `ResidentialDevelopmentPattern` has generated a complete deal model with:
+        - Residential property with unit-level lease modeling
+        - Construction and permanent debt facilities
+        - Partnership waterfall with GP promote
+        - Multi-year cash flow projections
+        - Comprehensive transactional ledger
+        
+        Let's explore the results below...
+        
+        ---
         """
     )
-
-
-@app.cell
-def __(create_sources_uses_chart, mo):
-    """Simple chart function test"""
-    try:
-        # Test with minimal data (rename variables to avoid conflicts)
-        test_sources = {"Equity": 13500000, "Debt": 31500000}
-        test_uses = {"Land": 3500000, "Construction": 41500000}
-
-        chart = create_sources_uses_chart(test_sources, test_uses, title="Test Chart")
-        mo.vstack([mo.md("🧪 **CHART TEST**: Simple chart creation test"), chart])
-    except Exception as e:
-        mo.md(f"❌ **Chart Test Error:** {str(e)}")
-
-
-@app.cell
-def __(
-    pattern,
-    results,
-    create_sources_uses_chart,
-    create_cost_breakdown_donut,
-    debt_to_equity,
-    land_cost,
-    mo,
-):
-    """Create deal structure visualizations with exception handling"""
-
-    # Always use hardcoded values (pattern/results objects are corrupted)
-    try:
-        # Use UI control values to avoid variable conflicts
-        project_cost_val = 45_000_000  # $45M total project (realistic hardcoded)
-        construction_ltc_ratio_val = debt_to_equity.value  # From UI control
-        land_cost_val = land_cost.value  # From UI control
-        construction_cost_val = project_cost_val - land_cost_val  # Calculate remainder
-
-        # SOURCES: Based on LTC ratio
-        construction_equity = project_cost_val * (1 - construction_ltc_ratio_val)
-        construction_debt = project_cost_val * construction_ltc_ratio_val
-
-        sources = {
-            "Equity": construction_equity,
-            "Construction Debt": construction_debt,
-        }
-
-        # USES: Total project cost breakdown
-        uses = {
-            "Land": land_cost_val,
-            "Hard Costs": construction_cost_val,
-        }
-
-        # Balance validation
-        total_sources = sum(sources.values())
-        total_uses = sum(uses.values())
-        if abs(total_sources - total_uses) > 1000:
-            raise ValueError(
-                f"Sources/Uses imbalance: ${total_sources:,.0f} ≠ ${total_uses:,.0f}"
-            )
-
-        # Clean up the data (remove formatting for numbers)
-        clean_sources = {}
-        clean_uses = {}
-
-        for key, value in sources.items():
-            if isinstance(value, str) and "$" in value:
-                # Extract numeric value from formatted string
-                clean_value = float(value.split("$")[1].split(" ")[0].replace(",", ""))
-                clean_sources[key] = clean_value
-            elif isinstance(value, (int, float)):
-                clean_sources[key] = value
-
-        for key, value in uses.items():
-            if isinstance(value, str) and "$" in value:
-                # Extract numeric value from formatted string
-                clean_value = float(value.split("$")[1].split(" ")[0].replace(",", ""))
-                clean_uses[key] = clean_value
-            elif isinstance(value, (int, float)):
-                clean_uses[key] = value
-
-        # Create Sources & Uses chart
-        sources_uses_chart = create_sources_uses_chart(
-            clean_sources, clean_uses, title="Sources & Uses of Development Funds"
-        )
-
-        # Create cost breakdown
-        cost_breakdown_chart = create_cost_breakdown_donut(
-            clean_uses, title="Total Development Cost Breakdown"
-        )
-
-        # Display charts side by side
-        mo.hstack([sources_uses_chart, cost_breakdown_chart], widths="equal")
-
-    except Exception as e:
-        mo.md(f"""
-        ❌ **Chart Error:** {str(e)}
-        
-        This indicates a fundamental issue with the deal structure or calculations.
-        Please check your parameters and try again.
-        """)
 
 
 @app.cell
 def __(mo):
-    """Section header for returns analysis"""
-    mo.md(
-        """
-        ## 💰 Partnership Returns & Distribution
-        
-        How profits flow through the equity waterfall structure:
-        """
-    )
+    """Performance metrics section header"""
+    mo.md("## 📊 Top-Level Performance Metrics")
 
 
 @app.cell
-def __(
-    results,
-    pattern,
-    debt_to_equity,
-    create_partnership_distribution_comparison,
-    gp_share,
-    preferred_return,
-    promote_rate,
-    mo,
-):
-    """Create partnership analysis visualizations with structure and debt metrics"""
-
-    # Always use hardcoded values (pattern/results objects are corrupted)
-    try:
-        # Use hardcoded realistic values (objects are corrupted)
-        total_equity = 13_500_000  # $13.5M equity (30% of $45M)
-        total_distributions = 31_590_000  # $31.59M total return (2.34x multiple)
-        # Use UI control values, not hardcoded (avoid variable conflicts)
-        gp_share_val = gp_share.value  # From UI control
-        preferred_return_val = preferred_return.value  # From UI control
-        promote_tier_1_val = promote_rate.value  # From UI control
-
-        # Calculate partnership contributions and distributions
-        gp_equity = total_equity * gp_share_val  # Use UI control values
-        lp_equity = total_equity * (1 - gp_share_val)
-
-        # Calculate distributions with waterfall logic
-        preferred_amount = total_equity * preferred_return_val
-        remaining_after_pref = max(0, total_distributions - preferred_amount)
-
-        lp_distributions = preferred_amount + remaining_after_pref * (
-            1 - promote_tier_1_val
-        )
-        gp_distributions = remaining_after_pref * promote_tier_1_val
-
-        capital_contrib = {"GP": gp_equity, "LP": lp_equity}
-        profit_distrib = {"GP": gp_distributions, "LP": lp_distributions}
-
-        # Use hardcoded debt metrics
-        total_debt = 31_500_000  # $31.5M construction debt (70% LTC)
-
-        # Create charts
-        partnership_chart = create_partnership_distribution_comparison(
-            capital_contrib, profit_distrib, title="Capital vs. Profit Distribution"
-        )
-
-        # Enhanced info panel with structure and debt
-        partnership_info = mo.vstack([
-            mo.md("### 👥 Partnership Structure"),
-            mo.md(
-                f"- **GP Share**: {gp_share_val:.1%} | **LP Share**: {(1 - gp_share_val):.1%}"
-            ),
-            mo.md(f"- **Preferred Return**: {preferred_return_val:.1%}"),
-            mo.md(f"- **GP Promote**: {promote_tier_1_val:.1%}"),
-            mo.md("### 📊 Capital Structure"),
-            mo.md(f"- **Total Equity**: ${total_equity:,.0f}"),
-            mo.md(f"- **Total Debt**: ${total_debt:,.0f}"),
-            mo.md(
-                f"- **Actual Debt %**: {total_debt / (total_debt + total_equity):.1%}"
-            ),
-            mo.md("### 🏗️ Construction Financing"),
-            mo.md(f"- **Target Debt %**: 70.0% of total project"),
-            mo.md(f"- **Resulting LTC**: 70.0%"),
-            mo.md(f"- **LTC Cap**: 75.0% (lender's gate)"),
-            mo.md("### 🏦 Permanent Financing"),
-            mo.md(f"- **Target LTV**: 70.0% of stabilized value"),
-            mo.md("### 💰 Distribution Results"),
-            mo.md(f"- **Total Distributions**: ${total_distributions:,.0f}"),
-            mo.md(
-                f"- **GP Gets**: ${gp_distributions:,.0f} ({gp_distributions / total_distributions:.1%})"
-            ),
-            mo.md(
-                f"- **LP Gets**: ${lp_distributions:,.0f} ({lp_distributions / total_distributions:.1%})"
-            ),
-            mo.md(f"- **Deal IRR**: 18.5%"),  # Hardcoded (results object corrupted)
-            mo.md(
-                f"- **Equity Multiple**: 2.34x"
-            ),  # Hardcoded (results object corrupted)
-        ])
-
-        mo.hstack([partnership_chart, partnership_info], widths="equal")
-
-    except Exception as e:
-        mo.md(f"""
-        ❌ **Partnership Chart Error:** {str(e)}
-        
-        Please check your partnership parameters and try again.
-        """)
+def __(results, mo):
+    """Display top-level performance metrics from actual results"""
+    
+    # Extract metrics from actual DealResults
+    levered_irr = results.levered_irr
+    unlevered_irr = results.unlevered_irr
+    equity_multiple = results.equity_multiple
+    net_profit = results.net_profit
+    
+    # Format for display
+    levered_irr_str = f"{levered_irr:.2%}" if levered_irr is not None else "N/A"
+    unlevered_irr_str = f"{unlevered_irr:.2%}" if unlevered_irr is not None else "N/A"
+    equity_multiple_str = f"{equity_multiple:.2f}x" if equity_multiple is not None else "N/A"
+    net_profit_str = f"${net_profit:,.0f}" if net_profit is not None else "N/A"
+    
+    # Create metric cards
+    mo.hstack(
+        [
+            mo.stat(value=levered_irr_str, label="Levered IRR"),
+            mo.stat(value=unlevered_irr_str, label="Unlevered IRR"),
+            mo.stat(value=equity_multiple_str, label="Equity Multiple"),
+            mo.stat(value=net_profit_str, label="Net Profit"),
+        ],
+        widths="equal",
+    )
 
 
 @app.cell
 def __(mo):
-    """Section header for detailed analysis"""
+    """Ledger section header"""
     mo.md(
         """
-        ## 🔍 Detailed Financial Analysis
+        ---
         
-        Comprehensive cash flow analysis and transactional detail:
+        ## 📖 The Ledger: Glass Box Transparency
+        
+        Every transaction in the model is recorded in the ledger. Here's the annual view:
         """
     )
 
 
 @app.cell
-def __(results, pattern, mo):
-    """Create tabbed interface for detailed analysis"""
-
-    # Check if analysis succeeded
-    if results is None or pattern is None:
-        mo.md(
-            "💪 **TABS ERROR**: No results - *Detailed analysis tabs will be available once configuration errors are resolved*"
+def __(results, mo, pd):
+    """Display ledger pivot table using reporting interface"""
+    
+    # Generate annual pivot table from the ledger (no built-in formatting)
+    pivot_table = results.reporting.pivot_table(
+        frequency="A",  # Annual frequency
+        include_subtotals=True,
+        include_totals_column=True,
+        currency_format=False,  # Disable built-in formatting
+    )
+    
+    # Reorder rows chronologically for development deal flow
+    def chronological_sort_key(line_item):
+        """Sort line items in chronological deal order."""
+        # Priority order for development deals
+        if "Acquisition" in line_item or "Land" in line_item:
+            return (0, line_item)  # First: acquisition
+        elif "Capital" in line_item or "Construction" in line_item:
+            return (1, line_item)  # Second: construction
+        elif "Financing" in line_item and "Draw" in line_item:
+            return (2, line_item)  # Third: debt draws
+        elif "Revenue" in line_item:
+            return (3, line_item)  # Fourth: operations revenue
+        elif "Expense" in line_item:
+            return (4, line_item)  # Fifth: operations expenses
+        elif "Financing" in line_item and ("Payoff" in line_item or "Payment" in line_item):
+            return (5, line_item)  # Sixth: debt service/payoff
+        elif "Disposition" in line_item or "Sale" in line_item or "Exit" in line_item:
+            return (6, line_item)  # Seventh: exit/sale
+        else:
+            return (7, line_item)  # Other items last
+    
+    sorted_index = sorted(pivot_table.index, key=chronological_sort_key)
+    pivot_table = pivot_table.reindex(sorted_index)
+    
+    # Clean up row labels: remove category prefix from subcategories
+    # "Capital → Closing Costs" becomes "→ Closing Costs"
+    cleaned_index = []
+    for label in pivot_table.index:
+        if " → " in label:
+            # Keep only the arrow and subcategory name
+            subcategory = label.split(" → ", 1)[1]
+            cleaned_index.append(f"→ {subcategory}")
+        else:
+            # Keep category-level labels as-is
+            cleaned_index.append(label)
+    pivot_table.index = cleaned_index
+    
+    # Format as full dollars (no abbreviations, no dollar signs, comma separators)
+    formatted_pivot = pivot_table.copy()
+    for col in formatted_pivot.columns:
+        formatted_pivot[col] = formatted_pivot[col].apply(
+            lambda x: f"{x:,.0f}" if not pd.isna(x) else "0"
         )
-    else:
+    
+    # Identify subtotal rows (rows without arrow)
+    def highlight_subtotals(row):
+        """Apply gray background to subtotal rows."""
+        if not row.name.startswith("→"):  # Subtotal rows don't start with arrow
+            return ['background-color: #f0f0f0; font-weight: bold'] * len(row)
+        return [''] * len(row)
+    
+    # Apply styling: smaller text, right-aligned numbers, gray subtotals
+    styled_html = formatted_pivot.style.apply(
+        highlight_subtotals, axis=1
+    ).set_properties(**{
+        'text-align': 'right',
+        'font-size': '11px',
+        'padding': '4px 8px'
+    }).set_table_styles([
+        {'selector': 'th', 'props': [
+            ('text-align', 'left'),
+            ('font-size', '11px'),
+            ('padding', '4px 8px'),
+            ('background-color', '#e0e0e0'),
+            ('font-weight', 'bold'),
+            ('cursor', 'cell')  # Excel-style cursor
+        ]},
+        {'selector': 'th:first-child', 'props': [
+            ('min-width', '167px'),  # 33% less than 250px
+            ('white-space', 'nowrap')  # Prevent text wrapping
+        ]},
+        {'selector': 'td', 'props': [
+            ('text-align', 'right'),
+            ('font-size', '11px'),
+            ('padding', '4px 8px'),
+            ('cursor', 'cell'),  # Excel-style cursor
+            ('border', '1px solid transparent')  # For hover effect
+        ]},
+        {'selector': 'td:first-child', 'props': [
+            ('text-align', 'left'),  # Left-align row labels
+            ('min-width', '167px'),  # 33% less than 250px
+            ('white-space', 'nowrap')  # Prevent text wrapping
+        ]},
+        {'selector': 'td:hover', 'props': [
+            ('outline', '2px solid #ff69b4'),  # Pink outline on cell hover
+            ('outline-offset', '-1px')  # Keep outline inside cell
+        ]},
+        {'selector': 'table', 'props': [
+            ('border-collapse', 'collapse'),
+            ('width', '100%')
+        ]},
+        {'selector': 'tr:hover', 'props': [
+            ('background-color', '#f8f8f8')
+        ]}
+    ]).to_html()
+    
+    # Display using marimo HTML
+    mo.Html(f"""
+    <div style="max-height: 600px; overflow-y: auto;">
+        <h3>Annual Cash Flow Ledger (Category + Subcategory)</h3>
+        {styled_html}
+    </div>
+    """)
 
-        def _create_cash_flow_detail_tab(results):
-            """Create the cash flow detail tab content."""
-            try:
-                # Generate pivot table
-                # Create hardcoded example data (results object corrupted)
-                import pandas as pd
 
-                pivot_table = pd.DataFrame({
-                    "Year": [2024, 2025, 2026, 2027, 2028, 2029, 2030, 2031],
-                    "Net Cash Flow": [-3.5, -15.0, -19.2, -5.8, 0.8, 0.8, 0.8, 75.8],
-                    "Cumulative": [
-                        -3.5,
-                        -18.5,
-                        -37.7,
-                        -43.5,
-                        -42.7,
-                        -41.9,
-                        -41.1,
-                        34.7,
-                    ],
-                })
+@app.cell
+def __(mo):
+    """Deal summary section header"""
+    mo.md(
+        """
+        ---
+        
+        ## 💼 Deal Summary & Metrics
+        
+        Comprehensive deal-level metrics and analysis:
+        """
+    )
 
-                return mo.vstack([
-                    mo.md("### Annual Cash Flow Summary"),
-                    mo.ui.dataframe(
-                        pivot_table,
-                        page_size=50,  # Show 50 rows per page
-                    ),
-                ])
 
-            except Exception as e:
-                return mo.md(f"Cash flow detail not available: {str(e)[:100]}...")
+@app.cell
+def __(results, mo, pd):
+    """Display deal metrics as a formatted table"""
+    
+    # Get deal metrics dictionary
+    metrics = results.deal_metrics
+    
+    # Create a formatted DataFrame
+    metrics_df = pd.DataFrame([
+        {"Metric": "Levered IRR", "Value": f"{metrics['levered_irr']:.2%}" if metrics['levered_irr'] is not None else "N/A"},
+        {"Metric": "Unlevered IRR", "Value": f"{metrics['unlevered_irr']:.2%}" if metrics['unlevered_irr'] is not None else "N/A"},
+        {"Metric": "Equity Multiple", "Value": f"{metrics['equity_multiple']:.2f}x" if metrics['equity_multiple'] is not None else "N/A"},
+        {"Metric": "Unlevered Return on Cost", "Value": f"{metrics['unlevered_return_on_cost']:.2%}" if metrics['unlevered_return_on_cost'] is not None else "N/A"},
+        {"Metric": "Net Profit", "Value": f"${metrics['net_profit']:,.0f}" if metrics['net_profit'] is not None else "N/A"},
+        {"Metric": "Total Investment", "Value": f"${metrics['total_investment']:,.0f}"},
+        {"Metric": "Total Distributions", "Value": f"${metrics['total_distributions']:,.0f}"},
+        {"Metric": "Minimum DSCR", "Value": f"{metrics['minimum_dscr']:.2f}" if metrics['minimum_dscr'] is not None else "N/A"},
+        {"Metric": "Average DSCR", "Value": f"{metrics['average_dscr']:.2f}" if metrics['average_dscr'] is not None else "N/A"},
+    ])
+    
+    mo.ui.table(
+        metrics_df,
+        selection=None,
+        label="Key Performance Indicators",
+    )
 
-        def _create_assumptions_tab(pattern):
-            """Create the assumptions tab using the existing reporting infrastructure."""
-            try:
-                # Use the proper assumptions report from performa.reporting
 
-                # Hardcoded assumptions (pattern object corrupted)
-                assumptions_report = """**Development Parameters:**
-- Land: $3,500,000 | Construction: $160k/unit
-- Total Cost: $45,000,000 | Units: 180
-- Construction: 18 months | Leasing: 8 units/month
+@app.cell
+def __(mo):
+    """Cash flow visualization section"""
+    mo.md(
+        """
+        ---
+        
+        ## 📈 Cash Flow Visualization
+        
+        Annual equity cash flows over the hold period:
+        """
+    )
 
-**Financing Structure:**
-- Construction LTC: 70% | Rate: 6.5%
-- Permanent LTV: 70% | Rate: 5.5%
 
-**Partnership:**  
-- GP: 10% | Preferred: 8% | Promote: 20%
+@app.cell
+def __(results, px, mo, pd):
+    """Visualize annual equity cash flows"""
+    
+    # Get annual equity cash flows from ledger
+    equity_flows = results.levered_cash_flow
+    
+    # Convert PeriodIndex to DatetimeIndex and resample to annual frequency
+    equity_flows_dt = equity_flows.to_timestamp()
+    annual_flows = equity_flows_dt.resample("YE").sum()
+    
+    # Create DataFrame for plotly
+    flow_df = pd.DataFrame({
+        "Year": annual_flows.index.year,
+        "Cash Flow": annual_flows.values,
+        "Type": ["Investment" if x < 0 else "Distribution" for x in annual_flows.values],
+    })
+    
+    # Create bar chart
+    fig = px.bar(
+        flow_df,
+        x="Year",
+        y="Cash Flow",
+        color="Type",
+        title="Annual Equity Cash Flows",
+        labels={"Cash Flow": "Cash Flow ($)", "Year": "Year"},
+        color_discrete_map={"Investment": "#e74c3c", "Distribution": "#2ecc71"},
+    )
+    
+    fig.update_layout(
+        xaxis_title="Year",
+        yaxis_title="Cash Flow ($)",
+        hovermode="x unified",
+        showlegend=True,
+    )
+    
+    mo.ui.plotly(fig)
 
-**Exit Strategy:**
-- Hold: 7 years | Cap Rate: 5.5%
-- Target IRR: 18.5% | Multiple: 2.34x"""
 
-                return mo.vstack([
-                    mo.md("### 📋 Model Assumptions Report"),
-                    mo.md(
-                        "*Comprehensive analysis of your development pattern configuration:*"
-                    ),
-                    mo.md(assumptions_report),
-                    mo.md(
-                        "*💡 Adjust the controls above to see this report update with new parameter settings.*"
-                    ),
-                ])
+@app.cell
+def __(mo):
+    """Partnership analysis section"""
+    mo.md(
+        """
+        ---
+        
+        ## 🤝 Partnership Distribution Analysis
+        
+        How profits flow through the GP/LP waterfall:
+        """
+    )
 
-            except Exception as e:
-                return mo.md(f"```\nAssumptions report error:\n{str(e)}\n```")
 
-        # Create tabs for different views
-        tabs = mo.ui.tabs({
-            "📊 Visual Dashboard": mo.md("*Dashboard view shown above*"),
-            "💼 Cash Flow Detail": _create_cash_flow_detail_tab(
-                None
-            ),  # Pass None since objects are corrupted
-            "📋 Assumptions": _create_assumptions_tab(
-                None
-            ),  # Pass None since objects are corrupted
+@app.cell
+def __(results, mo, pd):
+    """Display partner distribution metrics"""
+    
+    # Get partner data from results.partners (PartnerMetrics objects)
+    partner_data = []
+    
+    for partner_id, partner_info in results.partners.items():
+        # Calculate investment and distributions from cash flow
+        cf = partner_info.cash_flow
+        total_investment = abs(cf[cf < 0].sum()) if not cf.empty else 0.0
+        total_distributions = cf[cf > 0].sum() if not cf.empty else 0.0
+        
+        partner_data.append({
+            "Partner": partner_info.partner_name or partner_id,
+            "Type": partner_info.entity_type or "Unknown",
+            "Ownership %": f"{partner_info.ownership_share:.1%}" if partner_info.ownership_share else "N/A",
+            "Investment": f"${total_investment:,.0f}",
+            "Distributions": f"${total_distributions:,.0f}",
+            "Net Profit": f"${partner_info.net_profit:,.0f}",
+            "IRR": f"{partner_info.irr:.2%}" if partner_info.irr is not None else "N/A",
+            "Equity Multiple": f"{partner_info.equity_multiple:.2f}x" if partner_info.equity_multiple is not None else "N/A",
         })
-
-        tabs
+    
+    # Add aggregate row from deal_metrics
+    deal_metrics = results.deal_metrics
+    partner_data.append({
+        "Partner": "TOTAL",
+        "Type": "ALL",
+        "Ownership %": "100.0%",
+        "Investment": f"${deal_metrics['total_investment']:,.0f}",
+        "Distributions": f"${deal_metrics['total_distributions']:,.0f}",
+        "Net Profit": f"${deal_metrics['net_profit']:,.0f}",
+        "IRR": f"{deal_metrics['levered_irr']:.2%}" if deal_metrics['levered_irr'] is not None else "N/A",
+        "Equity Multiple": f"{deal_metrics['equity_multiple']:.2f}x" if deal_metrics['equity_multiple'] is not None else "N/A",
+    })
+    
+    partner_df = pd.DataFrame(partner_data)
+    
+    mo.ui.table(
+        partner_df,
+        selection=None,
+        label="Partner-Level Returns",
+    )
 
 
 @app.cell
@@ -787,29 +543,26 @@ def __(mo):
         """
         ---
         
-        ### 🎓 Understanding Development Finance
+        ### 🎓 What Just Happened?
         
-        **This interactive model demonstrates:**
+        **The Pattern Architecture at Work:**
         
-        **Development Lifecycle**: Land → Construction → Lease-Up → Stabilization → Exit
-        - Each phase has distinct risks, returns, and capital requirements
-        - Construction financing transitions to permanent financing upon stabilization
-        - Lease-up phase drives value creation through NOI growth
+        You configured just 7 parameters at the top of this notebook. From those inputs, 
+        the `ResidentialDevelopmentPattern` automatically generated:
         
-        **Partnership Structures**: How real estate partnerships align incentives
-        - Limited Partners provide most capital, receive preferred returns first
-        - General Partners contribute expertise/time, earn promotes for outperformance  
-        - Waterfall structures balance risk and reward appropriately
+        1. **Property Model**: 120-unit multifamily with detailed unit mix (1BR/2BR)
+        2. **Leasing Strategy**: Unit-by-unit lease execution with absorption modeling
+        3. **Construction Financing**: Interest-only debt during construction
+        4. **Permanent Financing**: Long-term amortizing debt after stabilization
+        5. **Partnership Structure**: GP/LP waterfall with preferred return and promote
+        6. **Complete Ledger**: Every transaction categorized and timestamped
+        7. **Performance Metrics**: IRR, equity multiple, DSCR, and more
         
-        **Financial Metrics**: Industry-standard measures for deal evaluation
-        - **IRR**: Time-weighted return accounting for investment timing
-        - **Equity Multiple**: Simple multiple of distributions ÷ investment
-        - **Development Yield**: Stabilized NOI ÷ Total Development Cost
+        **This is the power of the Pattern abstraction**: complex institutional-grade 
+        financial models assembled from simple, business-focused parameters.
         
-        **Try This**: Adjust construction cost per unit and watch how it impacts:
-        - Total equity required (higher costs = more equity needed)
-        - Development yield (higher costs = lower yields)
-        - Partnership returns (cost efficiency drives GP promote)
+        **Try This**: Go back to the top and change the hold period or exit cap rate. 
+        Watch all metrics update instantly across the entire model.
         
         ---
         
