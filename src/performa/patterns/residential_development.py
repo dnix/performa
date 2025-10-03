@@ -430,7 +430,6 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
                 "interest_rate": self.permanent_interest_rate,
                 "loan_term_years": self.permanent_loan_term_years,  # Use years form for construct
                 "amortization_years": self.permanent_amortization_years,  # Use years form for construct
-                "origination_fee_rate": 0.005,
                 # Smart refinance timing: construct will calculate from construction_duration_months + lease_up
             },
             project_value=self.total_project_cost,

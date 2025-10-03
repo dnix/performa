@@ -247,6 +247,11 @@ class AbsorptionPlanBase(Model, Generic[ExpenseType, LossesType, MiscIncomeType]
     name: str
     space_filter: SpaceFilter
     start_date_anchor: Union[date, StartDateAnchorEnum, AnchorLogic]
+    start_offset_months: int = Field(
+        default=0,
+        ge=0,
+        description="Months to offset absorption start from the anchor date (e.g., start leasing 15 months after construction begins)",
+    )
     pace: Annotated[
         Union[FixedQuantityPace, EqualSpreadPace, CustomSchedulePace],
         Field(discriminator="type"),

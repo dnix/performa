@@ -30,6 +30,7 @@ from datetime import date
 from typing import Any, Callable, List, Optional, Union
 from uuid import UUID
 
+from dateutil.relativedelta import relativedelta
 from pydantic import Field
 
 from ...core.base import (
@@ -421,9 +422,22 @@ class ResidentialAbsorptionPlan(
         )
 
     def _resolve_start_date(self, analysis_start_date: date) -> date:
-        """Determine the initial start date for absorption."""
+        """Determine the initial start date for absorption.
+        
+        Args:
+            analysis_start_date: The analysis start date to use as anchor
+            
+        Returns:
+            The resolved start date for absorption, with offset applied if configured
+        """
+        # If start_date_anchor is an absolute date, use it directly
         if isinstance(self.start_date_anchor, date):
             return self.start_date_anchor
+        
+        # For anchor enums (ANALYSIS_START), apply the offset
+        if self.start_offset_months > 0:
+            return analysis_start_date + relativedelta(months=self.start_offset_months)
+        
         return analysis_start_date
 
     def _resolve_leasing_terms(
