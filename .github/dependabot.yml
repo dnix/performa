@@ -10,8 +10,8 @@ updates:
       time: "09:00"
     labels:
       - dependencies
-      - type:build
-      - semver:patch
+      - chore
+      - ci
     commit-message:
       prefix: "ci"
       include: "scope"
@@ -25,7 +25,7 @@ updates:
       time: "09:00"
     labels:
       - dependencies
-      - type:build
+      - chore
       # Note: All updates get same labels due to GitHub constraint
       # Major updates distinguishable by: individual PRs + commit messages
     commit-message:
