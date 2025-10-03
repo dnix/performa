@@ -268,27 +268,27 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         """
 
         # === STEP 1: CONSTRUCTION CAPITAL PLAN ===
+        # Construction timeline (uses parameter, not hardcoded)
+        construction_timeline = Timeline(
+            start_date=self.acquisition_date,
+            duration_months=self.construction_duration_months,
+        )
+
         construction_item = CapitalItem(
             name=f"{self.project_name} Construction",
             work_type="construction",
             value=self.total_construction_cost,
-            timeline=Timeline(
-                start_date=self.acquisition_date,
-                duration_months=18,  # Typical residential construction timeline
-            ),
+            timeline=construction_timeline,  # Use parameterized timeline
             draw_schedule=SCurveDrawSchedule(
                 sigma=1.0
-            ),  # Realistic S-curve construction draws over 18 months
+            ),  # Realistic S-curve construction draws
         )
 
         developer_fee_item = CapitalItem(
             name=f"{self.project_name} Developer Fee",
             work_type="developer",
             value=self.developer_fee,
-            timeline=Timeline(
-                start_date=self.acquisition_date,
-                duration_months=18,  # Same timeline as construction
-            ),
+            timeline=construction_timeline,  # Use same parameterized timeline
             draw_schedule=UniformDrawSchedule(),  # Flat monthly payments (industry standard)
         )
 
