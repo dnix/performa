@@ -341,10 +341,12 @@ def create_construction_to_permanent_plan(
 
         if construction_duration:
             # Account for lease-up period before refinancing in development deals
-            # Development deals typically refinance after substantial occupancy, not immediately after construction
+            # Development deals should refinance after substantial stabilization for optimal loan sizing
             if lease_up_months and lease_up_months > 0:
-                # Refinance after construction + most of lease-up is complete (80% occupancy buffer)
-                stabilization_buffer = max(1, int(lease_up_months * 0.8))
+                # Refinance after full lease-up plus stabilization buffer
+                # The 2-month buffer allows for rent roll verification and ensures
+                # property value accurately reflects stabilized NOI
+                stabilization_buffer = lease_up_months + 2
                 permanent_params["refinance_timing"] = (
                     construction_duration + stabilization_buffer
                 )

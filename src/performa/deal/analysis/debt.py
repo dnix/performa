@@ -408,6 +408,32 @@ class DebtAnalyzer(AnalysisSpecialist):
                             f"for {transaction.get('new_facility', 'permanent loan')}"
                         )
 
+                    # Distribute net refinancing proceeds to equity partners
+                    # CRITICAL: Recalculate net_proceeds here after payoff_amount is updated
+                    # Net proceeds = New loan - Payoff - Closing costs
+                    actual_net_proceeds = new_loan_amount - payoff_amount - closing_costs
+                    
+                    if actual_net_proceeds > 0:
+                        distribution_series = pd.Series(
+                            [-actual_net_proceeds],  # Negative = outflow from deal to equity
+                            index=[transaction_date],
+                        )
+
+                        distribution_metadata = SeriesMetadata(
+                            category=CashFlowCategoryEnum.FINANCING,
+                            subcategory=FinancingSubcategoryEnum.EQUITY_DISTRIBUTION,
+                            item_name="Refinancing Cash-Out Distribution",
+                            source_id=self.deal.uid,
+                            asset_id=self.deal.asset.uid,
+                            pass_num=CalculationPhase.FINANCING.value,
+                            entity_type="GP,LP",  # Distribution to all equity partners
+                        )
+
+                        self.ledger.add_series(distribution_series, distribution_metadata)
+                        logger.info(
+                            f"💰 Recorded refinancing distribution to equity: ${actual_net_proceeds:,.0f}"
+                        )
+
                 # Setup covenant monitoring for new permanent loans
                 covenant_monitoring = transaction.get("covenant_monitoring", {})
                 # TODO: Integrate covenant monitoring with the new permanent loan

@@ -21,6 +21,7 @@ from ..asset.residential import (
     ResidentialExpenses,
     ResidentialGeneralVacancyLoss,
     ResidentialLosses,
+    ResidentialOpExItem,
     ResidentialRolloverLeaseTerms,
     ResidentialRolloverProfile,
     ResidentialVacantUnit,
@@ -32,14 +33,19 @@ from ..asset.residential.absorption import (
 from ..core.capital import CapitalItem, CapitalPlan
 from ..core.primitives import (
     AssetTypeEnum,
+    ExpenseSubcategoryEnum,
     FloatBetween0And1,
+    FrequencyEnum,
     InterestCalculationMethod,
+    PercentageGrowthRate,
     PositiveFloat,
     PositiveInt,
+    PropertyAttributeKey,
     SCurveDrawSchedule,
     StartDateAnchorEnum,
     Timeline,
     UniformDrawSchedule,
+    UnleveredAggregateLineKey,
     UponExpirationEnum,
 )
 from ..deal import (
@@ -333,9 +339,97 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         )
         avg_rent = total_rent_weight / self.total_units
 
-        # For now, skip operating expenses until we fix the timeline issue
-        # TODO: Add proper operating expenses with timeline
-        stabilized_expenses = ResidentialExpenses(operating_expenses=[])
+        # === OPERATING EXPENSES ===
+        # Typical multifamily operating expenses for new development
+        # These represent stabilized operating costs once property is fully occupied
+        
+        # Get timeline for expenses (same as overall project timeline)
+        project_timeline = self._derive_timeline()
+        
+        stabilized_expenses = ResidentialExpenses(
+            operating_expenses=[
+                # Property Management: 4-5% of Effective Gross Income (industry standard)
+                ResidentialOpExItem(
+                    name="Property Management",
+                    category="Expense",
+                    subcategory=ExpenseSubcategoryEnum.OPEX,
+                    timeline=project_timeline,
+                    value=0.04,  # 4% of EGI (competitive for institutional quality)
+                    frequency=FrequencyEnum.MONTHLY,
+                    reference=UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME,
+                ),
+                # Maintenance & Repairs: $500-600/unit annually (new construction baseline)
+                ResidentialOpExItem(
+                    name="Maintenance & Repairs",
+                    category="Expense",
+                    subcategory=ExpenseSubcategoryEnum.OPEX,
+                    timeline=project_timeline,
+                    value=500.0,  # $500/unit annually (new construction, lower initial maintenance)
+                    frequency=FrequencyEnum.ANNUAL,
+                    reference=PropertyAttributeKey.UNIT_COUNT,
+                    growth_rate=PercentageGrowthRate(
+                        name="Maintenance Inflation",
+                        value=0.03,  # 3% annual growth
+                    ),
+                ),
+                # Insurance: $350-400/unit annually (property and liability)
+                ResidentialOpExItem(
+                    name="Property Insurance",
+                    category="Expense",
+                    subcategory=ExpenseSubcategoryEnum.OPEX,
+                    timeline=project_timeline,
+                    value=400.0,  # $400/unit annually (comprehensive coverage)
+                    frequency=FrequencyEnum.ANNUAL,
+                    reference=PropertyAttributeKey.UNIT_COUNT,
+                    growth_rate=PercentageGrowthRate(
+                        name="Insurance Inflation",
+                        value=0.04,  # 4% annual growth (typically higher than CPI)
+                    ),
+                ),
+                # Property Taxes: $3,500/unit annually (varies by location, adjust per market)
+                ResidentialOpExItem(
+                    name="Property Taxes",
+                    category="Expense",
+                    subcategory=ExpenseSubcategoryEnum.OPEX,
+                    timeline=project_timeline,
+                    value=3500.0,  # $3,500/unit annually (typical for mid-market)
+                    frequency=FrequencyEnum.ANNUAL,
+                    reference=PropertyAttributeKey.UNIT_COUNT,
+                    growth_rate=PercentageGrowthRate(
+                        name="Property Tax Growth",
+                        value=0.025,  # 2.5% annual growth
+                    ),
+                ),
+                # Utilities: $200/unit annually (common area only, units typically separately metered)
+                ResidentialOpExItem(
+                    name="Utilities",
+                    category="Expense",
+                    subcategory=ExpenseSubcategoryEnum.OPEX,
+                    timeline=project_timeline,
+                    value=200.0,  # $200/unit annually (common areas, hallways, amenities)
+                    frequency=FrequencyEnum.ANNUAL,
+                    reference=PropertyAttributeKey.UNIT_COUNT,
+                    growth_rate=PercentageGrowthRate(
+                        name="Utility Inflation",
+                        value=0.035,  # 3.5% annual growth
+                    ),
+                ),
+                # General & Administrative: $150/unit annually (accounting, legal, admin)
+                ResidentialOpExItem(
+                    name="General & Administrative",
+                    category="Expense",
+                    subcategory=ExpenseSubcategoryEnum.OPEX,
+                    timeline=project_timeline,
+                    value=150.0,  # $150/unit annually
+                    frequency=FrequencyEnum.ANNUAL,
+                    reference=PropertyAttributeKey.UNIT_COUNT,
+                    growth_rate=PercentageGrowthRate(
+                        name="G&A Inflation",
+                        value=0.03,  # 3% annual growth
+                    ),
+                ),
+            ]
+        )
         stabilized_losses = ResidentialLosses(
             general_vacancy=ResidentialGeneralVacancyLoss(
                 rate=self.stabilized_vacancy_rate,
@@ -405,6 +499,10 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         # Feasibility checks now handled by auto-sizing logic and market-driven validation
         # The sophisticated architecture ensures deals are appropriately structured
 
+        # Calculate lease-up duration from absorption parameters
+        # Ensures refinancing timing accounts for actual stabilization period
+        actual_lease_up_months = int(self.total_units / self.absorption_pace_units_per_month)
+        
         financing = create_construction_to_permanent_plan(
             construction_terms={
                 "name": "Construction Facility",
@@ -433,7 +531,7 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
                 # Smart refinance timing: construct will calculate from construction_duration_months + lease_up
             },
             project_value=self.total_project_cost,
-            lease_up_months=18,  # DEVELOPMENT FIX: Account for 18-month residential lease-up before refinancing
+            lease_up_months=actual_lease_up_months,  # Calculate from absorption pace, not hardcoded
         )
 
         # === STEP 8: ARCHITECTURAL IMPROVEMENT ===
