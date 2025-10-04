@@ -240,6 +240,28 @@ class ValuationSettings(Model):
     costs_of_sale_percentage: FloatBetween0And1 = Field(
         default=0.03, description="Transaction costs as a percentage of exit value."
     )
+    
+    development_valuation_method: Literal["cost", "income", "auto"] = Field(
+        default="auto",
+        description=(
+            "Valuation method: 'cost' (land + costs), 'income' (NOI/cap rate), "
+            "or 'auto' (detect phase and select method)."
+        ),
+    )
+    development_phase_noi_threshold: FloatBetween0And1 = Field(
+        default=0.70,
+        description=(
+            "NOI threshold for phase detection (as fraction of stabilized NOI). "
+            "Higher = stay in cost mode longer. Only used when method='auto'."
+        ),
+    )
+    development_phase_capex_threshold: FloatBetween0And1 = Field(
+        default=0.01,
+        description=(
+            "Monthly cost growth threshold for phase detection (as fraction). "
+            "Active capital deployment keeps cost method. Only used when method='auto'."
+        ),
+    )
 
 
 # --- Main Global Settings Class ---
