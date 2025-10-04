@@ -170,19 +170,34 @@ class FinancialCalculations:
         """
         Calculate single-period Debt Service Coverage Ratio.
 
+        DSCR = NOI / |Debt Service|
+
         Args:
             noi: Net operating income for period
-            debt_service: Debt service for period
+            debt_service: Debt service for period (negative = outflow)
 
         Returns:
             DSCR ratio or None if no debt service
 
+        Note:
+            Debt service is typically negative (cash outflow). We use absolute value
+            for the calculation to get a positive DSCR ratio.
+
         Example:
             ```python
-            dscr = FinancialCalculations.calculate_dscr(100_000, 75_000)
+            # Typical case: negative debt service
+            dscr = FinancialCalculations.calculate_dscr(100_000, -75_000)
             print(f"DSCR: {dscr:.2f}")  # DSCR: 1.33
+
+            # No debt case
+            dscr = FinancialCalculations.calculate_dscr(100_000, 0)
+            print(f"DSCR: {dscr}")  # DSCR: 100.0 (reporting convention)
             ```
         """
-        if debt_service <= 0:
-            return None if noi <= 0 else 100.0  # Reporting cap for "no debt" periods
-        return noi / debt_service
+        if debt_service == 0:
+            # No debt service: return convention value if NOI positive, else None
+            return 100.0 if noi > 0 else None
+        
+        # Calculate DSCR using absolute value of debt service
+        # (debt service is negative for cash outflows)
+        return noi / abs(debt_service)
