@@ -278,3 +278,20 @@ class DebtFacilityBase(Model):
             pass_num=CalculationPhase.FINANCING.value,
         )
         context.ledger.add_series(-zero_principal, principal_metadata)
+
+    def process_covenants(self, context: "DealContext") -> None:
+        """
+        Process debt covenant constraints for this facility.
+        
+        Called after compute_cf() in a separate orchestrator phase to handle
+        covenant-based restrictions like cash sweeps, reserve requirements,
+        and distribution blocks.
+        
+        Default implementation does nothing (no covenants). Subclasses with
+        covenant support (e.g., ConstructionFacility) should override this
+        method to delegate to composed covenant objects.
+        
+        Args:
+            context: Deal context with ledger access
+        """
+        pass  # Default: no covenant processing

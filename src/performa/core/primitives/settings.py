@@ -9,7 +9,7 @@ from typing import Literal, Optional
 
 from pydantic import Field, model_validator
 
-from .enums import FrequencyEnum
+from .enums import FrequencyEnum, SweepMode
 from .model import Model
 from .types import FloatBetween0And1, PositiveFloat, PositiveInt
 
@@ -264,6 +264,25 @@ class ValuationSettings(Model):
     )
 
 
+class FinancingSettings(Model):
+    """Settings for debt and equity financing behavior."""
+
+    default_sweep_mode: Optional[SweepMode] = Field(
+        default=None,
+        description=(
+            "Default cash sweep mode for debt facilities. "
+            "None = no sweep, TRAP = escrow until release, PREPAY = mandatory prepayment. "
+            "Individual facilities can override this setting."
+        ),
+    )
+    
+    # TODO: Future financing settings
+    # - default_loan_term_years: Optional[PositiveInt]
+    # - default_amortization_years: Optional[PositiveInt]
+    # - default_preferred_return_rate: Optional[PositiveFloat]
+    # - default_promote_structure: Optional[str]
+
+
 # --- Main Global Settings Class ---
 
 
@@ -281,6 +300,7 @@ class GlobalSettings(Model):
     inflation: InflationSettings = Field(default_factory=InflationSettings)
     recoveries: RecoverySettings = Field(default_factory=RecoverySettings)
     valuation: ValuationSettings = Field(default_factory=ValuationSettings)
+    financing: FinancingSettings = Field(default_factory=FinancingSettings)
     percentage_rent: PercentageRentSettings = Field(
         default_factory=PercentageRentSettings
     )

@@ -61,7 +61,13 @@ class DebtAnalyzer(AnalysisSpecialist):
         Settings-driven debt processing with institutional-grade covenant monitoring.
         Always processes facilities and writes debt transactions to ledger.
 
-        Handles refinancing transactions after facilities are processed.
+        Three-phase processing:
+        1. Debt service calculations (compute_cf)
+        2. Covenant processing (process_covenants) 
+        3. Refinancing transactions
+        
+        Covenant processing happens after debt service so that ledger data
+        (NOI, debt service) is available for covenant calculations.
         """
         # Handle no financing case internally
         if not self.deal.financing:
@@ -69,12 +75,19 @@ class DebtAnalyzer(AnalysisSpecialist):
 
         # Note: Facility-specific covenant settings extracted from facility.ongoing_dscr_min, etc.
 
-        # Process each facility with settings-driven context
+        # PHASE 1: Process debt service for each facility
         for facility in self.deal.financing.facilities:
             # Facility writes debt transactions to ledger
             facility.compute_cf(self.context)
+        
+        # PHASE 2: Process covenant constraints (NEW)
+        # Must happen AFTER compute_cf() so debt service is in ledger
+        for facility in self.deal.financing.facilities:
+            # Delegate covenant processing to facility
+            # (Facility delegates to composed covenant objects)
+            facility.process_covenants(self.context)
 
-        # Handle refinancing AFTER facilities are processed
+        # PHASE 3: Handle refinancing AFTER facilities and covenants processed
         # This ensures construction loan amounts are in the ledger
         if (
             self.deal.financing.has_construction_financing
@@ -333,8 +346,10 @@ class DebtAnalyzer(AnalysisSpecialist):
                 # Handle construction loan repayment
                 # If payoff_amount is -1, we need to get it from the ledger
                 if payoff_amount == -1.0 and self.context.ledger:
-                    # Get actual construction loan amount from ledger
+                    # Get actual construction loan amount from ledger (principal + capitalized interest)
                     ledger_df = self.context.ledger.ledger_df()
+                    
+                    # Get loan proceeds (principal)
                     const_proceeds = ledger_df[
                         (ledger_df["item_name"].str.contains("Construction", na=False))
                         & (
@@ -342,13 +357,28 @@ class DebtAnalyzer(AnalysisSpecialist):
                             == FinancingSubcategoryEnum.LOAN_PROCEEDS
                         )
                     ]
-                    if not const_proceeds.empty:
-                        payoff_amount = const_proceeds["amount"].sum()
+                    payoff_amount = const_proceeds["amount"].sum() if not const_proceeds.empty else 0.0
+                    
+                    # Add capitalized interest to payoff amount
+                    # Capitalized interest increases the loan balance and must be repaid
+                    cap_interest = ledger_df[
+                        (ledger_df["item_name"].str.contains("Capitalized Interest", na=False))
+                    ]
+                    if not cap_interest.empty:
+                        capitalized_amount = abs(cap_interest["amount"].sum())
                         logger.info(
-                            f"Got construction loan amount from ledger: ${payoff_amount:,.0f}"
+                            f"Construction loan payoff: ${payoff_amount:,.0f} principal + "
+                            f"${capitalized_amount:,.0f} capitalized interest = "
+                            f"${payoff_amount + capitalized_amount:,.0f} total"
                         )
-                        # Update the transaction record
-                        transaction["payoff_amount"] = payoff_amount
+                        payoff_amount += capitalized_amount
+                    else:
+                        logger.info(
+                            f"Got construction loan amount from ledger: ${payoff_amount:,.0f} (no capitalized interest)"
+                        )
+                    
+                    # Update the transaction record
+                    transaction["payoff_amount"] = payoff_amount
 
                 # REAL LOAN PAYOFF APPROACH FOR REFINANCING
                 # Actually pay off the old loan instead of just adjusting
@@ -414,6 +444,7 @@ class DebtAnalyzer(AnalysisSpecialist):
                     actual_net_proceeds = new_loan_amount - payoff_amount - closing_costs
                     
                     if actual_net_proceeds > 0:
+                        # Positive net proceeds = cash-out to equity
                         distribution_series = pd.Series(
                             [-actual_net_proceeds],  # Negative = outflow from deal to equity
                             index=[transaction_date],
@@ -431,7 +462,31 @@ class DebtAnalyzer(AnalysisSpecialist):
 
                         self.ledger.add_series(distribution_series, distribution_metadata)
                         logger.info(
-                            f"💰 Recorded refinancing distribution to equity: ${actual_net_proceeds:,.0f}"
+                            f"💰 Recorded refinancing cash-out distribution to equity: ${actual_net_proceeds:,.0f}"
+                        )
+                    
+                    elif actual_net_proceeds < 0:
+                        # Negative net proceeds = equity contribution required
+                        # When permanent loan doesn't cover construction payoff, equity must fill gap
+                        contribution_series = pd.Series(
+                            [abs(actual_net_proceeds)],  # Positive = inflow to deal from equity
+                            index=[transaction_date],
+                        )
+
+                        contribution_metadata = SeriesMetadata(
+                            category=CashFlowCategoryEnum.FINANCING,
+                            subcategory=FinancingSubcategoryEnum.EQUITY_CONTRIBUTION,
+                            item_name="Refinancing Equity Contribution",
+                            source_id=self.deal.uid,
+                            asset_id=self.deal.asset.uid,
+                            pass_num=CalculationPhase.FINANCING.value,
+                            entity_type="GP,LP",  # Contribution from all equity partners
+                        )
+
+                        self.ledger.add_series(contribution_series, contribution_metadata)
+                        logger.info(
+                            f"💸 Recorded refinancing equity contribution: ${abs(actual_net_proceeds):,.0f} "
+                            f"(permanent loan insufficient to cover construction payoff)"
                         )
 
                 # Setup covenant monitoring for new permanent loans

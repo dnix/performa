@@ -1,8 +1,8 @@
 # Enum Reference - Complete Ledger Semantic Catalog
 
-**Generated:** October 2, 2025  
+**Generated:** October 6, 2025  
 **Source:** `src/performa/core/primitives/enums.py`  
-**Purpose:** Canonical reference for all ledger categorization values
+**Purpose:** Canonical reference for all ledger categorization values (includes Cash Sweep covenants)
 
 ---
 
@@ -110,11 +110,15 @@ The top-level classification of transactions:
 | `ORIGINATION_FEE` | "Origination Fee" | Negative | TBD | Loan origination fees |
 | `EXIT_FEE` | "Exit Fee" | Negative | TBD | Loan exit fees |
 | `PREPAYMENT_PENALTY` | "Prepayment Penalty" | Negative | TBD | Early repayment penalties |
+| `CASH_SWEEP_DEPOSIT` | "Cash Sweep Deposit" | Negative | Financing Service | Excess cash trapped in lender escrow (TRAP mode) |
+| `CASH_SWEEP_RELEASE` | "Cash Sweep Release" | Positive | Financing Service | Trapped cash released from escrow when sweep ends |
+| `SWEEP_PREPAYMENT` | "Sweep Prepayment" | Negative | Financing Service | Mandatory principal prepayment from sweep (PREPAY mode) |
 
 **Debt Flow Groupings:**
 - **Debt Sources:** LOAN_PROCEEDS, REFINANCING_PROCEEDS (positive)
 - **Debt Service:** INTEREST_PAYMENT, PRINCIPAL_PAYMENT (negative)
-- **Debt Payoffs:** PREPAYMENT, REFINANCING_PAYOFF (negative)
+- **Debt Payoffs:** PREPAYMENT, REFINANCING_PAYOFF, SWEEP_PREPAYMENT (negative)
+- **Cash Sweep Covenant:** CASH_SWEEP_DEPOSIT, CASH_SWEEP_RELEASE, SWEEP_PREPAYMENT
 
 **Equity Flow Groupings:**
 - **Equity Partner Flows:** EQUITY_CONTRIBUTION, EQUITY_DISTRIBUTION, PREFERRED_RETURN, PROMOTE
@@ -214,9 +218,50 @@ High-level classification providing unambiguous categorization:
 
 ---
 
-## 4. Sign Conventions (Proposed - To Be Validated)
+## 4. Lender Covenant Enums
 
-### 4.1 DEAL PERSPECTIVE (Ledger Records)
+### 4.1 SweepMode (Cash Sweep Mode)
+
+**Purpose:** Defines how excess operating cash is handled when a debt facility has an active cash sweep covenant.
+
+**Source:** `src/performa/core/primitives/enums.py`  
+**Used By:** `CashSweep` covenant class, `ConstructionFacility`
+
+| Enum Value | String Value | Description |
+|------------|--------------|-------------|
+| `TRAP` | "trap" | Hold excess cash in lender-controlled escrow, release when sweep ends |
+| `PREPAY` | "prepay" | Apply excess cash to mandatory principal prepayment immediately |
+
+**Economic Impact:**
+- **TRAP Mode**: Timing drag on IRR (cash returned later), but full cash eventually returned
+- **PREPAY Mode**: Reduces loan balance → lower interest expense → higher returns
+
+**Usage Context:**
+- Common in construction and bridge loans
+- Prevents distributions during high-risk phases (construction, lease-up)
+- Typically ends at stabilization or refinancing
+
+**Example:**
+```python
+from performa.core.primitives import SweepMode
+from performa.debt.covenants import CashSweep
+
+sweep = CashSweep(
+    mode=SweepMode.TRAP,  # or SweepMode.PREPAY
+    end_month=42  # Synchronized with refinancing
+)
+```
+
+**Related Subcategories:**
+- `CASH_SWEEP_DEPOSIT` - Cash trapped in escrow (TRAP mode)
+- `CASH_SWEEP_RELEASE` - Cash released from escrow (TRAP mode)
+- `SWEEP_PREPAYMENT` - Principal prepayment (PREPAY mode)
+
+---
+
+## 5. Sign Conventions (Proposed - To Be Validated)
+
+### 5.1 DEAL PERSPECTIVE (Ledger Records)
 
 ```
 POSITIVE (+) = Cash INTO the deal (sources)
@@ -233,7 +278,7 @@ NEGATIVE (-) = Cash OUT OF the deal (uses)
   - Acquisition costs
 ```
 
-### 4.2 INVESTOR PERSPECTIVE (Reports)
+### 5.2 INVESTOR PERSPECTIVE (Reports)
 
 For investor-facing reports, signs are typically FLIPPED:
 ```
@@ -247,9 +292,9 @@ POSITIVE (+) = Cash INTO investor pocket
 
 ---
 
-## 5. Canonical Mappings (To Be Validated in Phase 2)
+## 6. Canonical Mappings (To Be Validated in Phase 2)
 
-### 5.1 Debt Transaction Patterns
+### 6.1 Debt Transaction Patterns
 
 | Transaction | Category | Subcategory | Flow Purpose | Sign |
 |-------------|----------|-------------|--------------|------|
@@ -268,7 +313,7 @@ If positive, this goes to equity as distribution
 
 ---
 
-### 5.2 Equity Transaction Patterns
+### 6.2 Equity Transaction Patterns
 
 | Transaction | Category | Subcategory | Flow Purpose | Sign |
 |-------------|----------|-------------|--------------|------|
@@ -279,7 +324,7 @@ If positive, this goes to equity as distribution
 
 ---
 
-### 5.3 Capital Transaction Patterns
+### 6.3 Capital Transaction Patterns
 
 | Transaction | Category | Subcategory | Flow Purpose | Sign |
 |-------------|----------|-------------|--------------|------|
@@ -292,7 +337,7 @@ If positive, this goes to equity as distribution
 
 ---
 
-### 5.4 Operating Transaction Patterns
+### 6.4 Operating Transaction Patterns
 
 | Transaction | Category | Subcategory | Flow Purpose | Sign |
 |-------------|----------|-------------|--------------|------|
@@ -304,9 +349,9 @@ If positive, this goes to equity as distribution
 
 ---
 
-## 6. Issues to Investigate
+## 7. Issues to Investigate
 
-### 6.1 CapEx Ambiguity
+### 7.1 CapEx Ambiguity
 - **Question:** When is CapEx in category=`Capital` vs category=`Expense` subcategory=`CapEx`?
 - **Hypothesis:** 
   - Major development/construction = category=`Capital`
@@ -331,9 +376,9 @@ If positive, this goes to equity as distribution
 
 ---
 
-## 7. Enum Completeness Check
+## 8. Enum Completeness Check
 
-### 7.1 Categories vs Subcategories Matrix
+### 8.1 Categories vs Subcategories Matrix
 
 | Category | Has Dedicated Subcategory Enum? | Subcategory Enum Name |
 |----------|--------------------------------|----------------------|
@@ -353,7 +398,7 @@ All transactions should map to exactly ONE flow_purpose:
 
 ---
 
-## 8. Next Steps (Phase 1.2)
+## 9. Next Steps (Phase 1.2)
 
 1. Run all example scripts
 2. Extract `DISTINCT category, subcategory, flow_purpose` from each

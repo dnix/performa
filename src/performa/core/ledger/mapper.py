@@ -188,6 +188,16 @@ class FlowPurposeMapper:
                 ):
                     return TransactionPurpose.FINANCING_SERVICE
 
+                # Cash sweep covenant flows: ALWAYS FINANCING_SERVICE (regardless of sign)
+                # CRITICAL: Must override sign-based logic to prevent sweep releases
+                # from leaking into project_cash_flow (unlevered)
+                elif subcategory in [
+                    FinancingSubcategoryEnum.CASH_SWEEP_DEPOSIT,  # Negative: trap cash
+                    FinancingSubcategoryEnum.CASH_SWEEP_RELEASE,  # Positive: release cash
+                    FinancingSubcategoryEnum.SWEEP_PREPAYMENT,  # Negative: prepay principal
+                ]:
+                    return TransactionPurpose.FINANCING_SERVICE
+
                 # All other financing: Debt proceeds (positive) vs debt service (negative)
                 elif amount > 0:  # Positive = proceeds/draws (debt proceeds)
                     return TransactionPurpose.CAPITAL_SOURCE

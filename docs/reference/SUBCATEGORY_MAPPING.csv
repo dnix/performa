@@ -30,6 +30,9 @@ Financing,Prepayment,Financing Service,negative,Loan payoff at property sale/dis
 Financing,Origination Fee,Financing Service,negative,Loan origination fees,Debt cost - Fee
 Financing,Exit Fee,Financing Service,negative,Loan exit fees,Debt cost - Fee
 Financing,Prepayment Penalty,Financing Service,negative,Early repayment penalties,Debt cost - Penalty
+Financing,Cash Sweep Deposit,Financing Service,negative,Excess cash trapped in lender escrow,Sweep covenant - TRAP mode
+Financing,Cash Sweep Release,Financing Service,positive,Trapped cash released from escrow when sweep ends,Sweep covenant - TRAP mode
+Financing,Sweep Prepayment,Financing Service,negative,Mandatory principal prepayment from sweep,Sweep covenant - PREPAY mode
 Financing,Interest Reserve,Capital Use,varies,Interest reserve funding or draws,Complex - consult documentation
 Valuation,Asset Valuation,Valuation,positive,Direct asset appraisals and valuations,Non-cash
 Valuation,Comparable Sales,Valuation,positive,Market-based comparable sales analysis,Non-cash

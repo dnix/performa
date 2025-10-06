@@ -1,8 +1,8 @@
 # Real Estate Financial Modeling Glossary
 
 **Purpose:** Comprehensive mapping of industry standard real estate financial terms to Performa concepts and code implementations  
-**Last Updated:** October 2, 2025  
-**Status:** Post-fix implementation (all bugs resolved)
+**Last Updated:** October 6, 2025  
+**Status:** Post-fix implementation (all bugs resolved) + Cash Sweep covenants
 
 ---
 
@@ -151,6 +151,57 @@ Cash-Out:             $2.0M  → Distributed to equity
 ```
 
 **Related Terms:** Refinancing, Recapitalization, Return of Capital
+
+---
+
+### Cash Sweep (Lender Cash Sweep Covenant)
+**Industry Definition:** Lender covenant requiring borrower to deposit or apply excess operating cash flow to debt service or principal reduction until specific conditions are met (e.g., stabilization, DSCR threshold). Common in construction and bridge loans to mitigate risk during lease-up.
+
+**Performa Implementation:**
+- **Modes**:
+  - **TRAP**: Excess cash held in lender-controlled escrow, released when covenant satisfied
+  - **PREPAY**: Excess cash mandatorily applied to principal prepayment immediately
+- **Ledger Categories**:
+  - `Financing / Cash Sweep Deposit` (negative, traps cash in escrow)
+  - `Financing / Cash Sweep Release` (positive, releases trapped cash)
+  - `Financing / Sweep Prepayment` (negative, prepays principal)
+- **Flow Purpose**: `Financing Service` (all sweep transactions)
+- **Classes**: `CashSweep` (covenant object), composed into `ConstructionFacility`
+- **Code Reference**: `src/performa/debt/covenants.py`, `src/performa/debt/construction.py`
+
+**Economic Impact:**
+- **TRAP Mode**: Delays cash to equity (timing drag on IRR), but full cash eventually returned
+- **PREPAY Mode**: Reduces loan balance → lower interest expense → higher returns
+
+**Example:**
+```python
+from performa.debt.covenants import CashSweep, SweepMode
+
+# Create cash sweep covenant
+sweep = CashSweep(
+    mode=SweepMode.TRAP,  # or SweepMode.PREPAY
+    end_month=42  # Release at refinancing month
+)
+
+# Attach to construction loan
+construction = ConstructionFacility(
+    name="Construction Loan",
+    ltc_ratio=0.70,
+    interest_rate=0.07,
+    cash_sweep=sweep  # Compose covenant into facility
+)
+```
+
+**Query Methods:**
+- `sweep_deposits()` - Cash trapped in escrow (TRAP mode)
+- `sweep_prepayments()` - Principal prepayments from sweep (PREPAY mode)
+
+**Integration:**
+- **PartnershipAnalyzer**: Respects sweeps when calculating distributable cash
+- **DebtAnalyzer**: Processes covenants after debt service calculation
+- **Auto-sync**: Helper `create_construction_to_permanent_plan()` syncs sweep end with refinancing
+
+**Related Terms:** Cash Trap, Lockbox, Debt Service Reserve, Mandatory Prepayment, Covenant
 
 ---
 

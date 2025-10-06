@@ -25,6 +25,7 @@ from ..core.primitives import (
     Timeline,
 )
 from .base import DebtFacilityBase
+from .covenants import CashSweep
 from .rates import InterestRate
 
 if TYPE_CHECKING:
@@ -166,6 +167,16 @@ class ConstructionFacility(DebtFacilityBase):
     # TODO: Add funding cascade strategy (equity-first vs pro-rata vs debt-first)
     # This determines the ORDER of draws, not the SIZE of the loan
     # Currently hardcoded to equity-first in CashFlowEngine
+
+    # Covenant constraints (composed, not inherited)
+    cash_sweep: Optional["CashSweep"] = Field(
+        default=None,
+        description="Optional cash sweep covenant (traps or prepays excess cash)"
+    )
+    # TODO: Future covenant types (uncomment when implementing)
+    # reserves: Optional[List[ReserveAccount]] = None
+    # distribution_block: Optional[DistributionBlock] = None
+    # mandatory_prepayment: Optional[MandatoryPrepayment] = None
 
     @model_validator(mode="before")
     def convert_years_to_months(cls, values):
@@ -599,6 +610,33 @@ class ConstructionFacility(DebtFacilityBase):
         # Generate debt service with calculated loan amount
         return self._generate_debt_service_with_amount(context, effective_loan_amount)
 
+    def process_covenants(self, context: "DealContext") -> None:
+        """
+        Process all covenant-based restrictions for this facility.
+        
+        Called after compute_cf() in a separate orchestrator phase.
+        Delegates to composed covenant objects.
+        
+        Current covenants:
+        - Cash sweep (if configured)
+        
+        Future extensibility (TODO):
+        - Reserve accounts (tax, insurance, CapEx)
+        - Distribution blocks (DSCR/occupancy requirements)
+        - Mandatory prepayments (on refinancing, sale, etc.)
+        - Lockbox arrangements
+        """
+        # Process cash sweep covenant
+        if self.cash_sweep:
+            self.cash_sweep.process(context, self.name)
+        
+        # TODO: Process other covenants as they're implemented
+        # for reserve in self.reserves or []:
+        #     reserve.process(context, self.name)
+        # 
+        # if self.distribution_block:
+        #     self.distribution_block.process(context, self.name)
+
     def _record_interest_capitalization(
         self, context: "DealContext", loan_amount: float
     ) -> None:
@@ -793,35 +831,71 @@ class ConstructionFacility(DebtFacilityBase):
         """
         Calculate outstanding loan balance for refinancing payoff.
 
-        For construction loans, the outstanding balance is typically the full
-        loan amount since they are interest-only during construction.
+        For construction loans, the outstanding balance includes:
+        1. Principal (loan amount)
+        2. Capitalized interest (if fund_interest_from_reserve=True)
+
+        The capitalized interest is added to the loan balance during construction
+        and must be repaid at refinancing.
 
         Args:
             date: Date for balance calculation
-            financing_cash_flows: Optional cash flow history
+            financing_cash_flows: Optional cash flow history (ledger)
 
         Returns:
-            Outstanding loan balance
+            Outstanding loan balance (principal + capitalized interest)
         """
-        # For construction loans, return the full commitment amount
-        # Construction loans are typically interest-only, so principal balance = loan amount
+        # Get base loan amount (principal)
+        base_amount = 0.0
         if hasattr(self, "_effective_loan_amount") and self._effective_loan_amount:
-            return self._effective_loan_amount
+            base_amount = self._effective_loan_amount
         elif self.loan_amount and self.loan_amount > 0:
-            return self.loan_amount
+            base_amount = self.loan_amount
         elif self.ltc_ratio is not None:
             # Estimate loan amount as ltc_ratio * typical project cost
-            # This is rough but better than $0 for payoff calculations
             estimated_amount = 20_000_000 * self.ltc_ratio  # Rough estimate
             logger.warning(
                 f"Estimating outstanding balance for {self.name}: ${estimated_amount:,.0f}"
             )
-            return estimated_amount
+            base_amount = estimated_amount
         else:
             logger.warning(
                 f"No loan amount available for {self.name} outstanding balance calculation"
             )
             return 0.0
+        
+        # Add capitalized interest if funded from reserve
+        # Query ledger for capitalized interest transactions
+        capitalized_interest = 0.0
+        if financing_cash_flows is not None and self.fund_interest_from_reserve:
+            try:
+                from ..core.ledger import Ledger
+                
+                # If financing_cash_flows is a Ledger, query it
+                if isinstance(financing_cash_flows, Ledger):
+                    ledger_df = financing_cash_flows.to_dataframe()
+                    
+                    # Find capitalized interest for this facility
+                    cap_interest_mask = (
+                        ledger_df["item_name"].str.contains(f"{self.name} - Capitalized Interest", na=False)
+                    )
+                    
+                    if cap_interest_mask.any():
+                        # Sum absolute value (interest is negative in ledger)
+                        capitalized_interest = abs(ledger_df[cap_interest_mask]["amount"].sum())
+                        
+                        logger.debug(
+                            f"{self.name}: Base ${base_amount:,.0f} + "
+                            f"Cap Interest ${capitalized_interest:,.0f} = "
+                            f"Outstanding ${base_amount + capitalized_interest:,.0f}"
+                        )
+            except Exception as e:
+                logger.warning(
+                    f"Could not query capitalized interest for {self.name}: {e}. "
+                    f"Outstanding balance may be understated."
+                )
+        
+        return base_amount + capitalized_interest
 
     def _generate_draw_schedule(self, timeline: Timeline) -> pd.Series:
         """

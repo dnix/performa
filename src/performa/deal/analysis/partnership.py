@@ -246,6 +246,13 @@ class PartnershipAnalyzer(AnalysisSpecialist):
         # and Financing Service flow purposes to ensure proper accounting
         recurring_debt_service = self.queries.recurring_debt_service()
 
+        # Get cash sweep outflows (cash not available for distribution)
+        # These are negative outflows that reduce distributable cash during sweep periods
+        # - TRAP mode: Uses sweep_deposits (cash held in escrow)
+        # - PREPAY mode: Uses sweep_prepayments (cash applied to principal)
+        sweep_deposits = self.queries.sweep_deposits()
+        sweep_prepayments = self.queries.sweep_prepayments()
+
         # Validate we have operations to distribute
         if actual_noi.empty and recurring_debt_service.empty:
             return  # No operations to distribute
@@ -255,10 +262,23 @@ class PartnershipAnalyzer(AnalysisSpecialist):
         debt_service_aligned = self.timeline.align_series(
             recurring_debt_service, fill_value=0.0
         )
+        sweep_deposits_aligned = self.timeline.align_series(
+            sweep_deposits, fill_value=0.0
+        )
+        sweep_prepayments_aligned = self.timeline.align_series(
+            sweep_prepayments, fill_value=0.0
+        )
 
-        # Calculate available cash: NOI + debt service (debt service is negative)
+        # Calculate available cash: NOI + debt service - sweep outflows
+        # - NOI: positive (operating income)
+        # - debt_service: negative (cash outflow for I+P)
+        # - sweep_deposits: negative (cash trapped in escrow, not available) [TRAP mode]
+        # - sweep_prepayments: negative (cash used to prepay principal, not available) [PREPAY mode]
+        # Result: Only distribute cash that hasn't been swept
         # Refinancing proceeds and payoffs are handled separately through ledger flow purposes
-        available_for_distribution = noi_aligned + debt_service_aligned
+        available_for_distribution = (
+            noi_aligned + debt_service_aligned + sweep_deposits_aligned + sweep_prepayments_aligned
+        )
 
         # Truncate distributions after disposition date
         # After property sale, no ongoing operating distributions should occur

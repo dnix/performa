@@ -10,7 +10,7 @@ metrics and residential-specific leasing assumptions.
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
 from pydantic import Field, field_validator, model_validator
 
@@ -48,15 +48,15 @@ from ..core.primitives import (
     UnleveredAggregateLineKey,
     UponExpirationEnum,
 )
+from ..core.primitives.enums import SweepMode
 from ..deal import (
     AcquisitionTerms,
     Deal,
     create_gp_lp_waterfall,
     create_simple_partnership,
 )
-
-# No direct debt facility imports needed - using construct
 from ..debt.constructs import create_construction_to_permanent_plan
+from ..debt.covenants import CashSweep
 from ..development import DevelopmentProject
 from ..valuation import DirectCapValuation
 from .base import DevelopmentPatternBase
@@ -179,6 +179,15 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         default=0.80,
         description="Maximum LTC threshold - lender's hard gate (typically 0.75-0.85)",
     )
+    construction_sweep_mode: Optional[SweepMode] = Field(
+        default=SweepMode.TRAP,
+        description=(
+            "Cash sweep mode for construction loan covenant. "
+            "TRAP = hold excess cash in escrow until refinancing, "
+            "PREPAY = apply excess cash to mandatory principal prepayment. "
+            "Set to None to disable sweep (unrealistic for most deals)."
+        ),
+    )
 
     # Removed duplicate _derive_timeline() method - using the one below with proper development logic
 
@@ -248,13 +257,15 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         Derive timeline from hold_period_years (stabilized hold after construction + lease-up).
 
         Residential Development Timeline: Acquisition → Construction → Lease-up → Stabilized Hold Period
-        - Total timeline = construction_start_months + construction_duration_months + 18 (lease-up) + hold_period_years * 12
+        - Total timeline = construction_start_months + construction_duration_months + lease_up + hold_period_years * 12
         """
         # Calculate total development timeline
         construction_period_months = (
             self.construction_start_months + self.construction_duration_months
         )
-        lease_up_months = 18  # Longer residential lease-up period vs 12 for office
+        # Calculate actual lease-up duration from absorption parameters
+        # This ensures timeline and refinancing use consistent lease-up duration
+        lease_up_months = int(self.total_units / self.absorption_pace_units_per_month)
         stabilized_hold_months = self.hold_period_years * 12
 
         total_timeline_months = (
@@ -439,10 +450,15 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
             ),
         )
 
+        # CRITICAL FIX: Use actual leasing_start_months parameter
+        # The pattern explicitly specifies when leasing starts (may be during construction)
+        # Don't recalculate based on construction completion - use what user specified
+        leasing_offset = self.leasing_start_months
+        
         absorption_plan = ResidentialAbsorptionPlan(
             name=f"{self.project_name} Residential Leasing",
             start_date_anchor=StartDateAnchorEnum.ANALYSIS_START,
-            start_offset_months=self.leasing_start_months,  # Start leasing after construction
+            start_offset_months=leasing_offset,  # Start leasing after construction completes
             pace=FixedQuantityPace(
                 quantity=self.absorption_pace_units_per_month,
                 unit="Units",
@@ -503,6 +519,22 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         # Ensures refinancing timing accounts for actual stabilization period
         actual_lease_up_months = int(self.total_units / self.absorption_pace_units_per_month)
         
+        # CRITICAL: Calculate refinancing timing for TRUE stabilization
+        # Permanent loans require 12-month trailing NOI for proper sizing
+        # Formula: leasing_start + lease_up + 12-month stabilization = refinance timing
+        # This ensures LTM NOI reflects full stabilized operations
+        stabilization_buffer = 12  # Full year of stabilized NOI for LTM calculation
+        actual_refinance_timing = self.leasing_start_months + actual_lease_up_months + stabilization_buffer
+        
+        # Create cash sweep covenant if enabled
+        # Prevents unrealistic distributions during construction/lease-up
+        cash_sweep_covenant = None
+        if self.construction_sweep_mode is not None:
+            cash_sweep_covenant = CashSweep(
+                mode=self.construction_sweep_mode,
+                end_month=actual_refinance_timing  # Synchronized with refinancing timing
+            )
+        
         financing = create_construction_to_permanent_plan(
             construction_terms={
                 "name": "Construction Facility",
@@ -518,6 +550,8 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
                     InterestCalculationMethod, self.interest_calculation_method
                 ),
                 "simple_reserve_rate": 0.10,  # Required for SIMPLE method
+                # NEW: Attach cash sweep covenant
+                "cash_sweep": cash_sweep_covenant,
             },
             permanent_terms={
                 "name": "Permanent Facility",
@@ -528,7 +562,8 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
                 "interest_rate": self.permanent_interest_rate,
                 "loan_term_years": self.permanent_loan_term_years,  # Use years form for construct
                 "amortization_years": self.permanent_amortization_years,  # Use years form for construct
-                # Smart refinance timing: construct will calculate from construction_duration_months + lease_up
+                # CRITICAL: Pass explicit refinance timing based on actual leasing start
+                "refinance_timing": actual_refinance_timing,  # Accounts for leasing offset + lease-up + buffer
             },
             project_value=self.total_project_cost,
             lease_up_months=actual_lease_up_months,  # Calculate from absorption pace, not hardcoded
