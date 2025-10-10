@@ -196,13 +196,15 @@ class DebtFacilityBase(Model):
                     # Align amortization schedule with analysis timeline
                     # The schedule index is already aligned to funding_period, so we reindex
                     # to the full timeline to properly place transactions in time
-                    
+
                     # Record interest component (actual cash expense)
                     if "Interest" in amortization_schedule.columns:
                         interest_series = amortization_schedule["Interest"]
-                        
+
                         # Reindex to full timeline, filling periods before funding with zero
-                        interest_series = interest_series.reindex(timeline.period_index, fill_value=0.0)
+                        interest_series = interest_series.reindex(
+                            timeline.period_index, fill_value=0.0
+                        )
 
                         interest_metadata = SeriesMetadata(
                             category=CashFlowCategoryEnum.FINANCING,
@@ -217,9 +219,11 @@ class DebtFacilityBase(Model):
                     # Record principal component (for balance tracking)
                     if "Principal" in amortization_schedule.columns:
                         principal_series = amortization_schedule["Principal"]
-                        
+
                         # Reindex to full timeline, filling periods before funding with zero
-                        principal_series = principal_series.reindex(timeline.period_index, fill_value=0.0)
+                        principal_series = principal_series.reindex(
+                            timeline.period_index, fill_value=0.0
+                        )
 
                         principal_metadata = SeriesMetadata(
                             category=CashFlowCategoryEnum.FINANCING,
@@ -282,15 +286,15 @@ class DebtFacilityBase(Model):
     def process_covenants(self, context: "DealContext") -> None:
         """
         Process debt covenant constraints for this facility.
-        
+
         Called after compute_cf() in a separate orchestrator phase to handle
         covenant-based restrictions like cash sweeps, reserve requirements,
         and distribution blocks.
-        
+
         Default implementation does nothing (no covenants). Subclasses with
         covenant support (e.g., ConstructionFacility) should override this
         method to delegate to composed covenant objects.
-        
+
         Args:
             context: Deal context with ledger access
         """

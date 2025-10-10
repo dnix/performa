@@ -167,22 +167,28 @@ class ValuationEngine(AnalysisSpecialist):
         refi_cap_rate = self.context.settings.valuation.refinancing_cap_rate
         noi_method = self.context.settings.valuation.refinancing_noi_method
         val_method = self.context.settings.valuation.development_valuation_method
-        noi_threshold_pct = self.context.settings.valuation.development_phase_noi_threshold
-        capex_threshold_pct = self.context.settings.valuation.development_phase_capex_threshold
+        noi_threshold_pct = (
+            self.context.settings.valuation.development_phase_noi_threshold
+        )
+        capex_threshold_pct = (
+            self.context.settings.valuation.development_phase_capex_threshold
+        )
 
         # Get cumulative capital uses for cost accumulation approach
         # Query ledger directly for precise timing control
         ledger_df = self.context.ledger.to_dataframe()
-        capital_df = ledger_df[ledger_df['flow_purpose'] == 'Capital Use'].copy()
-        
+        capital_df = ledger_df[ledger_df["flow_purpose"] == "Capital Use"].copy()
+
         # Calculate cumulative costs by period
         if not capital_df.empty:
-            capital_df['period'] = capital_df['date'].dt.to_period('M')
-            period_costs = capital_df.groupby('period')['amount'].sum().abs()
+            capital_df["period"] = capital_df["date"].dt.to_period("M")
+            period_costs = capital_df.groupby("period")["amount"].sum().abs()
             cumulative_costs = period_costs.cumsum()
             # Convert to datetime index for alignment
             cumulative_costs.index = cumulative_costs.index.to_timestamp()
-            aligned_costs = self.context.timeline.align_series(cumulative_costs, fill_value=0.0)
+            aligned_costs = self.context.timeline.align_series(
+                cumulative_costs, fill_value=0.0
+            )
         else:
             aligned_costs = pd.Series(0.0, index=self.context.timeline.period_index)
 
@@ -195,7 +201,9 @@ class ValuationEngine(AnalysisSpecialist):
             stabilized_noi = aligned_noi.iloc[-12:].mean()
         else:
             # Early in project: use forward-looking average or peak NOI as proxy
-            stabilized_noi = aligned_noi[aligned_noi > 0].mean() if (aligned_noi > 0).any() else 0.0
+            stabilized_noi = (
+                aligned_noi[aligned_noi > 0].mean() if (aligned_noi > 0).any() else 0.0
+            )
 
         # Calculate NOI threshold for phase detection (configurable)
         development_noi_threshold = stabilized_noi * noi_threshold_pct
@@ -224,7 +232,7 @@ class ValuationEngine(AnalysisSpecialist):
             # ============================================================
             # PHASE DETECTION & VALUATION APPROACH SELECTION
             # ============================================================
-            
+
             # Handle forced valuation methods
             if val_method == "cost":
                 # Force cost accumulation (user override)
@@ -234,24 +242,25 @@ class ValuationEngine(AnalysisSpecialist):
                 use_cost_approach = False
             else:
                 # Auto-detect phase using dual criteria (default)
-                
+
                 # Criterion A: NOI Threshold Test
                 # Low NOI indicates development/lease-up phase
                 noi_test = period_noi < development_noi_threshold
-                
+
                 # Criterion B: Capital Deployment Test
                 # Active capital deployment indicates development/improvement
                 cost_growth_rate = 0.0
                 if i > 0 and aligned_costs.iloc[i - 1] > 0:
                     cost_growth_rate = (
-                        (aligned_costs.iloc[i] - aligned_costs.iloc[i - 1])
-                        / aligned_costs.iloc[i - 1]
-                    )
+                        aligned_costs.iloc[i] - aligned_costs.iloc[i - 1]
+                    ) / aligned_costs.iloc[i - 1]
                 capex_test = cost_growth_rate > capex_threshold_pct
-                
+
                 # Use cost approach if EITHER test is true AND we have capital deployed
-                use_cost_approach = (noi_test or capex_test) and aligned_costs.iloc[i] > 0
-            
+                use_cost_approach = (noi_test or capex_test) and aligned_costs.iloc[
+                    i
+                ] > 0
+
             # Apply selected valuation approach
             if use_cost_approach:
                 # DEVELOPMENT PHASE: Cost accumulation

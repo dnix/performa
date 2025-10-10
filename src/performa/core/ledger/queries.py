@@ -871,9 +871,7 @@ class LedgerQueries:  # noqa: PLR0904
             GROUP BY period
             
         """
-        return self._execute_query_to_series(
-            sql, "period", "total", "Sweep Deposits"
-        )
+        return self._execute_query_to_series(sql, "period", "total", "Sweep Deposits")
 
     def sweep_prepayments(self) -> pd.Series:
         """

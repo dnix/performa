@@ -334,7 +334,10 @@ class DispositionAnalyzer(AnalysisSpecialist):
                 ledger_df["item_name"].str.contains(facility.name, na=False)
             ) & (
                 (ledger_df["subcategory"] == FinancingSubcategoryEnum.LOAN_PROCEEDS)
-                | (ledger_df["subcategory"] == FinancingSubcategoryEnum.REFINANCING_PROCEEDS)
+                | (
+                    ledger_df["subcategory"]
+                    == FinancingSubcategoryEnum.REFINANCING_PROCEEDS
+                )
             )
             proceeds = ledger_df[proceeds_mask]["amount"].sum()
 

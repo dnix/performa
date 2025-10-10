@@ -137,7 +137,7 @@ class PivotTableReport(BaseReport):
     ) -> pd.DataFrame:
         """
         Aggregate data by time periods and create pivot table structure.
-        
+
         Uses appropriate aggregation functions based on row type:
         - Flows (Revenue, Expense, etc.): Sum across period (total activity)
         - Stocks (Valuation, Balance Sheet): Last value in period (point-in-time)
@@ -157,13 +157,13 @@ class PivotTableReport(BaseReport):
 
         # Create hierarchical index for categories and subcategories
         df["line_item"] = df["category"] + " → " + df["subcategory"]
-        
+
         # Separate stocks from flows
-        stock_categories = ['Valuation']  # Point-in-time values
-        
+        stock_categories = ["Valuation"]  # Point-in-time values
+
         flow_df = df[~df["category"].isin(stock_categories)]
         stock_df = df[df["category"].isin(stock_categories)]
-        
+
         # Aggregate flows (sum within period)
         if not flow_df.empty:
             flow_pivot = flow_df.pivot_table(
@@ -175,7 +175,7 @@ class PivotTableReport(BaseReport):
             )
         else:
             flow_pivot = pd.DataFrame()
-        
+
         # Aggregate stocks (last value in period)
         if not stock_df.empty:
             stock_pivot = stock_df.pivot_table(
@@ -187,7 +187,7 @@ class PivotTableReport(BaseReport):
             )
         else:
             stock_pivot = pd.DataFrame()
-        
+
         # Combine flows and stocks
         if not flow_pivot.empty and not stock_pivot.empty:
             pivot_df = pd.concat([flow_pivot, stock_pivot], axis=0)
@@ -284,7 +284,7 @@ class PivotTableReport(BaseReport):
     def _add_totals_column(self, pivot_df: pd.DataFrame) -> pd.DataFrame:
         """
         Add totals column with appropriate aggregation based on row type.
-        
+
         For flows (Revenue, Expense): Sum across all periods (total activity)
         For stocks (Valuation): Last value (ending balance)
 
@@ -295,10 +295,10 @@ class PivotTableReport(BaseReport):
             DataFrame with 'Total' column added
         """
         df_with_totals = pivot_df.copy()
-        
+
         # Determine which rows are stocks vs flows based on line item name
-        stock_categories = ['Valuation']  # Point-in-time values
-        
+        stock_categories = ["Valuation"]  # Point-in-time values
+
         totals = []
         for line_item in pivot_df.index:
             # Extract category from line item (format: "Category → Subcategory")
@@ -306,7 +306,7 @@ class PivotTableReport(BaseReport):
                 category = line_item.split(" → ")[0]
             else:
                 category = line_item.split()[0]  # Fallback for subtotals
-            
+
             # Apply appropriate aggregation
             if category in stock_categories:
                 # For stocks: show ending value (last non-zero value)
@@ -317,9 +317,9 @@ class PivotTableReport(BaseReport):
             else:
                 # For flows: sum across all periods
                 total = pivot_df.loc[line_item].sum()
-            
+
             totals.append(total)
-        
+
         df_with_totals["Total"] = totals
         return df_with_totals
 

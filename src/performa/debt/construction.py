@@ -42,13 +42,14 @@ logger = logging.getLogger(__name__)
 class CovenantAdjustments:
     """
     How covenants modify interest and balance this period.
-    
+
     Extensible for future covenant types (reserve accounts, distribution blocks, etc.)
-    
+
     Attributes:
         interest_paid_by_sweep: Amount of interest paid by sweep (reduces reserve draw)
         principal_prepayment: Amount of principal prepayment from sweep
     """
+
     interest_paid_by_sweep: float = 0.0
     principal_prepayment: float = 0.0
 
@@ -188,7 +189,7 @@ class ConstructionFacility(DebtFacilityBase):
     # Covenant constraints (composed, not inherited)
     cash_sweep: Optional["CashSweep"] = Field(
         default=None,
-        description="Optional cash sweep covenant (traps or prepays excess cash)"
+        description="Optional cash sweep covenant (traps or prepays excess cash)",
     )
     # TODO: Future covenant types (uncomment when implementing)
     # reserves: Optional[List[ReserveAccount]] = None
@@ -599,19 +600,21 @@ class ConstructionFacility(DebtFacilityBase):
     def compute_cf(self, context: "DealContext") -> pd.Series:
         """
         Compute construction loan cash flows.
-        
+
         Branches on interest_calculation_method:
         - SIMPLE: Legacy upfront calculation (backward compatible)
         - SCHEDULED: NEW synchronous interest-covenant calculation
-        
+
         Args:
             context: Deal context with ledger access and deal-level data
-            
+
         Returns:
             pd.Series: Debt service schedule (empty for construction loans)
         """
-        logger.debug(f"{self.name}: compute_cf() called with method={self.interest_calculation_method}")
-        
+        logger.debug(
+            f"{self.name}: compute_cf() called with method={self.interest_calculation_method}"
+        )
+
         if self.interest_calculation_method == InterestCalculationMethod.SIMPLE:
             # Legacy path (backward compatible)
             effective_loan_amount = self._calculate_loan_commitment(context)
@@ -622,8 +625,10 @@ class ConstructionFacility(DebtFacilityBase):
                 f"Recording interest capitalization for {self.name} with SIMPLE method"
             )
             self._record_interest_capitalization(context, effective_loan_amount)
-            return self._generate_debt_service_with_amount(context, effective_loan_amount)
-        
+            return self._generate_debt_service_with_amount(
+                context, effective_loan_amount
+            )
+
         elif self.interest_calculation_method == InterestCalculationMethod.SCHEDULED:
             # NEW: Synchronous period-by-period calculation
             logger.debug(
@@ -631,7 +636,7 @@ class ConstructionFacility(DebtFacilityBase):
             )
             self._compute_interest_and_covenants(context)
             return pd.Series([], dtype=float)  # No recurring debt service
-        
+
         else:
             raise ValueError(
                 f"Unsupported interest calculation method: {self.interest_calculation_method}"
@@ -640,19 +645,19 @@ class ConstructionFacility(DebtFacilityBase):
     def process_covenants(self, context: "DealContext") -> None:
         """
         Process all covenant-based restrictions for this facility.
-        
+
         Called after compute_cf() in a separate orchestrator phase.
-        
+
         SCHEDULED method:
         - PREPAY: Already processed synchronously (skip)
         - TRAP: Post deposits/releases here (legacy process() method)
-        
+
         SIMPLE method:
         - All covenants: Process normally
-        
+
         Current covenants:
         - Cash sweep (if configured)
-        
+
         Future extensibility (TODO):
         - Reserve accounts (tax, insurance, CapEx)
         - Distribution blocks (DSCR/occupancy requirements)
@@ -663,86 +668,86 @@ class ConstructionFacility(DebtFacilityBase):
             # Legacy: process all covenants
             if self.cash_sweep:
                 self.cash_sweep.process(context, self.name)
-        
+
         elif self.interest_calculation_method == InterestCalculationMethod.SCHEDULED:
             # CRITICAL: Sweep must continue processing POST-CONSTRUCTION
             # During construction: handled synchronously in _compute_interest_and_covenants()
             # After construction: must still process sweep for NOI (months 19-42)
             if self.cash_sweep:
                 self.cash_sweep.process(context, self.name)
-        
+
         # TODO: Process other covenants as they're implemented
         # for reserve in self.reserves or []:
         #     reserve.process(context, self.name)
-        # 
+        #
         # if self.distribution_block:
         #     self.distribution_block.process(context, self.name)
 
     def _compute_interest_and_covenants(self, context: "DealContext") -> None:
         """
         Synchronously calculate interest and covenants period-by-period.
-        
+
         Architecture:
         1. Batch queries ONCE upfront (NOI, capital uses) - PERFORMANCE
         2. Loop: calculate interest → apply covenants → update balance
         3. Build ledger series directly (no intermediate storage) - SIMPLICITY
         4. Post all transactions in batch
-        
+
         Performance:
         - Single DataFrame materialization (~5ms)
         - Single NOI query (~2ms)
         - Loop with O(1) lookups (~2ms for 18-42 periods)
         - Total: ~10-15ms (within 20ms budget)
-        
+
         This method implements the industry-standard period-by-period interest
         calculation that enables proper interaction with cash sweep covenants.
         """
         balance = 0.0
         monthly_rate = self._get_effective_rate() / 12
         alpha = 0.5  # Within-period draw factor (uniform draws)
-        
+
         logger.debug(f"{self.name}: Starting synchronous interest-covenant calculation")
-        
+
         # === CRITICAL PERFORMANCE: Batch queries ONCE ===
-        
+
         # Query 1: Extract capital uses (single DataFrame materialization)
         ledger_df = context.ledger.to_dataframe()  # ← ONLY to_dataframe() call
         capital_uses_by_period = self._extract_capital_uses_by_period(ledger_df)
-        
+
         # Query 2: Extract NOI series (single SQL query)
         noi_series = LedgerQueries(context.ledger).noi()
-        
+
         # === Build series directly (no intermediate storage) ===
         interest_reserve_dict = {}  # Interest paid from reserve (capitalized)
-        interest_sweep_dict = {}    # Interest paid from sweep
-        prepay_dict = {}            # Prepayments from sweep
-        
+        interest_sweep_dict = {}  # Interest paid from sweep
+        prepay_dict = {}  # Prepayments from sweep
+
         for idx, period in enumerate(context.timeline.period_index):
             month_num = idx + 1
-            
+
             # Respect loan term
             if self.loan_term_months and month_num > self.loan_term_months:
                 break
-            
+
             # Get data for this period (O(1) lookups)
             cost_draw = capital_uses_by_period.get(period, 0.0)
             period_noi = noi_series.get(period, 0.0)
-            
+
             # STEP 1: Calculate raw interest
             raw_interest = monthly_rate * (balance + alpha * cost_draw)
-            
+
             # STEP 2: Apply covenant adjustments
             adjustments = self._calculate_covenant_adjustments(
                 period=period,
                 raw_interest=raw_interest,
                 balance=balance,
                 period_noi=period_noi,  # ← Passed (no query)
-                context=context
+                context=context,
             )
-            
+
             # STEP 3: Determine net effects
             interest_from_reserve = raw_interest - adjustments.interest_paid_by_sweep
-            
+
             # STEP 4: Store in series dicts
             if interest_from_reserve > 0:
                 interest_reserve_dict[period] = interest_from_reserve
@@ -750,24 +755,24 @@ class ConstructionFacility(DebtFacilityBase):
                 interest_sweep_dict[period] = adjustments.interest_paid_by_sweep
             if adjustments.principal_prepayment > 0:
                 prepay_dict[period] = adjustments.principal_prepayment
-            
+
             # STEP 5: Update balance for next period
-            balance += cost_draw + interest_from_reserve - adjustments.principal_prepayment
-        
+            balance += (
+                cost_draw + interest_from_reserve - adjustments.principal_prepayment
+            )
+
         # Cache computed balance for outstanding_balance() calls
         # Using object.__setattr__ to bypass Pydantic immutability for runtime caching
         object.__setattr__(self, "_effective_loan_amount", balance)  # noqa: PLC2801
-        
+
         # Post all transactions
         self._post_interest_and_covenant_transactions(
-            context, 
-            balance,
-            interest_reserve_dict,
-            interest_sweep_dict,
-            prepay_dict
+            context, balance, interest_reserve_dict, interest_sweep_dict, prepay_dict
         )
-        
-        logger.debug(f"{self.name}: Synchronous calculation complete, final balance=${balance:,.0f}")
+
+        logger.debug(
+            f"{self.name}: Synchronous calculation complete, final balance=${balance:,.0f}"
+        )
 
     def _post_interest_and_covenant_transactions(
         self,
@@ -775,11 +780,11 @@ class ConstructionFacility(DebtFacilityBase):
         total_loan_amount: float,
         interest_reserve: Dict[pd.Timestamp, float],
         interest_sweep: Dict[pd.Timestamp, float],
-        prepayments: Dict[pd.Timestamp, float]
+        prepayments: Dict[pd.Timestamp, float],
     ) -> None:
         """
         Post all interest and covenant transactions to ledger in batch.
-        
+
         Args:
             context: Deal context
             total_loan_amount: Final loan balance (for proceeds)
@@ -788,12 +793,11 @@ class ConstructionFacility(DebtFacilityBase):
             prepayments: Period → prepayments from sweep (negative in ledger)
         """
         timeline = context.timeline
-        
+
         # 1. Loan proceeds (Day 1)
         if total_loan_amount > 0:
             proceeds_series = pd.Series(
-                [total_loan_amount], 
-                index=[timeline.period_index[0]]
+                [total_loan_amount], index=[timeline.period_index[0]]
             )
             context.ledger.add_series(
                 proceeds_series,
@@ -804,15 +808,14 @@ class ConstructionFacility(DebtFacilityBase):
                     source_id=self.uid,
                     asset_id=context.deal.asset.uid,
                     pass_num=CalculationPhase.FINANCING.value,
-                )
+                ),
             )
             logger.debug(f"{self.name}: Posted loan proceeds ${total_loan_amount:,.0f}")
-        
+
         # 2. Interest from reserve (capitalized, negative)
         if interest_reserve:
             series = pd.Series(
-                {p: -amt for p, amt in interest_reserve.items()},
-                dtype=float
+                {p: -amt for p, amt in interest_reserve.items()}, dtype=float
             )
             context.ledger.add_series(
                 series,
@@ -823,9 +826,9 @@ class ConstructionFacility(DebtFacilityBase):
                     source_id=self.uid,
                     asset_id=context.deal.asset.uid,
                     pass_num=CalculationPhase.FINANCING.value,
-                )
+                ),
             )
-        
+
         # 3. Interest from sweep (informational, positive)
         if interest_sweep:
             series = pd.Series(interest_sweep, dtype=float)
@@ -838,15 +841,12 @@ class ConstructionFacility(DebtFacilityBase):
                     source_id=self.uid,
                     asset_id=context.deal.asset.uid,
                     pass_num=CalculationPhase.FINANCING.value,
-                )
+                ),
             )
-        
+
         # 4. Sweep prepayments (negative)
         if prepayments:
-            series = pd.Series(
-                {p: -amt for p, amt in prepayments.items()},
-                dtype=float
-            )
+            series = pd.Series({p: -amt for p, amt in prepayments.items()}, dtype=float)
             context.ledger.add_series(
                 series,
                 SeriesMetadata(
@@ -856,7 +856,7 @@ class ConstructionFacility(DebtFacilityBase):
                     source_id=self.uid,
                     asset_id=context.deal.asset.uid,
                     pass_num=CalculationPhase.FINANCING.value,
-                )
+                ),
             )
 
     def _record_interest_capitalization(
@@ -919,21 +919,20 @@ class ConstructionFacility(DebtFacilityBase):
                 context.ledger.add_series(interest_series, interest_metadata)
 
     def _extract_capital_uses_by_period(
-        self, 
-        ledger_df: pd.DataFrame
+        self, ledger_df: pd.DataFrame
     ) -> Dict[pd.Period, float]:
         """
         Pre-aggregate capital uses by period for fast loop lookups.
-        
+
         CRITICAL PERFORMANCE: Called ONCE before loop. Returns dict for O(1) access.
         This eliminates repeated DataFrame filtering (18-42 queries → 1).
-        
+
         Args:
             ledger_df: Full ledger as DataFrame (from single to_dataframe() call)
-            
+
         Returns:
             Dict mapping period (pd.Period) → debt-funded capital use amount
-            
+
         Example:
             >>> ledger_df = context.ledger.to_dataframe()
             >>> capital_uses = facility._extract_capital_uses_by_period(ledger_df)
@@ -941,26 +940,26 @@ class ConstructionFacility(DebtFacilityBase):
         """
         # Filter to Capital Use transactions
         capital_uses = ledger_df[ledger_df["flow_purpose"] == "Capital Use"]
-        
+
         if capital_uses.empty:
             return {}
-        
+
         # Group by period and sum (absolute value for costs)
         by_period = capital_uses.groupby("date")["amount"].sum().abs()
-        
+
         # Apply LTC ratio to get debt-funded portion
         if self.ltc_ratio is not None:
             ltc = self.ltc_ratio
         else:
             # Fallback: use reasonable default
             ltc = 0.70
-        
+
         debt_funded = by_period * ltc
-        
+
         # CRITICAL FIX: Convert Timestamp index to Period to match timeline
         # The ledger uses Timestamp, but timeline uses Period
-        debt_funded.index = debt_funded.index.to_period('M')
-        
+        debt_funded.index = debt_funded.index.to_period("M")
+
         return debt_funded.to_dict()
 
     def _calculate_covenant_adjustments(
@@ -969,27 +968,27 @@ class ConstructionFacility(DebtFacilityBase):
         raw_interest: float,
         balance: float,
         period_noi: float,
-        context: "DealContext"
+        context: "DealContext",
     ) -> CovenantAdjustments:
         """
         Calculate covenant-based adjustments for this period.
-        
+
         This method delegates to composed covenant objects, maintaining clean
         separation of concerns. Each covenant can adjust interest or balance.
-        
+
         CRITICAL PERFORMANCE: period_noi passed as parameter to avoid repeated
         ledger queries (18-42 queries → 0).
-        
+
         Args:
             period: Current period timestamp
             raw_interest: Interest calculated before any adjustments
             balance: Current loan balance
             period_noi: Net Operating Income for this period (from upfront batch query)
             context: Deal context
-            
+
         Returns:
             CovenantAdjustments with sweep impacts
-            
+
         Example:
             >>> adjustments = facility._calculate_covenant_adjustments(
             ...     period=pd.Timestamp('2024-01-01'),
@@ -1003,7 +1002,7 @@ class ConstructionFacility(DebtFacilityBase):
             >>> adjustments.principal_prepayment  # 100000.0
         """
         adjustments = CovenantAdjustments()
-        
+
         # Apply cash sweep covenant if configured
         if self.cash_sweep:
             sweep = self.cash_sweep.calculate_waterfall(
@@ -1012,17 +1011,17 @@ class ConstructionFacility(DebtFacilityBase):
                 current_balance=balance,
                 period_noi=period_noi,  # ← Pass as parameter (no query)
                 facility_name=self.name,
-                context=context
+                context=context,
             )
             adjustments.interest_paid_by_sweep = sweep.to_interest
             adjustments.principal_prepayment = sweep.to_principal
-        
+
         # Future: Other covenant types would be added here
         # if self.reserves:
         #     for reserve in self.reserves:
         #         reserve_adj = reserve.calculate_adjustment(...)
         #         adjustments.apply(reserve_adj)
-        
+
         return adjustments
 
     def _generate_debt_service_with_amount(
@@ -1192,7 +1191,7 @@ class ConstructionFacility(DebtFacilityBase):
                 f"No loan amount available for {self.name} outstanding balance calculation"
             )
             return 0.0
-        
+
         # Add capitalized interest if funded from reserve
         # Query ledger for capitalized interest transactions
         capitalized_interest = 0.0
@@ -1201,16 +1200,18 @@ class ConstructionFacility(DebtFacilityBase):
                 # If financing_cash_flows is a Ledger, query it
                 if isinstance(financing_cash_flows, Ledger):
                     ledger_df = financing_cash_flows.to_dataframe()
-                    
+
                     # Find capitalized interest for this facility
-                    cap_interest_mask = (
-                        ledger_df["item_name"].str.contains(f"{self.name} - Capitalized Interest", na=False)
+                    cap_interest_mask = ledger_df["item_name"].str.contains(
+                        f"{self.name} - Capitalized Interest", na=False
                     )
-                    
+
                     if cap_interest_mask.any():
                         # Sum absolute value (interest is negative in ledger)
-                        capitalized_interest = abs(ledger_df[cap_interest_mask]["amount"].sum())
-                        
+                        capitalized_interest = abs(
+                            ledger_df[cap_interest_mask]["amount"].sum()
+                        )
+
                         logger.debug(
                             f"{self.name}: Base ${base_amount:,.0f} + "
                             f"Cap Interest ${capitalized_interest:,.0f} = "
@@ -1221,7 +1222,7 @@ class ConstructionFacility(DebtFacilityBase):
                     f"Could not query capitalized interest for {self.name}: {e}. "
                     f"Outstanding balance may be understated."
                 )
-        
+
         return base_amount + capitalized_interest
 
     def _generate_draw_schedule(self, timeline: Timeline) -> pd.Series:

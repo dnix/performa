@@ -197,7 +197,7 @@ class FinancialCalculations:
         if debt_service == 0:
             # No debt service: return convention value if NOI positive, else None
             return 100.0 if noi > 0 else None
-        
+
         # Calculate DSCR using absolute value of debt service
         # (debt service is negative for cash outflows)
         return noi / abs(debt_service)

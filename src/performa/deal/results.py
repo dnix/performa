@@ -368,81 +368,81 @@ class DealResults:  # noqa: PLR0904
     def stabilized_dscr(self) -> Optional[float]:
         """
         Stabilized DSCR - trailing 12-month average for lender underwriting.
-        
+
         This is the PRIMARY DSCR metric for permanent loan underwriting and
         should be used in investor presentations. It excludes:
         - Construction/lease-up ramp periods
         - Post-payoff periods
         - One-time refinancing events
-        
+
         Returns:
             Trailing 12-month average DSCR, or None if insufficient operating history
         """
         dscr_series = self._calculate_dscr_series()
         noi_series = self.noi
         debt_service_series = self._queries.recurring_debt_service()
-        
+
         # Filter to operating periods only (NOI > 0, recurring DS ≠ 0)
         operating_mask = (noi_series > 0) & (debt_service_series != 0)
         operating_dscr = dscr_series[operating_mask]
-        
+
         if operating_dscr.empty or len(operating_dscr) < 12:
             return None
-        
+
         # Return trailing 12-month average
         return float(operating_dscr.tail(12).mean())
-    
+
     @cached_property
     def minimum_operating_dscr(self) -> Optional[float]:
         """
         Minimum DSCR during operating periods (worst-case covenant breach).
-        
+
         Excludes construction periods and focuses on actual operations.
         This shows the worst DSCR a lender would experience during normal
         operations (not including one-time refinancing events).
-        
+
         Returns:
             Minimum DSCR across operating periods, or None if no operations
         """
         dscr_series = self._calculate_dscr_series()
         noi_series = self.noi
         debt_service_series = self._queries.recurring_debt_service()
-        
+
         # Filter to operating periods only
         operating_mask = (noi_series > 0) & (debt_service_series != 0)
         operating_dscr = dscr_series[operating_mask]
-        
+
         if operating_dscr.empty:
             return None
-        
+
         return float(operating_dscr.min())
-    
+
     @cached_property
     def covenant_compliance_rate(self) -> Optional[float]:
         """
         Percentage of operating periods meeting 1.25x DSCR covenant.
-        
+
         Industry-standard multifamily covenant is typically 1.25x DSCR.
         This metric shows what percentage of operating periods would meet
         that covenant, critical for lender approval.
-        
+
         Returns:
             Percentage (0-100) of operating periods with DSCR >= 1.25x
         """
         dscr_series = self._calculate_dscr_series()
         noi_series = self.noi
         debt_service_series = self._queries.recurring_debt_service()
-        
+
         # Filter to operating periods only
         operating_mask = (noi_series > 0) & (debt_service_series != 0)
         operating_dscr = dscr_series[operating_mask]
-        
+
         if operating_dscr.empty:
             return None
-        
+
         covenant_threshold = 1.25
         periods_above = (operating_dscr >= covenant_threshold).sum()
-        
+
         return float((periods_above / len(operating_dscr)) * 100)
 
     @cached_property
@@ -486,10 +486,10 @@ class DealResults:  # noqa: PLR0904
     def _calculate_dscr_series(self) -> pd.Series:
         """
         Calculate DSCR for each period using recurring debt service only.
-        
-        Uses recurring_debt_service() to exclude one-time payoff events 
-        (refinancing payoffs, prepayments at disposition) which distort 
-        covenant monitoring. Lenders care about NOI coverage of RECURRING 
+
+        Uses recurring_debt_service() to exclude one-time payoff events
+        (refinancing payoffs, prepayments at disposition) which distort
+        covenant monitoring. Lenders care about NOI coverage of RECURRING
         obligations (I+P), not one-time financing events.
         """
         noi_series = self.noi

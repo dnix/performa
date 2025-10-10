@@ -277,7 +277,10 @@ class PartnershipAnalyzer(AnalysisSpecialist):
         # Result: Only distribute cash that hasn't been swept
         # Refinancing proceeds and payoffs are handled separately through ledger flow purposes
         available_for_distribution = (
-            noi_aligned + debt_service_aligned + sweep_deposits_aligned + sweep_prepayments_aligned
+            noi_aligned
+            + debt_service_aligned
+            + sweep_deposits_aligned
+            + sweep_prepayments_aligned
         )
 
         # Truncate distributions after disposition date

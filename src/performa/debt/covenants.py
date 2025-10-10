@@ -53,11 +53,12 @@ logger = logging.getLogger(__name__)
 class SweepAdjustment:
     """
     Result of sweep waterfall calculation.
-    
+
     Attributes:
         to_interest: Sweep cash applied to interest (reduces reserve draw)
         to_principal: Sweep cash applied to principal (prepayment)
     """
+
     to_interest: float
     to_principal: float
 
@@ -72,42 +73,41 @@ class SweepAdjustment:
 class CashSweep(Model):
     """
     Lender cash sweep covenant.
-    
+
     Traps or prepays excess operating cash until a specific date/event.
     Common in construction loans to prevent distributions during lease-up.
-    
+
     Modes:
         TRAP: Hold excess cash in escrow, release when sweep ends
         PREPAY: Apply excess cash to principal prepayment immediately
-    
+
     Economics:
         TRAP: Cash comes back later (timing drag on IRR)
         PREPAY: Reduces loan balance → lower interest → higher IRR
-    
+
     Attributes:
         mode: Sweep mode (TRAP or PREPAY)
         end_month: Month when sweep ends (1-based), typically set to stabilization
             or refinancing month. Automatically set by helper functions.
-    
+
     Example:
         Construction loan with 12-month sweep until refinancing:
-        
+
         sweep = CashSweep(
             mode=SweepMode.TRAP,
             end_month=42  # Month when refinancing occurs
         )
-        
+
         construction = ConstructionFacility(
             ...,
             cash_sweep=sweep
         )
     """
-    
+
     mode: SweepMode = Field(
-        ...,
-        description="Sweep mode: TRAP (escrow) or PREPAY (mandatory prepayment)"
+        ..., description="Sweep mode: TRAP (escrow) or PREPAY (mandatory prepayment)"
     )
-    
+
     end_month: int = Field(
         ...,
         ge=1,
@@ -115,9 +115,9 @@ class CashSweep(Model):
             "Month when sweep ends (1-based). "
             "Typically set to stabilization or refinancing month. "
             "Automatically set by create_construction_to_permanent_plan() helper."
-        )
+        ),
     )
-    
+
     # TODO: Add covenant-based trigger support for permanent loan sweeps
     # Current implementation uses simple time-based triggers (end_month).
     # Future enhancement should support covenant-based triggers that activate/deactivate
@@ -131,64 +131,72 @@ class CashSweep(Model):
     #
     # This will enable realistic permanent loan modeling where sweeps respond to
     # covenant violations rather than just fixed dates.
-    
+
     def process(self, context: "DealContext", facility_name: str) -> None:
         """
         Process cash sweep covenant for all periods.
-        
+
         This method handles the full sweep lifecycle: calculating excess cash,
         applying sweep rules, and posting ledger transactions.
-        
+
         Used for:
         - SIMPLE interest method (all sweep types) - full processing
         - SCHEDULED + TRAP mode - deposit/release posting only
-        
+
         Note: For SCHEDULED + PREPAY mode, the calculation is handled synchronously
         by calculate_waterfall() during interest calculation, so this method is skipped.
-        
+
         For each period where sweep is active:
         1. Calculate excess operating cash
         2. Apply sweep (trap or prepay) based on mode
         3. Release trapped cash when sweep ends (TRAP only)
-        
+
         Args:
             context: Deal context with ledger access
             facility_name: Name of the debt facility this sweep belongs to
         """
         # Track trapped balance across periods (for TRAP mode)
         trapped_balance = 0.0
-        
+
         # Get facility reference for balance manipulation (PREPAY mode)
         facility = self._get_facility(context, facility_name)
-        
+
         # Process each period
         for idx, period_date in enumerate(context.timeline.period_index):
             # Month number is 1-based (month 1, 2, 3, ...)
             month_num = idx + 1
-            
+
             # Calculate excess cash for this period
-            excess_cash = self._calculate_excess_cash(context, facility_name, period_date)
-            
+            excess_cash = self._calculate_excess_cash(
+                context, facility_name, period_date
+            )
+
             if month_num < self.end_month:
                 # SWEEP IS ACTIVE: Apply sweep to excess cash
                 if excess_cash > 0:
                     if self.mode == SweepMode.TRAP:
                         # TRAP MODE: Hold in escrow
                         trapped_balance += excess_cash
-                        self._post_sweep_deposit(context, period_date, excess_cash, facility_name)
-                    
+                        self._post_sweep_deposit(
+                            context, period_date, excess_cash, facility_name
+                        )
+
                     elif self.mode == SweepMode.PREPAY:
                         # PREPAY MODE: Apply to principal immediately
                         # Post prepayment transaction to ledger (balance reduction is implicit via ledger)
-                        self._post_sweep_prepayment(context, period_date, excess_cash, facility_name)
-            
+                        self._post_sweep_prepayment(
+                            context, period_date, excess_cash, facility_name
+                        )
+
             elif month_num == self.end_month:
                 # SWEEP ENDS: Release any trapped funds
                 if self.mode == SweepMode.TRAP and trapped_balance > 0:
-                    self._post_sweep_release(context, period_date, trapped_balance, facility_name)
+                    self._post_sweep_release(
+                        context, period_date, trapped_balance, facility_name
+                    )
                     trapped_balance = 0.0
                 # Note: PREPAY mode has no release (prepayments already reduced balance)
-    
+
     def calculate_waterfall(
         self,
         period: pd.Timestamp,
@@ -196,21 +204,21 @@ class CashSweep(Model):
         current_balance: float,
         period_noi: float,  # ← CRITICAL: Passed (no query)
         facility_name: str,
-        context: "DealContext"
+        context: "DealContext",
     ) -> SweepAdjustment:
         """
         Calculate sweep waterfall for this period.
-        
+
         CRITICAL PERFORMANCE: period_noi passed as parameter to avoid
         repeated ledger queries.
-        
+
         This is a CALCULATION method only - does NOT post to ledger.
         Ledger posting handled by ConstructionFacility.
-        
+
         Waterfall:
         1. Apply to interest first (reduces reserve draw)
         2. Apply remainder to principal (prepayment)
-        
+
         Args:
             period: Current period
             interest_due: Interest due before sweep
@@ -218,7 +226,7 @@ class CashSweep(Model):
             period_noi: NOI for period (from upfront query)
             facility_name: Facility name (for logging)
             context: Deal context (for timeline access)
-            
+
         Returns:
             SweepAdjustment with amounts applied to interest/principal
         """
@@ -228,7 +236,7 @@ class CashSweep(Model):
         except KeyError:
             # Period not in timeline - sweep not active
             month_num = self.end_month  # Treat as inactive
-        
+
         # Only PREPAY mode applies adjustments in this method
         # (TRAP mode posts deposits/releases separately via process())
         if (
@@ -240,21 +248,21 @@ class CashSweep(Model):
             to_interest = min(excess_cash, interest_due)
             to_principal = max(0.0, excess_cash - to_interest)
             return SweepAdjustment(to_interest=to_interest, to_principal=to_principal)
-        
+
         # All other cases: no adjustment
         return SweepAdjustment(to_interest=0.0, to_principal=0.0)
-    
+
     def _get_facility(self, context: "DealContext", facility_name: str):
         """
         Get facility object by name for balance manipulation.
-        
+
         Args:
             context: Deal context
             facility_name: Name of the facility to find
-            
+
         Returns:
             The debt facility object
-            
+
         Raises:
             ValueError: If facility not found
         """
@@ -262,27 +270,24 @@ class CashSweep(Model):
             if facility.name == facility_name:
                 return facility
         raise ValueError(f"Facility not found: {facility_name}")
-    
+
     def _calculate_excess_cash(
-        self, 
-        context: "DealContext",
-        facility_name: str,
-        period_date: pd.Timestamp
+        self, context: "DealContext", facility_name: str, period_date: pd.Timestamp
     ) -> float:
         """
         Calculate excess operating cash available for sweep in this period.
-        
+
         Formula:
             Excess = Operating Cash Flow (NOI) - Debt Service (if paid in cash)
-        
+
         For construction loans with capitalized interest, debt service is 0,
         so excess = NOI (all operating cash is excess).
-        
+
         Args:
             context: Deal context
             facility_name: Name of the facility
             period_date: Date of the period
-            
+
         Returns:
             Excess cash amount (positive = cash available, zero/negative = no excess)
         """
@@ -290,62 +295,61 @@ class CashSweep(Model):
         queries = LedgerQueries(context.ledger)
         noi_series = queries.noi()
         period_noi = noi_series.get(period_date, 0.0)
-        
+
         # Get debt service for this facility in this period
         # (For capitalized interest construction loans, this is typically 0)
-        facility_ds = self._get_facility_debt_service(context, facility_name, period_date)
-        
+        facility_ds = self._get_facility_debt_service(
+            context, facility_name, period_date
+        )
+
         # Excess = NOI + Debt Service
         # Note: debt_service is already negative (outflow), so adding it reduces NOI
         # Example: 200k NOI + (-50k debt service) = 150k excess
         excess = period_noi + facility_ds
-        
+
         return max(0.0, excess)  # Only positive excess is swept
-    
+
     def _get_facility_debt_service(
-        self, 
-        context: "DealContext",
-        facility_name: str,
-        period_date: pd.Timestamp
+        self, context: "DealContext", facility_name: str, period_date: pd.Timestamp
     ) -> float:
         """
         Get debt service paid by THIS facility in this period.
-        
+
         NOTE: For capitalized interest, this returns 0 (no cash service).
-        
+
         Args:
             context: Deal context
             facility_name: Name of the facility
             period_date: Date of the period
-            
+
         Returns:
             Debt service amount (negative = cash outflow)
         """
         # Query ledger for this facility's debt service in this period
         ledger_df = context.ledger.to_dataframe()
-        
+
         facility_ds = ledger_df[
             (ledger_df["item_name"].str.contains(facility_name, na=False))
             & (ledger_df["date"] == period_date)
             & (ledger_df["category"] == "Financing")
             & (ledger_df["subcategory"].isin(["Interest Payment", "Principal Payment"]))
         ]["amount"].sum()
-        
+
         return facility_ds  # Negative value (outflow)
-    
+
     def _post_sweep_deposit(
-        self, 
+        self,
         context: "DealContext",
-        date: pd.Timestamp, 
+        date: pd.Timestamp,
         amount: float,
-        facility_name: str
+        facility_name: str,
     ) -> None:
         """
         Post cash sweep deposit transaction (TRAP mode).
-        
+
         Traps excess cash in lender-controlled escrow account.
         This reduces cash available for equity distributions.
-        
+
         Args:
             context: Deal context
             date: Transaction date
@@ -354,7 +358,7 @@ class CashSweep(Model):
         """
         facility = self._get_facility(context, facility_name)
         sweep_series = pd.Series([-amount], index=[date])
-        
+
         metadata = SeriesMetadata(
             category=CashFlowCategoryEnum.FINANCING,
             subcategory=FinancingSubcategoryEnum.CASH_SWEEP_DEPOSIT,
@@ -363,25 +367,25 @@ class CashSweep(Model):
             asset_id=context.deal.asset.uid,
             pass_num=CalculationPhase.FINANCING.value,
         )
-        
+
         context.ledger.add_series(sweep_series, metadata)
-    
+
     def _post_sweep_release(
-        self, 
+        self,
         context: "DealContext",
-        date: pd.Timestamp, 
+        date: pd.Timestamp,
         amount: float,
-        facility_name: str
+        facility_name: str,
     ) -> None:
         """
         Post cash sweep release transaction (TRAP mode).
-        
+
         Releases trapped cash from escrow when sweep ends.
         This makes cash available for equity distributions.
-        
+
         CRITICAL: Must use FINANCING_SERVICE flow purpose to prevent
         this from leaking into project_cash_flow (unlevered).
-        
+
         Args:
             context: Deal context
             date: Transaction date
@@ -390,7 +394,7 @@ class CashSweep(Model):
         """
         facility = self._get_facility(context, facility_name)
         release_series = pd.Series([amount], index=[date])
-        
+
         metadata = SeriesMetadata(
             category=CashFlowCategoryEnum.FINANCING,
             subcategory=FinancingSubcategoryEnum.CASH_SWEEP_RELEASE,
@@ -399,24 +403,24 @@ class CashSweep(Model):
             asset_id=context.deal.asset.uid,
             pass_num=CalculationPhase.FINANCING.value,
         )
-        
+
         context.ledger.add_series(release_series, metadata)
-    
+
     def _post_sweep_prepayment(
-        self, 
+        self,
         context: "DealContext",
-        date: pd.Timestamp, 
+        date: pd.Timestamp,
         amount: float,
-        facility_name: str
+        facility_name: str,
     ) -> None:
         """
         Post mandatory sweep prepayment transaction (PREPAY mode).
-        
+
         Applies excess cash to principal prepayment immediately.
         This reduces the loan balance and future interest expense.
-        
+
         NOTE: Caller must also reduce facility.outstanding_balance!
-        
+
         Args:
             context: Deal context
             date: Transaction date
@@ -425,7 +429,7 @@ class CashSweep(Model):
         """
         facility = self._get_facility(context, facility_name)
         prepay_series = pd.Series([-amount], index=[date])
-        
+
         metadata = SeriesMetadata(
             category=CashFlowCategoryEnum.FINANCING,
             subcategory=FinancingSubcategoryEnum.SWEEP_PREPAYMENT,
@@ -434,5 +438,5 @@ class CashSweep(Model):
             asset_id=context.deal.asset.uid,
             pass_num=CalculationPhase.FINANCING.value,
         )
-        
+
         context.ledger.add_series(prepay_series, metadata)

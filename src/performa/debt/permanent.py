@@ -132,11 +132,11 @@ class PermanentFacility(DebtFacilityBase):
     ongoing_debt_yield_min: Optional[float] = Field(
         None, ge=0, description="Minimum ongoing debt yield covenant"
     )
-    
+
     # TODO: Add cash sweep covenant support for permanent loans
     # Cash sweeps are not just a construction loan concept - permanent loans
     # often have covenant-triggered sweeps (e.g., DSCR violations, occupancy drops).
-    # 
+    #
     # Implementation approach:
     #   1. Add: cash_sweep: Optional[CashSweep] field (similar to ConstructionFacility)
     #   2. Override: process_covenants() method to delegate to cash_sweep.process()

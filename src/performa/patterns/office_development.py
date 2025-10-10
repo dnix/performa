@@ -390,7 +390,7 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
         construction_period_months = (
             self.construction_start_months + self.construction_duration_months
         )
-        
+
         # Calculate refinancing timing based on trigger method
         # Office properties typically follow 85-90% occupancy + 3-month seasoning
         lease_up_months = 12  # Standard office lease-up period
@@ -398,18 +398,24 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
             # Industry standard: 85% occupancy + 90-day seasoning for office
             # More conservative than multifamily due to longer lease terms
             seasoning_months = 3
-            actual_refinance_timing = construction_period_months + lease_up_months + seasoning_months
+            actual_refinance_timing = (
+                construction_period_months + lease_up_months + seasoning_months
+            )
         elif self.refinancing_trigger == "stabilized":
             # Conservative: Full lease-up + 12-month LTM NOI
             stabilization_buffer = 12
-            actual_refinance_timing = construction_period_months + lease_up_months + stabilization_buffer
+            actual_refinance_timing = (
+                construction_period_months + lease_up_months + stabilization_buffer
+            )
         elif self.refinancing_trigger == "aggressive":
             # Fast takeout: Construction end + 6 months
             actual_refinance_timing = construction_period_months + 6
         else:
             # Fallback to occupancy standard
             seasoning_months = 3
-            actual_refinance_timing = construction_period_months + lease_up_months + seasoning_months
+            actual_refinance_timing = (
+                construction_period_months + lease_up_months + seasoning_months
+            )
 
         financing_plan = create_construction_to_permanent_plan(
             construction_terms={

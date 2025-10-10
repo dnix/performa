@@ -240,7 +240,7 @@ class ValuationSettings(Model):
     costs_of_sale_percentage: FloatBetween0And1 = Field(
         default=0.03, description="Transaction costs as a percentage of exit value."
     )
-    
+
     development_valuation_method: Literal["cost", "income", "auto"] = Field(
         default="auto",
         description=(
@@ -275,7 +275,7 @@ class FinancingSettings(Model):
             "Individual facilities can override this setting."
         ),
     )
-    
+
     # TODO: Future financing settings
     # - default_loan_term_years: Optional[PositiveInt]
     # - default_amortization_years: Optional[PositiveInt]

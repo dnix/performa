@@ -296,7 +296,7 @@ def sample_ledger():
 def sample_deal(sample_timeline):
     """
     Create a minimal deal for testing construction loans.
-    
+
     Uses a minimal DevelopmentProject as the asset since Deal requires a proper asset type.
     Construction loan tests focus on debt logic, so the asset can be minimal.
     """
@@ -306,13 +306,10 @@ def sample_deal(sample_timeline):
         property_type=AssetTypeEnum.MULTIFAMILY,
         gross_area=10000.0,
         net_rentable_area=8500.0,
-        construction_plan=CapitalPlan(
-            name="Test Construction Plan",
-            capital_items=[]
-        ),
+        construction_plan=CapitalPlan(name="Test Construction Plan", capital_items=[]),
         blueprints=[],
     )
-    
+
     # Create minimal acquisition
     acquisition = AcquisitionTerms(
         name="Test Land Acquisition",
@@ -321,7 +318,7 @@ def sample_deal(sample_timeline):
         acquisition_date=date(2024, 1, 1),
         closing_costs_rate=0.03,
     )
-    
+
     return Deal(
         name="Test Deal - Construction Loan Testing",
         asset=project,
@@ -337,23 +334,23 @@ def sample_deal(sample_timeline):
 def sample_deal_context(sample_timeline, sample_settings, sample_ledger, sample_deal):
     """
     Create a minimal DealContext for testing construction loan functionality.
-    
+
     This fixture provides everything needed to test construction facility methods:
     - Timeline for period calculations
     - Settings for global configuration
     - Ledger for transaction recording
     - Deal object for deal-level data
-    
+
     The context is intentionally minimal - test-specific data (NOI, property value, etc.)
     should be added in individual tests as needed.
-    
+
     Example:
         ```python
         def test_something(sample_deal_context):
             # Add test-specific NOI data
             noi = pd.Series(10000, index=sample_deal_context.timeline.period_index)
             sample_deal_context.noi_series = noi
-            
+
             # Use context with facility
             facility.compute_cf(sample_deal_context)
         ```

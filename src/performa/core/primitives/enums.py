@@ -187,7 +187,7 @@ class FinancingSubcategoryEnum(str, Enum):
         ORIGINATION_FEE: Loan origination fees (negative outflow)
         EXIT_FEE: Loan exit fees (negative outflow)
         PREPAYMENT_PENALTY: Early repayment penalties (negative outflow)
-    
+
     Cash Sweep Covenant Subcategories:
         CASH_SWEEP_DEPOSIT: Excess cash trapped in escrow (negative outflow)
         CASH_SWEEP_RELEASE: Trapped cash released when sweep ends (positive inflow)
@@ -221,7 +221,7 @@ class FinancingSubcategoryEnum(str, Enum):
     ORIGINATION_FEE = "Origination Fee"
     EXIT_FEE = "Exit Fee"
     PREPAYMENT_PENALTY = "Prepayment Penalty"
-    
+
     # Cash sweep covenant flows
     CASH_SWEEP_DEPOSIT = "Cash Sweep Deposit"
     CASH_SWEEP_RELEASE = "Cash Sweep Release"
@@ -231,21 +231,21 @@ class FinancingSubcategoryEnum(str, Enum):
 class SweepMode(str, Enum):
     """
     Lender cash sweep mode for debt covenant enforcement.
-    
+
     Defines how excess operating cash is handled when a debt facility
     has an active cash sweep covenant. Cash sweeps are common in
     construction and bridge loans to prevent distributions during
     high-risk phases (construction, lease-up).
-    
+
     Attributes:
         TRAP: Hold excess cash in escrow, release when sweep ends
         PREPAY: Apply excess cash to mandatory principal prepayment immediately
-    
+
     Economic Impact:
         TRAP results in timing drag on IRR (cash returned later), while
         PREPAY provides interest savings that improve IRR.
     """
-    
+
     TRAP = "trap"
     PREPAY = "prepay"
 

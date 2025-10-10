@@ -391,7 +391,7 @@ def create_construction_to_permanent_plan(
     if "cash_sweep" in construction_params:
         sweep_config = construction_params["cash_sweep"]
         refinance_timing = permanent_params.get("refinance_timing")
-        
+
         if refinance_timing is not None:
             # If sweep is a dict without end_month, set it automatically
             if isinstance(sweep_config, dict) and "end_month" not in sweep_config:
@@ -400,7 +400,7 @@ def create_construction_to_permanent_plan(
                     f"Auto-setting cash sweep end_month to {refinance_timing} "
                     f"(matches refinance_timing)"
                 )
-            
+
             # If sweep is already a CashSweep object, validate synchronization
             elif hasattr(sweep_config, "end_month"):
                 if sweep_config.end_month != refinance_timing:

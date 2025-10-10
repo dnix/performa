@@ -353,10 +353,10 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         # === OPERATING EXPENSES ===
         # Typical multifamily operating expenses for new development
         # These represent stabilized operating costs once property is fully occupied
-        
+
         # Get timeline for expenses (same as overall project timeline)
         project_timeline = self._derive_timeline()
-        
+
         stabilized_expenses = ResidentialExpenses(
             operating_expenses=[
                 # Property Management: 4-5% of Effective Gross Income (industry standard)
@@ -454,7 +454,7 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         # The pattern explicitly specifies when leasing starts (may be during construction)
         # Don't recalculate based on construction completion - use what user specified
         leasing_offset = self.leasing_start_months
-        
+
         absorption_plan = ResidentialAbsorptionPlan(
             name=f"{self.project_name} Residential Leasing",
             start_date_anchor=StartDateAnchorEnum.ANALYSIS_START,
@@ -517,8 +517,10 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
 
         # Calculate lease-up duration from absorption parameters
         # Ensures refinancing timing accounts for actual stabilization period
-        actual_lease_up_months = int(self.total_units / self.absorption_pace_units_per_month)
-        
+        actual_lease_up_months = int(
+            self.total_units / self.absorption_pace_units_per_month
+        )
+
         # Calculate refinancing timing based on trigger method
         if self.refinancing_trigger == "occupancy":
             # Industry standard: 90% occupancy + 90-day seasoning
@@ -527,31 +529,43 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
             units_for_target = int(self.total_units * target_occupancy)
             months_to_target = units_for_target / self.absorption_pace_units_per_month
             seasoning_months = 3  # 90 days
-            actual_refinance_timing = int(self.leasing_start_months + months_to_target + seasoning_months)
+            actual_refinance_timing = int(
+                self.leasing_start_months + months_to_target + seasoning_months
+            )
         elif self.refinancing_trigger == "stabilized":
             # Conservative: 100% occupancy + 12-month LTM NOI
             # Ensures full year of stabilized operations for appraisal
             stabilization_buffer = 12
-            actual_refinance_timing = self.leasing_start_months + actual_lease_up_months + stabilization_buffer
+            actual_refinance_timing = (
+                self.leasing_start_months
+                + actual_lease_up_months
+                + stabilization_buffer
+            )
         elif self.refinancing_trigger == "aggressive":
             # Fast takeout: Construction end + 6 months
             # Assumes aggressive lease-up or rent-up guarantee
-            construction_end = self.construction_start_months + self.construction_duration_months
+            construction_end = (
+                self.construction_start_months + self.construction_duration_months
+            )
             actual_refinance_timing = construction_end + 6
         else:
             # Fallback to stabilized method
             stabilization_buffer = 12
-            actual_refinance_timing = self.leasing_start_months + actual_lease_up_months + stabilization_buffer
-        
+            actual_refinance_timing = (
+                self.leasing_start_months
+                + actual_lease_up_months
+                + stabilization_buffer
+            )
+
         # Create cash sweep covenant if enabled
         # Prevents unrealistic distributions during construction/lease-up
         cash_sweep_covenant = None
         if self.construction_sweep_mode is not None:
             cash_sweep_covenant = CashSweep(
                 mode=self.construction_sweep_mode,
-                end_month=actual_refinance_timing  # Synchronized with refinancing timing
+                end_month=actual_refinance_timing,  # Synchronized with refinancing timing
             )
-        
+
         financing = create_construction_to_permanent_plan(
             construction_terms={
                 "name": "Construction Facility",
