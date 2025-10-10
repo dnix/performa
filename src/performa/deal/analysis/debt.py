@@ -366,15 +366,34 @@ class DebtAnalyzer(AnalysisSpecialist):
                     ]
                     if not cap_interest.empty:
                         capitalized_amount = abs(cap_interest["amount"].sum())
-                        logger.info(
-                            f"Construction loan payoff: ${payoff_amount:,.0f} principal + "
-                            f"${capitalized_amount:,.0f} capitalized interest = "
-                            f"${payoff_amount + capitalized_amount:,.0f} total"
-                        )
                         payoff_amount += capitalized_amount
                     else:
+                        capitalized_amount = 0.0
+                    
+                    # CRITICAL: Subtract sweep prepayments from outstanding balance
+                    # Prepayments reduce the construction loan balance, so payoff should be lower
+                    sweep_prepayments = ledger_df[
+                        (ledger_df["item_name"].str.contains("Construction", na=False))
+                        & (
+                            ledger_df["subcategory"]
+                            == FinancingSubcategoryEnum.SWEEP_PREPAYMENT
+                        )
+                    ]
+                    prepayment_amount = abs(sweep_prepayments["amount"].sum()) if not sweep_prepayments.empty else 0.0
+                    
+                    if prepayment_amount > 0:
                         logger.info(
-                            f"Got construction loan amount from ledger: ${payoff_amount:,.0f} (no capitalized interest)"
+                            f"Construction loan payoff: ${const_proceeds['amount'].sum():,.0f} principal + "
+                            f"${capitalized_amount:,.0f} capitalized interest - "
+                            f"${prepayment_amount:,.0f} sweep prepayments = "
+                            f"${payoff_amount - prepayment_amount:,.0f} outstanding balance"
+                        )
+                        payoff_amount -= prepayment_amount
+                    else:
+                        logger.info(
+                            f"Construction loan payoff: ${const_proceeds['amount'].sum():,.0f} principal + "
+                            f"${capitalized_amount:,.0f} capitalized interest = "
+                            f"${payoff_amount:,.0f} outstanding balance"
                         )
                     
                     # Update the transaction record

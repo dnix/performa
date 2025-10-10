@@ -27,6 +27,7 @@ Future Extensibility (TODO):
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -46,6 +47,19 @@ if TYPE_CHECKING:
     from ..deal.orchestrator import DealContext
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class SweepAdjustment:
+    """
+    Result of sweep waterfall calculation.
+    
+    Attributes:
+        to_interest: Sweep cash applied to interest (reduces reserve draw)
+        to_principal: Sweep cash applied to principal (prepayment)
+    """
+    to_interest: float
+    to_principal: float
 
 
 # TODO: Future extensibility - base class for all covenants
@@ -122,6 +136,16 @@ class CashSweep(Model):
         """
         Process cash sweep covenant for all periods.
         
+        This method handles the full sweep lifecycle: calculating excess cash,
+        applying sweep rules, and posting ledger transactions.
+        
+        Used for:
+        - SIMPLE interest method (all sweep types) - full processing
+        - SCHEDULED + TRAP mode - deposit/release posting only
+        
+        Note: For SCHEDULED + PREPAY mode, the calculation is handled synchronously
+        by calculate_waterfall() during interest calculation, so this method is skipped.
+        
         For each period where sweep is active:
         1. Calculate excess operating cash
         2. Apply sweep (trap or prepay) based on mode
@@ -164,6 +188,61 @@ class CashSweep(Model):
                     self._post_sweep_release(context, period_date, trapped_balance, facility_name)
                     trapped_balance = 0.0
                 # Note: PREPAY mode has no release (prepayments already reduced balance)
+    
+    def calculate_waterfall(
+        self,
+        period: pd.Timestamp,
+        interest_due: float,
+        current_balance: float,
+        period_noi: float,  # ← CRITICAL: Passed (no query)
+        facility_name: str,
+        context: "DealContext"
+    ) -> SweepAdjustment:
+        """
+        Calculate sweep waterfall for this period.
+        
+        CRITICAL PERFORMANCE: period_noi passed as parameter to avoid
+        repeated ledger queries.
+        
+        This is a CALCULATION method only - does NOT post to ledger.
+        Ledger posting handled by ConstructionFacility.
+        
+        Waterfall:
+        1. Apply to interest first (reduces reserve draw)
+        2. Apply remainder to principal (prepayment)
+        
+        Args:
+            period: Current period
+            interest_due: Interest due before sweep
+            current_balance: Current loan balance
+            period_noi: NOI for period (from upfront query)
+            facility_name: Facility name (for logging)
+            context: Deal context (for timeline access)
+            
+        Returns:
+            SweepAdjustment with amounts applied to interest/principal
+        """
+        # Get month number (1-based)
+        try:
+            month_num = context.timeline.period_index.get_loc(period) + 1
+        except KeyError:
+            # Period not in timeline - sweep not active
+            month_num = self.end_month  # Treat as inactive
+        
+        # Only PREPAY mode applies adjustments in this method
+        # (TRAP mode posts deposits/releases separately via process())
+        if (
+            self.mode == SweepMode.PREPAY
+            and month_num < self.end_month  # Sweep active
+            and (excess_cash := period_noi - interest_due) > 0  # Cash available
+        ):
+            # Apply waterfall: interest first, then principal
+            to_interest = min(excess_cash, interest_due)
+            to_principal = max(0.0, excess_cash - to_interest)
+            return SweepAdjustment(to_interest=to_interest, to_principal=to_principal)
+        
+        # All other cases: no adjustment
+        return SweepAdjustment(to_interest=0.0, to_principal=0.0)
     
     def _get_facility(self, context: "DealContext", facility_name: str):
         """

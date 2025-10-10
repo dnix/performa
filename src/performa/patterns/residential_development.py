@@ -519,12 +519,29 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         # Ensures refinancing timing accounts for actual stabilization period
         actual_lease_up_months = int(self.total_units / self.absorption_pace_units_per_month)
         
-        # CRITICAL: Calculate refinancing timing for TRUE stabilization
-        # Permanent loans require 12-month trailing NOI for proper sizing
-        # Formula: leasing_start + lease_up + 12-month stabilization = refinance timing
-        # This ensures LTM NOI reflects full stabilized operations
-        stabilization_buffer = 12  # Full year of stabilized NOI for LTM calculation
-        actual_refinance_timing = self.leasing_start_months + actual_lease_up_months + stabilization_buffer
+        # Calculate refinancing timing based on trigger method
+        if self.refinancing_trigger == "occupancy":
+            # Industry standard: 90% occupancy + 90-day seasoning
+            # Common for agency/insurance/bank multifamily financing
+            target_occupancy = 0.90
+            units_for_target = int(self.total_units * target_occupancy)
+            months_to_target = units_for_target / self.absorption_pace_units_per_month
+            seasoning_months = 3  # 90 days
+            actual_refinance_timing = int(self.leasing_start_months + months_to_target + seasoning_months)
+        elif self.refinancing_trigger == "stabilized":
+            # Conservative: 100% occupancy + 12-month LTM NOI
+            # Ensures full year of stabilized operations for appraisal
+            stabilization_buffer = 12
+            actual_refinance_timing = self.leasing_start_months + actual_lease_up_months + stabilization_buffer
+        elif self.refinancing_trigger == "aggressive":
+            # Fast takeout: Construction end + 6 months
+            # Assumes aggressive lease-up or rent-up guarantee
+            construction_end = self.construction_start_months + self.construction_duration_months
+            actual_refinance_timing = construction_end + 6
+        else:
+            # Fallback to stabilized method
+            stabilization_buffer = 12
+            actual_refinance_timing = self.leasing_start_months + actual_lease_up_months + stabilization_buffer
         
         # Create cash sweep covenant if enabled
         # Prevents unrealistic distributions during construction/lease-up
