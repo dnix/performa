@@ -119,9 +119,8 @@ class CashSweep(Model):
     )
 
     # TODO: Add covenant-based trigger support for permanent loan sweeps
-    # Current implementation uses simple time-based triggers (end_month).
-    # Future enhancement should support covenant-based triggers that activate/deactivate
-    # based on ongoing metrics:
+    # Implementation uses time-based triggers (end_month).
+    # Covenant-based triggers could activate/deactivate based on ongoing metrics:
     #   - covenant_triggers: Optional[List[CovenantTrigger]] = None
     #   - Trigger types: DSCRTrigger, LTVTrigger, OccupancyTrigger, DebtYieldTrigger
     #   - Each trigger evaluates metrics each period via ledger queries
@@ -129,7 +128,7 @@ class CashSweep(Model):
     #   - Sweep deactivates when ALL triggers cured for grace_periods
     #   - Supports both construction (time-based) and permanent (covenant-based) loans
     #
-    # This will enable realistic permanent loan modeling where sweeps respond to
+    # This would enable realistic permanent loan modeling where sweeps respond to
     # covenant violations rather than just fixed dates.
 
     def process(self, context: "DealContext", facility_name: str) -> None:

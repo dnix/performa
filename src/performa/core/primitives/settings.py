@@ -200,10 +200,8 @@ class RecoverySettings(Model):
     )
 
     # TODO: Centralize expense cap functionality from Recovery models to global settings
-
-    # TODO: Future expense cap functionality integration
-    # The cap functionality is currently implemented at the Recovery model level
-    # Future enhancement could include:
+    # Cap functionality is implemented at the Recovery model level.
+    # Potential centralized settings could include:
     # - default_cap_rate: Optional[PositiveFloat] for portfolio-wide defaults
     # - cap_methodology: Literal["compound", "simple"] for calculation method
     # - portfolio_cap_policies: Dict for property-type specific defaults
