@@ -103,7 +103,7 @@ def test_comprehensive_debt_integration():
     print(f"✓ Financing Plan: {len(financing_plan.facilities)} facilities")
 
     # 4. Test Floating Rate Calculations with Mock SOFR Curve
-    print("\n📈 Testing Floating Rate Calculations:")
+    print("\n Testing Floating Rate Calculations:")
 
     # Create rising SOFR curve (realistic scenario)
     periods = pd.period_range("2024-01", periods=36, freq="M")
@@ -176,7 +176,7 @@ def test_comprehensive_debt_integration():
     )
 
     # 6. Test Automatic Loan Sizing
-    print("\n🎯 Testing Automatic Loan Sizing:")
+    print("\n Testing Automatic Loan Sizing:")
 
     sizing_analysis = transaction["sizing_analysis"]
     refinance_period_idx = permanent_facility.refinance_timing - 1  # 0-indexed
@@ -203,7 +203,7 @@ def test_comprehensive_debt_integration():
     ), "Loan amount should equal most restrictive constraint"
 
     # 7. Test Interest-Only Period Integration
-    print("\n⏱️  Testing Interest-Only Periods:")
+    print("\n⏱  Testing Interest-Only Periods:")
 
     # Generate amortization schedule for permanent loan
     amortization = permanent_facility.generate_amortization(
@@ -238,7 +238,7 @@ def test_comprehensive_debt_integration():
     ).all(), "Amortizing periods should have principal > 0"
 
     # 8. Test Covenant Monitoring Integration
-    print("\n⚖️  Testing Covenant Monitoring:")
+    print("\n⚖  Testing Covenant Monitoring:")
 
     covenant_monitoring = transaction["covenant_monitoring"]
     print(f"  Monitoring Enabled: {covenant_monitoring['monitoring_enabled']}")
@@ -278,31 +278,31 @@ def test_comprehensive_debt_integration():
     ), "Net proceeds calculation should be accurate"
 
     # 10. Integration Summary
-    print("\n🎉 COMPREHENSIVE INTEGRATION TEST RESULTS:")
+    print("\n COMPREHENSIVE INTEGRATION TEST RESULTS:")
     print("=" * 60)
-    print("✅ Floating Rate Construction Loan: WORKING")
+    print(" Floating Rate Construction Loan: WORKING")
     print(f"   - SOFR-based rates with cap/floor: {is_capped}")
     print(
         f"   - Rate range: {floating_rate.get_rate_for_period(periods[0], sofr_curve):.2%} to {high_rate:.2%}"
     )
 
-    print("✅ Construction-to-Permanent Refinancing: WORKING")
+    print(" Construction-to-Permanent Refinancing: WORKING")
     print(f"   - Automatic timing at month {permanent_facility.refinance_timing}")
     print("   - Seamless construction → permanent transition")
 
-    print("✅ Automatic Loan Sizing: WORKING")
+    print(" Automatic Loan Sizing: WORKING")
     print(f"   - Most restrictive constraint: {sizing_analysis['most_restrictive']}")
     print(f"   - Conservative loan sizing: ${transaction['new_loan_amount']:,.0f}")
 
-    print("✅ Interest-Only Periods: WORKING")
+    print(" Interest-Only Periods: WORKING")
     print(f"   - {io_periods}-month I/O period integrated")
     print("   - Payment structure validated")
 
-    print("✅ Covenant Monitoring: WORKING")
+    print(" Covenant Monitoring: WORKING")
     print("   - Ongoing risk management setup")
     print("   - Covenant hurdles configured properly")
 
-    print("✅ Cash Flow Integration: WORKING")
+    print(" Cash Flow Integration: WORKING")
     print(f"   - Net refinance proceeds: ${net_proceeds:,.0f}")
     print("   - Complete transaction accounting")
 

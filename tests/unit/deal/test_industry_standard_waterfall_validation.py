@@ -129,7 +129,7 @@ class TestIndustryStandardWaterfallValidation:
             gp_distribution_ratio > gp_contribution_ratio
         ), f"GP should get promoted beyond contribution ratio: {gp_distribution_ratio:.1%} vs {gp_contribution_ratio:.1%}"
 
-        print("✅ Industry-standard simple waterfall validation passed!")
+        print(" Industry-standard simple waterfall validation passed!")
         print(f"   LP IRR: {lp_result['irr']:.2%}")
         print(f"   GP IRR: {gp_result['irr']:.2%}")
         print(
@@ -219,7 +219,7 @@ class TestIndustryStandardWaterfallValidation:
             gp_distribution_ratio > 0.06
         ), f"GP should get promote beyond their contribution in multi-tier structure: {gp_distribution_ratio:.1%}"
 
-        print("✅ Industry-standard multi-tier waterfall validation passed!")
+        print(" Industry-standard multi-tier waterfall validation passed!")
         print(f"   LP IRR: {lp_result['irr']:.2%}")
         print(f"   GP IRR: {gp_result['irr']:.2%}")
         print(f"   GP total promote: {gp_distribution_ratio:.1%}")
@@ -288,7 +288,7 @@ class TestIndustryStandardWaterfallValidation:
             abs(total_distributions - total_positive_cash) < 1.0
         ), "Cash flow conservation violated with single investment assumption"
 
-        print("✅ Single investment assumptions validation passed!")
+        print(" Single investment assumptions validation passed!")
         print("   Single negative value assumption: ✓")
         print("   Cash flow conservation: ✓")
         print("   Waterfall calculation: ✓")
@@ -370,7 +370,7 @@ class TestIndustryStandardWaterfallValidation:
             1.2 <= gp_result["equity_multiple"] <= 3.0
         ), f"GP equity multiple outside reasonable range: {gp_result['equity_multiple']:.2f}x"
 
-        print("✅ Performance benchmark validation passed!")
+        print(" Performance benchmark validation passed!")
         print(
             f"   LP Performance: {lp_result['irr']:.2%} IRR, {lp_result['equity_multiple']:.2f}x"
         )
@@ -392,13 +392,13 @@ if __name__ == "__main__":
         test_suite.test_single_investment_assumptions_validation()
         test_suite.test_performance_benchmark_validation()
 
-        print("\n🎉 All industry standard waterfall validation tests passed!")
-        print("   ✅ Simple institutional waterfall structure")
-        print("   ✅ Multi-tier institutional structure")
-        print("   ✅ Single investment assumptions handling")
-        print("   ✅ Industry performance benchmarks")
+        print("\n All industry standard waterfall validation tests passed!")
+        print("    Simple institutional waterfall structure")
+        print("    Multi-tier institutional structure")
+        print("    Single investment assumptions handling")
+        print("    Industry performance benchmarks")
         print("\n🏆 Our DistributionCalculator matches industry standards!")
 
     except Exception as e:
-        print(f"\n❌ Industry standard validation failed: {e}")
+        print(f"\n Industry standard validation failed: {e}")
         raise

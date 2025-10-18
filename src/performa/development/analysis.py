@@ -141,16 +141,9 @@ class DevelopmentAnalysisScenario(AnalysisScenarioBase):
 
     def _get_construction_start_date(self) -> date:
         """
-        Get the construction start date from the development project.
+        Determine the construction start date from the development project.
 
         Currently uses the earliest capital item start date as the construction start.
-
-        Note: This implementation assumes a simple construction schedule.
-        Future enhancements could include:
-        - Explicit construction start date specification
-        - Pre-construction phase modeling (permitting, design, etc.)
-        - Phased construction with multiple start dates
-        - Construction schedule dependencies and critical path
         """
         if self.model.construction_plan and self.model.construction_plan.capital_items:
             earliest_start = min(
@@ -166,14 +159,6 @@ class DevelopmentAnalysisScenario(AnalysisScenarioBase):
         Get the construction completion date from the development project.
 
         Currently uses the latest capital item end date as construction completion.
-
-        Note: This implementation assumes all capital items complete construction.
-        Future enhancements could include:
-        - Explicit construction completion date specification
-        - Construction sequencing and critical path analysis
-        - Partial completion and phased delivery
-        - Construction milestone tracking
-        - Certificate of occupancy and permit dependencies
         """
         if self.model.construction_plan and self.model.construction_plan.capital_items:
             latest_end = max(

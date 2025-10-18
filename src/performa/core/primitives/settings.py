@@ -109,7 +109,7 @@ class CalculationSettings(Model):
     )
     day_count_convention: DayCountConvention = Field(
         default=DayCountConvention.ACTUAL_ACTUAL,
-        description="Day count convention for calculations (currently informational).",
+        description="Day count convention for calculations.",
     )
     fail_on_error: bool = Field(
         default=False,

@@ -199,7 +199,7 @@ def test_capex_now_applies_growth_rates():
     """
     Test that CapExItemBase now correctly applies growth rates (FIXED behavior).
 
-    ✅ CORRECTED: CapEx now applies growth rates when specified, matching industry standards.
+     CORRECTED: CapEx now applies growth rates when specified, matching industry standards.
 
     Real-world: Capital reserves ($450/unit/year) should grow with construction inflation.
     Industry practice: Capital reserves typically DO escalate annually (2-3%).

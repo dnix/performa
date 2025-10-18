@@ -102,7 +102,7 @@ def analyze(
     # Initialize default settings if not provided
     if settings is None:
         settings = GlobalSettings()
-    
+
     # CRITICAL FIX: Sync analysis_start_date with timeline if using default (today)
     # This ensures rent growth calculations are based on actual deal timeline, not current date
     if settings.analysis_start_date == date.today():

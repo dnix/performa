@@ -48,9 +48,7 @@ def sample_context(sample_timeline: Timeline) -> AnalysisContext:
         uid="550e8400-e29b-41d4-a716-446655440008",
         rent_roll=OfficeRentRoll(leases=[], vacant_suites=[]),
         losses=OfficeLosses(
-            general_vacancy=OfficeGeneralVacancyLoss(
-                rate=0.05
-            ),
+            general_vacancy=OfficeGeneralVacancyLoss(rate=0.05),
             credit_loss=OfficeCreditLoss(rate=0.01),
         ),
         expenses=OfficeExpenses(),

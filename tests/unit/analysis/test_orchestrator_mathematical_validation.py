@@ -286,7 +286,7 @@ class TestCashFlowOrchestratorMathematical:
         assert total_opex == pytest.approx(expected_total_opex, abs=0.01)
         assert noi == pytest.approx(expected_noi, abs=0.01)
 
-        print(f"✅ Complete Integration Test Results:")
+        print(f" Complete Integration Test Results:")
         print(f"   PGR: ${pgr:,.0f} (expected ${expected_pgr:,.0f})")
         print(f"   EGI: ${egi:,.0f} (expected ${expected_egi:,.0f})")
         print(
@@ -487,4 +487,4 @@ def test_effective_gross_income_bug_reproduction():
         expected_noi, abs=0.01
     ), f"NOI was {noi}, expected {expected_noi}"
 
-    print("✅ REGRESSION TEST PASSED - Original bug scenario now works correctly")
+    print(" REGRESSION TEST PASSED - Original bug scenario now works correctly")

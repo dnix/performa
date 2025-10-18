@@ -404,7 +404,12 @@ class TestValidationFramework:
             land_cost=400_000,
             total_units=15,
             unit_mix=[
-                {"unit_type": "1BR", "count": 15, "avg_sf": 600, "target_rent": 2200}  # Higher rent for adequate NOI
+                {
+                    "unit_type": "1BR",
+                    "count": 15,
+                    "avg_sf": 600,
+                    "target_rent": 2200,
+                }  # Higher rent for adequate NOI
             ],
             construction_cost_per_unit=120_000,
             construction_duration_months=10,

@@ -214,7 +214,7 @@ class TestLargeScaleRollingRenovation:
 
         metrics = self._measure_performance(unit_count)
 
-        print(f"\n📊 SCALE TEST RESULTS - {unit_count} Units:")
+        print(f"\n SCALE TEST RESULTS - {unit_count} Units:")
         print(f"   Creation Time: {metrics['creation_duration']:.2f}s")
         print(f"   Analysis Time: {metrics['analysis_duration']:.2f}s")
         print(f"   Total Time: {metrics['total_duration']:.2f}s")
@@ -246,7 +246,7 @@ class TestLargeScaleRollingRenovation:
             print(f"\n🚀 STRESS TEST - {unit_count} Units")
             metrics = self._measure_performance(unit_count)
 
-            print(f"   ✅ SUCCESS!")
+            print(f"    SUCCESS!")
             print(f"   Creation Time: {metrics['creation_duration']:.2f}s")
             print(f"   Analysis Time: {metrics['analysis_duration']:.2f}s")
             print(f"   Total Time: {metrics['total_duration']:.2f}s")
@@ -284,7 +284,7 @@ class TestLargeScaleRollingRenovation:
         expected_max_revenue = unit_count * 2500.0  # All units at premium
         completion_rate = final_12_months_avg / expected_max_revenue
 
-        print(f"\n📈 COMPLETION ANALYSIS - {unit_count} Units:")
+        print(f"\n COMPLETION ANALYSIS - {unit_count} Units:")
         print(f"   Expected Max Revenue: ${expected_max_revenue:,.0f}")
         print(f"   Actual Max Revenue: ${max_revenue:,.0f}")
         print(f"   Final 12-Month Avg: ${final_12_months_avg:,.0f}")

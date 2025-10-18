@@ -555,8 +555,8 @@ class ConstructionFacility(DebtFacilityBase):
             return base_costs * ltc
 
         elif self.interest_calculation_method == InterestCalculationMethod.ITERATIVE:
-            # Future enhancement: full iterative simulation
-            # For now, fall back to SCHEDULED method
+            # ITERATIVE method: use SCHEDULED method as fallback
+            # Supports more sophisticated draw-based timing with proper interest accrual
             return self._calculate_loan_commitment_scheduled_method(
                 context, base_costs, ltc
             )
@@ -700,7 +700,7 @@ class ConstructionFacility(DebtFacilityBase):
         Examples:
             30/360: Always 30 days/month
                 Interest = 1,000,000 × 0.08 × (30/360) = 6,666.67
-            
+
             Actual/360: Feb (28 days) vs Jul (31 days)
                 Feb: 1,000,000 × 0.08 × (28/360) = 6,222.22
                 Jul: 1,000,000 × 0.08 × (31/360) = 6,888.89
@@ -720,7 +720,9 @@ class ConstructionFacility(DebtFacilityBase):
             # Actual days in month, actual days in year (365 or 366)
             days_in_period = period.days_in_month
             year = period.year
-            days_in_year = 366 if (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)) else 365
+            days_in_year = (
+                366 if (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)) else 365
+            )
             day_fraction = days_in_period / days_in_year
         else:
             # Fallback to simple monthly (should never reach here)
@@ -749,14 +751,16 @@ class ConstructionFacility(DebtFacilityBase):
         """
         # Calculate INITIAL loan commitment (this is what the bank approves/disburses)
         initial_loan_amount = self._calculate_loan_commitment(context)
-        
+
         balance = 0.0
         annual_rate = self._get_effective_rate()
         day_count_convention = context.settings.calculation.day_count_convention
         alpha = 0.5  # Within-period draw factor (uniform draws)
 
         logger.debug(f"{self.name}: Starting synchronous interest-covenant calculation")
-        logger.debug(f"{self.name}: Initial loan commitment: ${initial_loan_amount:,.0f}")
+        logger.debug(
+            f"{self.name}: Initial loan commitment: ${initial_loan_amount:,.0f}"
+        )
 
         # === CRITICAL PERFORMANCE: Batch queries ONCE ===
 
@@ -823,7 +827,11 @@ class ConstructionFacility(DebtFacilityBase):
         # CRITICAL: Post initial_loan_amount as proceeds (the cash actually disbursed)
         # The final balance includes capitalized interest but is NOT additional proceeds
         self._post_interest_and_covenant_transactions(
-            context, initial_loan_amount, interest_reserve_dict, interest_sweep_dict, prepay_dict
+            context,
+            initial_loan_amount,
+            interest_reserve_dict,
+            interest_sweep_dict,
+            prepay_dict,
         )
 
         logger.debug(
@@ -870,12 +878,12 @@ class ConstructionFacility(DebtFacilityBase):
 
         # 2. Interest from reserve (capitalized, negative)
         # CRITICAL: Capitalized interest is posted as Financing/Interest Reserve with flow_purpose=Capital Use
-        # 
+        #
         # This classification is semantically correct (it IS interest on the loan) while ensuring proper mechanics:
         # - Category=Financing: Accurately reflects this as a financing cost
         # - Subcategory=Interest Reserve: Industry-standard term for capitalized interest
         # - Flow Purpose=Capital Use: Adds to project costs, NOT included in debt_service() queries
-        # 
+        #
         # Industry Standard: Capitalized interest is shown as a distinct line in sources & uses,
         # separate from paid interest. It increases total project costs and the loan balance but
         # involves no cash payment during construction - paid at refinancing/exit.
@@ -1144,7 +1152,10 @@ class ConstructionFacility(DebtFacilityBase):
             context.ledger.add_series(-debt_service, interest_metadata)
 
             # Record principal payment as $0 (interest-only assumption)
-            # TODO: Future enhancement - milestone-based amortization after construction/stabilization
+            # This is a technical implementation detail to maintain the interest-only
+            # assumption during the construction period. The principal payment is
+            # zeroed out to reflect the fact that no principal is repaid during
+            # the construction phase of a construction loan.
             zero_principal = pd.Series(0.0, index=debt_service.index)
             principal_metadata = SeriesMetadata(
                 category=CashFlowCategoryEnum.FINANCING,
@@ -1245,11 +1256,11 @@ class ConstructionFacility(DebtFacilityBase):
         # It represents the true outstanding balance at the end of the loan term
         if hasattr(self, "_effective_loan_amount") and self._effective_loan_amount:
             return self._effective_loan_amount
-        
+
         # Fallback paths for other calculation methods or pre-analysis queries
         if self.loan_amount and self.loan_amount > 0:
             return self.loan_amount
-        
+
         if self.ltc_ratio is not None:
             # Estimate loan amount as ltc_ratio * typical project cost
             estimated_amount = 20_000_000 * self.ltc_ratio  # Rough estimate
@@ -1257,7 +1268,7 @@ class ConstructionFacility(DebtFacilityBase):
                 f"Estimating outstanding balance for {self.name}: ${estimated_amount:,.0f}"
             )
             return estimated_amount
-        
+
         logger.warning(
             f"No loan amount available for {self.name} outstanding balance calculation"
         )

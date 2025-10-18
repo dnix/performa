@@ -5,31 +5,43 @@
 """
 Residential Development Deal Modeling: Composition vs Convention
 
-This example demonstrates two approaches to modeling the same residential development deal:
+This example demonstrates two approaches to modeling a residential development deal:
 
 1. **COMPOSITION APPROACH** (Manual Assembly):
-   - Manually create each component (asset, financing, partnership, etc.)
-   - Full control over every detail
-   - Requires deep knowledge of Performa architecture
-   - ~250+ lines of configuration code
-   - Current approach used in production
+   - Manually assemble each component (asset, financing, partnership, etc.)
+   - Full control over every parameter
+   - Requires knowledge of Performa architecture
+   - ~250 lines of configuration code
 
 2. **CONVENTION APPROACH** (Pattern Interface):
    - High-level parameterized interface
    - Industry-standard defaults and validation
-   - Type-safe parameter flattening
+   - Type-safe parameter handling
    - ~30 lines of configuration
-   - Future approach for rapid deal modeling
 
-Both approaches model the identical residential development project:
+Both approaches model the same residential development project:
 - Institutional Residential Development: $28.7M development cost
-- Multifamily building: 120 units, mixed Studio/1BR/2BR/3BR
+- 120 multifamily units (mix of Studio/1BR/2BR/3BR)
 - Construction-to-permanent financing at 70% LTC/LTV
-- GP/LP partnership with 8% preferred return + 20% promote
-- 7-year hold period with 4.0% exit cap rate
+- GP/LP partnership with 8% preferred return and 20% promote
+- 7-year hold period with 3.75% exit cap rate
 
-The script validates mathematical parity between approaches using
-model validation utilities per CLAUDE.md requirements.
+The example demonstrates how both approaches produce mathematically equivalent
+deal analysis results while differing in implementation complexity and abstraction level.
+
+## When to Use Each Approach
+
+**Use Composition When:**
+- You need fine-grained control over specific parameters
+- Building non-standard deal structures
+- Integrating with external systems or data sources
+- Prototyping new deal archetypes
+
+**Use Pattern Convention When:**
+- Creating standard deal structures quickly
+- Generating multiple scenarios with consistent parameters
+- Leveraging industry-standard assumptions and methodologies
+- Prioritizing code clarity and maintainability
 """
 
 import sys
@@ -83,7 +95,7 @@ from performa.debt.constructs import create_construction_to_permanent_plan
 from performa.development import DevelopmentProject
 from performa.patterns import ResidentialDevelopmentPattern
 
-# Model validation utilities per CLAUDE.md
+# Model validation utilities
 from performa.reporting import (
     analyze_configuration_intentionality,
     analyze_ledger_semantically,
@@ -94,24 +106,27 @@ from performa.valuation import DirectCapValuation
 
 def create_deal_via_composition():
     """
-    COMPOSITION APPROACH: Manual assembly of all deal components.
+    Create a residential development deal by manually assembling all components.
 
-    This demonstrates the current production approach requiring
-    detailed knowledge of Performa architecture and explicit
-    configuration of every component.
+    This approach demonstrates explicit control over every deal aspect through
+    direct component configuration. Each component (asset, financing, partnership)
+    is built separately and assembled into a complete deal specification.
 
     Advantages:
-    - Full control over every parameter
-    - Access to advanced features
-    - No abstraction limitations
+    - Full control over every parameter and advanced features
+    - Access to sophisticated customization and edge cases
+    - No abstraction limitations for complex scenarios
 
     Disadvantages:
-    - High complexity and learning curve
-    - Verbose configuration (300+ lines)
-    - Prone to configuration errors
-    - Requires deep Performa expertise
+    - Higher complexity and learning curve
+    - Verbose configuration (approximately 200 lines)
+    - Requires deep understanding of Performa architecture
+    - Prone to configuration errors without careful attention
+
+    Returns:
+        Deal: Complete deal object with all specifications assembled.
     """
-    print("🔧 COMPOSITION APPROACH: Manual Component Assembly")
+    print(" COMPOSITION APPROACH: Manual Component Assembly")
     print("-" * 60)
 
     # === STEP 1: PROJECT TIMELINE ===
@@ -168,15 +183,30 @@ def create_deal_via_composition():
     # === STEP 3: VACANT UNIT INVENTORY ===
     # Match exact unit mix from pattern
     unit_mix = [
-        {"unit_type": "Studio", "count": 24, "avg_sf": 500, "target_rent": 1680},  # $3.36/SF
-        {"unit_type": "1BR", "count": 48, "avg_sf": 650, "target_rent": 2100},  # $3.23/SF
+        {
+            "unit_type": "Studio",
+            "count": 24,
+            "avg_sf": 500,
+            "target_rent": 1680,
+        },  # $3.36/SF
+        {
+            "unit_type": "1BR",
+            "count": 48,
+            "avg_sf": 650,
+            "target_rent": 2100,
+        },  # $3.23/SF
         {
             "unit_type": "2BR",
             "count": 36,
             "avg_sf": 900,
             "target_rent": 2800,  # $3.11/SF
         },  # Match pattern
-        {"unit_type": "3BR", "count": 12, "avg_sf": 1100, "target_rent": 3360},  # $3.05/SF
+        {
+            "unit_type": "3BR",
+            "count": 12,
+            "avg_sf": 1100,
+            "target_rent": 3360,
+        },  # $3.05/SF
     ]
 
     vacant_units = []
@@ -362,13 +392,13 @@ def create_deal_via_composition():
 
     # === STEP 8: CONSTRUCTION-TO-PERMANENT FINANCING ===
     # CRITICAL: Must match pattern's occupancy-based refinancing timing EXACTLY
-    
+
     # Calculate refinancing timing using SAME logic as pattern
     # Pattern uses: leasing_start(15) + absorption_time(13.5) + seasoning(3) = 31 months
     leasing_start = 15  # Match pattern: leasing_start_months=15
     # EXPLICIT REFINANCING TIMING: Month 40
     # Following industry standard (Argus/Rockport): user sets timing explicitly
-    # 
+    #
     # Calculation rationale (accounting for first lease turnover cycle):
     #   Month 15-21: Absorption (6 months @ 20 units/month = 120 units)
     #   Month 21-27: 100% occupied (7 months)
@@ -376,8 +406,10 @@ def create_deal_via_composition():
     #   Month 34+:   Post-turnover stability (100% occupied)
     #   Month 34-40: T12 NOI period (post-turnover)
     #   Month 40:    Refinancing
-    actual_refinance_timing = 40  # EXPLICIT: User-determined timing (not auto-calculated)
-    
+    actual_refinance_timing = (
+        40  # EXPLICIT: User-determined timing (not auto-calculated)
+    )
+
     # Match pattern financing parameters exactly
     construction_terms = {
         "name": "Institutional Residential Construction Loan",
@@ -447,82 +479,63 @@ def create_deal_via_composition():
 
 def create_deal_via_convention():
     """
-    CONVENTION APPROACH: Pattern-driven interface.
+    Create a residential development deal using ResidentialDevelopmentPattern.
 
-    This demonstrates the pattern approach that encapsulates
-    all the manual assembly complexity into a high-level
-    parameterized interface.
+    Wrapper for demonstrate_pattern_interface to provide consistent API across
+    comparison examples.
+
+    Returns:
+        tuple: (deal, pattern) - Created Deal and Pattern object
+    """
+    return demonstrate_pattern_interface()
+
+
+def demonstrate_pattern_interface():
+    """
+    Create a development/acquisition deal using the pattern interface.
+
+    This approach demonstrates a high-level parameterized interface with industry-standard
+    defaults and comprehensive validation. Rather than assembling components individually,
+    the pattern accepts a minimal set of parameters and handles the rest through sensible defaults.
 
     Advantages:
-    - Minimal configuration (30 parameters)
-    - Industry-standard defaults
-    - Type safety and validation
-    - Rapid scenario generation
+    - Minimal configuration (approximately 20 lines)
+    - Type safety and built-in validation via Pydantic
+    - Industry-standard parameters and naming conventions
+    - Rapid deal scenario generation
+    - Built-in business rule validation
 
     Disadvantages:
-    - Less granular control
-    - Must understand pattern assumptions
-    - Limited to pattern scope
-    """
-    print("CONVENTION APPROACH: Pattern Interface")
-    print("-" * 60)
+    - Less control over advanced customization
+    - Relies on sensible defaults that may not suit all scenarios
+    - Limited to supported deal archetypes
+    - May require composition approach for complex structures
 
-    # High-level pattern configuration - matches composition exactly
+    Returns:
+        tuple: (pattern, deal) - Pattern object and created Deal, or (None, None) on error
+    """
     pattern = ResidentialDevelopmentPattern(
         project_name="Institutional Residential Development",
         acquisition_date=date(2024, 1, 1),
         land_cost=8_000_000,
-        land_closing_costs_rate=0.030,  # CRITICAL: Match composition 3.0%
-        # Unit mix (120 units total) - match composition exactly
+        land_closing_costs_rate=0.030,
         total_units=120,
         unit_mix=[
-            {"unit_type": "Studio", "count": 24, "avg_sf": 500, "target_rent": 1680},  # $3.36/SF
-            {"unit_type": "1BR", "count": 48, "avg_sf": 650, "target_rent": 2100},  # $3.23/SF
-            {
-                "unit_type": "2BR",
-                "count": 36,
-                "avg_sf": 900,
-                "target_rent": 2800,  # $3.11/SF
-            },  # Match composition
-            {"unit_type": "3BR", "count": 12, "avg_sf": 1100, "target_rent": 3360},  # $3.05/SF
+            {"unit_type": "Studio", "count": 24, "avg_sf": 500, "target_rent": 1680},
+            {"unit_type": "1BR", "count": 48, "avg_sf": 650, "target_rent": 2100},
+            {"unit_type": "2BR", "count": 36, "avg_sf": 900, "target_rent": 2800},
+            {"unit_type": "3BR", "count": 12, "avg_sf": 1100, "target_rent": 3360},
         ],
         building_efficiency=0.85,
-        # Construction parameters - match composition
         construction_cost_per_unit=160_000,
         construction_start_months=1,
-        construction_duration_months=18,  # CRITICAL: Match composition exactly (18 months)
+        construction_duration_months=18,
         soft_costs_rate=0.08,
         developer_fee_rate=0.05,
-        # Leasing parameters - AGGRESSIVE 6-MONTH ABSORPTION
-        leasing_start_months=15,  # Start leasing at month 15 (pre-construction completion)
-        absorption_pace_units_per_month=20,  # Aggressive: 6-month absorption (120 units ÷ 20 = 6 months)
+        leasing_start_months=15,
+        absorption_pace_units_per_month=20,
         lease_term_months=12,
-        # REFINANCING TIMING: Month 40
-        #
-        # Explicit timing calculation (industry standard approach per Argus/Rockport):
-        #   Month 1-18:   Construction
-        #   Month 15:     Leasing starts (3 months before construction complete)
-        #   Month 15-21:  Absorption (6 months @ 20 units/month = 120 units)
-        #   Month 21-27:  100% occupied (7 months)
-        #   Month 28-33:  First turnover wave (leases expire, 83% occupancy dip)
-        #   Month 34+:    Post-turnover stability restored (100% occupied)
-        #   Month 34-40:  T12 NOI period (6 months shown, need 12 for appraisal)
-        #   Month 40:     Refinance construction loan into permanent financing
-        #
-        # CRITICAL: Must account for first lease turnover cycle!
-        #   - Aggressive 6-month absorption creates synchronized lease expirations
-        #   - All 120 units expire around same time (month 28), causing temporary dip
-        #   - Must wait for property to stabilize POST-turnover before refinancing
-        #
-        # Assumptions:
-        #   - Strong market: 20 units/month absorption
-        #   - 12-month lease terms
-        #   - 1-month turnover downtime
-        #   - Lender requires stable T12 NOI (post-turnover)
-        #   - Construction loan term: 40 months total
-        #
         refinancing_timing_months=40,
-        # Financing parameters - match composition
         construction_interest_rate=0.065,
         construction_ltc_ratio=0.70,
         construction_ltc_max=0.80,
@@ -530,42 +543,30 @@ def create_deal_via_convention():
         permanent_interest_rate=0.055,
         permanent_loan_term_years=10,
         permanent_amortization_years=30,
-        # Partnership and exit - match composition
         gp_share=0.10,
         lp_share=0.90,
         preferred_return=0.08,
         promote_tier_1=0.20,
-        exit_cap_rate=0.0375,  # 3.75% - premium Class A multifamily (strong urban markets)
-        # Operating assumptions - match composition
+        exit_cap_rate=0.0375,
         stabilized_vacancy_rate=0.05,
         credit_loss_rate=0.02,
         renewal_probability=0.75,
         downtime_months=1,
-        # Use SCHEDULED method to match composition
         interest_calculation_method="SCHEDULED",
-        # Disable cash sweep to match composition (no sweep configured)
         construction_sweep_mode=None,
     )
 
     deal = pattern.create()
-
-    print(f"Pattern created: {pattern.project_name}")
-    print(f"   Total Project Cost: ${pattern.total_project_cost:,.0f}")
-    print(
-        f"   Building Size: {pattern.total_units} units across {len(pattern.unit_mix)} unit types"
-    )
-    print(f"   Configuration: Single step, residential-specific parameters, type-safe")
-    print(f"   Timeline: {pattern.acquisition_date.strftime('%Y-%m')} for 84 months")
-    print(
-        f"   Validation: GP({pattern.gp_share:.0%}) + LP({pattern.lp_share:.0%}) = {pattern.gp_share + pattern.lp_share:.0%} ✓"
-    )
-    print(f"   Deal Creation: {deal.name}")
-
-    return deal, pattern  # Return (deal, pattern) - deal is the analyzable object
+    return deal, pattern
 
 
 def run_comparative_analysis():
-    """Run both approaches and validate parity with model validation."""
+    """
+    Run residential development analysis for both composition and pattern approaches.
+
+    Executes complete deal analysis for both approaches, validates configuration
+    quality, checks ledger math, and compares results for parity.
+    """
 
     print("=" * 80)
     print("RESIDENTIAL DEVELOPMENT: COMPOSITION vs CONVENTION")
@@ -586,7 +587,7 @@ def run_comparative_analysis():
         comp_ledger = Ledger()
         pattern_ledger = Ledger()
 
-        # === STEP 1: ASSUMPTIONS DOCUMENTATION (per model-validation.mdc) ===
+        # === STEP 1: ASSUMPTIONS DOCUMENTATION ===
         print("\n--- Step 1: Assumptions Documentation ---")
 
         # Generate assumptions reports for documentation
@@ -594,7 +595,7 @@ def run_comparative_analysis():
         generate_assumptions_report(pattern_deal, include_risk_assessment=True)
         print("Assumptions documented for both approaches")
 
-        # === STEP 2: CONFIGURATION QUALITY (per model-validation.mdc) ===
+        # === STEP 2: CONFIGURATION QUALITY ===
         print("\n--- Step 2: Configuration Quality Analysis ---")
 
         comp_config = analyze_configuration_intentionality(
@@ -622,7 +623,7 @@ def run_comparative_analysis():
         )
 
         # === STEP 3: DEAL ANALYSIS ===
-        print("\n📊 ANALYZING COMPOSITION DEAL")
+        print("\nAnalyzing composition deal")
         print("-" * 60)
         # Create analysis timeline
         analysis_timeline = Timeline(start_date=date(2024, 1, 1), duration_months=60)
@@ -644,7 +645,7 @@ def run_comparative_analysis():
                 f"   Total Equity Invested: ${comp_results.deal_metrics.get('total_investment', 0):,.0f}"
             )
 
-        print("\n📊 ANALYZING PATTERN DEAL")
+        print("\nAnalyzing pattern deal")
         print("-" * 60)
         pattern_results = analyze(
             deal=pattern_deal,
@@ -665,7 +666,7 @@ def run_comparative_analysis():
                 f"   Total Equity Invested: ${pattern_results.deal_metrics.get('total_investment', 0):,.0f}"
             )
 
-        # === STEP 4: LEDGER VALIDATION (per model-validation.mdc) ===
+        # === STEP 4: LEDGER VALIDATION ===
         print("\n--- Step 4: Ledger Math Validation ---")
 
         comp_ledger_analysis = analyze_ledger_semantically(comp_ledger)
@@ -724,48 +725,48 @@ def run_comparative_analysis():
             parity_achieved = irr_diff < 0.0001 and em_diff < 0.0001 and equity_diff < 1
 
             if parity_achieved:
-                print("\n🎉 ✅ PARITY ACHIEVED!")
+                print("\nPARITY ACHIEVED!")
                 print(
                     "   Pattern and composition approaches are mathematically equivalent"
                 )
 
-            # === RETURN VALIDATION (per model-validation.mdc) ===
-            print("\n📈 RETURN VALIDATION")
+            # === RETURN VALIDATION ===
+            print("\nRETURN VALIDATION")
             print("-" * 60)
 
             irr = pattern_results.deal_metrics.get("levered_irr", 0) or 0
             em = pattern_results.deal_metrics.get("equity_multiple", 0) or 0
 
-            # Sniff tests for development deals (per model-validation.mdc)
+            # Sniff tests for development deals
             irr_ok = 0.18 <= irr <= 0.28  # 18-28% IRR for development
             em_ok = 2.5 <= em <= 4.0  # 2.5-4.0x EM for development
 
             print(
-                f"IRR: {irr:.2%} ({'✅' if irr_ok else '⚠️'} Development range: 18-28%)"
+                f"IRR: {irr:.2%} ({'OK' if irr_ok else 'OUTSIDE'} Development range: 18-28%)"
             )
             print(
-                f"EM: {em:.2f}x ({'✅' if em_ok else '⚠️'} Development range: 2.5-4.0x)"
+                f"EM: {em:.2f}x ({'OK' if em_ok else 'OUTSIDE'} Development range: 2.5-4.0x)"
             )
 
             # Return results for assertion testing
             return pattern_results, comp_results
 
-        print(f"\n🎯 APPROACH COMPARISON")
+        print(f"\nAPPROACH COMPARISON")
         print("-" * 60)
         print("Composition Approach:")
-        print("  ✅ Full implementation working")
-        print("  ✅ Complete analytical capability")
-        print("  ⚠️  High complexity (250+ lines)")
-        print("  ⚠️  Requires deep Performa expertise")
+        print("  Full implementation working")
+        print("  Complete analytical capability")
+        print("  High complexity (250+ lines)")
+        print("  Requires deep Performa expertise")
 
         print("\nConvention Approach:")
-        print("  ✅ Interface complete and working")
-        print("  ✅ Minimal configuration (30 parameters)")
-        print("  ✅ Industry-standard defaults")
-        print("  ✅ Type safety and validation")
+        print("  Interface complete and working")
+        print("  Minimal configuration (30 parameters)")
+        print("  Industry-standard defaults")
+        print("  Type safety and validation")
 
     except Exception as e:
-        print(f"❌ Analysis failed: {e}")
+        print(f"Analysis failed: {e}")
         traceback.print_exc()
 
 
@@ -798,7 +799,7 @@ def main():
     expected_composition_irr = 0.330  # 33.0% - high-end for premium development
     expected_composition_em = 3.32  # 3.32x over 5 years - excellent
     expected_composition_equity = 11_800_000  # ~$11.8M equity invested
-    
+
     expected_pattern_irr = 0.330  # Should match composition exactly
     expected_pattern_em = 3.32  # Should match composition exactly
     expected_pattern_equity = 11_800_000  # Should match composition exactly
@@ -835,10 +836,10 @@ def main():
         abs(comp_equity - expected_composition_equity) < 200000
     ), f"Composition Equity ${comp_equity} != expected ${expected_composition_equity}"
 
-    print(f"\n🎉 RESIDENTIAL DEVELOPMENT COMPARISON COMPLETE!")
-    print("📋 Both approaches working with mathematical parity")
-    print("✅ Expected value assertions passed - metrics remain stable")
-    print("🚀 Production-ready foundation for institutional deal modeling")
+    print(f"\nRESIDENTIAL DEVELOPMENT COMPARISON COMPLETE!")
+    print("Both approaches working with mathematical parity")
+    print("Expected value assertions passed - metrics remain stable")
+    print("Production-ready foundation for institutional deal modeling")
 
 
 if __name__ == "__main__":

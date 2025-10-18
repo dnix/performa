@@ -384,10 +384,10 @@ def create_construction_to_permanent_plan(
         construction_params["loan_term_months"] = (
             construction_params.pop("loan_term_years") * 12
         )
-    
+
     # Remove fields that are not valid for PermanentFacility (extra="forbid")
     permanent_params.pop("origination_fee_rate", None)
-    
+
     # Remove fields that are not valid for ConstructionFacility (extra="forbid")
     construction_params.pop("origination_fee_rate", None)
 

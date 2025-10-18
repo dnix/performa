@@ -105,7 +105,7 @@ def test_refinancing_orchestration():
 
     if refinancing_transactions:
         transaction = refinancing_transactions[0]
-        print("\n📋 Transaction Details:")
+        print("\n Transaction Details:")
         print(f"  Type: {transaction['transaction_type']}")
         print(f"  Payoff Facility: {transaction['payoff_facility']}")
         print(f"  New Facility: {transaction['new_facility']}")
@@ -117,7 +117,7 @@ def test_refinancing_orchestration():
 
         # Print sizing analysis
         sizing = transaction["sizing_analysis"]
-        print("\n📊 Sizing Analysis:")
+        print("\n Sizing Analysis:")
         print(f"  Method: {sizing['sizing_method']}")
         print(f"  Property Value: ${sizing['property_value']:,.0f}")
         print(f"  NOI: ${sizing['noi']:,.0f}")
@@ -134,9 +134,9 @@ def test_refinancing_orchestration():
         print(f"  Ongoing DSCR Min: {covenant['ongoing_dscr_min']:.2f}x")
         print(f"  Ongoing Debt Yield Min: {covenant['ongoing_debt_yield_min']:.1%}")
 
-        print("\n🎉 Refinancing Orchestration Test PASSED!")
+        print("\n Refinancing Orchestration Test PASSED!")
     else:
-        print("❌ No refinancing transactions generated")
+        print(" No refinancing transactions generated")
         assert False, "No refinancing transactions generated"
 
 

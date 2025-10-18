@@ -54,14 +54,16 @@ class TestRefinancingIntegration:
         ]["amount"].sum()
 
         # Get capitalized interest (Interest Reserve with Capital Use flow purpose)
-        capitalized_interest = abs(ledger_df[
-            (ledger_df["item_name"].str.contains("Capitalized Interest", na=False))
-            & (ledger_df["subcategory"] == "Interest Reserve")
-        ]["amount"].sum())
+        capitalized_interest = abs(
+            ledger_df[
+                (ledger_df["item_name"].str.contains("Capitalized Interest", na=False))
+                & (ledger_df["subcategory"] == "Interest Reserve")
+            ]["amount"].sum()
+        )
 
         expected_payoff = construction_proceeds + capitalized_interest
         refinancing_payoff = abs(refinancing_payoffs["amount"].sum())
-        
+
         # Payoff should equal initial proceeds + capitalized interest (within tolerance)
         assert (
             abs(expected_payoff - refinancing_payoff) < 1000
@@ -183,7 +185,12 @@ class TestRefinancingIntegration:
             land_cost=1_500_000,
             total_units=75,
             unit_mix=[
-                {"unit_type": "1BR", "count": 75, "avg_sf": 750, "target_rent": 2800}  # Increased rent for profitability
+                {
+                    "unit_type": "1BR",
+                    "count": 75,
+                    "avg_sf": 750,
+                    "target_rent": 2800,
+                }  # Increased rent for profitability
             ],
             construction_cost_per_unit=180_000,  # Reduced cost for better returns
             construction_duration_months=18,
@@ -206,7 +213,7 @@ class TestRefinancingIntegration:
         """Test that refinancing happens at the explicitly specified time."""
         # Use explicit refinancing timing (industry standard approach)
         explicit_refi_month = 30
-        
+
         pattern = ResidentialDevelopmentPattern(
             project_name="Timing Test",
             acquisition_date=date(2024, 1, 1),
@@ -236,7 +243,7 @@ class TestRefinancingIntegration:
         assert not refinancing_payoffs.empty, "Must have refinancing payoff"
 
         payoff_date = refinancing_payoffs.iloc[0]["date"]
-        
+
         # Convert to actual date for comparison
         if hasattr(payoff_date, "start_time"):  # PeriodIndex
             payoff_year = payoff_date.start_time.year
@@ -246,10 +253,12 @@ class TestRefinancingIntegration:
             payoff_month = payoff_date.month
 
         start_date = date(2024, 1, 1)
-        
+
         # Calculate actual month from dates
-        months_elapsed = (payoff_year - start_date.year) * 12 + (payoff_month - start_date.month)
-        
+        months_elapsed = (payoff_year - start_date.year) * 12 + (
+            payoff_month - start_date.month
+        )
+
         # Refinancing should occur at the explicitly specified month (within 1 month tolerance for period alignment)
         assert (
             abs(months_elapsed - explicit_refi_month) <= 1

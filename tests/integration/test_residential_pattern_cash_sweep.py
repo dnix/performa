@@ -20,7 +20,7 @@ from performa.patterns.residential_development import ResidentialDevelopmentPatt
 
 def test_residential_pattern_with_trap_sweep():
     """Test Residential Pattern with TRAP mode cash sweep."""
-    print("\n🏗️  Testing Residential Pattern with TRAP Mode Cash Sweep")
+    print("\n🏗  Testing Residential Pattern with TRAP Mode Cash Sweep")
     print("-" * 70)
 
     # Create pattern with TRAP sweep
@@ -120,7 +120,7 @@ def test_residential_pattern_with_trap_sweep():
 
 def test_residential_pattern_with_prepay_sweep():
     """Test Residential Pattern with PREPAY mode cash sweep."""
-    print("\n🏗️  Testing Residential Pattern with PREPAY Mode Cash Sweep")
+    print("\n🏗  Testing Residential Pattern with PREPAY Mode Cash Sweep")
     print("-" * 70)
 
     # Create pattern with PREPAY sweep
@@ -202,7 +202,7 @@ def test_residential_pattern_with_prepay_sweep():
 
 def test_residential_pattern_with_no_sweep():
     """Test Residential Pattern with cash sweep disabled."""
-    print("\n🏗️  Testing Residential Pattern with No Cash Sweep")
+    print("\n🏗  Testing Residential Pattern with No Cash Sweep")
     print("-" * 70)
 
     # Create pattern without sweep
@@ -278,7 +278,7 @@ def test_residential_pattern_with_no_sweep():
 
 def test_residential_pattern_sweep_impact_on_returns():
     """Test that sweep mode impacts returns differently (TRAP vs PREPAY)."""
-    print("\n🏗️  Testing Cash Sweep Impact on Returns")
+    print("\n🏗  Testing Cash Sweep Impact on Returns")
     print("-" * 70)
 
     # Base parameters
@@ -361,5 +361,5 @@ if __name__ == "__main__":
     test_residential_pattern_sweep_impact_on_returns()
 
     print("=" * 70)
-    print("✅ ALL INTEGRATION TESTS PASSED")
+    print(" ALL INTEGRATION TESTS PASSED")
     print("=" * 70)

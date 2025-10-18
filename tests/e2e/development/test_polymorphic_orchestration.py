@@ -586,9 +586,9 @@ def test_orchestrator_simplified_vs_old_complexity():
     assert "for blueprint in" in method_source
     assert "to_stabilized_asset" in method_source
 
-    print("✅ Architectural simplification verified!")
-    print("✅ No asset-type conditionals in orchestrator")
-    print("✅ Pure polymorphic dispatch pattern confirmed")
+    print(" Architectural simplification verified!")
+    print(" No asset-type conditionals in orchestrator")
+    print(" Pure polymorphic dispatch pattern confirmed")
 
 
 def test_complete_development_lifecycle(
@@ -661,5 +661,5 @@ def test_end_to_end_cash_flow_generation(
     assert len(cash_flows) > 0  # Should have some periods
 
     print(f"Generated cash flows for {len(cash_flows)} periods")
-    print("✅ End-to-end development analysis successful!")
-    print("✅ Polymorphic architecture produces valid cash flows!")
+    print(" End-to-end development analysis successful!")
+    print(" Polymorphic architecture produces valid cash flows!")

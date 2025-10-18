@@ -200,7 +200,7 @@ def test_absorption_plan_generates_progressive_specs(progressive_development_pro
             spec.unit_count == 10
         ), f"Spec {i + 1} has {spec.unit_count} units, expected 10"
 
-    print("✅ Absorption plan generates progressive unit specs correctly")
+    print(" Absorption plan generates progressive unit specs correctly")
 
 
 def test_development_framework_progressive_revenue(progressive_development_project):
@@ -265,7 +265,7 @@ def test_development_framework_progressive_revenue(progressive_development_proje
         month_revenues[2] < month_revenues[3] < month_revenues[4]
     ), "Revenue should grow progressively: Month 3 < Month 4 < Month 5"
 
-    print("✅ Development framework produces correct progressive revenue pattern")
+    print(" Development framework produces correct progressive revenue pattern")
 
 
 def test_stabilized_revenue_reaches_expected_level(progressive_development_project):
@@ -296,7 +296,7 @@ def test_stabilized_revenue_reaches_expected_level(progressive_development_proje
         )
 
         print(
-            f"✅ Stabilized revenue: ${month9_revenue:,.0f} (expected: ${expected_stabilized:,.0f})"
+            f" Stabilized revenue: ${month9_revenue:,.0f} (expected: ${expected_stabilized:,.0f})"
         )
 
 
@@ -358,7 +358,7 @@ def test_backward_compatibility_with_stabilized_properties():
             f"got ${month1_revenue:,.0f}"
         )
 
-    print("✅ Backward compatibility maintained for stabilized properties")
+    print(" Backward compatibility maintained for stabilized properties")
 
 
 # TODO: Fix construction CapEx timing test - construction items not appearing in cash flow summary
@@ -398,7 +398,7 @@ def test_backward_compatibility_with_stabilized_properties():
 #         assert month1_capex > 0 or month2_capex > 0, "Should have construction expenditures in Months 1-2"
 #         assert month3_capex == 0 and month4_capex == 0, "Should have no construction CapEx in Months 3-4"
 #
-#     print("✅ Construction timing coordinates with absorption plan")
+#     print(" Construction timing coordinates with absorption plan")
 
 
 if __name__ == "__main__":

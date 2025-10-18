@@ -8,6 +8,7 @@ Tests the private helper methods used in the synchronous interest-covenant calcu
 - _extract_capital_uses_by_period()
 - _calculate_covenant_adjustments()
 """
+
 from datetime import date
 from unittest.mock import Mock
 
@@ -124,7 +125,7 @@ class TestCalculateCovenantAdjustments:
 
     def test_no_sweep_returns_zeros(self):
         """No sweep configured should return zero adjustments."""
-        
+
         facility = ConstructionFacility(
             name="Test",
             interest_rate=InterestRate(details=FixedRate(rate=0.07)),
@@ -145,7 +146,7 @@ class TestCalculateCovenantAdjustments:
             deal=mock_deal,
             ledger=ledger,
         )
-        
+
         # Call method
         adjustments = facility._calculate_covenant_adjustments(
             period=pd.Timestamp("2024-01-01"),
@@ -154,14 +155,14 @@ class TestCalculateCovenantAdjustments:
             period_noi=50_000.0,
             context=context,
         )
-        
+
         # Should return zero adjustments
         assert adjustments.interest_paid_by_sweep == 0.0
         assert adjustments.principal_prepayment == 0.0
 
     def test_prepay_sweep_returns_adjustments(self):
         """PREPAY sweep with excess cash should return adjustments."""
-        
+
         # Facility with PREPAY sweep
         facility = ConstructionFacility(
             name="Prepay Sweep Test",
@@ -170,7 +171,7 @@ class TestCalculateCovenantAdjustments:
             loan_term_months=18,
             cash_sweep=CashSweep(mode=SweepMode.PREPAY, end_month=12),
         )
-        
+
         # Mock context
         timeline = Timeline(start_date=date(2024, 1, 1), duration_months=12)
         settings = GlobalSettings()
@@ -183,7 +184,7 @@ class TestCalculateCovenantAdjustments:
             deal=mock_deal,
             ledger=ledger,
         )
-        
+
         # Call with excess NOI (enough to pay interest + prepay principal)
         period = pd.Timestamp("2024-01-01")
         adjustments = facility._calculate_covenant_adjustments(
@@ -193,16 +194,18 @@ class TestCalculateCovenantAdjustments:
             period_noi=50_000.0,  # Excess cash after interest
             context=context,
         )
-        
+
         # Should return adjustments (interest paid + principal prepayment)
         assert adjustments.interest_paid_by_sweep >= 0.0
         assert adjustments.principal_prepayment >= 0.0
         # If excess cash available, at least one should be non-zero
-        assert (adjustments.interest_paid_by_sweep + adjustments.principal_prepayment) > 0.0
+        assert (
+            adjustments.interest_paid_by_sweep + adjustments.principal_prepayment
+        ) > 0.0
 
     def test_trap_sweep_returns_zeros(self):
         """TRAP sweep should return zeros (separate posting)."""
-        
+
         # Facility with TRAP sweep
         facility = ConstructionFacility(
             name="Trap Sweep Test",
@@ -211,7 +214,7 @@ class TestCalculateCovenantAdjustments:
             loan_term_months=18,
             cash_sweep=CashSweep(mode=SweepMode.TRAP, end_month=12),
         )
-        
+
         # Mock context
         timeline = Timeline(start_date=date(2024, 1, 1), duration_months=12)
         settings = GlobalSettings()
@@ -224,7 +227,7 @@ class TestCalculateCovenantAdjustments:
             deal=mock_deal,
             ledger=ledger,
         )
-        
+
         # Call with excess NOI
         period = pd.Timestamp("2024-01-01")
         adjustments = facility._calculate_covenant_adjustments(
@@ -234,14 +237,14 @@ class TestCalculateCovenantAdjustments:
             period_noi=50_000.0,
             context=context,
         )
-        
+
         # TRAP mode doesn't return adjustments (posts separately via process())
         assert adjustments.interest_paid_by_sweep == 0.0
         assert adjustments.principal_prepayment == 0.0
 
     def test_insufficient_cash_returns_zeros(self):
         """Insufficient NOI should return zeros."""
-        
+
         # Facility with PREPAY sweep
         facility = ConstructionFacility(
             name="Insufficient Cash Test",
@@ -250,7 +253,7 @@ class TestCalculateCovenantAdjustments:
             loan_term_months=18,
             cash_sweep=CashSweep(mode=SweepMode.PREPAY, end_month=12),
         )
-        
+
         # Mock context
         timeline = Timeline(start_date=date(2024, 1, 1), duration_months=12)
         settings = GlobalSettings()
@@ -263,7 +266,7 @@ class TestCalculateCovenantAdjustments:
             deal=mock_deal,
             ledger=ledger,
         )
-        
+
         # Call with insufficient NOI (less than interest)
         period = pd.Timestamp("2024-01-01")
         adjustments = facility._calculate_covenant_adjustments(
@@ -273,7 +276,7 @@ class TestCalculateCovenantAdjustments:
             period_noi=5_000.0,  # Not enough to cover full interest
             context=context,
         )
-        
+
         # Waterfall: NOI covers partial interest, no excess for prepayment
         # Cash to interest: min(5000, 10000) = 5000
         # Interest from reserve: 10000 - 5000 = 5000

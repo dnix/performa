@@ -114,7 +114,7 @@ def stabilized_office_baseline(analysis_timeline) -> OfficeProperty:
                 term_months=60,  # 5-year lease
                 base_rent_value=50.0,  # $50/SF
                 base_rent_frequency="annual",
-                                upon_expiration="market",
+                upon_expiration="market",
             )
         ],
         vacant_suites=[],  # Fully stabilized
@@ -497,11 +497,11 @@ def test_office_development_matches_baseline(
         # This proves the asset factory pattern works!
         assert development_revenue == pytest.approx(baseline_revenue, rel=0.01)
 
-        print("✅ ASSET FACTORY VALIDATION PASSED!")
-        print("✅ Development project produces identical stabilized results")
-        print("✅ 'Development as Asset Factory' concept proven!")
+        print(" ASSET FACTORY VALIDATION PASSED!")
+        print(" Development project produces identical stabilized results")
+        print(" 'Development as Asset Factory' concept proven!")
     else:
-        print("⚠️  Revenue columns not found - analysis may need column mapping updates")
+        print("  Revenue columns not found - analysis may need column mapping updates")
         # Still validate basic structure
         assert not development_stabilized.empty
         assert len(development_stabilized) > 0
@@ -567,10 +567,10 @@ def test_residential_development_matches_baseline(
         # This proves the asset factory pattern works for residential too!
         assert development_revenue == pytest.approx(baseline_revenue, rel=0.01)
 
-        print("✅ RESIDENTIAL ASSET FACTORY VALIDATION PASSED!")
-        print("✅ Residential development produces identical stabilized results")
+        print(" RESIDENTIAL ASSET FACTORY VALIDATION PASSED!")
+        print(" Residential development produces identical stabilized results")
     else:
-        print("⚠️  Revenue columns not found - analysis may need column mapping updates")
+        print("  Revenue columns not found - analysis may need column mapping updates")
         # Still validate basic structure
         assert not development_stabilized.empty
         assert len(development_stabilized) > 0
@@ -609,9 +609,9 @@ def test_mixed_use_polymorphic_pattern(
     assert "OFFICE" in blueprint_types
     assert "RESIDENTIAL" in blueprint_types
 
-    print("✅ MIXED-USE POLYMORPHIC PATTERN VALIDATED!")
-    print("✅ Multiple asset types combined successfully")
-    print("✅ No conditionals needed in development orchestrator")
+    print(" MIXED-USE POLYMORPHIC PATTERN VALIDATED!")
+    print(" Multiple asset types combined successfully")
+    print(" No conditionals needed in development orchestrator")
 
 
 def test_end_to_end_asset_factory_workflow(
@@ -656,8 +656,8 @@ def test_end_to_end_asset_factory_workflow(
     assert not cash_flows.empty
     assert len(cash_flows) > 0
 
-    print("✅ COMPLETE ASSET FACTORY WORKFLOW VALIDATED!")
-    print(f"✅ Generated {len(stabilized_assets)} stabilized assets from blueprints")
-    print(f"✅ Produced {len(cash_flows)} periods of development cash flows")
-    print("✅ End-to-end development lifecycle working correctly")
-    print("✅ Asset factory pattern fully operational!")
+    print(" COMPLETE ASSET FACTORY WORKFLOW VALIDATED!")
+    print(f" Generated {len(stabilized_assets)} stabilized assets from blueprints")
+    print(f" Produced {len(cash_flows)} periods of development cash flows")
+    print(" End-to-end development lifecycle working correctly")
+    print(" Asset factory pattern fully operational!")

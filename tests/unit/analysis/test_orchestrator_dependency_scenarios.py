@@ -134,7 +134,7 @@ class TestSystematicDependencyScenarios:
         assert mgmt_result.sum() == pytest.approx(expected_mgmt, abs=0.01)
 
         print(
-            f"✅ PGR Dependency Test: Mgmt fee ${mgmt_result.sum():,.0f} = 4% of PGR ${pgr.sum():,.0f}"
+            f" PGR Dependency Test: Mgmt fee ${mgmt_result.sum():,.0f} = 4% of PGR ${pgr.sum():,.0f}"
         )
 
     def test_miscellaneous_income_dependency(self, context, base_revenue_models):
@@ -166,7 +166,7 @@ class TestSystematicDependencyScenarios:
         assert marketing_result.sum() == pytest.approx(expected_marketing, abs=0.01)
 
         print(
-            f"✅ Misc Income Dependency: Marketing fee ${marketing_result.sum():,.0f} = 10% of misc income"
+            f" Misc Income Dependency: Marketing fee ${marketing_result.sum():,.0f} = 10% of misc income"
         )
 
     def test_net_operating_income_dependency(
@@ -210,7 +210,7 @@ class TestSystematicDependencyScenarios:
         assert asset_mgmt_result.sum() == pytest.approx(expected_asset_mgmt, abs=1.0)
 
         print(
-            f"✅ NOI Dependency: Asset mgmt fee ${asset_mgmt_result.sum():,.0f} = 1% of NOI"
+            f" NOI Dependency: Asset mgmt fee ${asset_mgmt_result.sum():,.0f} = 1% of NOI"
         )
 
     def test_unlevered_cash_flow_dependency(
@@ -312,7 +312,7 @@ class TestSystematicDependencyScenarios:
         assert ucf.sum() == pytest.approx(87960.0, abs=1.0)
 
         print(
-            f"✅ UCF Dependency: Asset mgmt fee ${asset_mgmt_result.sum():,.0f} based on NOI"
+            f" UCF Dependency: Asset mgmt fee ${asset_mgmt_result.sum():,.0f} based on NOI"
         )
 
     def test_multiple_aggregate_dependencies(
@@ -382,7 +382,7 @@ class TestSystematicDependencyScenarios:
             egi.sum() * 0.03, abs=100.0
         )  # Approx 3% of EGI
 
-        print(f"✅ Multiple Dependencies: All fees calculated successfully")
+        print(f" Multiple Dependencies: All fees calculated successfully")
         print(
             f"   Management: ${mgmt_result.sum():,.0f}, Admin: ${admin_result.sum():,.0f}, Asset Mgmt: ${asset_result.sum():,.0f}"
         )
@@ -415,7 +415,7 @@ class TestSystematicDependencyScenarios:
         assert marketing_result.sum() == pytest.approx(0.0, abs=0.01)
 
         print(
-            "✅ Zero Aggregate Dependency: Fee correctly calculated as $0 when aggregate is $0"
+            " Zero Aggregate Dependency: Fee correctly calculated as $0 when aggregate is $0"
         )
 
     def test_complex_capital_dependency_chain(self, context, base_revenue_models):
@@ -476,5 +476,5 @@ class TestSystematicDependencyScenarios:
         assert mgmt_result.sum() == pytest.approx(expected_mgmt_fee, abs=1.0)
 
         print(
-            f"✅ CapEx Dependency: Construction mgmt ${mgmt_result.sum():,.0f} = 8% of base CapEx"
+            f" CapEx Dependency: Construction mgmt ${mgmt_result.sum():,.0f} = 8% of base CapEx"
         )

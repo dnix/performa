@@ -125,4 +125,4 @@ def test_benchmark_infrastructure():
 if __name__ == "__main__":
     # Allow running this file directly for quick testing
     test_benchmark_infrastructure()
-    print("✅ Benchmark infrastructure is ready!")
+    print(" Benchmark infrastructure is ready!")

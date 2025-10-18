@@ -52,9 +52,7 @@ def sample_analysis_context(sample_global_settings: GlobalSettings) -> AnalysisC
         net_rentable_area=1000.0,
         rent_roll=OfficeRentRoll(leases=[], vacant_suites=[]),
         losses=OfficeLosses(
-            general_vacancy=OfficeGeneralVacancyLoss(
-                rate=0.05
-            ),
+            general_vacancy=OfficeGeneralVacancyLoss(rate=0.05),
             credit_loss=OfficeCreditLoss(rate=0.01),
         ),
         expenses=OfficeExpenses(),
@@ -252,9 +250,7 @@ def test_rollover_stops_at_analysis_end(sample_global_settings: GlobalSettings):
         net_rentable_area=10000.0,
         rent_roll=OfficeRentRoll(leases=[], vacant_suites=[]),
         losses=OfficeLosses(
-            general_vacancy=OfficeGeneralVacancyLoss(
-                rate=0.05
-            ),
+            general_vacancy=OfficeGeneralVacancyLoss(rate=0.05),
             credit_loss=OfficeCreditLoss(rate=0.01),
         ),
         expenses=OfficeExpenses(),

@@ -963,7 +963,7 @@ def run_all_tests():
     failed_tests = []
 
     for test_class in test_classes:
-        print(f"\n📋 {test_class.__name__}")
+        print(f"\n {test_class.__name__}")
         print("-" * 40)
 
         test_instance = test_class()
@@ -978,15 +978,15 @@ def run_all_tests():
             try:
                 if hasattr(test_instance, test_method):
                     getattr(test_instance, test_method)()
-                    print(f"✅ {test_method}")
+                    print(f" {test_method}")
                     passed_tests += 1
             except Exception as e:
-                print(f"❌ {test_method}: {str(e)}")
+                print(f" {test_method}: {str(e)}")
                 failed_tests.append(f"{test_class.__name__}.{test_method}: {str(e)}")
 
     # Summary
     print("\n" + "=" * 60)
-    print("🎯 Test Summary")
+    print(" Test Summary")
     print("=" * 60)
     print(f"Total Tests: {total_tests}")
     print(f"Passed: {passed_tests}")
@@ -994,11 +994,11 @@ def run_all_tests():
     print(f"Success Rate: {passed_tests / total_tests:.1%}")
 
     if failed_tests:
-        print("\n❌ Failed Tests:")
+        print("\n Failed Tests:")
         for failure in failed_tests:
             print(f"  - {failure}")
     else:
-        print("\n🎉 All tests passed! Debt module enhancements are working correctly.")
+        print("\n All tests passed! Debt module enhancements are working correctly.")
 
     return len(failed_tests) == 0
 

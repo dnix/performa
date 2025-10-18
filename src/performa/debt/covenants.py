@@ -253,10 +253,10 @@ class CashSweep(Model):
             #   cash_to_interest = min(400, 283) = 283 (cash pays all interest)
             #   excess = 400 - 283 = 117 (leftover for prepayment)
             #   Result: 283 from cash + 0 from reserve, 117 prepayment
-            
+
             cash_to_interest = min(period_noi, interest_due)
             excess_cash = max(0.0, period_noi - cash_to_interest)
-            
+
             # Return adjustments if there's any cash available
             if cash_to_interest > 0 or excess_cash > 0:
                 return SweepAdjustment(

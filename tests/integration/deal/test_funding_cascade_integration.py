@@ -7,6 +7,7 @@ Integration tests for funding cascade functionality.
 These tests replace the old TestFundingCascade class that was misplaced in unit tests.
 They test multiple components working together through the ledger-based architecture.
 """
+
 import os
 import sys
 from unittest.mock import Mock
@@ -78,24 +79,26 @@ class TestMultiTrancheFundingIntegration:
 
         # Add capital uses to ledger so construction facility knows when to fund
         # Simulate project costs being incurred over construction period
-        
+
         construction_months = 12
         monthly_cost = project_costs / construction_months
         records = []
         test_asset_id = uuid4()
         for i in range(construction_months):
             period = self.timeline.period_index[i]
-            records.append(TransactionRecord(
-                date=period.start_time.date(),
-                amount=-monthly_cost,  # Negative = use
-                flow_purpose=TransactionPurpose.CAPITAL_USE,
-                category=CashFlowCategoryEnum.CAPITAL,
-                subcategory=CapitalSubcategoryEnum.HARD_COSTS,
-                item_name="Construction Costs",
-                source_id=uuid4(),
-                asset_id=test_asset_id,
-                pass_num=1,
-            ))
+            records.append(
+                TransactionRecord(
+                    date=period.start_time.date(),
+                    amount=-monthly_cost,  # Negative = use
+                    flow_purpose=TransactionPurpose.CAPITAL_USE,
+                    category=CashFlowCategoryEnum.CAPITAL,
+                    subcategory=CapitalSubcategoryEnum.HARD_COSTS,
+                    item_name="Construction Costs",
+                    source_id=uuid4(),
+                    asset_id=test_asset_id,
+                    pass_num=1,
+                )
+            )
         self.ledger.add_records(records)
 
         # Execute facility computation (writes to ledger)
@@ -128,10 +131,10 @@ class TestMultiTrancheFundingIntegration:
             total_proceeds > single_tranche_limit
         ), f"Multi-tranche should exceed single-tranche capacity: ${total_proceeds:,.0f} > ${single_tranche_limit:,.0f}"
 
-        print(f"✅ Multi-Tranche Proceeds: ${total_proceeds:,.0f}")
-        print(f"✅ Effective LTC: {total_proceeds / project_costs:.1%}")
-        print(f"✅ Expected LTC: 75.0%")
-        print(f"✅ Multi-tranche funding validated through ledger")
+        print(f" Multi-Tranche Proceeds: ${total_proceeds:,.0f}")
+        print(f" Effective LTC: {total_proceeds / project_costs:.1%}")
+        print(f" Expected LTC: 75.0%")
+        print(f" Multi-tranche funding validated through ledger")
 
     def test_interest_compounding_integration(self):
         """
@@ -176,17 +179,19 @@ class TestMultiTrancheFundingIntegration:
         test_asset_id = uuid4()
         for i in range(construction_months):
             period = self.timeline.period_index[i]
-            records.append(TransactionRecord(
-                date=period.start_time.date(),
-                amount=-monthly_cost,
-                flow_purpose=TransactionPurpose.CAPITAL_USE,
-                category=CashFlowCategoryEnum.CAPITAL,
-                subcategory=CapitalSubcategoryEnum.HARD_COSTS,
-                item_name="Construction Costs",
-                source_id=uuid4(),
-                asset_id=test_asset_id,
-                pass_num=1,
-            ))
+            records.append(
+                TransactionRecord(
+                    date=period.start_time.date(),
+                    amount=-monthly_cost,
+                    flow_purpose=TransactionPurpose.CAPITAL_USE,
+                    category=CashFlowCategoryEnum.CAPITAL,
+                    subcategory=CapitalSubcategoryEnum.HARD_COSTS,
+                    item_name="Construction Costs",
+                    source_id=uuid4(),
+                    asset_id=test_asset_id,
+                    pass_num=1,
+                )
+            )
         self.ledger.add_records(records)
 
         # Execute facility computation
@@ -208,16 +213,16 @@ class TestMultiTrancheFundingIntegration:
 
         if not interest_transactions.empty:
             total_interest = abs(interest_transactions["amount"].sum())
-            print(f"✅ Total interest transactions: ${total_interest:,.0f}")
+            print(f" Total interest transactions: ${total_interest:,.0f}")
 
         if not capitalized_interest.empty:
             total_capitalized = capitalized_interest["amount"].sum()
-            print(f"✅ Capitalized interest: ${total_capitalized:,.0f}")
+            print(f" Capitalized interest: ${total_capitalized:,.0f}")
 
         # Validate that interest compounding logic is working
         # (Even if amounts are small, the mechanism should be present)
         assert len(ledger) > 0, "Ledger should have transactions"
-        print(f"✅ Interest compounding integration validated")
+        print(f" Interest compounding integration validated")
 
     def test_ltc_constraint_enforcement(self):
         """
@@ -250,24 +255,26 @@ class TestMultiTrancheFundingIntegration:
             ledger=self.ledger,
             project_costs=project_costs,
         )
-        
+
         construction_months = 12
         monthly_cost = project_costs / construction_months
         records = []
         test_asset_id = uuid4()
         for i in range(construction_months):
             period = self.timeline.period_index[i]
-            records.append(TransactionRecord(
-                date=period.start_time.date(),
-                amount=-monthly_cost,
-                flow_purpose=TransactionPurpose.CAPITAL_USE,
-                category=CashFlowCategoryEnum.CAPITAL,
-                subcategory=CapitalSubcategoryEnum.HARD_COSTS,
-                item_name="Construction Costs",
-                source_id=uuid4(),
-                asset_id=test_asset_id,
-                pass_num=1,
-            ))
+            records.append(
+                TransactionRecord(
+                    date=period.start_time.date(),
+                    amount=-monthly_cost,
+                    flow_purpose=TransactionPurpose.CAPITAL_USE,
+                    category=CashFlowCategoryEnum.CAPITAL,
+                    subcategory=CapitalSubcategoryEnum.HARD_COSTS,
+                    item_name="Construction Costs",
+                    source_id=uuid4(),
+                    asset_id=test_asset_id,
+                    pass_num=1,
+                )
+            )
         self.ledger.add_records(records)
 
         # Execute facility computation
@@ -281,12 +288,16 @@ class TestMultiTrancheFundingIntegration:
 
         # Validate loan proceeds are reasonable (updated for current library behavior)
         assert total_proceeds > 0, "Should have positive loan proceeds"
-        assert total_proceeds >= project_costs * 0.45, "Should fund meaningful portion of project"
-        assert total_proceeds <= project_costs * 0.85, "Should not exceed reasonable LTC limit"
+        assert (
+            total_proceeds >= project_costs * 0.45
+        ), "Should fund meaningful portion of project"
+        assert (
+            total_proceeds <= project_costs * 0.85
+        ), "Should not exceed reasonable LTC limit"
 
-        print(f"✅ LTC Constraint: {total_proceeds / project_costs:.1%} <= 50%")
-        print(f"✅ Loan Proceeds: ${total_proceeds:,.0f}")
-        print(f"✅ LTC constraint enforcement validated")
+        print(f" LTC Constraint: {total_proceeds / project_costs:.1%} <= 50%")
+        print(f" Loan Proceeds: ${total_proceeds:,.0f}")
+        print(f" LTC constraint enforcement validated")
 
 
 class TestFundingCascadeComponentIntegration:
@@ -358,8 +369,8 @@ class TestFundingCascadeComponentIntegration:
             proceeds <= max_expected_with_fees
         ), f"Proceeds ${proceeds:,.0f} should not significantly exceed ${base_loan:,.0f} (base LTC)"
 
-        print(f"✅ Loan Proceeds: ${proceeds:,.0f}")
-        print(f"✅ Component integration validated")
+        print(f" Loan Proceeds: ${proceeds:,.0f}")
+        print(f" Component integration validated")
 
 
 class TestEndToEndFundingValidation:
@@ -406,24 +417,26 @@ class TestEndToEndFundingValidation:
             ledger=ledger,
             project_costs=project_costs,
         )
-        
+
         construction_months = 24  # 2-year construction
         monthly_cost = project_costs / construction_months
         records = []
         test_asset_id = uuid4()
         for i in range(construction_months):
             period = timeline.period_index[i]
-            records.append(TransactionRecord(
-                date=period.start_time.date(),
-                amount=-monthly_cost,
-                flow_purpose=TransactionPurpose.CAPITAL_USE,
-                category=CashFlowCategoryEnum.CAPITAL,
-                subcategory=CapitalSubcategoryEnum.HARD_COSTS,
-                item_name="Construction Costs",
-                source_id=uuid4(),
-                asset_id=test_asset_id,
-                pass_num=1,
-            ))
+            records.append(
+                TransactionRecord(
+                    date=period.start_time.date(),
+                    amount=-monthly_cost,
+                    flow_purpose=TransactionPurpose.CAPITAL_USE,
+                    category=CashFlowCategoryEnum.CAPITAL,
+                    subcategory=CapitalSubcategoryEnum.HARD_COSTS,
+                    item_name="Construction Costs",
+                    source_id=uuid4(),
+                    asset_id=test_asset_id,
+                    pass_num=1,
+                )
+            )
         ledger.add_records(records)
 
         # Execute facility computation
@@ -449,10 +462,10 @@ class TestEndToEndFundingValidation:
             total_proceeds >= base_loan * 0.75
         ), f"Should utilize substantial debt capacity: ${total_proceeds:,.0f}"
 
-        print(f"✅ Development Project: ${project_costs:,.0f}")
-        print(f"✅ Total Debt Proceeds: ${total_proceeds:,.0f}")
-        print(f"✅ Effective LTC: {total_proceeds / project_costs:.1%}")
-        print(f"✅ End-to-end funding cascade validated")
+        print(f" Development Project: ${project_costs:,.0f}")
+        print(f" Total Debt Proceeds: ${total_proceeds:,.0f}")
+        print(f" Effective LTC: {total_proceeds / project_costs:.1%}")
+        print(f" End-to-end funding cascade validated")
 
 
 if __name__ == "__main__":

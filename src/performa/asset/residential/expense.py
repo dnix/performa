@@ -16,10 +16,8 @@ class ResidentialOpExItem(OpExItemBase):
     """
     Residential-specific operating expense.
 
-    Inherits all functionality from OpExItemBase for now, but provides
-    type safety and clear semantic distinction for residential properties.
-    Future enhancements may include residential-specific features like
-    utility billing back to tenants (RUBS).
+    Provides type safety and clear semantic distinction for residential properties,
+    inheriting all functionality from OpExItemBase.
     """
 
     pass

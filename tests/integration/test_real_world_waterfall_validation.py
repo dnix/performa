@@ -122,7 +122,7 @@ class TestRealWorldCarryPromoteValidation:
             abs(total_calculated - 15_000_000) < 1
         ), "Total distributions should sum to $15M"
 
-        print("✅ PE Carry Test Results:")
+        print(" PE Carry Test Results:")
         print(
             f"   GP: ${gp_results['total_investment']:,.0f} → ${gp_results['total_distributions']:,.0f} ({gp_results['equity_multiple']:.2f}x)"
         )
@@ -203,7 +203,7 @@ class TestRealWorldCarryPromoteValidation:
             abs(gp_results["equity_multiple"] - lp_results["equity_multiple"]) < 0.05
         ), "Both partners should have similar returns"
 
-        print("✅ Below Hurdle Test Results:")
+        print(" Below Hurdle Test Results:")
         print(
             f"   GP: ${gp_results['total_investment']:,.0f} → ${gp_results['total_distributions']:,.0f} ({gp_results['equity_multiple']:.2f}x)"
         )
@@ -325,7 +325,7 @@ class TestRealWorldWaterfallPromoteValidation:
             gp_excess > 1_000_000
         ), f"GP should get > $1M more than pro rata, got ${gp_excess:,.0f} (revised from $2M)"
 
-        print("✅ Real Estate Waterfall Test Results:")
+        print(" Real Estate Waterfall Test Results:")
         print(
             f"   Developer GP: ${gp_results['total_investment']:,.0f} → ${gp_results['total_distributions']:,.0f} ({gp_results['equity_multiple']:.2f}x)"
         )
@@ -433,7 +433,7 @@ class TestRealWorldWaterfallPromoteValidation:
             abs(total_calculated - 13_000_000) < 1
         ), "Total distributions should sum to $13M"
 
-        print("✅ Moderate Returns Waterfall Test Results:")
+        print(" Moderate Returns Waterfall Test Results:")
         print(
             f"   GP: ${gp_results['total_investment']:,.0f} → ${gp_results['total_distributions']:,.0f} ({gp_results['equity_multiple']:.2f}x)"
         )
@@ -522,7 +522,7 @@ class TestCrossValidationAgainstIndustryBenchmarks:
         # Validate total return
         assert abs(results["total_metrics"]["equity_multiple"] - 1.5) < 0.01
 
-        print("✅ Industry Benchmark Validation:")
+        print(" Industry Benchmark Validation:")
         print(
             f"   GP: {gp_results['equity_multiple']:.2f}x vs benchmark {expected_gp_multiple}x"
         )
@@ -530,7 +530,7 @@ class TestCrossValidationAgainstIndustryBenchmarks:
             f"   LP: {lp_results['equity_multiple']:.2f}x vs benchmark {expected_lp_multiple}x"
         )
         print(
-            f"   Validation: {'✅ PASS' if abs(gp_results['equity_multiple'] - expected_gp_multiple) < tolerance else '❌ FAIL'}"
+            f"   Validation: {' PASS' if abs(gp_results['equity_multiple'] - expected_gp_multiple) < tolerance else ' FAIL'}"
         )
 
 
@@ -541,22 +541,22 @@ if __name__ == "__main__":
 
     # Carry promote tests
     carry_tests = TestRealWorldCarryPromoteValidation()
-    print("\n📊 Testing Carry Promote Structures...")
+    print("\n Testing Carry Promote Structures...")
     carry_tests.test_standard_private_equity_carry_structure()
     carry_tests.test_carry_promote_below_hurdle_validation()
 
     # Waterfall promote tests
     waterfall_tests = TestRealWorldWaterfallPromoteValidation()
-    print("\n📊 Testing Waterfall Promote Structures...")
+    print("\n Testing Waterfall Promote Structures...")
     waterfall_tests.test_real_estate_development_waterfall()
     waterfall_tests.test_moderate_returns_waterfall_validation()
 
     # Industry benchmark tests
     benchmark_tests = TestCrossValidationAgainstIndustryBenchmarks()
-    print("\n📊 Testing Against Industry Benchmarks...")
+    print("\n Testing Against Industry Benchmarks...")
     benchmark_tests.test_benchmark_carry_calculation_validation()
 
-    print("\n🎉 All real-world validation tests completed!")
+    print("\n All real-world validation tests completed!")
     print(
-        "💡 Our implementation matches hand-calculated and industry benchmark expectations."
+        " Our implementation matches hand-calculated and industry benchmark expectations."
     )
