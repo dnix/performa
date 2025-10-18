@@ -99,7 +99,7 @@ The top-level classification of transactions:
 | `LOAN_PROCEEDS` | "Loan Proceeds" | Positive | Capital Source | Initial loan funding at origination |
 | `PRINCIPAL_PAYMENT` | "Principal Payment" | Negative | Financing Service | Principal portion for balance tracking |
 | `INTEREST_PAYMENT` | "Interest Payment" | Negative | Financing Service | Interest portion, actual cash expense |
-| `INTEREST_RESERVE` | "Interest Reserve" | Varies | TBD | Interest reserve funding or draws |
+| `INTEREST_RESERVE` | "Interest Reserve" | Negative | Capital Use | Capitalized interest added to project costs |
 | `PREPAYMENT` | "Prepayment" | Negative | Financing Service | Loan payoff at property sale/disposition |
 | `REFINANCING_PROCEEDS` | "Refinancing Proceeds" | Positive | Capital Source | New loan proceeds replacing old loan |
 | `REFINANCING_PAYOFF` | "Refinancing Payoff" | Negative | Financing Service | Old loan payoff in refinancing transaction |
@@ -365,9 +365,14 @@ If positive, this goes to equity as distribution
   - `Financing Service` (part of debt costs)?
   - Depends on context?
 
-### 6.3 Interest Reserve Treatment
-- **Question:** Is `INTEREST_RESERVE` a source (positive) or use (negative)?
-- **Context:** Construction loans often have interest reserves that get drawn
+### 6.3 Interest Reserve Treatment ✅ RESOLVED
+- **Answer:** `INTEREST_RESERVE` is **Capital Use** (negative)
+- **Classification:** `Financing / Interest Reserve / Capital Use`
+- **Rationale:** Capitalized interest adds to project costs and loan balance but is NOT a cash payment during construction. Must be classified as Capital Use to:
+  1. Include in total project costs for LTC calculations
+  2. Exclude from debt_service() queries (not a cash payment)
+  3. Add to depreciable basis
+- **Implementation:** Special case in `FlowPurposeMapper` maps `INTEREST_RESERVE` → `Capital Use`
 
 ### 6.4 Valuation Flow Purpose
 - **Question:** Should `Valuation` be a `TransactionPurpose`?

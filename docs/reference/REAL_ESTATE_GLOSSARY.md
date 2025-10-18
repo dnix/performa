@@ -113,6 +113,36 @@ This glossary provides:
 
 ---
 
+### Capitalized Interest
+**Industry Definition:** Interest on a construction loan that is added to the loan principal rather than paid in cash during the construction period.
+
+**Performa Implementation:**
+- **Ledger**: `Financing / Interest Reserve`
+- **Flow Purpose**: `Capital Use` (special case!)
+- **Sign**: Negative (adds to project costs)
+- **Classification Rationale:**
+  - **Semantically**: It IS interest → `Financing` category ✓
+  - **Mechanically**: Must be `Capital Use` to:
+    1. Include in total project costs (LTC calculation)
+    2. Exclude from `debt_service()` queries (not a cash payment)
+    3. Add to depreciable basis
+- **Code Reference**: `src/performa/debt/construction.py`, `src/performa/core/ledger/mapper.py`
+
+**Key Distinction:**
+```
+Paid Interest:        Financing / Interest Payment / Financing Service (cash paid monthly)
+Capitalized Interest: Financing / Interest Reserve / Capital Use (added to loan balance)
+```
+
+**Industry Standard:**
+- Shown as a separate line item in sources & uses tables
+- Paid at refinancing or disposition when loan is paid off
+- Common in development and bridge financing
+
+**Related Terms:** Interest Reserve, Accrued Interest, Soft Costs (historical classification)
+
+---
+
 ### Cash-on-Cash Return
 **Industry Definition:** Annual cash distributed to equity divided by total equity invested.
 
@@ -1206,14 +1236,14 @@ levered_cf = investor_flows              # Now contributions -, Dist +
 - Legal and accounting
 - Permits and entitlements
 - Financing fees
-- Capitalized interest
 - Developer fees
+- **Note:** Capitalized interest is tracked separately as `Financing / Interest Reserve`, not as soft costs
 
 **Performa Implementation:**
 - **Ledger**: `Capital / Soft Costs`
 - **Flow Purpose**: `Capital Use`
 - **Sign**: Negative (capital outflow)
-- **Special**: Capitalized interest posted as soft costs by `ConstructionFacility`
+- **Special**: Capitalized interest is posted separately as `Financing / Interest Reserve` (not soft costs)
 - **Code Reference**: `src/performa/debt/construction.py` (capitalized interest), asset capital plans
 
 **Typical Percentage:** 20-30% of total development cost
