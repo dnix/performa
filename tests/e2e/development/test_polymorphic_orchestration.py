@@ -305,9 +305,7 @@ def comprehensive_project() -> DevelopmentProject:
         gross_area=200000.0,
         net_rentable_area=180000.0,
         construction_plan=construction_plan,
-        financing_plan=financing_plan,
         blueprints=[office_blueprint, residential_blueprint],
-        disposition_valuation=disposition_plan,
     )
 
 
@@ -328,7 +326,6 @@ def test_orchestrator_basic_structure(
         gross_area=55000.0,
         net_rentable_area=50000.0,
         construction_plan=simple_construction_plan,
-        financing_plan=simple_financing_plan,
         blueprints=[office_blueprint],
     )
 
@@ -362,7 +359,6 @@ def test_orchestrator_prepare_models_basic(
         gross_area=55000.0,
         net_rentable_area=50000.0,
         construction_plan=simple_construction_plan,
-        financing_plan=simple_financing_plan,
         blueprints=[office_blueprint],
     )
 
@@ -402,7 +398,6 @@ def test_orchestrator_polymorphic_blueprint_processing(
         gross_area=105000.0,
         net_rentable_area=100000.0,
         construction_plan=simple_construction_plan,
-        financing_plan=simple_financing_plan,
         blueprints=[office_blueprint, residential_blueprint],
     )
 
@@ -445,7 +440,6 @@ def test_orchestrator_asset_factory_integration(
         gross_area=55000.0,
         net_rentable_area=50000.0,
         construction_plan=simple_construction_plan,
-        financing_plan=simple_financing_plan,
         blueprints=[office_blueprint],
     )
 
@@ -485,7 +479,6 @@ def test_orchestrator_no_blueprints(
         gross_area=100000.0,
         net_rentable_area=90000.0,
         construction_plan=simple_construction_plan,
-        financing_plan=simple_financing_plan,
         blueprints=[],  # No blueprints
     )
 
@@ -522,7 +515,6 @@ def test_orchestrator_performance_no_conditionals(
         gross_area=150000.0,
         net_rentable_area=100000.0,
         construction_plan=simple_construction_plan,
-        financing_plan=simple_financing_plan,
         blueprints=blueprints,
     )
 

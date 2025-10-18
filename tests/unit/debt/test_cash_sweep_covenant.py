@@ -19,7 +19,6 @@ from performa.core.ledger import Ledger
 from performa.core.ledger.records import SeriesMetadata
 from performa.core.primitives import (
     CashFlowCategoryEnum,
-    FinancingSubcategoryEnum,
     RevenueSubcategoryEnum,
     SweepMode,
     Timeline,
@@ -280,91 +279,6 @@ class TestTrapModeRelease:
         ), f"Release should occur at {expected_date}, got {release_date}"
 
 
-class TestPrepayModeReducesBalance:
-    """Test PREPAY mode reduces facility outstanding balance."""
-
-    @pytest.mark.skip(
-        reason="Outdated: tests implementation details. Balance now implicit via ledger, not facility attribute."
-    )
-    def test_prepay_mode_reduces_balance(self):
-        """Test PREPAY mode reduces facility.outstanding_balance immediately."""
-        # Setup
-        sweep = CashSweep(mode=SweepMode.PREPAY, end_month=3)
-        timeline = Timeline(start_date=date(2024, 1, 1), duration_months=4)
-
-        # Mock excess cash each month
-        noi_series = pd.Series(
-            [100_000, 100_000, 100_000, 100_000], index=timeline.period_index
-        )
-
-        # Mock empty debt service
-        ledger_df = pd.DataFrame({
-            "entity": [],
-            "date": [],
-            "category": [],
-            "subcategory": [],
-            "amount": [],
-        })
-
-        # Create mock context
-        context, facility = create_mock_context(
-            timeline, noi_series, ledger_df, "Construction Facility"
-        )
-        initial_balance = facility.outstanding_balance
-
-        # Execute
-        sweep.process(context, "Construction Facility")
-
-        # Assert: Balance should be reduced by 2 months of prepayments (100k + 100k)
-        # Month 1 and 2 are before end_month=3
-        expected_reduction = 200_000
-        expected_final_balance = initial_balance - expected_reduction
-
-        assert facility.outstanding_balance == expected_final_balance
-
-
-class TestPrepayModePostsTransactions:
-    """Test PREPAY mode posts prepayment transactions."""
-
-    @pytest.mark.skip(
-        reason="Covered by integration tests. Mock complexity not worth maintaining."
-    )
-    def test_prepay_mode_posts_transactions(self):
-        """Test PREPAY mode posts SWEEP_PREPAYMENT transactions."""
-        # Setup
-        sweep = CashSweep(mode=SweepMode.PREPAY, end_month=2)
-        timeline = Timeline(start_date=date(2024, 1, 1), duration_months=3)
-
-        # Mock NOI
-        noi_series = pd.Series([75_000, 75_000, 75_000], index=timeline.period_index)
-
-        # Mock empty debt service
-        ledger_df = pd.DataFrame({
-            "entity": [],
-            "date": [],
-            "category": [],
-            "subcategory": [],
-            "amount": [],
-        })
-
-        # Create mock context
-        context, facility = create_mock_context(timeline, noi_series, ledger_df)
-
-        # Execute
-        sweep.process(context, "Test Facility")
-
-        # Assert: Should have 1 prepayment transaction (month 1, before end_month=2)
-        assert context.ledger.add_series.call_count == 1
-
-        # Check prepayment transaction
-        call_args = context.ledger.add_series.call_args_list[0]
-        series = call_args[0][0]
-        metadata = call_args[0][1]
-
-        assert metadata.subcategory == FinancingSubcategoryEnum.SWEEP_PREPAYMENT
-        assert series.iloc[0] == -75_000  # Negative (cash outflow)
-
-
 class TestNoSweepOnZeroExcess:
     """Test that sweep doesn't trigger when no excess cash."""
 
@@ -428,53 +342,6 @@ class TestNoSweepOnZeroExcess:
 
         # Assert: No sweep (debt service exceeds NOI, so no excess cash)
         assert context.ledger.add_series.call_count == 0
-
-
-class TestExcessCalculation:
-    """Test excess cash calculation logic."""
-
-    @pytest.mark.skip(
-        reason="Covered by integration tests. Mock complexity not worth maintaining."
-    )
-    def test_excess_calculation(self):
-        """Test that excess = NOI - debt service is calculated correctly."""
-        # Setup
-        sweep = CashSweep(mode=SweepMode.TRAP, end_month=2)
-        timeline = Timeline(start_date=date(2024, 1, 1), duration_months=2)
-
-        # Mock NOI = 200k/month
-        noi_series = pd.Series([200_000, 200_000], index=timeline.period_index)
-
-        # Mock debt service = -50k/month (negative = outflow)
-        ledger_df = pd.DataFrame({
-            "entity": ["Test Facility", "Test Facility"],
-            "date": list(timeline.period_index),
-            "category": ["Financing", "Financing"],
-            "subcategory": ["Interest Payment", "Interest Payment"],
-            "amount": [-50_000, -50_000],
-        })
-
-        # Create mock context
-        context, facility = create_mock_context(timeline, noi_series, ledger_df)
-
-        # Execute
-        sweep.process(context, "Test Facility")
-
-        # Assert: Should trap 150k/month (200k NOI - 50k debt service)
-        # 2 calls: 1 for month 1 deposit, 1 for month 2 release
-        # Month 1 (< end_month): deposit 150k
-        # Month 2 (== end_month): release 150k
-        assert context.ledger.add_series.call_count == 2
-
-        # Check first deposit
-        deposit_call = context.ledger.add_series.call_args_list[0]
-        deposit_series = deposit_call[0][0]
-        assert deposit_series.iloc[0] == -150_000
-
-        # Check release
-        release_call = context.ledger.add_series.call_args_list[1]
-        release_series = release_call[0][0]
-        assert release_series.iloc[0] == 150_000
 
 
 class TestFacilityNotFound:

@@ -145,6 +145,20 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
         default=0.95, description="Target occupancy rate at stabilization"
     )
 
+    # === REFINANCING TIMING ===
+    refinancing_timing_months: PositiveInt = Field(
+        default=36,
+        ge=18,
+        le=120,
+        description=(
+            "Month to refinance construction loan into permanent financing. "
+            "User must explicitly consider: (1) construction duration, (2) lease-up period, "
+            "(3) stabilization to target occupancy, and (4) lender T12 NOI requirements. "
+            "Office typical: construction (18mo) + lease-up (12-18mo) + T12 NOI (12mo) = 42-48 months. "
+            "Industry standard approach (Argus/Rockport): users set timing explicitly."
+        ),
+    )
+
     # === CONSTRUCTION COST MODEL ===
     construction_cost_psf: PositiveFloat = Field(
         default=300.0,
@@ -378,8 +392,8 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
             interest_calculation_method=getattr(
                 InterestCalculationMethod, self.interest_calculation_method
             ),
-            fund_interest_from_reserve=True,
-            interest_reserve_rate=self.interest_reserve_rate,
+            # SCHEDULED method: Interest capitalizes dynamically - no upfront reserve
+            # SIMPLE method requires simple_reserve_rate parameter (not interest_reserve_rate)
         )
 
         # === STEP 9: ARCHITECTURAL IMPROVEMENT ===
@@ -391,31 +405,11 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
             self.construction_start_months + self.construction_duration_months
         )
 
-        # Calculate refinancing timing based on trigger method
-        # Office properties typically follow 85-90% occupancy + 3-month seasoning
-        lease_up_months = 12  # Standard office lease-up period
-        if self.refinancing_trigger == "occupancy":
-            # Industry standard: 85% occupancy + 90-day seasoning for office
-            # More conservative than multifamily due to longer lease terms
-            seasoning_months = 3
-            actual_refinance_timing = (
-                construction_period_months + lease_up_months + seasoning_months
-            )
-        elif self.refinancing_trigger == "stabilized":
-            # Conservative: Full lease-up + 12-month LTM NOI
-            stabilization_buffer = 12
-            actual_refinance_timing = (
-                construction_period_months + lease_up_months + stabilization_buffer
-            )
-        elif self.refinancing_trigger == "aggressive":
-            # Fast takeout: Construction end + 6 months
-            actual_refinance_timing = construction_period_months + 6
-        else:
-            # Fallback to occupancy standard
-            seasoning_months = 3
-            actual_refinance_timing = (
-                construction_period_months + lease_up_months + seasoning_months
-            )
+        # Use explicit refinancing timing set by user
+        # This follows industry standard practice (Argus/Rockport) where users
+        # manually determine refinancing timing based on their specific assumptions
+        # about construction duration, lease-up period, stabilization, and lender requirements.
+        actual_refinance_timing = self.refinancing_timing_months
 
         financing_plan = create_construction_to_permanent_plan(
             construction_terms={
@@ -423,8 +417,12 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
                 "ltc_ratio": self.construction_ltc_ratio,  # Use base class LTC parameter for loan sizing
                 "ltc_max": self.construction_ltc_max,  # Use base class parameter
                 "interest_rate": self.construction_interest_rate,
-                "loan_term_months": self.construction_duration_months,  # Use actual construction duration
-                "interest_reserve_rate": self.interest_reserve_rate,
+                "loan_term_months": actual_refinance_timing,  # CRITICAL: Extend through refinancing, not just construction
+                "interest_calculation_method": getattr(
+                    InterestCalculationMethod, self.interest_calculation_method
+                ),
+                # SCHEDULED method: Interest capitalizes dynamically - no upfront reserve
+                "simple_reserve_rate": 0.10,  # Required for SIMPLE method (ignored for SCHEDULED)
             },
             permanent_terms={
                 "name": "Permanent Facility",
@@ -440,7 +438,7 @@ class OfficeDevelopmentPattern(DevelopmentPatternBase):
                 "refinance_timing": actual_refinance_timing,
             },
             project_value=self.total_project_cost,
-            lease_up_months=lease_up_months,  # Pass through for any fallback calculations
+            lease_up_months=12,  # Standard office lease-up period
         )
 
         # === STEP 10: PARTNERSHIP STRUCTURE ===

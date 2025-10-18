@@ -65,7 +65,7 @@ class TestDealModel:
             asset=development_project,
             acquisition=sample_acquisition,
             financing=None,
-            disposition=None,
+            exit_valuation=None,
             equity_partners=None,
         )
 

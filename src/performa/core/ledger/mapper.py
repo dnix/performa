@@ -201,6 +201,17 @@ class FlowPurposeMapper:
                 ):
                     return TransactionPurpose.FINANCING_SERVICE
 
+                # Interest Reserve (Capitalized Interest): ALWAYS CAPITAL_USE
+                # CRITICAL SPECIAL CASE: Capitalized interest adds to project costs and loan balance
+                # but is NOT a cash payment. Must be classified as CAPITAL_USE to:
+                # 1. Include in total project costs for LTC calculations
+                # 2. Exclude from debt_service() queries (not a cash payment)
+                # 3. Add to depreciable basis
+                # This matches industry standard: Interest Reserve is shown as a distinct line
+                # in sources & uses, adding to total development cost.
+                elif subcategory == FinancingSubcategoryEnum.INTEREST_RESERVE:
+                    return TransactionPurpose.CAPITAL_USE
+
                 # All other financing: Debt proceeds (positive) vs debt service (negative)
                 elif amount > 0:  # Positive = proceeds/draws (debt proceeds)
                     return TransactionPurpose.CAPITAL_SOURCE

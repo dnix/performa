@@ -20,7 +20,7 @@ import pytest
 from pydantic import ValidationError, model_validator
 
 from performa.core.base.lease import LeaseSpecBase
-from performa.core.primitives import Model
+from performa.core.primitives import Model, ProgramUseEnum
 from performa.core.primitives.validation import (
     ValidationMixin,
     validate_term_specification,
@@ -255,6 +255,7 @@ class TestIntegrationWithLeaseSpecBase:
             suite="100",
             floor="1",
             area=1000.0,
+            use_type=ProgramUseEnum.OFFICE,
             base_rent_value=50.0,
         )
         assert spec.end_date == date(2024, 12, 31)
@@ -271,6 +272,7 @@ class TestIntegrationWithLeaseSpecBase:
                 suite="100",
                 floor="1",
                 area=1000.0,
+                use_type=ProgramUseEnum.OFFICE,
                 base_rent_value=50.0,
             )
 

@@ -128,8 +128,7 @@ def complex_property_fixture() -> dict:
                 base_rent_value=62.0,
                 base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 base_rent_frequency="annual",
-                lease_type="net",
-                upon_expiration=UponExpirationEnum.MARKET,
+                                upon_expiration=UponExpirationEnum.MARKET,
                 recovery_method=recovery_method,
             ),
             OfficeLeaseSpec(
@@ -143,8 +142,7 @@ def complex_property_fixture() -> dict:
                 base_rent_value=58.0,
                 base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 base_rent_frequency="annual",
-                lease_type="net",
-                upon_expiration=UponExpirationEnum.RENEW,
+                                upon_expiration=UponExpirationEnum.RENEW,
                 rollover_profile=rollover_profile,
             ),
             OfficeLeaseSpec(
@@ -158,8 +156,7 @@ def complex_property_fixture() -> dict:
                 base_rent_value=60.0,
                 base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
                 base_rent_frequency="annual",
-                lease_type="net",
-                upon_expiration=UponExpirationEnum.REABSORB,
+                                upon_expiration=UponExpirationEnum.REABSORB,
                 rollover_profile=rollover_profile,
             ),
         ],
@@ -192,8 +189,7 @@ def complex_property_fixture() -> dict:
             base_rent_value=65.0,  # Market rent from rollover profile
             base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
             base_rent_frequency="annual",
-            lease_type="net",
-            term_months=60,
+                        term_months=60,
             upon_expiration=UponExpirationEnum.MARKET,
         ),
     )

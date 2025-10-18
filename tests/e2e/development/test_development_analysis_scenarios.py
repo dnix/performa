@@ -104,7 +104,6 @@ def test_development_analysis_scenario_instantiation():
         gross_area=12000.0,
         net_rentable_area=10000.0,
         construction_plan=construction_plan,
-        financing_plan=financing_plan,
         blueprints=[office_blueprint],
     )
 
@@ -187,7 +186,6 @@ def test_development_analysis_scenario_prepare_models():
         gross_area=110000.0,
         net_rentable_area=100000.0,
         construction_plan=construction_plan,
-        financing_plan=financing_plan,
         blueprints=[office_blueprint],
     )
 
@@ -310,7 +308,6 @@ def test_development_analysis_scenario_mixed_use():
         gross_area=400000.0,
         net_rentable_area=390000.0,
         construction_plan=construction_plan,
-        financing_plan=financing_plan,
         blueprints=[office_blueprint, residential_blueprint],
     )
 
@@ -365,7 +362,6 @@ def test_development_analysis_scenario_empty_blueprints():
         gross_area=100000.0,
         net_rentable_area=90000.0,
         construction_plan=construction_plan,
-        financing_plan=financing_plan,
         blueprints=[],  # No blueprints
     )
 
@@ -449,9 +445,7 @@ def test_development_analysis_scenario_with_disposition():
         gross_area=130000.0,
         net_rentable_area=120000.0,
         construction_plan=construction_plan,
-        financing_plan=financing_plan,
         blueprints=[office_blueprint],
-        disposition_valuation=disposition_plan,
     )
 
     timeline = Timeline.from_dates(date(2024, 1, 1), date(2029, 12, 31))
@@ -560,7 +554,6 @@ def test_development_analysis_scenario_polymorphic_iteration():
         gross_area=130000.0,
         net_rentable_area=130000.0,
         construction_plan=construction_plan,
-        financing_plan=financing_plan,
         blueprints=[office_blueprint, residential_blueprint],
     )
 
@@ -647,9 +640,7 @@ def test_development_analysis_end_to_end():
         gross_area=165000.0,
         net_rentable_area=150000.0,
         construction_plan=construction_plan,
-        financing_plan=financing_plan,
         blueprints=[office_blueprint],
-        disposition_valuation=disposition_plan,
     )
 
     timeline = Timeline.from_dates(date(2024, 1, 1), date(2029, 12, 31))

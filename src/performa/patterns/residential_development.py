@@ -150,6 +150,21 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         description="Frequency of lease executions (typically monthly for residential)",
     )
 
+    # === REFINANCING TIMING ===
+    refinancing_timing_months: PositiveInt = Field(
+        default=40,
+        ge=18,
+        le=120,
+        description=(
+            "Month to refinance construction loan into permanent financing. "
+            "User must explicitly consider: (1) lease-up duration, (2) stabilization period "
+            "to 90%+ occupancy, (3) first lease turnover cycle, and (4) lender T12 NOI requirements. "
+            "CRITICAL: Account for turnover! With aggressive absorption, all leases may expire together. "
+            "Typical: leasing_start + absorption + full_lease_term + T12_NOI (e.g., 15 + 6 + 12 + 7 = 40). "
+            "Industry standard approach (Argus/Rockport): users set timing explicitly."
+        ),
+    )
+
     # === CONSTRUCTION COST MODEL ===
     construction_cost_per_unit: PositiveFloat = Field(
         default=None,
@@ -501,7 +516,7 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
             ),
             value=self.land_cost,
             acquisition_date=self.acquisition_date,
-            closing_costs_rate=0.03,  # 3% default closing costs
+            closing_costs_rate=self.land_closing_costs_rate,  # Use pattern parameter
         )
 
         # === STEP 7: CONSTRUCTION-TO-PERMANENT FINANCING ===
@@ -521,41 +536,11 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
             self.total_units / self.absorption_pace_units_per_month
         )
 
-        # Calculate refinancing timing based on trigger method
-        if self.refinancing_trigger == "occupancy":
-            # Industry standard: 90% occupancy + 90-day seasoning
-            # Common for agency/insurance/bank multifamily financing
-            target_occupancy = 0.90
-            units_for_target = int(self.total_units * target_occupancy)
-            months_to_target = units_for_target / self.absorption_pace_units_per_month
-            seasoning_months = 3  # 90 days
-            actual_refinance_timing = int(
-                self.leasing_start_months + months_to_target + seasoning_months
-            )
-        elif self.refinancing_trigger == "stabilized":
-            # Conservative: 100% occupancy + 12-month LTM NOI
-            # Ensures full year of stabilized operations for appraisal
-            stabilization_buffer = 12
-            actual_refinance_timing = (
-                self.leasing_start_months
-                + actual_lease_up_months
-                + stabilization_buffer
-            )
-        elif self.refinancing_trigger == "aggressive":
-            # Fast takeout: Construction end + 6 months
-            # Assumes aggressive lease-up or rent-up guarantee
-            construction_end = (
-                self.construction_start_months + self.construction_duration_months
-            )
-            actual_refinance_timing = construction_end + 6
-        else:
-            # Fallback to stabilized method
-            stabilization_buffer = 12
-            actual_refinance_timing = (
-                self.leasing_start_months
-                + actual_lease_up_months
-                + stabilization_buffer
-            )
+        # Use explicit refinancing timing set by user
+        # This follows industry standard practice (Argus/Rockport) where users
+        # manually determine refinancing timing based on their specific assumptions
+        # about lease-up pace, stabilization, and lender requirements.
+        actual_refinance_timing = self.refinancing_timing_months
 
         # Create cash sweep covenant if enabled
         # Prevents unrealistic distributions during construction/lease-up
@@ -572,15 +557,13 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
                 "ltc_ratio": self.construction_ltc_ratio,  # Use base class LTC parameter for loan sizing
                 "ltc_max": self.construction_ltc_max,  # Lender's hard gate
                 "interest_rate": self.construction_interest_rate,
-                "loan_term_months": self.construction_duration_months,  # Use actual construction duration
-                "fund_interest_from_reserve": True,  # Match composition approach
-                "interest_reserve_rate": 0.10
-                if self.interest_reserve_rate is None
-                else self.interest_reserve_rate,  # 10% reserve
+                "loan_term_months": actual_refinance_timing,  # CRITICAL: Extend through refinancing, not just construction
                 "interest_calculation_method": getattr(
                     InterestCalculationMethod, self.interest_calculation_method
                 ),
-                "simple_reserve_rate": 0.10,  # Required for SIMPLE method
+                # SCHEDULED method: Interest capitalizes dynamically - no upfront reserve
+                # SIMPLE method requires simple_reserve_rate parameter
+                "simple_reserve_rate": 0.10,  # Required for SIMPLE method (ignored for SCHEDULED)
                 # NEW: Attach cash sweep covenant
                 "cash_sweep": cash_sweep_covenant,
             },

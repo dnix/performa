@@ -111,7 +111,6 @@ class TestLargeScaleRollingRenovation:
         renovation_timeline = Timeline(start_date=date(2024, 1, 1), duration_months=36)
         capital_plan = CapitalPlan(
             name=f"Renovation Program {name_suffix}",
-            timeline=renovation_timeline,
             capital_items=[
                 CapitalItem(
                     name=f"Unit Renovations {name_suffix}",

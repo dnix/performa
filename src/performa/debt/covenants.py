@@ -161,6 +161,10 @@ class CashSweep(Model):
         # Get facility reference for balance manipulation (PREPAY mode)
         facility = self._get_facility(context, facility_name)
 
+        # PERFORMANCE: Query NOI once upfront instead of per-period
+        queries = LedgerQueries(context.ledger)
+        noi_series = queries.noi()
+
         # Process each period
         for idx, period_date in enumerate(context.timeline.period_index):
             # Month number is 1-based (month 1, 2, 3, ...)
@@ -168,7 +172,7 @@ class CashSweep(Model):
 
             # Calculate excess cash for this period
             excess_cash = self._calculate_excess_cash(
-                context, facility_name, period_date
+                context, facility_name, period_date, noi_series
             )
 
             if month_num < self.end_month:
@@ -239,15 +243,25 @@ class CashSweep(Model):
 
         # Only PREPAY mode applies adjustments in this method
         # (TRAP mode posts deposits/releases separately via process())
-        if (
-            self.mode == SweepMode.PREPAY
-            and month_num < self.end_month  # Sweep active
-            and (excess_cash := period_noi - interest_due) > 0  # Cash available
-        ):
-            # Apply waterfall: interest first, then principal
-            to_interest = min(excess_cash, interest_due)
-            to_principal = max(0.0, excess_cash - to_interest)
-            return SweepAdjustment(to_interest=to_interest, to_principal=to_principal)
+        if self.mode == SweepMode.PREPAY and month_num < self.end_month:
+            # WATERFALL MECHANICS (per Argus/Rockport standard):
+            # 1. Calculate how much cash can pay interest (CashToDS)
+            # 2. Calculate excess cash after debt service
+            # 3. Apply excess to prepayment
+            #
+            # Example: period_noi=400, interest_due=283
+            #   cash_to_interest = min(400, 283) = 283 (cash pays all interest)
+            #   excess = 400 - 283 = 117 (leftover for prepayment)
+            #   Result: 283 from cash + 0 from reserve, 117 prepayment
+            
+            cash_to_interest = min(period_noi, interest_due)
+            excess_cash = max(0.0, period_noi - cash_to_interest)
+            
+            # Return adjustments if there's any cash available
+            if cash_to_interest > 0 or excess_cash > 0:
+                return SweepAdjustment(
+                    to_interest=cash_to_interest, to_principal=excess_cash
+                )
 
         # All other cases: no adjustment
         return SweepAdjustment(to_interest=0.0, to_principal=0.0)
@@ -272,7 +286,11 @@ class CashSweep(Model):
         raise ValueError(f"Facility not found: {facility_name}")
 
     def _calculate_excess_cash(
-        self, context: "DealContext", facility_name: str, period_date: pd.Timestamp
+        self,
+        context: "DealContext",
+        facility_name: str,
+        period_date: pd.Timestamp,
+        noi_series: pd.Series,
     ) -> float:
         """
         Calculate excess operating cash available for sweep in this period.
@@ -287,13 +305,12 @@ class CashSweep(Model):
             context: Deal context
             facility_name: Name of the facility
             period_date: Date of the period
+            noi_series: Pre-queried NOI series (for performance)
 
         Returns:
             Excess cash amount (positive = cash available, zero/negative = no excess)
         """
-        # Get operating cash flow for this period
-        queries = LedgerQueries(context.ledger)
-        noi_series = queries.noi()
+        # Get operating cash flow for this period from pre-queried series
         period_noi = noi_series.get(period_date, 0.0)
 
         # Get debt service for this facility in this period

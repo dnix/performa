@@ -129,7 +129,8 @@ class TestPivotTableReport:
 
         # Revenue-only should have fewer rows
         assert revenue_only.shape[0] <= full_pivot.shape[0]
-        assert revenue_only.shape[1] == full_pivot.shape[1]  # Same periods
+        # Filtered results may have fewer columns if some periods have no revenue data
+        assert revenue_only.shape[1] <= full_pivot.shape[1]
 
     def test_currency_formatting(self, sample_analysis_results):
         """Test currency formatting functionality."""

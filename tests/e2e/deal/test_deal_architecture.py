@@ -121,7 +121,7 @@ class TestDealCentricArchitectureIntegration:
             asset=purified_development_project,
             acquisition=acquisition_terms,
             financing=None,  # All-equity for testing
-            disposition=None,
+            exit_valuation=None,
         )
 
         results = analyze(deal, timeline)
@@ -311,7 +311,7 @@ class TestDealCentricArchitectureIntegration:
             asset=purified_development_project,
             acquisition=acquisition_terms,
             financing=None,  # Ready for FinancingPlan
-            disposition=None,  # Ready for DispositionValuation
+            exit_valuation=None,  # Ready for DispositionValuation
             equity_partners=None,  # Ready for complex equity structures
         )
 

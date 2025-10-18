@@ -113,8 +113,8 @@ def progressive_development_project():
     )
 
     losses = ResidentialLosses(
-        general_vacancy=ResidentialGeneralVacancyLoss(name="Vacancy", rate=0.03),
-        credit_loss=ResidentialCreditLoss(name="Collection", rate=0.01),
+        general_vacancy=ResidentialGeneralVacancyLoss(rate=0.03),
+        credit_loss=ResidentialCreditLoss(rate=0.01),
     )
 
     # CRITICAL: Progressive absorption plan starting Month 3
@@ -327,8 +327,8 @@ def test_backward_compatibility_with_stabilized_properties():
 
     # Create minimal required losses for stabilized property
     losses = ResidentialLosses(
-        general_vacancy=ResidentialGeneralVacancyLoss(name="Vacancy", rate=0.05),
-        credit_loss=ResidentialCreditLoss(name="Collection", rate=0.01),
+        general_vacancy=ResidentialGeneralVacancyLoss(rate=0.05),
+        credit_loss=ResidentialCreditLoss(rate=0.01),
     )
 
     property_data = ResidentialProperty(

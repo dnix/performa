@@ -51,7 +51,6 @@ def simple_residential_property():
     rollover_profile = ResidentialRolloverProfile(
         name="Standard Rollover",
         renewal_probability=0.8,
-        months_notice=2,
         downtime_months=1,
         market_terms=market_terms,
         renewal_terms=renewal_terms,

@@ -96,8 +96,7 @@ class TestIndustryStandardWaterfallValidation:
         calculator = DistributionCalculator(partnership)
         timeline = Timeline(
             start_date=periods[0],
-            end_date=periods[-1],
-            duration_months=len(periods) - 1,
+            duration_months=len(periods),
         )
         results = calculator.calculate_distributions(cash_flows, timeline)
 
@@ -192,8 +191,7 @@ class TestIndustryStandardWaterfallValidation:
         calculator = DistributionCalculator(partnership)
         timeline = Timeline(
             start_date=periods[0],
-            end_date=periods[-1],
-            duration_months=len(periods) - 1,
+            duration_months=len(periods),
         )
         results = calculator.calculate_distributions(cash_flows, timeline)
 
@@ -271,8 +269,7 @@ class TestIndustryStandardWaterfallValidation:
         calculator = DistributionCalculator(partnership)
         timeline = Timeline(
             start_date=periods[0],
-            end_date=periods[-1],
-            duration_months=len(periods) - 1,
+            duration_months=len(periods),
         )
         results = calculator.calculate_distributions(cash_flows, timeline)
 
@@ -338,8 +335,7 @@ class TestIndustryStandardWaterfallValidation:
         calculator = DistributionCalculator(partnership)
         timeline = Timeline(
             start_date=periods[0],
-            end_date=periods[-1],
-            duration_months=len(periods) - 1,
+            duration_months=len(periods),
         )
         results = calculator.calculate_distributions(cash_flows, timeline)
 

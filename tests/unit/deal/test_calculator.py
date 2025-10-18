@@ -101,7 +101,7 @@ class TestAnalyzeDeal:
             asset=sample_development_project,
             acquisition=sample_acquisition,
             financing=None,  # All-equity deal
-            disposition=None,
+            exit_valuation=None,
             equity_partners=None,
         )
 
@@ -226,8 +226,9 @@ class TestAnalyzeDeal:
             "equity_multiple",
             "unlevered_return_on_cost",
             "net_profit",
-            "minimum_dscr",
-            "average_dscr",
+            "stabilized_dscr",
+            "minimum_operating_dscr",
+            "covenant_compliance_rate",
             "total_investment",
             "total_distributions",
         ]

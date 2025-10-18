@@ -218,7 +218,7 @@ class TestLedgerFlexibility:
                 ],
                 vacant_suites=[],
             ),
-            expenses=OfficeExpenses(opex_psf=10.0),
+            expenses=OfficeExpenses(),
             losses=OfficeLosses(),
         )
 
@@ -256,7 +256,7 @@ class TestLedgerFlexibility:
                 ],
                 vacant_suites=[],
             ),
-            expenses=OfficeExpenses(opex_psf=12.0),
+            expenses=OfficeExpenses(),
             losses=OfficeLosses(),
         )
 

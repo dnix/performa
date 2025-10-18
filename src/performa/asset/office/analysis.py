@@ -12,7 +12,6 @@ from performa.analysis.orchestrator import AnalysisContext, CashFlowOrchestrator
 from performa.core.base import LeaseSpecBase
 from performa.core.primitives import (
     CashFlowModel,
-    OrchestrationPass,
     PropertyAttributeKey,
     UnleveredAggregateLineKey,
 )
@@ -419,7 +418,6 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
                     timeline=self.timeline,
                     rate=self.model.losses.general_vacancy.rate,
                     reference_line=reference_line,
-                    calculation_pass=OrchestrationPass.DEPENDENT_MODELS,
                 )
                 models.append(vacancy_model)
 
@@ -458,7 +456,6 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
                     rate=self.model.losses.credit_loss.rate,
                     reference_line=basis_info["line"],
                     reference=basis_info["key"],
-                    calculation_pass=OrchestrationPass.DEPENDENT_MODELS,
                 )
                 models.append(credit_model)
 

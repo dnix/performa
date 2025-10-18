@@ -16,16 +16,17 @@ from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union
 import pandas as pd
 from pydantic import Field, model_validator
 
-from ..core.ledger import Ledger, SeriesMetadata
+from ..core.ledger import SeriesMetadata
 from ..core.ledger.queries import LedgerQueries
 from ..core.primitives import (
     CalculationPhase,
-    CapitalSubcategoryEnum,
     CashFlowCategoryEnum,
     FinancingSubcategoryEnum,
     InterestCalculationMethod,
+    SweepMode,
     Timeline,
 )
+from ..core.primitives.settings import DayCountConvention
 from .base import DebtFacilityBase
 from .covenants import CashSweep
 from .rates import InterestRate
@@ -459,25 +460,16 @@ class ConstructionFacility(DebtFacilityBase):
             elif (
                 self.interest_calculation_method == InterestCalculationMethod.SCHEDULED
             ):
-                # Sophisticated draw-based calculation using actual draw schedules
-                draw_schedule_total = (
-                    sum(self.draw_schedule.values())
-                    if self.draw_schedule
-                    else base_costs
-                )
-
-                # Calculate interest on draws using construction timeline
-                construction_periods = self.loan_term_months or 24
-                annual_rate = self._get_effective_rate()
-                monthly_rate = annual_rate / 12
-
-                # Estimate average outstanding balance during construction
-                avg_outstanding = (draw_schedule_total * ltc) * 0.5
-                total_interest = avg_outstanding * monthly_rate * construction_periods
-
-                # Add interest to project costs and apply LTC
-                total_project_with_interest = base_costs + total_interest
-                return total_project_with_interest * ltc
+                # SCHEDULED method: Size loan on base costs only
+                # Interest will be calculated period-by-period and capitalize to balance
+                # This is the CORRECT implementation - no pre-funding of interest
+                #
+                # The dynamic period-by-period calculation in _compute_interest_and_covenants()
+                # will track interest accrual and capitalization, and the outstanding balance
+                # at refinancing will include all capitalized interest.
+                #
+                # Initial loan amount = base_costs * ltc (pure LTC, no interest reserve)
+                return base_costs * ltc
 
             else:
                 # Default: use debt ratio without interest adjustment
@@ -551,25 +543,16 @@ class ConstructionFacility(DebtFacilityBase):
             return total_project_with_interest * ltc
 
         elif self.interest_calculation_method == InterestCalculationMethod.SCHEDULED:
-            # Sophisticated draw-based calculation using actual draw schedules
-            # This leverages Performa's draw schedule capabilities
-            draw_schedule_total = (
-                sum(self.draw_schedule.values()) if self.draw_schedule else base_costs
-            )
-
-            # Calculate interest on draws using construction timeline
-            construction_periods = self.loan_term_months or 24
-            annual_rate = self._get_effective_rate()
-            monthly_rate = annual_rate / 12
-
-            # Estimate average outstanding balance during construction
-            # (simplified: assume uniform draws, average balance is 50% of final)
-            avg_outstanding = (draw_schedule_total * ltc) * 0.5
-            total_interest = avg_outstanding * monthly_rate * construction_periods
-
-            # Add interest to project costs and apply LTC
-            total_project_with_interest = base_costs + total_interest
-            return total_project_with_interest * ltc
+            # SCHEDULED method: Size loan on base costs only (multi-tranche path)
+            # Interest will be calculated period-by-period and capitalize to balance
+            # This is the CORRECT implementation - no pre-funding of interest
+            #
+            # The dynamic period-by-period calculation in _compute_interest_and_covenants()
+            # will track interest accrual and capitalization, and the outstanding balance
+            # at refinancing will include all capitalized interest.
+            #
+            # Initial loan amount = base_costs * ltc (pure LTC, no interest reserve)
+            return base_costs * ltc
 
         elif self.interest_calculation_method == InterestCalculationMethod.ITERATIVE:
             # Future enhancement: full iterative simulation
@@ -673,8 +656,20 @@ class ConstructionFacility(DebtFacilityBase):
             # CRITICAL: Sweep must continue processing POST-CONSTRUCTION
             # During construction: handled synchronously in _compute_interest_and_covenants()
             # After construction: must still process sweep for NOI (months 19-42)
+            # PERFORMANCE: Only process post-construction periods to avoid redundant work
             if self.cash_sweep:
-                self.cash_sweep.process(context, self.name)
+                # TRAP mode: needs full processing (deposits/releases not in synchronous calc)
+                # PREPAY mode: only post-construction needed (construction handled synchronously)
+                if self.cash_sweep.mode == SweepMode.TRAP:
+                    # TRAP deposits happen in process(), not synchronous calc
+                    self.cash_sweep.process(context, self.name)
+                elif self.cash_sweep.mode == SweepMode.PREPAY:
+                    # PREPAY: skip construction period (already processed synchronously)
+                    # Only process post-construction if sweep extends beyond loan term
+                    if self.cash_sweep.end_month > self.loan_term_months:
+                        # TODO: Optimize by adding start_month parameter to process()
+                        # For now, accept some redundant processing for correctness
+                        self.cash_sweep.process(context, self.name)
 
         # TODO: Process other covenants as they're implemented
         # for reserve in self.reserves or []:
@@ -682,6 +677,56 @@ class ConstructionFacility(DebtFacilityBase):
         #
         # if self.distribution_block:
         #     self.distribution_block.process(context, self.name)
+
+    def _calculate_period_interest(
+        self,
+        annual_rate: float,
+        balance: float,
+        period: pd.Period,
+        day_count_convention: "DayCountConvention",
+    ) -> float:
+        """
+        Calculate interest for a single period using proper day count convention.
+
+        Args:
+            annual_rate: Annual interest rate (e.g., 0.08 for 8%)
+            balance: Outstanding principal balance
+            period: Period (pd.Period) for interest calculation
+            day_count_convention: Day count method (30/360, Actual/360, etc.)
+
+        Returns:
+            Interest amount for the period
+
+        Examples:
+            30/360: Always 30 days/month
+                Interest = 1,000,000 × 0.08 × (30/360) = 6,666.67
+            
+            Actual/360: Feb (28 days) vs Jul (31 days)
+                Feb: 1,000,000 × 0.08 × (28/360) = 6,222.22
+                Jul: 1,000,000 × 0.08 × (31/360) = 6,888.89
+        """
+        if day_count_convention == DayCountConvention.THIRTY_360:
+            # Fixed 30 days per month, 360-day year
+            day_fraction = 30.0 / 360.0
+        elif day_count_convention == DayCountConvention.ACTUAL_360:
+            # Actual days in month, 360-day year
+            days_in_period = period.days_in_month
+            day_fraction = days_in_period / 360.0
+        elif day_count_convention == DayCountConvention.ACTUAL_365:
+            # Actual days in month, 365-day year
+            days_in_period = period.days_in_month
+            day_fraction = days_in_period / 365.0
+        elif day_count_convention == DayCountConvention.ACTUAL_ACTUAL:
+            # Actual days in month, actual days in year (365 or 366)
+            days_in_period = period.days_in_month
+            year = period.year
+            days_in_year = 366 if (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)) else 365
+            day_fraction = days_in_period / days_in_year
+        else:
+            # Fallback to simple monthly (should never reach here)
+            day_fraction = 1.0 / 12.0
+
+        return annual_rate * day_fraction * balance
 
     def _compute_interest_and_covenants(self, context: "DealContext") -> None:
         """
@@ -702,11 +747,16 @@ class ConstructionFacility(DebtFacilityBase):
         This method implements the industry-standard period-by-period interest
         calculation that enables proper interaction with cash sweep covenants.
         """
+        # Calculate INITIAL loan commitment (this is what the bank approves/disburses)
+        initial_loan_amount = self._calculate_loan_commitment(context)
+        
         balance = 0.0
-        monthly_rate = self._get_effective_rate() / 12
+        annual_rate = self._get_effective_rate()
+        day_count_convention = context.settings.calculation.day_count_convention
         alpha = 0.5  # Within-period draw factor (uniform draws)
 
         logger.debug(f"{self.name}: Starting synchronous interest-covenant calculation")
+        logger.debug(f"{self.name}: Initial loan commitment: ${initial_loan_amount:,.0f}")
 
         # === CRITICAL PERFORMANCE: Batch queries ONCE ===
 
@@ -733,8 +783,12 @@ class ConstructionFacility(DebtFacilityBase):
             cost_draw = capital_uses_by_period.get(period, 0.0)
             period_noi = noi_series.get(period, 0.0)
 
-            # STEP 1: Calculate raw interest
-            raw_interest = monthly_rate * (balance + alpha * cost_draw)
+            # STEP 1: Calculate raw interest using proper day count convention
+            # Apply mid-period convention for draws: balance + alpha * draw
+            period_balance = balance + alpha * cost_draw
+            raw_interest = self._calculate_period_interest(
+                annual_rate, period_balance, period, day_count_convention
+            )
 
             # STEP 2: Apply covenant adjustments
             adjustments = self._calculate_covenant_adjustments(
@@ -766,8 +820,10 @@ class ConstructionFacility(DebtFacilityBase):
         object.__setattr__(self, "_effective_loan_amount", balance)  # noqa: PLC2801
 
         # Post all transactions
+        # CRITICAL: Post initial_loan_amount as proceeds (the cash actually disbursed)
+        # The final balance includes capitalized interest but is NOT additional proceeds
         self._post_interest_and_covenant_transactions(
-            context, balance, interest_reserve_dict, interest_sweep_dict, prepay_dict
+            context, initial_loan_amount, interest_reserve_dict, interest_sweep_dict, prepay_dict
         )
 
         logger.debug(
@@ -813,6 +869,16 @@ class ConstructionFacility(DebtFacilityBase):
             logger.debug(f"{self.name}: Posted loan proceeds ${total_loan_amount:,.0f}")
 
         # 2. Interest from reserve (capitalized, negative)
+        # CRITICAL: Capitalized interest is posted as Financing/Interest Reserve with flow_purpose=Capital Use
+        # 
+        # This classification is semantically correct (it IS interest on the loan) while ensuring proper mechanics:
+        # - Category=Financing: Accurately reflects this as a financing cost
+        # - Subcategory=Interest Reserve: Industry-standard term for capitalized interest
+        # - Flow Purpose=Capital Use: Adds to project costs, NOT included in debt_service() queries
+        # 
+        # Industry Standard: Capitalized interest is shown as a distinct line in sources & uses,
+        # separate from paid interest. It increases total project costs and the loan balance but
+        # involves no cash payment during construction - paid at refinancing/exit.
         if interest_reserve:
             series = pd.Series(
                 {p: -amt for p, amt in interest_reserve.items()}, dtype=float
@@ -821,8 +887,8 @@ class ConstructionFacility(DebtFacilityBase):
                 series,
                 SeriesMetadata(
                     category=CashFlowCategoryEnum.FINANCING,
-                    subcategory=FinancingSubcategoryEnum.INTEREST_PAYMENT,
-                    item_name=f"{self.name} - Interest (from reserve)",
+                    subcategory=FinancingSubcategoryEnum.INTEREST_RESERVE,
+                    item_name=f"{self.name} - Capitalized Interest",
                     source_id=self.uid,
                     asset_id=context.deal.asset.uid,
                     pass_num=CalculationPhase.FINANCING.value,
@@ -901,7 +967,8 @@ class ConstructionFacility(DebtFacilityBase):
         interest_component = loan_amount - base_loan
 
         if interest_component > 0:
-            # Record as soft costs in first period
+            # Record capitalized interest as Financing/Interest Reserve with flow_purpose=Capital Use
+            # This is semantically correct (it IS interest) while ensuring proper query mechanics
             timeline = context.timeline
             if len(timeline.period_index) > 0:
                 interest_series = pd.Series(
@@ -909,8 +976,8 @@ class ConstructionFacility(DebtFacilityBase):
                 )
 
                 interest_metadata = SeriesMetadata(
-                    category=CashFlowCategoryEnum.CAPITAL,
-                    subcategory=CapitalSubcategoryEnum.SOFT_COSTS,
+                    category=CashFlowCategoryEnum.FINANCING,
+                    subcategory=FinancingSubcategoryEnum.INTEREST_RESERVE,
                     item_name=f"{self.name} - Capitalized Interest",
                     source_id=self.uid,
                     asset_id=context.deal.asset.uid,
@@ -1173,57 +1240,28 @@ class ConstructionFacility(DebtFacilityBase):
         Returns:
             Outstanding loan balance (principal + capitalized interest)
         """
-        # Get base loan amount (principal)
-        base_amount = 0.0
+        # CRITICAL: _effective_loan_amount is set by _compute_interest_and_covenants()
+        # and already includes ALL capitalized interest from the period-by-period calculation
+        # It represents the true outstanding balance at the end of the loan term
         if hasattr(self, "_effective_loan_amount") and self._effective_loan_amount:
-            base_amount = self._effective_loan_amount
-        elif self.loan_amount and self.loan_amount > 0:
-            base_amount = self.loan_amount
-        elif self.ltc_ratio is not None:
+            return self._effective_loan_amount
+        
+        # Fallback paths for other calculation methods or pre-analysis queries
+        if self.loan_amount and self.loan_amount > 0:
+            return self.loan_amount
+        
+        if self.ltc_ratio is not None:
             # Estimate loan amount as ltc_ratio * typical project cost
             estimated_amount = 20_000_000 * self.ltc_ratio  # Rough estimate
             logger.warning(
                 f"Estimating outstanding balance for {self.name}: ${estimated_amount:,.0f}"
             )
-            base_amount = estimated_amount
-        else:
-            logger.warning(
-                f"No loan amount available for {self.name} outstanding balance calculation"
-            )
-            return 0.0
-
-        # Add capitalized interest if funded from reserve
-        # Query ledger for capitalized interest transactions
-        capitalized_interest = 0.0
-        if financing_cash_flows is not None and self.fund_interest_from_reserve:
-            try:
-                # If financing_cash_flows is a Ledger, query it
-                if isinstance(financing_cash_flows, Ledger):
-                    ledger_df = financing_cash_flows.to_dataframe()
-
-                    # Find capitalized interest for this facility
-                    cap_interest_mask = ledger_df["item_name"].str.contains(
-                        f"{self.name} - Capitalized Interest", na=False
-                    )
-
-                    if cap_interest_mask.any():
-                        # Sum absolute value (interest is negative in ledger)
-                        capitalized_interest = abs(
-                            ledger_df[cap_interest_mask]["amount"].sum()
-                        )
-
-                        logger.debug(
-                            f"{self.name}: Base ${base_amount:,.0f} + "
-                            f"Cap Interest ${capitalized_interest:,.0f} = "
-                            f"Outstanding ${base_amount + capitalized_interest:,.0f}"
-                        )
-            except Exception as e:
-                logger.warning(
-                    f"Could not query capitalized interest for {self.name}: {e}. "
-                    f"Outstanding balance may be understated."
-                )
-
-        return base_amount + capitalized_interest
+            return estimated_amount
+        
+        logger.warning(
+            f"No loan amount available for {self.name} outstanding balance calculation"
+        )
+        return 0.0
 
     def _generate_draw_schedule(self, timeline: Timeline) -> pd.Series:
         """

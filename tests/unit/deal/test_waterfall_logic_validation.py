@@ -79,8 +79,7 @@ class TestWaterfallLogicValidation:
 
             timeline = Timeline(
                 start_date=periods[0],
-                end_date=periods[-1],
-                duration_months=len(periods) - 1,
+                duration_months=len(periods),
             )
 
             # Calculate distributions
@@ -137,8 +136,7 @@ class TestWaterfallLogicValidation:
 
         timeline = Timeline(
             start_date=periods[0],
-            end_date=periods[-1],
-            duration_months=len(periods) - 1,
+            duration_months=len(periods),
         )
 
         # Calculate distributions
@@ -212,8 +210,7 @@ class TestWaterfallLogicValidation:
 
         timeline = Timeline(
             start_date=periods[0],
-            end_date=periods[-1],
-            duration_months=len(periods) - 1,
+            duration_months=len(periods),
         )
 
         # Calculate distributions
@@ -284,8 +281,7 @@ class TestWaterfallLogicValidation:
 
         timeline1 = Timeline(
             start_date=periods1[0],
-            end_date=periods1[-1],
-            duration_months=len(periods1) - 1,
+            duration_months=len(periods1),
         )
 
         results1 = calculator.calculate_distributions(cash_flows1, timeline1)
@@ -303,8 +299,7 @@ class TestWaterfallLogicValidation:
 
         timeline2 = Timeline(
             start_date=periods2[0],
-            end_date=periods2[-1],
-            duration_months=len(periods2) - 1,
+            duration_months=len(periods2),
         )
 
         results2 = calculator.calculate_distributions(cash_flows2, timeline2)
@@ -331,8 +326,7 @@ class TestWaterfallLogicValidation:
 
         timeline3 = Timeline(
             start_date=periods3[0],
-            end_date=periods3[-1],
-            duration_months=len(periods3) - 1,
+            duration_months=len(periods3),
         )
 
         results3 = calculator.calculate_distributions(cash_flows3, timeline3)
@@ -383,8 +377,7 @@ class TestWaterfallLogicValidation:
 
         timeline = Timeline(
             start_date=periods[0],
-            end_date=periods[-1],
-            duration_months=len(periods) - 1,
+            duration_months=len(periods),
         )
 
         base_results = calculator.calculate_distributions(base_cash_flows, timeline)

@@ -70,8 +70,6 @@ class TestLargeScaleProperties:
                 name="Market Growth", value=0.035
             ),  # 3.5% annual
             renewal_rent_increase_percent=0.028,  # 2.8% renewal increases
-            concessions_months=1,  # 1 month free for new leases
-            capital_plan_id=None,  # No capital plan for basic rollover (UUID-based architecture)
             term_months=12,
         )
 
@@ -81,8 +79,6 @@ class TestLargeScaleProperties:
                 name="Renewal Growth", value=0.025
             ),  # 2.5% for renewals
             renewal_rent_increase_percent=0.028,
-            concessions_months=0,  # No concessions for renewals
-            capital_plan_id=None,  # No costs for renewals (UUID-based architecture)
             term_months=12,
         )
 
@@ -334,7 +330,6 @@ class TestLargeScaleProperties:
         # Simple rollover profile for performance test
         rollover_terms = ResidentialRolloverLeaseTerms(
             market_rent=2200.0,
-            capital_plan_id=None,  # No capital plan for simple test (UUID-based architecture)
             term_months=12,
         )
 
@@ -478,8 +473,6 @@ class TestComplexScenarios:
                 name="Premium Growth", value=0.045
             ),  # 4.5% annual
             renewal_rent_increase_percent=0.035,
-            concessions_months=0,  # No concessions needed
-            capital_plan_id=None,  # No capital plan for premium units (UUID-based architecture)
             term_months=12,
         )
 
@@ -499,8 +492,6 @@ class TestComplexScenarios:
                 name="Standard Growth", value=0.025
             ),  # 2.5% annual
             renewal_rent_increase_percent=0.020,
-            concessions_months=1,  # Some concessions needed
-            capital_plan_id=None,  # No capital plan for standard units (UUID-based architecture)
             term_months=12,
         )
 

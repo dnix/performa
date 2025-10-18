@@ -49,9 +49,9 @@ def sample_context(sample_timeline: Timeline) -> AnalysisContext:
         rent_roll=OfficeRentRoll(leases=[], vacant_suites=[]),
         losses=OfficeLosses(
             general_vacancy=OfficeGeneralVacancyLoss(
-                vacancy_rate=0.05, applied_to_base_rent=True
+                rate=0.05
             ),
-            credit_loss=OfficeCreditLoss(loss_rate=0.01, applied_to_base_rent=True),
+            credit_loss=OfficeCreditLoss(rate=0.01),
         ),
         expenses=OfficeExpenses(),
     )

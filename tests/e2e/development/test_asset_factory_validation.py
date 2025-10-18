@@ -114,8 +114,7 @@ def stabilized_office_baseline(analysis_timeline) -> OfficeProperty:
                 term_months=60,  # 5-year lease
                 base_rent_value=50.0,  # $50/SF
                 base_rent_frequency="annual",
-                lease_type="gross",
-                upon_expiration="market",
+                                upon_expiration="market",
             )
         ],
         vacant_suites=[],  # Fully stabilized
@@ -237,7 +236,6 @@ def equivalent_office_development_project() -> DevelopmentProject:
         gross_area=55000.0,
         net_rentable_area=50000.0,
         construction_plan=construction_plan,
-        financing_plan=financing_plan,
         blueprints=[office_blueprint],
     )
 
@@ -382,7 +380,6 @@ def equivalent_residential_development_project() -> DevelopmentProject:
         gross_area=95000.0,
         net_rentable_area=90000.0,
         construction_plan=construction_plan,
-        financing_plan=financing_plan,
         blueprints=[residential_blueprint],
     )
 
@@ -432,7 +429,6 @@ def mixed_use_development_project(
         gross_area=150000.0,  # Combined areas
         net_rentable_area=140000.0,
         construction_plan=combined_construction_plan,
-        financing_plan=financing_plan,
         blueprints=[office_blueprint, residential_blueprint],
     )
 

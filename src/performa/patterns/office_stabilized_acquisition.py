@@ -16,7 +16,6 @@ from typing import Literal
 from pydantic import Field, field_validator, model_validator
 
 from ..asset.office import (
-    DirectLeaseTerms,
     OfficeExpenses,
     OfficeLeaseSpec,
     OfficeLosses,
@@ -33,6 +32,7 @@ from ..core.primitives import (
     PercentageGrowthRate,
     PositiveFloat,
     PositiveInt,
+    ProgramUseEnum,
     PropertyAttributeKey,
     Timeline,
     UponExpirationEnum,
@@ -250,15 +250,7 @@ class OfficeStabilizedAcquisitionPattern(PatternBase):
                 suite="Vacant Space",
                 floor="Multiple",
                 area=vacant_area,
-                use_type="office",
-                market_terms=DirectLeaseTerms(
-                    base_rent_value=self.current_rent_psf,
-                    base_rent_reference=PropertyAttributeKey.NET_RENTABLE_AREA,
-                    base_rent_frequency=FrequencyEnum.ANNUAL,  # Fix: current_rent_psf is annual
-                    term_months=self.avg_lease_term_months,
-                    upon_expiration=UponExpirationEnum.MARKET,
-                ),
-                rollover_profile=rollover_profile,
+                use_type=ProgramUseEnum.OFFICE,
             )
             vacant_suites.append(vacant_suite)
 
@@ -338,6 +330,6 @@ class OfficeStabilizedAcquisitionPattern(PatternBase):
             asset=property_obj,
             acquisition=acquisition,
             financing=financing,
-            partnership=partnership,
+            equity_partners=partnership,
             exit_valuation=reversion,
         )

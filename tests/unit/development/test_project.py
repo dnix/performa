@@ -223,9 +223,7 @@ def test_single_asset_type_development_project(
         gross_area=450000.0,
         net_rentable_area=400000.0,
         construction_plan=construction_plan,
-        financing_plan=financing_plan,
         blueprints=[office_blueprint],
-        disposition_valuation=disposition_plan,
     )
 
     # Validate project structure
@@ -255,9 +253,7 @@ def test_mixed_use_development_project(
         gross_area=650000.0,
         net_rentable_area=580000.0,
         construction_plan=construction_plan,
-        financing_plan=financing_plan,
         blueprints=[office_blueprint, residential_blueprint],
-        disposition_valuation=disposition_plan,
     )
 
     # Validate project structure
@@ -325,9 +321,7 @@ def test_development_project_blueprint_iteration_performance(
         gross_area=650000.0,
         net_rentable_area=580000.0,
         construction_plan=construction_plan,
-        financing_plan=financing_plan,
         blueprints=[office_blueprint, residential_blueprint],
-        disposition_valuation=disposition_plan,
     )
 
     timeline = Timeline.from_dates(date(2024, 1, 1), date(2029, 12, 31))
@@ -374,9 +368,7 @@ def test_development_project_pydantic_serialization(
         gross_area=650000.0,
         net_rentable_area=580000.0,
         construction_plan=construction_plan,
-        financing_plan=financing_plan,
         blueprints=[office_blueprint, residential_blueprint],
-        disposition_valuation=disposition_plan,
     )
 
     # Test model structure (JSON serialization has pandas Period issue - library bug)
@@ -408,9 +400,7 @@ def test_empty_blueprints_list(construction_plan, financing_plan, disposition_pl
         gross_area=100000.0,
         net_rentable_area=90000.0,
         construction_plan=construction_plan,
-        financing_plan=financing_plan,
         blueprints=[],  # Empty list
-        disposition_valuation=disposition_plan,
     )
 
     # Should be valid project structure
@@ -461,16 +451,6 @@ def test_development_project_blueprint_type_validation(office_blueprint):
         gross_area=100000.0,
         net_rentable_area=90000.0,
         construction_plan=CapitalPlan(name="Test", capital_items=[]),
-        financing_plan=ConstructionFacility(
-            tranches=[
-                DebtTranche(
-                    name="Test Loan",
-                    interest_rate=InterestRate(details=FixedRate(rate=0.07)),
-                    fee_rate=0.01,
-                    ltc_threshold=0.75,
-                )
-            ]
-        ),
         blueprints=[office_blueprint],
     )
 

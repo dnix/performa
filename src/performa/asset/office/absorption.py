@@ -1029,7 +1029,7 @@ class OfficeAbsorptionPlan(
             base_rent_reference=final_terms.base_rent_reference,
             base_rent_frequency=final_terms.base_rent_frequency,  # Propagate frequency from DirectLeaseTerms
             upon_expiration=final_terms.upon_expiration,
-            rent_escalation=final_terms.rent_escalation,
+            rent_escalations=final_terms.rent_escalation,
             rent_abatement=final_terms.rent_abatement,
             recovery_method=final_terms.recovery_method,
             ti_allowance=final_terms.ti_allowance,
@@ -1089,7 +1089,7 @@ class OfficeAbsorptionPlan(
             base_rent_reference=final_terms.base_rent_reference,
             base_rent_frequency=final_terms.base_rent_frequency,  # Propagate frequency from DirectLeaseTerms
             upon_expiration=final_terms.upon_expiration,
-            rent_escalation=final_terms.rent_escalation,
+            rent_escalations=final_terms.rent_escalation,
             rent_abatement=final_terms.rent_abatement,
             recovery_method=final_terms.recovery_method,
             ti_allowance=final_terms.ti_allowance,

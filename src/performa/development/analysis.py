@@ -75,17 +75,25 @@ class DevelopmentAnalysisScenario(AnalysisScenarioBase):
                 end_date=self.timeline.end_date.to_timestamp().date(),
             )
 
+            # CRITICAL FIX: Pass the FULL analysis timeline to the blueprint for absorption calculations
+            # The absorption plan needs to know the original analysis start date to correctly
+            # calculate lease-up timing (e.g., start_offset_months from ANALYSIS_START).
+            # The stabilization_start_date only affects when operations begin, not absorption timing.
+            full_analysis_timeline = self.timeline
+
             # The blueprint itself is the factory for its stabilized asset.
             stabilized_asset = blueprint.to_stabilized_asset(
-                timeline=stabilized_timeline
+                timeline=full_analysis_timeline
             )
 
             if stabilized_asset:
                 # Run analysis for the stabilized asset.
-                # This integrates with the asset analysis engine and generates the ledger.
+                # CRITICAL FIX: Use the full analysis timeline, not the stabilized_timeline.
+                # The stabilized asset contains leases with progressive start dates,
+                # and we need to analyze ALL of them from their actual start dates.
                 asset_result = run(
                     model=stabilized_asset,
-                    timeline=stabilized_timeline,
+                    timeline=full_analysis_timeline,
                     settings=self.settings,
                 )
                 # Get all models from the stabilized asset directly

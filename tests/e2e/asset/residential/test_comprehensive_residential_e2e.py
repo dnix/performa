@@ -62,18 +62,12 @@ def test_e2e_institutional_scale_residential():
         market_terms=ResidentialRolloverLeaseTerms(
             market_rent=2800.0,
             term_months=12,
-            renewal_rent_increase=0.045,
-            concessions_months=0,
-            turnover_make_ready_cost=2500.0,
-            turnover_leasing_fee=1000.0,
+            renewal_rent_increase_percent=0.045,
         ),
         renewal_terms=ResidentialRolloverLeaseTerms(
             market_rent=2800.0,
             term_months=12,
-            renewal_rent_increase=0.035,
-            concessions_months=0,
-            turnover_make_ready_cost=1200.0,
-            turnover_leasing_fee=500.0,
+            renewal_rent_increase_percent=0.035,
         ),
     )
 
@@ -85,18 +79,12 @@ def test_e2e_institutional_scale_residential():
         market_terms=ResidentialRolloverLeaseTerms(
             market_rent=2200.0,
             term_months=12,
-            renewal_rent_increase=0.035,
-            concessions_months=1,
-            turnover_make_ready_cost=2200.0,
-            turnover_leasing_fee=800.0,
+            renewal_rent_increase_percent=0.035,
         ),
         renewal_terms=ResidentialRolloverLeaseTerms(
             market_rent=2200.0,
             term_months=12,
-            renewal_rent_increase=0.030,
-            concessions_months=0,
-            turnover_make_ready_cost=1000.0,
-            turnover_leasing_fee=400.0,
+            renewal_rent_increase_percent=0.030,
         ),
     )
 
@@ -425,18 +413,12 @@ def test_e2e_value_add_positioning_strategy():
         market_terms=ResidentialRolloverLeaseTerms(
             market_rent=2300.0,
             term_months=12,
-            renewal_rent_increase=0.025,
-            concessions_months=1,
-            turnover_make_ready_cost=3200.0,
-            turnover_leasing_fee=1100.0,
+            renewal_rent_increase_percent=0.025,
         ),
         renewal_terms=ResidentialRolloverLeaseTerms(
             market_rent=2300.0,
             term_months=12,
-            renewal_rent_increase=0.020,
-            concessions_months=0,
-            turnover_make_ready_cost=1800.0,
-            turnover_leasing_fee=600.0,
+            renewal_rent_increase_percent=0.020,
         ),
     )
 
@@ -449,18 +431,12 @@ def test_e2e_value_add_positioning_strategy():
         market_terms=ResidentialRolloverLeaseTerms(
             market_rent=2990.0,  # 30% premium post-renovation
             term_months=12,
-            renewal_rent_increase=0.040,
-            concessions_months=0,
-            turnover_make_ready_cost=2500.0,
-            turnover_leasing_fee=800.0,
+            renewal_rent_increase_percent=0.040,
         ),
         renewal_terms=ResidentialRolloverLeaseTerms(
             market_rent=2990.0,
             term_months=12,
-            renewal_rent_increase=0.035,
-            concessions_months=0,
-            turnover_make_ready_cost=1200.0,
-            turnover_leasing_fee=400.0,
+            renewal_rent_increase_percent=0.035,
         ),
     )
 
@@ -646,18 +622,12 @@ def test_e2e_vacant_units_lease_up_scenario():
         market_terms=ResidentialRolloverLeaseTerms(
             market_rent=2400.0,  # Higher market rent for stabilized units
             term_months=12,
-            renewal_rent_increase=0.035,  # 3.5% annual increase
-            concessions_months=1,  # 1 month free for new leases
-            turnover_make_ready_cost=2200.0,
-            turnover_leasing_fee=800.0,
+            renewal_rent_increase_percent=0.035,  # 3.5% annual increase
         ),
         renewal_terms=ResidentialRolloverLeaseTerms(
             market_rent=2400.0,
             term_months=12,
-            renewal_rent_increase=0.040,  # 4% for renewals
-            concessions_months=0,
-            turnover_make_ready_cost=1200.0,  # Lower cost for renewals
-            turnover_leasing_fee=400.0,
+            renewal_rent_increase_percent=0.040,  # 4% for renewals
         ),
     )
 
@@ -670,18 +640,12 @@ def test_e2e_vacant_units_lease_up_scenario():
         market_terms=ResidentialRolloverLeaseTerms(
             market_rent=2300.0,  # Slight discount for lease-up
             term_months=12,
-            renewal_rent_increase=0.030,
-            concessions_months=2,  # 2 months free for initial lease-up
-            turnover_make_ready_cost=3500.0,  # Higher initial make-ready
-            turnover_leasing_fee=1200.0,
+            renewal_rent_increase_percent=0.030,
         ),
         renewal_terms=ResidentialRolloverLeaseTerms(
             market_rent=2300.0,
             term_months=12,
-            renewal_rent_increase=0.030,
-            concessions_months=0,
-            turnover_make_ready_cost=3500.0,
-            turnover_leasing_fee=1200.0,
+            renewal_rent_increase_percent=0.030,
         ),
     )
 

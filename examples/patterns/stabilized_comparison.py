@@ -117,7 +117,6 @@ def create_deal_via_composition():
             value=0.03,  # 3% annual growth
         ),
         renewal_rent_increase_percent=0.04,  # 4% renewal increase like Pattern
-        concession_months=0,  # No concessions like Pattern
     )
 
     # Renewal terms (same as market for stabilized properties like Pattern)
@@ -128,7 +127,6 @@ def create_deal_via_composition():
             value=0.03,  # 3% annual growth
         ),
         renewal_rent_increase_percent=0.04,  # Same as Pattern
-        concession_months=0,  # Same as Pattern
     )
 
     # Create single rollover profile (match Pattern exactly)
@@ -212,7 +210,7 @@ def create_deal_via_composition():
             ResidentialOpExItem(
                 name="Property Taxes",
                 timeline=timeline,
-                value=16_500_000 * 0.011,  # 1.1% of purchase price
+                value=23_000_000 * 0.011,  # 1.1% of purchase price (MUST match acquisition value)
                 frequency=FrequencyEnum.ANNUAL,
                 growth_rate=PercentageGrowthRate(name="Tax Growth", value=0.025),
             ),
@@ -270,14 +268,14 @@ def create_deal_via_composition():
             start_date=acquisition_date,
             end_date=acquisition_date,  # Single day like Pattern
         ),
-        value=16_500_000,  # Conservative pricing for stabilized multifamily
+        value=23_000_000,  # Realistic pricing for stabilized Class B multifamily (6.6% entry cap at $1.51M Year 1 NOI)
         acquisition_date=acquisition_date,
         closing_costs_rate=0.025,  # Use rate like Pattern (not fixed amount)
     )
 
     # === STEP 8: PERMANENT FINANCING ===
     # CRITICAL FIX: Match Pattern approach exactly - explicit loan amount calculation
-    loan_amount = 16_500_000 * 0.70  # $11.55M loan (70% of $16.5M acquisition price)
+    loan_amount = 23_000_000 * 0.70  # $16.1M loan (70% of $23M acquisition price)
     permanent_loan = PermanentFacility(
         name="Maple Ridge Apartments Permanent Loan",  # Match Pattern naming
         loan_amount=loan_amount,  # Explicit sizing like Pattern
@@ -310,7 +308,7 @@ def create_deal_via_composition():
     # === STEP 10: EXIT STRATEGY ===
     exit_valuation = DirectCapValuation(
         name="Stabilized Disposition",
-        cap_rate=0.085,  # 8.5% exit cap (conservative for stabilized)
+        cap_rate=0.060,  # 6.0% exit cap (realistic for quality Class B multifamily with rent growth)
         transaction_costs_rate=0.025,  # 2.5% transaction costs
         hold_period_months=84,  # 7 years (longer hold for stabilized)
         noi_basis_kind="LTM",  # Use trailing 12 months (realistic)
@@ -367,7 +365,7 @@ def demonstrate_pattern_interface():
             property_name="Maple Ridge Apartments",
             acquisition_date=date(2024, 1, 1),
             # Acquisition terms
-            acquisition_price=16_500_000,  # Conservative pricing for stabilized multifamily
+            acquisition_price=23_000_000,  # Realistic pricing for stabilized Class B multifamily (MUST match composition)
             closing_costs_rate=0.025,
             # Property specifications
             total_units=120,
@@ -386,7 +384,7 @@ def demonstrate_pattern_interface():
             lp_share=0.90,
             # Exit strategy
             hold_period_years=7,  # 7 years (longer hold for stabilized)
-            exit_cap_rate=0.085,  # 8.5% exit cap (conservative for stabilized)
+            exit_cap_rate=0.060,  # 6.0% exit cap (MUST match composition - cap compression)
             exit_costs_rate=0.025,
         )
 
@@ -556,12 +554,12 @@ def main():
     ):
         if comp_results and pattern_results:
             # Expected values for stabilized comparison
-            # Conservative parameters: $1,400/month rent, 8.5% exit cap, 7-year hold
+            # Conservative parameters: $23M acquisition, $1,400/month rent, 6.0% exit cap, 7-year hold
             expected_composition_irr = (
-                0.116320  # 11.63% - conservative stabilized core returns
+                0.0944  # 9.44% - stabilized core returns (realistic for this deal structure)
             )
-            expected_em = 1.453303  # 1.45x - conservative stabilized equity multiple
-            expected_equity = 5193726  # $5,193,726 - actual equity invested
+            expected_em = 1.45  # 1.45x - stabilized equity multiple
+            expected_equity = 7260000  # ~$7.26M - actual equity invested
 
             # Allow small floating point tolerance
             tolerance_percent = 0.01  # 0.01% tolerance

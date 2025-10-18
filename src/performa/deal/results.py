@@ -900,8 +900,6 @@ class DealResults:  # noqa: PLR0904
             "total_debt_service": debt_service_series.sum()
             if not debt_service_series.empty
             else 0.0,
-            "minimum_dscr": self.minimum_dscr,
-            "average_dscr": self.average_dscr,
             "facility_count": len(self._deal.financing.facilities),
             "dscr_metrics": self.dscr_metrics,
         }

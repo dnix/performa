@@ -251,7 +251,6 @@ def test_complete_residential_property_creation():
     renewal_terms = ResidentialRolloverLeaseTerms(
         market_rent=2400.0,
         renewal_rent_increase_percent=0.04,
-        capital_plan_id=None,  # No costs for renewals (UUID-based architecture)
     )
 
     rollover_profile = ResidentialRolloverProfile(

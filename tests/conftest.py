@@ -117,7 +117,7 @@ def create_waterfall_partnership(
     gp = Partner(name="GP", kind="GP", share=1.0 - lp_share)
 
     carry_promote = CarryPromote(
-        preferred_return_rate=preferred_return_rate, promote_rate=promote_rate
+        pref_hurdle_rate=preferred_return_rate, promote_rate=promote_rate
     )
 
     return PartnershipStructure(
