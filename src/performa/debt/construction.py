@@ -185,7 +185,7 @@ class ConstructionFacility(DebtFacilityBase):
 
     # TODO: Add funding cascade strategy (equity-first vs pro-rata vs debt-first)
     # This determines the ORDER of draws, not the SIZE of the loan
-    # Currently hardcoded to equity-first in CashFlowEngine
+    # Default behavior: equity-first draw order in CashFlowEngine
 
     # Covenant constraints (composed, not inherited)
     cash_sweep: Optional["CashSweep"] = Field(

@@ -320,7 +320,7 @@ def create_deal_via_composition():
     total_project_cost = 11_500_000 + 1_000_000  # Acquisition + renovation = $12.5M
     construction_loan_amount = total_project_cost * 0.65  # 65% LTC
 
-    # Construction facility with explicit loan sizing (auto-sizing was failing)
+    # Construction facility with explicit loan sizing
     construction_loan = ConstructionFacility(
         name="Renovation Loan",
         loan_amount=construction_loan_amount,  # Explicit amount to prevent $1 fallback
@@ -450,7 +450,7 @@ def demonstrate_pattern_interface():
             credit_loss_rate=0.015,  # 1.5% credit loss rate
             # Financing terms
             ltv_ratio=0.65,  # 65% LTV (conservative for value-add)
-            renovation_loan_rate=0.075,  # 7.5% renovation loan rate (was bridge_rate)
+            renovation_loan_rate=0.075,  # 7.5% renovation loan rate
             permanent_rate=0.055,  # 5.5% permanent rate
             loan_term_years=10,
             amortization_years=30,
@@ -458,10 +458,8 @@ def demonstrate_pattern_interface():
             distribution_method="waterfall",
             gp_share=0.20,
             lp_share=0.80,
-            pref_return=0.08,  # 8% preferred return (was preferred_return)
-            promote_tiers=[
-                (0.15, 0.20)
-            ],  # 20% promote above 15% IRR (was promote_tier_1)
+            pref_return=0.08,  # 8% preferred return
+            promote_tiers=[(0.15, 0.20)],  # 20% promote above 15% IRR
             # Exit strategy
             hold_period_years=5,  # 5 years (typical value-add hold period)
             exit_cap_rate=0.060,  # 6.0% exit cap (realistic for renovated Class B+ multifamily)

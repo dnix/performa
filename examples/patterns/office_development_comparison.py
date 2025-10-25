@@ -748,10 +748,10 @@ def main():
     elif composition_deal:
         # Only composition working
         composition_results = analyze_composition_deal(composition_deal)
-        print("\nCURRENT STATUS")
+        print("\nANALYSIS STATUS")
         print("-" * 60)
-        print("Composition Approach: Working")
-        print("Pattern Approach: Interface ready, implementation pending")
+        print("Composition Approach: Completed")
+        print("Pattern Approach: Interface available, awaiting implementation")
 
     else:
         print("\nNeither approach produced a working deal for analysis")
