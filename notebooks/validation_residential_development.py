@@ -223,7 +223,7 @@ print(f"   Subcategories: {ledger_df['subcategory'].nunique()}")
 print("")
 
 # Run semantic analysis
-ledger_analysis = analyze_ledger_semantically(ledger_df)
+ledger_analysis = analyze_ledger_semantically(results.ledger)
 
 print("🔍 Semantic Analysis:")
 balance_checks = ledger_analysis["balance_checks"]

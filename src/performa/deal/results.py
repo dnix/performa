@@ -69,6 +69,11 @@ class DealResults:  # noqa: PLR0904
         return self._timeline
 
     @property
+    def ledger(self) -> "Ledger":
+        """Access to the underlying Ledger instance."""
+        return self._ledger
+
+    @property
     def ledger_df(self) -> pd.DataFrame:
         """Direct access to the ledger DataFrame for reporting and analysis."""
         return self._ledger.ledger_df()

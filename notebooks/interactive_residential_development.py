@@ -221,7 +221,7 @@ try:
     print(f"📅 Date range: {ledger_df['date'].min()} to {ledger_df['date'].max()}")
 
     # Run ledger analysis if we have the ledger
-    ledger_analysis = analyze_ledger_semantically(ledger_df)
+    ledger_analysis = analyze_ledger_semantically(results.ledger)
     print(f"✅ Ledger validation successful")
     print(
         f"💰 Net Ledger Flow: ${ledger_analysis['balance_checks']['total_net_flow']:,.0f}"
