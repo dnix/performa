@@ -387,9 +387,14 @@ class DealResults:  # noqa: PLR0904
         noi_series = self.noi
         debt_service_series = self._queries.recurring_debt_service()
 
+        # Align series to noi_series index (avoid misaligned boolean masking)
+        dscr_aligned = dscr_series.reindex(noi_series.index)
+        debt_service_aligned = debt_service_series.reindex(noi_series.index)
+
         # Filter to operating periods only (NOI > 0, recurring DS ≠ 0)
-        operating_mask = (noi_series > 0) & (debt_service_series != 0)
-        operating_dscr = dscr_series[operating_mask]
+        # NaNs in aligned series are treated as non-operating
+        operating_mask = (noi_series > 0) & (debt_service_aligned.notna()) & (debt_service_aligned != 0)
+        operating_dscr = dscr_aligned[operating_mask].dropna()
 
         if operating_dscr.empty or len(operating_dscr) < 12:
             return None
@@ -413,9 +418,14 @@ class DealResults:  # noqa: PLR0904
         noi_series = self.noi
         debt_service_series = self._queries.recurring_debt_service()
 
+        # Align series to noi_series index (avoid misaligned boolean masking)
+        dscr_aligned = dscr_series.reindex(noi_series.index)
+        debt_service_aligned = debt_service_series.reindex(noi_series.index)
+
         # Filter to operating periods only
-        operating_mask = (noi_series > 0) & (debt_service_series != 0)
-        operating_dscr = dscr_series[operating_mask]
+        # NaNs in aligned series are treated as non-operating
+        operating_mask = (noi_series > 0) & (debt_service_aligned.notna()) & (debt_service_aligned != 0)
+        operating_dscr = dscr_aligned[operating_mask].dropna()
 
         if operating_dscr.empty:
             return None
@@ -438,9 +448,14 @@ class DealResults:  # noqa: PLR0904
         noi_series = self.noi
         debt_service_series = self._queries.recurring_debt_service()
 
+        # Align series to noi_series index (avoid misaligned boolean masking)
+        dscr_aligned = dscr_series.reindex(noi_series.index)
+        debt_service_aligned = debt_service_series.reindex(noi_series.index)
+
         # Filter to operating periods only
-        operating_mask = (noi_series > 0) & (debt_service_series != 0)
-        operating_dscr = dscr_series[operating_mask]
+        # NaNs in aligned series are treated as non-operating
+        operating_mask = (noi_series > 0) & (debt_service_aligned.notna()) & (debt_service_aligned != 0)
+        operating_dscr = dscr_aligned[operating_mask].dropna()
 
         if operating_dscr.empty:
             return None
