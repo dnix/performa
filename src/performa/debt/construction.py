@@ -894,9 +894,7 @@ class ConstructionFacility(DebtFacilityBase):
         # separate from paid interest. It increases total project costs and the loan balance but
         # involves no cash payment during construction - paid at refinancing/exit.
         if interest_reserve:
-            series = pd.Series(
-                {p: -amt for p, amt in interest_reserve.items()}, dtype=float
-            )
+            series = -pd.Series(interest_reserve, dtype=float)
             context.ledger.add_series(
                 series,
                 SeriesMetadata(
@@ -909,9 +907,9 @@ class ConstructionFacility(DebtFacilityBase):
                 ),
             )
 
-        # 3. Interest from sweep (informational, positive)
+        # 3. Interest from sweep (negative cash outflow)
         if interest_sweep:
-            series = pd.Series(interest_sweep, dtype=float)
+            series = -pd.Series(interest_sweep, dtype=float)
             context.ledger.add_series(
                 series,
                 SeriesMetadata(
@@ -926,7 +924,7 @@ class ConstructionFacility(DebtFacilityBase):
 
         # 4. Sweep prepayments (negative)
         if prepayments:
-            series = pd.Series({p: -amt for p, amt in prepayments.items()}, dtype=float)
+            series = -pd.Series(prepayments, dtype=float)
             context.ledger.add_series(
                 series,
                 SeriesMetadata(
