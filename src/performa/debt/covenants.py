@@ -235,7 +235,11 @@ class CashSweep(Model):
         """
         # Get month number (1-based)
         try:
-            month_num = context.timeline.period_index.get_loc(period) + 1
+            # Normalize Timestamp to Period to match timeline's PeriodIndex
+            p = period
+            if not isinstance(p, pd.Period):
+                p = pd.Period(p, freq=context.timeline.period_index.freq)
+            month_num = context.timeline.period_index.get_loc(p) + 1
         except KeyError:
             # Period not in timeline - sweep not active
             month_num = self.end_month  # Treat as inactive
