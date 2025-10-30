@@ -772,6 +772,7 @@ class ConstructionFacility(DebtFacilityBase):
         noi_series = LedgerQueries(context.ledger).noi()
 
         # === Build series directly (no intermediate storage) ===
+        proceeds_dict = {}  # Loan proceeds drawn each period
         interest_reserve_dict = {}  # Interest paid from reserve (capitalized)
         interest_sweep_dict = {}  # Interest paid from sweep
         prepay_dict = {}  # Prepayments from sweep
@@ -807,6 +808,8 @@ class ConstructionFacility(DebtFacilityBase):
             interest_from_reserve = raw_interest - adjustments.interest_paid_by_sweep
 
             # STEP 4: Store in series dicts
+            if cost_draw > 0:
+                proceeds_dict[period] = cost_draw
             if interest_from_reserve > 0:
                 interest_reserve_dict[period] = interest_from_reserve
             if adjustments.interest_paid_by_sweep > 0:
@@ -824,11 +827,11 @@ class ConstructionFacility(DebtFacilityBase):
         object.__setattr__(self, "_effective_loan_amount", balance)  # noqa: PLC2801
 
         # Post all transactions
-        # CRITICAL: Post initial_loan_amount as proceeds (the cash actually disbursed)
+        # CRITICAL: Post per-period proceeds (actual draws when incurred)
         # The final balance includes capitalized interest but is NOT additional proceeds
         self._post_interest_and_covenant_transactions(
             context,
-            initial_loan_amount,
+            proceeds_dict,
             interest_reserve_dict,
             interest_sweep_dict,
             prepay_dict,
@@ -841,7 +844,7 @@ class ConstructionFacility(DebtFacilityBase):
     def _post_interest_and_covenant_transactions(
         self,
         context: "DealContext",
-        total_loan_amount: float,
+        proceeds: Dict[pd.Period, float],
         interest_reserve: Dict[pd.Timestamp, float],
         interest_sweep: Dict[pd.Timestamp, float],
         prepayments: Dict[pd.Timestamp, float],
@@ -851,30 +854,33 @@ class ConstructionFacility(DebtFacilityBase):
 
         Args:
             context: Deal context
-            total_loan_amount: Final loan balance (for proceeds)
+            proceeds: Period → loan proceeds drawn (posted as inflows)
             interest_reserve: Period → interest from reserve (negative in ledger)
             interest_sweep: Period → interest from sweep (positive in ledger)
             prepayments: Period → prepayments from sweep (negative in ledger)
         """
         timeline = context.timeline
 
-        # 1. Loan proceeds (Day 1)
-        if total_loan_amount > 0:
-            proceeds_series = pd.Series(
-                [total_loan_amount], index=[timeline.period_index[0]]
+        # 1. Loan proceeds (per-period draws)
+        if proceeds:
+            total_proceeds = sum(proceeds.values())
+            for period, amount in proceeds.items():
+                if amount > 0:
+                    proceeds_series = pd.Series([amount], index=[period])
+                    context.ledger.add_series(
+                        proceeds_series,
+                        SeriesMetadata(
+                            category=CashFlowCategoryEnum.FINANCING,
+                            subcategory=FinancingSubcategoryEnum.LOAN_PROCEEDS,
+                            item_name=f"{self.name} - Proceeds",
+                            source_id=self.uid,
+                            asset_id=context.deal.asset.uid,
+                            pass_num=CalculationPhase.FINANCING.value,
+                        ),
+                    )
+            logger.debug(
+                f"{self.name}: Posted {len(proceeds)} draw(s), total ${total_proceeds:,.0f}"
             )
-            context.ledger.add_series(
-                proceeds_series,
-                SeriesMetadata(
-                    category=CashFlowCategoryEnum.FINANCING,
-                    subcategory=FinancingSubcategoryEnum.LOAN_PROCEEDS,
-                    item_name=f"{self.name} - Proceeds",
-                    source_id=self.uid,
-                    asset_id=context.deal.asset.uid,
-                    pass_num=CalculationPhase.FINANCING.value,
-                ),
-            )
-            logger.debug(f"{self.name}: Posted loan proceeds ${total_loan_amount:,.0f}")
 
         # 2. Interest from reserve (capitalized, negative)
         # CRITICAL: Capitalized interest is posted as Financing/Interest Reserve with flow_purpose=Capital Use
@@ -1025,6 +1031,9 @@ class ConstructionFacility(DebtFacilityBase):
         # Apply LTC ratio to get debt-funded portion
         if self.ltc_ratio is not None:
             ltc = self.ltc_ratio
+        elif self.tranches and len(self.tranches) > 0:
+            # For tranche-based facilities, use maximum LTC
+            ltc = max(tranche.ltc_threshold for tranche in self.tranches)
         else:
             # Fallback: use reasonable default
             ltc = 0.70
