@@ -260,10 +260,13 @@ class CashSweep(Model):
             cash_to_interest = min(period_noi, interest_due)
             excess_cash = max(0.0, period_noi - cash_to_interest)
 
+            # Cap prepayment by outstanding balance (cannot prepay more than owed)
+            capped_principal = max(0.0, min(excess_cash, current_balance))
+
             # Return adjustments if there's any cash available
-            if cash_to_interest > 0 or excess_cash > 0:
+            if cash_to_interest > 0 or capped_principal > 0:
                 return SweepAdjustment(
-                    to_interest=cash_to_interest, to_principal=excess_cash
+                    to_interest=cash_to_interest, to_principal=capped_principal
                 )
 
         # All other cases: no adjustment
