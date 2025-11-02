@@ -278,17 +278,23 @@ class TestMultiTrancheFundingIntegration:
             ledger["item_name"].str.contains("Proceeds", case=False)
         ]["amount"].sum()
 
-        # Validate loan proceeds are reasonable (updated for current library behavior)
+        # Validate 50% LTC constraint is enforced with small tolerance for fees
+        expected_ltc = 0.50
+        base_loan = project_costs * expected_ltc
+        # Allow 1% origination fee to be included in proceeds
+        max_allowed_with_fees = base_loan * 1.02  # 2% tolerance for fees
+
         assert total_proceeds > 0, "Should have positive loan proceeds"
         assert (
-            total_proceeds >= project_costs * 0.45
-        ), "Should fund meaningful portion of project"
+            total_proceeds >= base_loan * 0.95
+        ), f"Proceeds ${total_proceeds:,.0f} should be close to base loan amount ${base_loan:,.0f}"
         assert (
-            total_proceeds <= project_costs * 0.85
-        ), "Should not exceed reasonable LTC limit"
+            total_proceeds <= max_allowed_with_fees
+        ), f"Proceeds ${total_proceeds:,.0f} should not significantly exceed base LTC ${base_loan:,.0f}"
 
-        print(f" LTC Constraint: {total_proceeds / project_costs:.1%} <= 50%")
+        print(f" LTC Constraint: {total_proceeds / project_costs:.1%} (expected ~50%)")
         print(f" Loan Proceeds: ${total_proceeds:,.0f}")
+        print(f" Base Loan (50% LTC): ${base_loan:,.0f}")
         print(f" LTC constraint enforcement validated")
 
 
