@@ -164,6 +164,9 @@ class CashSweep(Model):
         queries = LedgerQueries(context.ledger)
         noi_series = queries.noi()
 
+        # PERFORMANCE: Prepare debt service lookup once upfront
+        ds_by_period = self._prepare_debt_service_lookup(context, facility_name)
+
         # Process each period
         for idx, period_date in enumerate(context.timeline.period_index):
             # Month number is 1-based (month 1, 2, 3, ...)
@@ -171,7 +174,7 @@ class CashSweep(Model):
 
             # Calculate excess cash for this period
             excess_cash = self._calculate_excess_cash(
-                context, facility_name, period_date, noi_series
+                context, facility_name, period_date, noi_series, ds_by_period
             )
 
             if month_num < self.end_month:
@@ -297,6 +300,7 @@ class CashSweep(Model):
         facility_name: str,
         period_date: pd.Timestamp,
         noi_series: pd.Series,
+        ds_by_period: pd.Series,
     ) -> float:
         """
         Calculate excess operating cash available for sweep in this period.
@@ -312,6 +316,7 @@ class CashSweep(Model):
             facility_name: Name of the facility
             period_date: Date of the period
             noi_series: Pre-queried NOI series (for performance)
+            ds_by_period: Pre-computed debt service by period (for performance)
 
         Returns:
             Excess cash amount (positive = cash available, zero/negative = no excess)
@@ -319,11 +324,9 @@ class CashSweep(Model):
         # Get operating cash flow for this period from pre-queried series
         period_noi = noi_series.get(period_date, 0.0)
 
-        # Get debt service for this facility in this period
+        # Get debt service for this facility in this period (from pre-computed lookup)
         # (For capitalized interest construction loans, this is typically 0)
-        facility_ds = self._get_facility_debt_service(
-            context, facility_name, period_date
-        )
+        facility_ds = ds_by_period.get(period_date, 0.0)
 
         # Excess = NOI + Debt Service
         # Note: debt_service is already negative (outflow), so adding it reduces NOI
@@ -332,33 +335,51 @@ class CashSweep(Model):
 
         return max(0.0, excess)  # Only positive excess is swept
 
-    def _get_facility_debt_service(
-        self, context: "DealContext", facility_name: str, period_date: pd.Timestamp
-    ) -> float:
+    def _prepare_debt_service_lookup(
+        self, context: "DealContext", facility_name: str
+    ) -> pd.Series:
         """
-        Get debt service paid by THIS facility in this period.
+        Prepare debt service lookup by period (computed once upfront for performance).
 
-        NOTE: For capitalized interest, this returns 0 (no cash service).
+        Query ledger once, filter by facility, convert to PeriodIndex for consistent
+        time handling across the library.
 
         Args:
             context: Deal context
             facility_name: Name of the facility
-            period_date: Date of the period
 
         Returns:
-            Debt service amount (negative = cash outflow)
+            Series of debt service amounts indexed by Period[M] (negative = outflow)
         """
-        # Query ledger for this facility's debt service in this period
+        # Query ledger once
         ledger_df = context.ledger.to_dataframe()
 
+        # Filter for this facility's debt service
         facility_ds = ledger_df[
             (ledger_df["item_name"].str.contains(facility_name, na=False))
-            & (ledger_df["date"] == period_date)
             & (ledger_df["category"] == "Financing")
             & (ledger_df["subcategory"].isin(["Interest Payment", "Principal Payment"]))
-        ]["amount"].sum()
+        ]
 
-        return facility_ds  # Negative value (outflow)
+        if facility_ds.empty:
+            return pd.Series(dtype="float64", name=f"{facility_name} Debt Service")
+
+        # Convert dates to PeriodIndex and group by period
+        # Handle both datetime and Period types (for test compatibility)
+        date_col = facility_ds["date"]
+        if isinstance(date_col.dtype, pd.PeriodDtype):
+            periods = date_col
+        else:
+            periods = pd.to_datetime(date_col).dt.to_period("M")
+
+        # Group by period and sum
+        facility_ds = facility_ds.copy()
+        facility_ds["period"] = periods
+        grouped = facility_ds.groupby("period")["amount"].sum()
+
+        # Return Series with PeriodIndex
+        grouped.name = f"{facility_name} Debt Service"
+        return grouped
 
     def _post_sweep_deposit(
         self,
