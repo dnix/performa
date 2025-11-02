@@ -157,8 +157,8 @@ class CashSweep(Model):
         # Track trapped balance across periods (for TRAP mode)
         trapped_balance = 0.0
 
-        # Get facility reference for balance manipulation (PREPAY mode)
-        facility = self._get_facility(context, facility_name)
+        # Validate facility exists upfront (fail fast)
+        _ = self._get_facility(context, facility_name)
 
         # PERFORMANCE: Query NOI once upfront instead of per-period
         queries = LedgerQueries(context.ledger)
@@ -277,7 +277,10 @@ class CashSweep(Model):
 
     def _get_facility(self, context: "DealContext", facility_name: str):
         """
-        Get facility object by name for balance manipulation.
+        Get facility object by name for metadata access.
+
+        Used to retrieve facility UIDs for ledger transaction posting.
+        Balance tracking is handled implicitly via ledger queries.
 
         Args:
             context: Deal context
@@ -461,9 +464,8 @@ class CashSweep(Model):
         Post mandatory sweep prepayment transaction (PREPAY mode).
 
         Applies excess cash to principal prepayment immediately.
-        This reduces the loan balance and future interest expense.
-
-        NOTE: Caller must also reduce facility.outstanding_balance!
+        Balance reduction is implicit via ledger transactions.
+        Future interest expense is reduced based on ledger query.
 
         Args:
             context: Deal context
