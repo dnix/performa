@@ -666,7 +666,10 @@ class ConstructionFacility(DebtFacilityBase):
                 elif self.cash_sweep.mode == SweepMode.PREPAY:
                     # PREPAY: skip construction period (already processed synchronously)
                     # Only process post-construction if sweep extends beyond loan term
-                    if self.loan_term_months is None or self.cash_sweep.end_month > self.loan_term_months:
+                    if (
+                        self.loan_term_months is None
+                        or self.cash_sweep.end_month > self.loan_term_months
+                    ):
                         # TODO: Optimize by adding start_month parameter to process()
                         # For now, accept some redundant processing for correctness
                         self.cash_sweep.process(context, self.name)

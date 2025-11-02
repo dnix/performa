@@ -374,7 +374,7 @@ class TestFacilityNotFound:
 class TestPrepaySweepInterestSignConvention:
     """
     Test sign convention for interest paid from sweep in PREPAY mode.
-    
+
     This test suite ensures the sign convention bug is prevented:
     - Interest payments are ALWAYS negative (debt service outflow)
     - Even when paid from sweep instead of reserve
@@ -384,7 +384,7 @@ class TestPrepaySweepInterestSignConvention:
     def test_prepay_sweep_interest_payment_sign_convention(self):
         """
         Test that interest paid from sweep is recorded as NEGATIVE (debt service).
-        
+
         Scenario: Construction with pre-leased units generating NOI
         - NOI during construction pays interest directly (sweep)
         - Interest from sweep must be posted as negative (outflow)
@@ -393,7 +393,7 @@ class TestPrepaySweepInterestSignConvention:
         # Setup: Construction loan with PREPAY sweep
         sweep = CashSweep(mode=SweepMode.PREPAY, end_month=12)
         timeline = Timeline(start_date=date(2024, 1, 1), duration_months=12)
-        
+
         facility = ConstructionFacility(
             name="Test Construction",
             interest_rate=InterestRate(details=FixedRate(rate=0.08)),
@@ -401,15 +401,14 @@ class TestPrepaySweepInterestSignConvention:
             loan_term_months=12,
             cash_sweep=sweep,
         )
-        
+
         # Create real ledger with NOI during construction (pre-leased units)
         ledger = Ledger()
         noi_amount = 100_000.0  # Monthly NOI from pre-leased units
-        
+
         # Post NOI for all periods (simulates pre-leased revenue)
         noi_series = pd.Series(
-            [noi_amount] * len(timeline.period_index),
-            index=timeline.period_index
+            [noi_amount] * len(timeline.period_index), index=timeline.period_index
         )
         ledger.add_series(
             noi_series,
@@ -420,32 +419,32 @@ class TestPrepaySweepInterestSignConvention:
                 source_id="test-source",
                 asset_id="test-asset",
                 pass_num=1,
-            )
+            ),
         )
-        
+
         # Create real context with capital uses to trigger draws
         settings = GlobalSettings()
         mock_deal = Mock()
         mock_deal.name = "Test Deal"
         mock_deal.asset = Mock()
         mock_deal.asset.uid = "test-asset"
-        
+
         # Mock capital plan with draws
         mock_capital_plan = Mock()
         mock_capital_plan.total_budget = 10_000_000.0
         mock_deal.asset.capital_plan = mock_capital_plan
-        
+
         context = DealContext(
             timeline=timeline,
             settings=settings,
             deal=mock_deal,
             ledger=ledger,
         )
-        
+
         # Post some capital uses to trigger loan draws and interest
         capital_uses_series = pd.Series(
             [-1_000_000.0] * 6,  # First 6 months
-            index=timeline.period_index[:6]
+            index=timeline.period_index[:6],
         )
         ledger.add_series(
             capital_uses_series,
@@ -456,37 +455,42 @@ class TestPrepaySweepInterestSignConvention:
                 source_id="test-source",
                 asset_id="test-asset",
                 pass_num=1,
-            )
+            ),
         )
-        
+
         # Compute cash flows (this executes the sweep logic)
         result = facility.compute_cf(context)
-        
+
         # Verify interest from sweep exists and is NEGATIVE
         ledger_df = ledger.to_dataframe()
         interest_from_sweep = ledger_df[
-            ledger_df["item_name"].str.contains("Interest \\(from sweep\\)", na=False, regex=True)
+            ledger_df["item_name"].str.contains(
+                "Interest \\(from sweep\\)", na=False, regex=True
+            )
         ]
-        
+
         # CRITICAL ASSERTIONS: Sign Convention
-        assert len(interest_from_sweep) > 0, \
-            "Should have interest from sweep (NOI pays interest)"
-        
-        assert (interest_from_sweep["amount"] < 0).all(), \
-            "Interest from sweep MUST be negative (debt service outflow)"
-        
-        assert interest_from_sweep["subcategory"].iloc[0] == "Interest Payment", \
-            "Should be categorized as Interest Payment"
-        
+        assert (
+            len(interest_from_sweep) > 0
+        ), "Should have interest from sweep (NOI pays interest)"
+
+        assert (
+            interest_from_sweep["amount"] < 0
+        ).all(), "Interest from sweep MUST be negative (debt service outflow)"
+
+        assert (
+            interest_from_sweep["subcategory"].iloc[0] == "Interest Payment"
+        ), "Should be categorized as Interest Payment"
+
         total_interest_from_sweep = interest_from_sweep["amount"].sum()
         print(f"\n✓ Interest from sweep correctly recorded as NEGATIVE")
         print(f"  Total interest paid from sweep: ${total_interest_from_sweep:,.0f}")
         print(f"  Number of periods with sweep interest: {len(interest_from_sweep)}")
-        
+
         # Additional validation: Verify it's in debt service query results
         queries = LedgerQueries(ledger)
         debt_service = queries.debt_service()
-        
+
         # Interest from sweep should be included in debt service
         assert debt_service.sum() < 0, "Debt service total should be negative"
         print(f"  Included in debt_service() query: ${debt_service.sum():,.0f}")
@@ -494,11 +498,11 @@ class TestPrepaySweepInterestSignConvention:
     def test_prepay_sweep_interest_vs_reserve_parity(self):
         """
         Test that interest from sweep has same sign as interest from reserve.
-        
+
         Both should be negative (debt service), just different sources.
         """
         timeline = Timeline(start_date=date(2024, 1, 1), duration_months=12)
-        
+
         # Scenario A: Interest from reserve (no NOI, no sweep)
         facility_reserve = ConstructionFacility(
             name="Reserve Test",
@@ -507,7 +511,7 @@ class TestPrepaySweepInterestSignConvention:
             loan_term_months=12,
             cash_sweep=None,  # No sweep - uses reserve
         )
-        
+
         ledger_reserve = Ledger()
         settings = GlobalSettings()
         mock_deal_reserve = Mock()
@@ -517,19 +521,16 @@ class TestPrepaySweepInterestSignConvention:
         mock_capital_plan = Mock()
         mock_capital_plan.total_budget = 5_000_000.0
         mock_deal_reserve.asset.capital_plan = mock_capital_plan
-        
+
         context_reserve = DealContext(
             timeline=timeline,
             settings=settings,
             deal=mock_deal_reserve,
             ledger=ledger_reserve,
         )
-        
+
         # Post capital uses
-        capital_uses = pd.Series(
-            [-500_000.0] * 6,
-            index=timeline.period_index[:6]
-        )
+        capital_uses = pd.Series([-500_000.0] * 6, index=timeline.period_index[:6])
         ledger_reserve.add_series(
             capital_uses,
             SeriesMetadata(
@@ -539,11 +540,11 @@ class TestPrepaySweepInterestSignConvention:
                 source_id="test-source-reserve",
                 asset_id="test-asset-reserve",
                 pass_num=1,
-            )
+            ),
         )
-        
+
         facility_reserve.compute_cf(context_reserve)
-        
+
         # Scenario B: Interest from sweep (with NOI)
         facility_sweep = ConstructionFacility(
             name="Sweep Test",
@@ -552,25 +553,24 @@ class TestPrepaySweepInterestSignConvention:
             loan_term_months=12,
             cash_sweep=CashSweep(mode=SweepMode.PREPAY, end_month=12),
         )
-        
+
         ledger_sweep = Ledger()
         mock_deal_sweep = Mock()
         mock_deal_sweep.name = "Sweep Deal"
         mock_deal_sweep.asset = Mock()
         mock_deal_sweep.asset.uid = "test-asset-sweep"
         mock_deal_sweep.asset.capital_plan = mock_capital_plan
-        
+
         context_sweep = DealContext(
             timeline=timeline,
             settings=settings,
             deal=mock_deal_sweep,
             ledger=ledger_sweep,
         )
-        
+
         # Post capital uses AND NOI
         capital_uses_sweep = pd.Series(
-            [-500_000.0] * 6,
-            index=timeline.period_index[:6]
+            [-500_000.0] * 6, index=timeline.period_index[:6]
         )
         ledger_sweep.add_series(
             capital_uses_sweep,
@@ -581,13 +581,10 @@ class TestPrepaySweepInterestSignConvention:
                 source_id="test-source-sweep",
                 asset_id="test-asset-sweep",
                 pass_num=1,
-            )
+            ),
         )
-        
-        noi_sweep = pd.Series(
-            [50_000.0] * 6,
-            index=timeline.period_index[:6]
-        )
+
+        noi_sweep = pd.Series([50_000.0] * 6, index=timeline.period_index[:6])
         ledger_sweep.add_series(
             noi_sweep,
             SeriesMetadata(
@@ -597,29 +594,33 @@ class TestPrepaySweepInterestSignConvention:
                 source_id="test-source-sweep",
                 asset_id="test-asset-sweep",
                 pass_num=1,
-            )
+            ),
         )
-        
+
         facility_sweep.compute_cf(context_sweep)
-        
+
         # Compare: Both should have negative interest
         df_reserve = ledger_reserve.to_dataframe()
         df_sweep = ledger_sweep.to_dataframe()
-        
+
         interest_reserve = df_reserve[
             df_reserve["item_name"].str.contains("Capitalized Interest", na=False)
         ]
         interest_sweep_items = df_sweep[
-            df_sweep["item_name"].str.contains("Interest \\(from sweep\\)", na=False, regex=True)
+            df_sweep["item_name"].str.contains(
+                "Interest \\(from sweep\\)", na=False, regex=True
+            )
         ]
-        
+
         if len(interest_sweep_items) > 0:
             # Both types of interest should be negative
-            assert (interest_reserve["amount"] < 0).all(), \
-                "Interest from reserve must be negative"
-            assert (interest_sweep_items["amount"] < 0).all(), \
-                "Interest from sweep must be negative"
-            
+            assert (
+                interest_reserve["amount"] < 0
+            ).all(), "Interest from reserve must be negative"
+            assert (
+                interest_sweep_items["amount"] < 0
+            ).all(), "Interest from sweep must be negative"
+
             print("\n✓ Sign parity confirmed:")
             print(f"  Interest from reserve: NEGATIVE ✓")
             print(f"  Interest from sweep:   NEGATIVE ✓")
