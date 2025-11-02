@@ -23,8 +23,6 @@ This notebook contains comprehensive validation patterns for:
 # Import libraries and setup
 from datetime import date
 
-import pandas as pd
-
 from performa.patterns import ResidentialDevelopmentPattern
 from performa.reporting import (
     analyze_ledger_semantically,
@@ -317,8 +315,15 @@ if financing and financing.get("has_financing"):
         print(f"   Min period: ${debt_service.min():,.0f}")
         print("")
 
-        # Check for construction vs permanent debt patterns
-        construction_mask = debt_service.index < pd.Period("2025-07", freq="M")
+        # Check for construction vs permanent debt patterns (derived)
+        construction_months = int(getattr(pattern, "construction_duration_months", 0))
+        if construction_months > 0:
+            construction_end = results.timeline.period_index[
+                min(construction_months - 1, len(results.timeline.period_index) - 1)
+            ]
+        else:
+            construction_end = debt_service.index.min()
+        construction_mask = debt_service.index <= construction_end
         construction_ds = debt_service[construction_mask]
         permanent_ds = debt_service[~construction_mask]
 
@@ -337,11 +342,11 @@ if financing and financing.get("has_financing"):
     print("")
 
     # DSCR analysis
-    if results.stabilized_dscr:
+    if results.stabilized_dscr is not None:
         print(f"📈 DSCR Metrics:")
         print(f"   Stabilized DSCR: {results.stabilized_dscr:.2f}x")
         print(f"   Minimum operating DSCR: {results.minimum_operating_dscr:.2f}x")
-        print(f"   Covenant compliance: {results.covenant_compliance_rate:.1%}")
+        print(f"   Covenant compliance: {results.covenant_compliance_rate:.1f}%")
 
         if results.stabilized_dscr >= 1.25:
             print("   ✅ PASS: Stabilized DSCR meets typical lender requirements")
