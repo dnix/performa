@@ -473,7 +473,7 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         absorption_plan = ResidentialAbsorptionPlan(
             name=f"{self.project_name} Residential Leasing",
             start_date_anchor=StartDateAnchorEnum.ANALYSIS_START,
-            start_offset_months=leasing_offset,  # Start leasing after construction completes
+            start_offset_months=leasing_offset,  # User-specified offset; may begin during or after construction
             pace=FixedQuantityPace(
                 quantity=self.absorption_pace_units_per_month,
                 unit="Units",
