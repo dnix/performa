@@ -171,8 +171,8 @@ ecf = results.equity_cash_flow
 print("🔍 Sign Convention Check:")
 print("")
 
-# Check construction period (first 18 months)
-construction_periods = 18
+# Check construction period (derive from pattern)
+construction_periods = int(pattern.construction_duration_months)
 ucf_construction = ucf.iloc[:construction_periods]
 ucf_negative_pct = (ucf_construction < 0).sum() / len(ucf_construction)
 
