@@ -190,15 +190,15 @@ else:
 print("")
 
 # Check equity cash flow signs
-ecf_contributions = ecf[ecf > 0].sum()
-ecf_distributions = ecf[ecf < 0].sum()
+ecf_contributions = ecf[ecf < 0].sum()
+ecf_distributions = ecf[ecf > 0].sum()
 
 print(f"Equity Cash Flow Analysis:")
-print(f"   Contributions (positive): ${ecf_contributions:,.0f}")
-print(f"   Distributions (negative): ${ecf_distributions:,.0f}")
+print(f"   Contributions (negative): ${abs(ecf_contributions):,.0f}")
+print(f"   Distributions (positive): ${ecf_distributions:,.0f}")
 print(f"   Net: ${ecf.sum():,.0f}")
 
-if ecf_contributions > 0 and ecf_distributions < 0:
+if ecf_contributions < 0 and ecf_distributions > 0:
     print("   ✅ PASS: Equity cash flows show correct signs")
 else:
     print("   ❌ FAIL: Equity cash flow signs are incorrect")
