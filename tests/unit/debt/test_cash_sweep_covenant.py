@@ -371,7 +371,7 @@ class TestFacilityNotFound:
             sweep.process(context, "Nonexistent Facility")
 
 
-class TestPrepaySweeInterestSignConvention:
+class TestPrepaySweepInterestSignConvention:
     """
     Test sign convention for interest paid from sweep in PREPAY mode.
     
