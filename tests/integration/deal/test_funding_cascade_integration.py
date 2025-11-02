@@ -11,7 +11,7 @@ They test multiple components working together through the ledger-based architec
 import os
 import sys
 from unittest.mock import Mock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from performa.core.ledger import Ledger
 from performa.core.ledger.records import TransactionRecord
@@ -27,6 +27,45 @@ from performa.debt.rates import FixedRate, InterestRate
 from performa.debt.tranche import DebtTranche
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../.."))
+
+
+def create_construction_cost_records(
+    timeline: Timeline,
+    project_costs: float,
+    construction_months: int,
+    asset_id: UUID | None = None,
+) -> list[TransactionRecord]:
+    """Create construction cost ledger records for testing.
+
+    Args:
+        timeline: Timeline containing period index for dates
+        project_costs: Total project costs to distribute
+        construction_months: Number of months to spread costs over
+        asset_id: Optional asset identifier; creates new UUID if not provided
+
+    Returns:
+        List of TransactionRecord objects representing monthly construction costs
+    """
+    monthly_cost = project_costs / construction_months
+    records = []
+    test_asset_id = asset_id if asset_id is not None else uuid4()
+
+    for i in range(construction_months):
+        period = timeline.period_index[i]
+        records.append(
+            TransactionRecord(
+                date=period.start_time.date(),
+                amount=-monthly_cost,
+                flow_purpose=TransactionPurpose.CAPITAL_USE,
+                category=CashFlowCategoryEnum.CAPITAL,
+                subcategory=CapitalSubcategoryEnum.HARD_COSTS,
+                item_name="Construction Costs",
+                source_id=uuid4(),
+                asset_id=test_asset_id,
+                pass_num=1,
+            )
+        )
+    return records
 
 
 class TestMultiTrancheFundingIntegration:
@@ -78,27 +117,10 @@ class TestMultiTrancheFundingIntegration:
         )
 
         # Add capital uses to ledger so construction facility knows when to fund
-        # Simulate project costs being incurred over construction period
-
         construction_months = 12
-        monthly_cost = project_costs / construction_months
-        records = []
-        test_asset_id = uuid4()
-        for i in range(construction_months):
-            period = self.timeline.period_index[i]
-            records.append(
-                TransactionRecord(
-                    date=period.start_time.date(),
-                    amount=-monthly_cost,  # Negative = use
-                    flow_purpose=TransactionPurpose.CAPITAL_USE,
-                    category=CashFlowCategoryEnum.CAPITAL,
-                    subcategory=CapitalSubcategoryEnum.HARD_COSTS,
-                    item_name="Construction Costs",
-                    source_id=uuid4(),
-                    asset_id=test_asset_id,
-                    pass_num=1,
-                )
-            )
+        records = create_construction_cost_records(
+            self.timeline, project_costs, construction_months
+        )
         self.ledger.add_records(records)
 
         # Execute facility computation (writes to ledger)
@@ -174,24 +196,9 @@ class TestMultiTrancheFundingIntegration:
 
         # Add capital uses to ledger so construction facility knows when to fund
         construction_months = 12
-        monthly_cost = project_costs / construction_months
-        records = []
-        test_asset_id = uuid4()
-        for i in range(construction_months):
-            period = self.timeline.period_index[i]
-            records.append(
-                TransactionRecord(
-                    date=period.start_time.date(),
-                    amount=-monthly_cost,
-                    flow_purpose=TransactionPurpose.CAPITAL_USE,
-                    category=CashFlowCategoryEnum.CAPITAL,
-                    subcategory=CapitalSubcategoryEnum.HARD_COSTS,
-                    item_name="Construction Costs",
-                    source_id=uuid4(),
-                    asset_id=test_asset_id,
-                    pass_num=1,
-                )
-            )
+        records = create_construction_cost_records(
+            self.timeline, project_costs, construction_months
+        )
         self.ledger.add_records(records)
 
         # Execute facility computation
@@ -257,24 +264,9 @@ class TestMultiTrancheFundingIntegration:
         )
 
         construction_months = 12
-        monthly_cost = project_costs / construction_months
-        records = []
-        test_asset_id = uuid4()
-        for i in range(construction_months):
-            period = self.timeline.period_index[i]
-            records.append(
-                TransactionRecord(
-                    date=period.start_time.date(),
-                    amount=-monthly_cost,
-                    flow_purpose=TransactionPurpose.CAPITAL_USE,
-                    category=CashFlowCategoryEnum.CAPITAL,
-                    subcategory=CapitalSubcategoryEnum.HARD_COSTS,
-                    item_name="Construction Costs",
-                    source_id=uuid4(),
-                    asset_id=test_asset_id,
-                    pass_num=1,
-                )
-            )
+        records = create_construction_cost_records(
+            self.timeline, project_costs, construction_months
+        )
         self.ledger.add_records(records)
 
         # Execute facility computation
@@ -419,24 +411,9 @@ class TestEndToEndFundingValidation:
         )
 
         construction_months = 24  # 2-year construction
-        monthly_cost = project_costs / construction_months
-        records = []
-        test_asset_id = uuid4()
-        for i in range(construction_months):
-            period = timeline.period_index[i]
-            records.append(
-                TransactionRecord(
-                    date=period.start_time.date(),
-                    amount=-monthly_cost,
-                    flow_purpose=TransactionPurpose.CAPITAL_USE,
-                    category=CashFlowCategoryEnum.CAPITAL,
-                    subcategory=CapitalSubcategoryEnum.HARD_COSTS,
-                    item_name="Construction Costs",
-                    source_id=uuid4(),
-                    asset_id=test_asset_id,
-                    pass_num=1,
-                )
-            )
+        records = create_construction_cost_records(
+            timeline, project_costs, construction_months
+        )
         ledger.add_records(records)
 
         # Execute facility computation
