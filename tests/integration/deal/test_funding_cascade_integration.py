@@ -631,12 +631,16 @@ class TestFundingCascadeEdgeCases:
             proceeds_records = ledger[
                 ledger["item_name"].str.contains("Proceeds", case=False, na=False)
             ]
-            total_proceeds = proceeds_records["amount"].sum() if not proceeds_records.empty else 0
+            total_proceeds = (
+                proceeds_records["amount"].sum() if not proceeds_records.empty else 0
+            )
         else:
             total_proceeds = 0
 
         # Validate that proceeds are non-negative (zero is acceptable)
-        assert total_proceeds >= 0, f"Proceeds should be non-negative, got ${total_proceeds:,.0f}"
+        assert (
+            total_proceeds >= 0
+        ), f"Proceeds should be non-negative, got ${total_proceeds:,.0f}"
 
         print(f" Empty ledger handled gracefully")
         print(f" Proceeds with no capital uses: ${total_proceeds:,.0f}")
