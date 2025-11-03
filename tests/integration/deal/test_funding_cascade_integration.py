@@ -13,6 +13,8 @@ import sys
 from unittest.mock import Mock
 from uuid import UUID, uuid4
 
+import pytest
+
 from performa.core.ledger import Ledger
 from performa.core.ledger.records import TransactionRecord
 from performa.core.primitives import GlobalSettings, Timeline
@@ -45,7 +47,27 @@ def create_construction_cost_records(
 
     Returns:
         List of TransactionRecord objects representing monthly construction costs
+
+    Raises:
+        ValueError: If construction_months is not a positive integer
+        ValueError: If construction_months exceeds timeline duration
+        ValueError: If project_costs is not positive
+        ValueError: If timeline.period_index is not present
     """
+    if not isinstance(construction_months, int) or construction_months <= 0:
+        raise ValueError("construction_months must be a positive integer (>0)")
+
+    if project_costs <= 0:
+        raise ValueError("project_costs must be positive (>0)")
+
+    if not hasattr(timeline, "period_index") or timeline.period_index is None:
+        raise ValueError("timeline.period_index must be present")
+
+    if construction_months > len(timeline.period_index):
+        raise ValueError(
+            f"construction_months ({construction_months}) exceeds timeline duration ({len(timeline.period_index)} periods)"
+        )
+
     monthly_cost = project_costs / construction_months
     records = []
     test_asset_id = asset_id if asset_id is not None else uuid4()
@@ -449,6 +471,244 @@ class TestEndToEndFundingValidation:
         print(f" Total Debt Proceeds: ${total_proceeds:,.0f}")
         print(f" Effective LTC: {total_proceeds / project_costs:.1%}")
         print(f" End-to-end funding cascade validated")
+
+
+class TestFundingCascadeEdgeCases:
+    """Test edge cases and error handling in funding cascade."""
+
+    def setup_method(self):
+        """Setup for each test."""
+        self.timeline = Timeline.from_dates("2024-01-01", "2026-12-01")  # 3 years
+        self.settings = GlobalSettings()
+        self.ledger = Ledger()
+
+    def test_negative_construction_months_raises_error(self):
+        """
+        Test that negative construction_months raises ValueError.
+
+        Edge Case: Invalid negative construction duration.
+        Expected: ValueError with clear message.
+        """
+        with pytest.raises(
+            ValueError, match="construction_months must be a positive integer"
+        ):
+            create_construction_cost_records(
+                timeline=self.timeline,
+                project_costs=1_000_000,
+                construction_months=-5,
+            )
+
+    def test_zero_construction_months_raises_error(self):
+        """
+        Test that zero construction_months raises ValueError.
+
+        Edge Case: Zero construction duration (would cause division by zero).
+        Expected: ValueError with clear message.
+        """
+        with pytest.raises(
+            ValueError, match="construction_months must be a positive integer"
+        ):
+            create_construction_cost_records(
+                timeline=self.timeline,
+                project_costs=1_000_000,
+                construction_months=0,
+            )
+
+    def test_non_integer_construction_months_raises_error(self):
+        """
+        Test that non-integer construction_months raises ValueError.
+
+        Edge Case: Float construction duration (must be integer).
+        Expected: ValueError with clear message.
+        """
+        with pytest.raises(
+            ValueError, match="construction_months must be a positive integer"
+        ):
+            create_construction_cost_records(
+                timeline=self.timeline,
+                project_costs=1_000_000,
+                construction_months=12.5,
+            )
+
+    def test_construction_months_exceeds_timeline_raises_error(self):
+        """
+        Test that construction_months > timeline periods raises ValueError.
+
+        Edge Case: Construction longer than analysis timeline.
+        Expected: ValueError with clear message about timeline duration.
+        """
+        timeline_periods = len(self.timeline.period_index)
+
+        with pytest.raises(ValueError, match="exceeds timeline duration"):
+            create_construction_cost_records(
+                timeline=self.timeline,
+                project_costs=1_000_000,
+                construction_months=timeline_periods + 10,
+            )
+
+    def test_negative_project_costs_raises_error(self):
+        """
+        Test that negative project_costs raises ValueError.
+
+        Edge Case: Invalid negative project costs.
+        Expected: ValueError with clear message.
+        """
+        with pytest.raises(ValueError, match="project_costs must be positive"):
+            create_construction_cost_records(
+                timeline=self.timeline,
+                project_costs=-500_000,
+                construction_months=12,
+            )
+
+    def test_zero_project_costs_raises_error(self):
+        """
+        Test that zero project_costs raises ValueError.
+
+        Edge Case: Zero project costs (invalid for cost distribution).
+        Expected: ValueError with clear message.
+        """
+        with pytest.raises(ValueError, match="project_costs must be positive"):
+            create_construction_cost_records(
+                timeline=self.timeline,
+                project_costs=0,
+                construction_months=12,
+            )
+
+    def test_missing_timeline_period_index_raises_error(self):
+        """
+        Test that missing timeline.period_index raises ValueError.
+
+        Edge Case: Timeline without period_index attribute.
+        Expected: ValueError with clear message.
+        """
+        # Create mock timeline without period_index
+        mock_timeline = Mock(spec=[])  # Empty spec, no attributes
+
+        with pytest.raises(ValueError, match="timeline.period_index must be present"):
+            create_construction_cost_records(
+                timeline=mock_timeline,
+                project_costs=1_000_000,
+                construction_months=12,
+            )
+
+    def test_facility_with_no_capital_uses_does_not_crash(self):
+        """
+        Test that construction facility handles empty ledger gracefully.
+
+        Edge Case: No capital uses in ledger (nothing to fund).
+        Expected: facility.compute_cf executes without error, proceeds are zero or non-negative.
+        """
+        facility = ConstructionFacility(
+            name="Empty Ledger Test",
+            tranches=[
+                DebtTranche(
+                    name="Test Tranche",
+                    ltc_threshold=0.70,
+                    interest_rate=InterestRate(details=FixedRate(rate=0.06)),
+                    fee_rate=0.01,
+                )
+            ],
+        )
+
+        mock_deal = Mock()
+        mock_deal.name = "Empty Ledger Edge Case"
+
+        context = DealContext(
+            timeline=self.timeline,
+            settings=self.settings,
+            deal=mock_deal,
+            ledger=self.ledger,
+            project_costs=5_000_000,
+        )
+
+        # Execute facility computation with empty ledger (no capital uses added)
+        debt_service = facility.compute_cf(context)
+
+        # Query ledger for proceeds
+        ledger = self.ledger.to_dataframe()
+
+        if not ledger.empty and "item_name" in ledger.columns:
+            proceeds_records = ledger[
+                ledger["item_name"].str.contains("Proceeds", case=False, na=False)
+            ]
+            total_proceeds = proceeds_records["amount"].sum() if not proceeds_records.empty else 0
+        else:
+            total_proceeds = 0
+
+        # Validate that proceeds are non-negative (zero is acceptable)
+        assert total_proceeds >= 0, f"Proceeds should be non-negative, got ${total_proceeds:,.0f}"
+
+        print(f" Empty ledger handled gracefully")
+        print(f" Proceeds with no capital uses: ${total_proceeds:,.0f}")
+
+    def test_facility_with_zero_project_costs_multi_tranche_raises_error(self):
+        """
+        Test that multi-tranche facility raises error with zero project costs.
+
+        Edge Case: Zero project costs with multi-tranche facility (cannot calculate LTC).
+        Expected: ValueError with clear message about missing project costs.
+        """
+        facility = ConstructionFacility(
+            name="Zero Cost Test",
+            tranches=[
+                DebtTranche(
+                    name="Test Tranche",
+                    ltc_threshold=0.70,
+                    interest_rate=InterestRate(details=FixedRate(rate=0.06)),
+                    fee_rate=0.01,
+                )
+            ],
+        )
+
+        mock_deal = Mock()
+        mock_deal.name = "Zero Cost Edge Case"
+
+        context = DealContext(
+            timeline=self.timeline,
+            settings=self.settings,
+            deal=mock_deal,
+            ledger=self.ledger,
+            project_costs=0,  # Zero project costs
+        )
+
+        # Multi-tranche mode requires project costs, should raise ValueError
+        with pytest.raises(
+            ValueError, match="multi-tranche mode REQUIRES project costs"
+        ):
+            facility.compute_cf(context)
+
+    def test_facility_with_explicit_loan_amount_handles_zero_costs(self):
+        """
+        Test that facility with explicit loan_amount handles zero project costs.
+
+        Edge Case: Zero project costs with explicit loan_amount (no LTC calculation needed).
+        Expected: facility.compute_cf executes without error.
+        """
+        facility = ConstructionFacility(
+            name="Explicit Amount Test",
+            loan_amount=5_000_000,  # Explicit loan amount
+            loan_term_months=24,  # 2-year construction loan
+            interest_rate=InterestRate(details=FixedRate(rate=0.06)),
+        )
+
+        mock_deal = Mock()
+        mock_deal.name = "Explicit Loan Amount Edge Case"
+
+        context = DealContext(
+            timeline=self.timeline,
+            settings=self.settings,
+            deal=mock_deal,
+            ledger=self.ledger,
+            project_costs=0,  # Zero project costs (but using explicit loan_amount)
+        )
+
+        # Should not crash with explicit loan_amount
+        debt_service = facility.compute_cf(context)
+
+        # Verify execution completed successfully
+        assert debt_service is not None, "Should return debt service result"
+
+        print(f" Zero project costs handled gracefully with explicit loan_amount")
 
 
 if __name__ == "__main__":
