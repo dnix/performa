@@ -40,4 +40,4 @@ knowledge_base:
     scope: global
 
 # Code-specific settings
-tone_instructions: "Be direct and technical. Focus on correctness, performance, maintainability, and financial calculation precision. Flag potential bugs, edge cases, and test coverage gaps."
+tone_instructions: "Be direct and technical. Focus on correctness, performance, maintainability, financial precision. Validate cash-flow signs, DSCR formula correctness, ledger accuracy, and interest calculations. Flag potential bugs, edge cases, and test coverage gaps."
