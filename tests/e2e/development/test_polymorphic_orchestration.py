@@ -305,9 +305,7 @@ def comprehensive_project() -> DevelopmentProject:
         gross_area=200000.0,
         net_rentable_area=180000.0,
         construction_plan=construction_plan,
-        financing_plan=financing_plan,
         blueprints=[office_blueprint, residential_blueprint],
-        disposition_valuation=disposition_plan,
     )
 
 
@@ -328,7 +326,6 @@ def test_orchestrator_basic_structure(
         gross_area=55000.0,
         net_rentable_area=50000.0,
         construction_plan=simple_construction_plan,
-        financing_plan=simple_financing_plan,
         blueprints=[office_blueprint],
     )
 
@@ -362,7 +359,6 @@ def test_orchestrator_prepare_models_basic(
         gross_area=55000.0,
         net_rentable_area=50000.0,
         construction_plan=simple_construction_plan,
-        financing_plan=simple_financing_plan,
         blueprints=[office_blueprint],
     )
 
@@ -402,7 +398,6 @@ def test_orchestrator_polymorphic_blueprint_processing(
         gross_area=105000.0,
         net_rentable_area=100000.0,
         construction_plan=simple_construction_plan,
-        financing_plan=simple_financing_plan,
         blueprints=[office_blueprint, residential_blueprint],
     )
 
@@ -445,7 +440,6 @@ def test_orchestrator_asset_factory_integration(
         gross_area=55000.0,
         net_rentable_area=50000.0,
         construction_plan=simple_construction_plan,
-        financing_plan=simple_financing_plan,
         blueprints=[office_blueprint],
     )
 
@@ -485,7 +479,6 @@ def test_orchestrator_no_blueprints(
         gross_area=100000.0,
         net_rentable_area=90000.0,
         construction_plan=simple_construction_plan,
-        financing_plan=simple_financing_plan,
         blueprints=[],  # No blueprints
     )
 
@@ -522,7 +515,6 @@ def test_orchestrator_performance_no_conditionals(
         gross_area=150000.0,
         net_rentable_area=100000.0,
         construction_plan=simple_construction_plan,
-        financing_plan=simple_financing_plan,
         blueprints=blueprints,
     )
 
@@ -594,9 +586,9 @@ def test_orchestrator_simplified_vs_old_complexity():
     assert "for blueprint in" in method_source
     assert "to_stabilized_asset" in method_source
 
-    print("✅ Architectural simplification verified!")
-    print("✅ No asset-type conditionals in orchestrator")
-    print("✅ Pure polymorphic dispatch pattern confirmed")
+    print(" Architectural simplification verified!")
+    print(" No asset-type conditionals in orchestrator")
+    print(" Pure polymorphic dispatch pattern confirmed")
 
 
 def test_complete_development_lifecycle(
@@ -669,5 +661,5 @@ def test_end_to_end_cash_flow_generation(
     assert len(cash_flows) > 0  # Should have some periods
 
     print(f"Generated cash flows for {len(cash_flows)} periods")
-    print("✅ End-to-end development analysis successful!")
-    print("✅ Polymorphic architecture produces valid cash flows!")
+    print(" End-to-end development analysis successful!")
+    print(" Polymorphic architecture produces valid cash flows!")

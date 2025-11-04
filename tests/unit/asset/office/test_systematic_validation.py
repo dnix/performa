@@ -1088,7 +1088,7 @@ class TestSystematicValidation:
         assert jan_total_opex < 0, "Total OpEx should be negative (cost)"
         assert jan_noi > 0, "NOI should be positive"
 
-        print("✅ Dependency validation passed for valid 1-level dependency")
+        print(" Dependency validation passed for valid 1-level dependency")
         print(f"   PGR = ${jan_pgr:,.0f}")
         print(f"   Total OpEx = ${jan_total_opex:,.0f}")
         print(f"   NOI = ${jan_noi:,.0f}")
@@ -1182,7 +1182,7 @@ class TestSystematicValidation:
             model=property_model, timeline=timeline, settings=default_settings
         )
         assert scenario is not None
-        print("✅ Default settings (max_depth=2) passed")
+        print(" Default settings (max_depth=2) passed")
 
         # Test 2: Restrictive settings should still work (Level 1 ≤ max_depth=1 needs verification)
         # Note: Our admin fee might actually be creating a self-referential situation that counts as depth 1
@@ -1190,16 +1190,16 @@ class TestSystematicValidation:
             model=property_model, timeline=timeline, settings=restrictive_settings
         )
         assert scenario is not None
-        print("✅ Restrictive settings (max_depth=1) passed")
+        print(" Restrictive settings (max_depth=1) passed")
 
         # Test 3: Permissive settings should definitely work
         scenario = run(
             model=property_model, timeline=timeline, settings=permissive_settings
         )
         assert scenario is not None
-        print("✅ Permissive settings (max_depth=3, allow_complex=True) passed")
+        print(" Permissive settings (max_depth=3, allow_complex=True) passed")
 
-        print("🎯 Configurable dependency validation working correctly!")
+        print(" Configurable dependency validation working correctly!")
         print(
             f"   Default: max_depth={default_settings.calculation.max_dependency_depth}, allow_complex={default_settings.calculation.allow_complex_dependencies}"
         )
@@ -1428,7 +1428,7 @@ class TestSystematicValidation:
         # is_recoverable is no longer serialized (was @computed_field, now @property)
         # This is expected behavior after removing @computed_field
 
-        print("✅ Computed field pattern validation:")
+        print(" Computed field pattern validation:")
         print(
             f"   Non-recoverable (0.0): is_recoverable = {non_recoverable.is_recoverable}"
         )
@@ -1563,7 +1563,7 @@ class TestSystematicValidation:
         assert jan_noi == pytest.approx(expected_noi, rel=1e-6)
 
         print(
-            f"✅ Simple base year stop: ${jan_recovery:,.0f} monthly recovery (excess above base year)"
+            f" Simple base year stop: ${jan_recovery:,.0f} monthly recovery (excess above base year)"
         )
 
     def test_13_base_year_larger_property(self):
@@ -1693,7 +1693,7 @@ class TestSystematicValidation:
         ), f"Base year stop should be ~$120k, got ${actual_base_year_stop:,.0f}"
 
         print(
-            f"✅ Base year recovery with larger property: ${jan_recovery:,.0f} monthly recovery"
+            f" Base year recovery with larger property: ${jan_recovery:,.0f} monthly recovery"
         )
 
     def test_14_base_year_with_gross_up(self):
@@ -1866,7 +1866,7 @@ class TestSystematicValidation:
 
         # 2. Check if gross-up is working (this may reveal a library limitation)
         if jan_recovery == jan_recovery_no_gross_up:
-            print("⚠️  WARNING: Gross-up appears to have no effect. This may indicate:")
+            print("  WARNING: Gross-up appears to have no effect. This may indicate:")
             print("    - Gross-up is not implemented in the library")
             print("    - Gross-up only applies in specific scenarios")
             print("    - Additional configuration is needed")
@@ -1889,7 +1889,7 @@ class TestSystematicValidation:
             jan_recovery_no_gross_up > 0
         ), "Should have positive recovery without gross-up"
 
-        print("✅ Gross-up validation:")
+        print(" Gross-up validation:")
         print(f"   Base Year 2023: ${calculated_base_year:,.0f} annually")
         print(f"   Current 2024: ${jan_opex * 12:,.0f} annually")
         print(f"   Recovery with gross-up: ${jan_recovery:,.0f} monthly")
@@ -2165,7 +2165,7 @@ class TestSystematicValidation:
             abs(jan_recovery - expected_total_recovery) / expected_total_recovery < 0.20
         ), "Total recovery should approximate sum of components"
 
-        print("✅ Multi-tenant base year validation:")
+        print(" Multi-tenant base year validation:")
         print(f"   Current OpEx: ${jan_opex * 12:,.0f} annually")
         print(f"   2022 Base Year: ${base_2022_stop:,.0f} annually")
         print(f"   2023 Base Year: ${base_2023_stop:,.0f} annually")
@@ -2407,7 +2407,7 @@ class TestSystematicValidation:
 
         # 3. Check if cap is working (this may reveal a library limitation)
         if jan_recovery == jan_recovery_uncapped:
-            print("⚠️  WARNING: Cap appears to have no effect. This may indicate:")
+            print("  WARNING: Cap appears to have no effect. This may indicate:")
             print("    - Cap functionality is not implemented in the library")
             print("    - Cap only applies in specific scenarios")
             print("    - Additional configuration is needed")
@@ -2432,7 +2432,7 @@ class TestSystematicValidation:
         assert jan_recovery > 0, "Should have positive capped recovery"
         assert jan_recovery_uncapped > 0, "Should have positive uncapped recovery"
 
-        print("✅ Caps and exclusions validation:")
+        print(" Caps and exclusions validation:")
         print(f"   Base Year 2023: ${capped_base_year:,.0f} annually")
         print(
             f"   Current Recoverable OpEx: ${jan_opex_no_capital * 12:,.0f} annually (actual with growth)"
@@ -2760,7 +2760,7 @@ class TestSystematicValidation:
             abs(conservative_effective_rate - expected_3pct_cap_2024) < 0.20
         ), f"3% cap effective rate ${conservative_effective_rate:.2f}/SF should be near ${expected_3pct_cap_2024:.2f}/SF"
 
-        print("✅ Real-world multi-year cap validation:")
+        print(" Real-world multi-year cap validation:")
         print(f"   2021 Base Year: ${base_year_conservative_psf:.2f}/SF")
         print(
             f"   2024 Market Rate: ${recovery_market_psf + base_year_market_psf:.2f}/SF"
@@ -2955,7 +2955,7 @@ class TestSystematicValidation:
             })
 
         # Portfolio Management Validation
-        print("✅ GlobalSettings Cap Integration Demo:")
+        print(" GlobalSettings Cap Integration Demo:")
         print("   Portfolio-Wide Cap Management Demonstration")
         print(f"   Base Year 2022: ~${results[0]['base_year_psf']:.2f}/SF")
         print(
@@ -2984,12 +2984,12 @@ class TestSystematicValidation:
         ), "Standard cap should be lower than liberal"
 
         print()
-        print("   📊 Portfolio Cap Policy Hierarchy Working Correctly:")
+        print("    Portfolio Cap Policy Hierarchy Working Correctly:")
         print(f"   Conservative (3%): ${conservative_effective:.2f}/SF")
         print(f"   Standard (5%):    ${standard_effective:.2f}/SF")
         print(f"   Liberal (7%):     ${liberal_effective:.2f}/SF")
         print()
-        print("   ✅ Portfolio Cap Policy Hierarchy Demonstration Complete")
+        print("    Portfolio Cap Policy Hierarchy Demonstration Complete")
         print(
             "   Different cap rates successfully create expected tenant savings hierarchy"
         )
@@ -3138,7 +3138,7 @@ class TestSystematicValidation:
             old_fragile_calculation != new_robust_calculation
         ), "Demonstrates improvement"
 
-        print("✅ Area calculation and validation improvements:")
+        print(" Area calculation and validation improvements:")
         print(
             f"   Consistent property: {consistent_property.rent_roll.total_area} SF rent roll = {consistent_property.net_rentable_area} SF NRA"
         )

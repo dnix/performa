@@ -71,7 +71,7 @@ class ValueAddAcquisitionPattern(PatternBase):
     property_name: str = Field(description="Name of the property")
     property_type: Literal["multifamily"] = Field(
         default="multifamily",
-        description="Type of property (currently only multifamily supported)",
+        description="Type of property (multifamily supported)",
     )
 
     # === Acquisition Parameters ===

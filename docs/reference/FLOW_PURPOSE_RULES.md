@@ -380,24 +380,30 @@ else:
 
 **Question:** Why is capitalized interest `Capital Use` not `Financing Service`?
 
-**Answer:** Not paid in cash during construction
+**Answer:** Not paid in cash during construction, but it IS interest (financing cost)
 
 **Classification:**
 ```
-category='Capital'
-subcategory='Soft Costs'
-flow_purpose='Capital Use'
+category='Financing'
+subcategory='Interest Reserve'
+flow_purpose='Capital Use'  ← Special case!
 ```
 
 **Rationale:**
-- Increases development cost basis
-- Not a cash outflow during construction
-- Paid when loan is paid off/refinanced
-- Industry standard: capitalize construction-period interest
+- **Semantically correct**: It IS interest on a loan → `Financing` category ✓
+- **Mechanically correct**: Must have `Capital Use` flow_purpose to:
+  1. Include in total project costs for LTC calculations
+  2. Exclude from debt_service() queries (not a cash payment)
+  3. Add to depreciable basis
+- Industry standard: shown as distinct line item in sources & uses
+
+**Implementation:**
+- Special case in `FlowPurposeMapper`: `INTEREST_RESERVE` → `Capital Use`
+- This is the ONLY financing subcategory that maps to `Capital Use`
 
 **Contrast:**
-- **Paid Interest**: `Financing Service` (cash outflow)
-- **Capitalized Interest**: `Capital Use` (increases project cost)
+- **Paid Interest**: `Financing / Interest Payment / Financing Service` (cash payment)
+- **Capitalized Interest**: `Financing / Interest Reserve / Capital Use` (adds to project cost)
 
 ---
 

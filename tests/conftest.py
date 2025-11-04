@@ -10,14 +10,22 @@ without dealing with complex required fields and dependencies.
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Optional
 
 import pandas as pd
+import pytest
 
-from performa.core.primitives import Timeline
+from performa.core.capital import CapitalPlan
+from performa.core.ledger import Ledger
+from performa.core.primitives import AssetTypeEnum, GlobalSettings, Timeline
+from performa.deal import Deal
+from performa.deal.acquisition import AcquisitionTerms
 from performa.deal.distribution_calculator import DistributionCalculator
 from performa.deal.entities import Partner
+from performa.deal.orchestrator import DealContext
 from performa.deal.partnership import CarryPromote, PartnershipStructure
+from performa.development.project import DevelopmentProject
 
 
 # Timeline Utilities
@@ -109,7 +117,7 @@ def create_waterfall_partnership(
     gp = Partner(name="GP", kind="GP", share=1.0 - lp_share)
 
     carry_promote = CarryPromote(
-        preferred_return_rate=preferred_return_rate, promote_rate=promote_rate
+        pref_hurdle_rate=preferred_return_rate, promote_rate=promote_rate
     )
 
     return PartnershipStructure(
@@ -265,6 +273,98 @@ def validate_cash_flow_conservation(
     return True
 
 
+# Pytest Fixtures
+@pytest.fixture
+def sample_timeline():
+    """Create a 48-month timeline for testing."""
+    return create_test_timeline("2024-01-01", 48)
+
+
+@pytest.fixture
+def sample_settings():
+    """Create default global settings for testing."""
+    return GlobalSettings()
+
+
+@pytest.fixture
+def sample_ledger():
+    """Create an empty ledger for testing."""
+    return Ledger()
+
+
+@pytest.fixture
+def sample_deal(sample_timeline):
+    """
+    Create a minimal deal for testing construction loans.
+
+    Uses a minimal DevelopmentProject as the asset since Deal requires a proper asset type.
+    Construction loan tests focus on debt logic, so the asset can be minimal.
+    """
+    # Create minimal development project
+    project = DevelopmentProject(
+        name="Test Development Project",
+        property_type=AssetTypeEnum.MULTIFAMILY,
+        gross_area=10000.0,
+        net_rentable_area=8500.0,
+        construction_plan=CapitalPlan(name="Test Construction Plan", capital_items=[]),
+        blueprints=[],
+    )
+
+    # Create minimal acquisition
+    acquisition = AcquisitionTerms(
+        name="Test Land Acquisition",
+        timeline=sample_timeline,
+        value=3_500_000.0,
+        acquisition_date=date(2024, 1, 1),
+        closing_costs_rate=0.03,
+    )
+
+    return Deal(
+        name="Test Deal - Construction Loan Testing",
+        asset=project,
+        acquisition=acquisition,
+        # Optional fields - can be added in specific tests
+        # financing=None,  # Default
+        # exit_valuation=None,  # Default
+        # equity_partners=None,  # Default
+    )
+
+
+@pytest.fixture
+def sample_deal_context(sample_timeline, sample_settings, sample_ledger, sample_deal):
+    """
+    Create a minimal DealContext for testing construction loan functionality.
+
+    This fixture provides everything needed to test construction facility methods:
+    - Timeline for period calculations
+    - Settings for global configuration
+    - Ledger for transaction recording
+    - Deal object for deal-level data
+
+    The context is intentionally minimal - test-specific data (NOI, property value, etc.)
+    should be added in individual tests as needed.
+
+    Example:
+        ```python
+        def test_something(sample_deal_context):
+            # Add test-specific NOI data
+            noi = pd.Series(10000, index=sample_deal_context.timeline.period_index)
+            sample_deal_context.noi_series = noi
+
+            # Use context with facility
+            facility.compute_cf(sample_deal_context)
+        ```
+    """
+    return DealContext(
+        timeline=sample_timeline,
+        settings=sample_settings,
+        ledger=sample_ledger,
+        deal=sample_deal,
+        noi_series=None,  # Test-specific - populate as needed
+        project_costs=None,  # Test-specific - populate as needed
+    )
+
+
 # Export commonly used utilities at module level
 __all__ = [
     "create_test_timeline",
@@ -274,4 +374,10 @@ __all__ = [
     "create_simple_cash_flows",
     "validate_distribution_results_structure",
     "validate_cash_flow_conservation",
+    # Fixtures
+    "sample_timeline",
+    "sample_settings",
+    "sample_ledger",
+    "sample_deal",
+    "sample_deal_context",
 ]

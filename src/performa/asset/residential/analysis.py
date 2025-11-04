@@ -210,7 +210,13 @@ class ResidentialAnalysisScenario(AnalysisScenarioBase):
         Handles progressive lease start dates for development projects
         and injects resolved object references for performance.
         """
-        suite_id = f"{unit_spec.unit_type_name}_{unit_index + 1:03d}"
+        # CRITICAL FIX: Include lease start date in suite_id to avoid collisions
+        # when multiple absorption cohorts have the same unit_type_name
+        if unit_spec.lease_start_date:
+            date_suffix = unit_spec.lease_start_date.strftime("%Y%m")
+            suite_id = f"{unit_spec.unit_type_name}_{date_suffix}_{unit_index + 1:03d}"
+        else:
+            suite_id = f"{unit_spec.unit_type_name}_{unit_index + 1:03d}"
 
         # Configure lease term from rollover profile
         lease_term_months = unit_spec.rollover_profile.term_months

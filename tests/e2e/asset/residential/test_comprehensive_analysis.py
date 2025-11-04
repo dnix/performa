@@ -70,8 +70,6 @@ class TestLargeScaleProperties:
                 name="Market Growth", value=0.035
             ),  # 3.5% annual
             renewal_rent_increase_percent=0.028,  # 2.8% renewal increases
-            concessions_months=1,  # 1 month free for new leases
-            capital_plan_id=None,  # No capital plan for basic rollover (UUID-based architecture)
             term_months=12,
         )
 
@@ -81,8 +79,6 @@ class TestLargeScaleProperties:
                 name="Renewal Growth", value=0.025
             ),  # 2.5% for renewals
             renewal_rent_increase_percent=0.028,
-            concessions_months=0,  # No concessions for renewals
-            capital_plan_id=None,  # No costs for renewals (UUID-based architecture)
             term_months=12,
         )
 
@@ -299,7 +295,7 @@ class TestLargeScaleProperties:
         # Expected monthly income (weighted by unit counts)
         expected_monthly_income = rent_roll.total_monthly_income_potential
 
-        print("\n📊 FINANCIAL RESULTS")
+        print("\n FINANCIAL RESULTS")
         print(f"Expected Monthly Income: ${expected_monthly_income:,.0f}")
 
         # Find PGR column (handle potential enum formatting)
@@ -314,7 +310,7 @@ class TestLargeScaleProperties:
             assert actual_pgr == pytest.approx(expected_monthly_income, rel=0.01)
 
         # Performance validation - large property should complete quickly
-        print("✅ Large scale analysis completed successfully!")
+        print(" Large scale analysis completed successfully!")
         print(f"   - 250 units → {len(orchestrator.models)} total models")
         print("   - 60-month projection generated")
         print("   - Complex unit mix with 6 unit types processed")
@@ -334,7 +330,6 @@ class TestLargeScaleProperties:
         # Simple rollover profile for performance test
         rollover_terms = ResidentialRolloverLeaseTerms(
             market_rent=2200.0,
-            capital_plan_id=None,  # No capital plan for simple test (UUID-based architecture)
             term_months=12,
         )
 
@@ -408,7 +403,7 @@ class TestLargeScaleProperties:
             losses=losses,
         )
 
-        print("\n⚡ PERFORMANCE STRESS TEST")
+        print("\n PERFORMANCE STRESS TEST")
         print(f"Property: {property_model.name}")
         print(f"Total Units: {property_model.unit_count}")
         print(f"Analysis Periods: {timeline.duration_months}")
@@ -440,7 +435,7 @@ class TestLargeScaleProperties:
         summary_df = result.summary_df
         assert len(summary_df) == 36
 
-        print("✅ Performance test completed!")
+        print(" Performance test completed!")
         print(f"   - Execution time: {execution_time:.2f} seconds")
         print(f"   - 500 units → {len(orchestrator.models)} total models")
         print(
@@ -478,8 +473,6 @@ class TestComplexScenarios:
                 name="Premium Growth", value=0.045
             ),  # 4.5% annual
             renewal_rent_increase_percent=0.035,
-            concessions_months=0,  # No concessions needed
-            capital_plan_id=None,  # No capital plan for premium units (UUID-based architecture)
             term_months=12,
         )
 
@@ -499,8 +492,6 @@ class TestComplexScenarios:
                 name="Standard Growth", value=0.025
             ),  # 2.5% annual
             renewal_rent_increase_percent=0.020,
-            concessions_months=1,  # Some concessions needed
-            capital_plan_id=None,  # No capital plan for standard units (UUID-based architecture)
             term_months=12,
         )
 
@@ -643,7 +634,7 @@ class TestComplexScenarios:
             standard_leases
         )
 
-        print("✅ Value-add analysis completed!")
+        print(" Value-add analysis completed!")
         print(f"   - Premium tier average rent: ${premium_avg_rent:,.0f}")
         print(f"   - Standard tier average rent: ${standard_avg_rent:,.0f}")
         print(
@@ -664,7 +655,7 @@ def test_comprehensive_suite_discovery():
     assert hasattr(TestLargeScaleProperties, "test_performance_stress_test")
     assert hasattr(TestComplexScenarios, "test_value_add_positioning_strategy")
 
-    print("✅ Comprehensive test suite structure validated!")
+    print(" Comprehensive test suite structure validated!")
 
 
 if __name__ == "__main__":

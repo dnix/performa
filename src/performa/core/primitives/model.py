@@ -17,5 +17,5 @@ class Model(BaseModel):
         arbitrary_types_allowed=True,
         frozen=True,  # Immutable models; runtime mutable state lives in external objects
         slots=True,  # Faster attribute access and reduced memory usage
-        # extra="forbid",  # TODO: Enable after parameter validations are aligned
+        extra="forbid",  # Catches typos and missing field definitions immediately
     )

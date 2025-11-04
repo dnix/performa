@@ -576,9 +576,9 @@ if __name__ == "__main__":
 
         print("=" * 60)
         print(
-            "✅ ALL TESTS PASSED - Library calculations validated against independent formulas!"
+            " ALL TESTS PASSED - Library calculations validated against independent formulas!"
         )
 
     except Exception as e:
-        print(f"❌ TEST FAILED: {e}")
+        print(f" TEST FAILED: {e}")
         raise

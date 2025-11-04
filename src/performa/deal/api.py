@@ -12,6 +12,7 @@ ledger. Asset-only analysis is provided in `performa.analysis.api`.
 from __future__ import annotations
 
 import logging
+from datetime import date
 from typing import TYPE_CHECKING, Optional
 
 import pandas as pd
@@ -101,6 +102,13 @@ def analyze(
     # Initialize default settings if not provided
     if settings is None:
         settings = GlobalSettings()
+
+    # CRITICAL FIX: Sync analysis_start_date with timeline if using default (today)
+    # This ensures rent growth calculations are based on actual deal timeline, not current date
+    if settings.analysis_start_date == date.today():
+        settings = settings.model_copy(
+            update={"analysis_start_date": timeline.start_date.to_timestamp().date()}
+        )
 
     # Clip timeline at exit date if disposition occurs before timeline end
     exit_period = _extract_exit_period(deal, timeline)

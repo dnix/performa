@@ -9,7 +9,7 @@ from typing import Literal, Optional
 
 from pydantic import Field, model_validator
 
-from .enums import FrequencyEnum
+from .enums import FrequencyEnum, SweepMode
 from .model import Model
 from .types import FloatBetween0And1, PositiveFloat, PositiveInt
 
@@ -109,7 +109,7 @@ class CalculationSettings(Model):
     )
     day_count_convention: DayCountConvention = Field(
         default=DayCountConvention.ACTUAL_ACTUAL,
-        description="Day count convention for calculations (currently informational).",
+        description="Day count convention for calculations.",
     )
     fail_on_error: bool = Field(
         default=False,
@@ -200,10 +200,8 @@ class RecoverySettings(Model):
     )
 
     # TODO: Centralize expense cap functionality from Recovery models to global settings
-
-    # TODO: Future expense cap functionality integration
-    # The cap functionality is currently implemented at the Recovery model level
-    # Future enhancement could include:
+    # Cap functionality is implemented at the Recovery model level.
+    # Potential centralized settings could include:
     # - default_cap_rate: Optional[PositiveFloat] for portfolio-wide defaults
     # - cap_methodology: Literal["compound", "simple"] for calculation method
     # - portfolio_cap_policies: Dict for property-type specific defaults
@@ -241,6 +239,47 @@ class ValuationSettings(Model):
         default=0.03, description="Transaction costs as a percentage of exit value."
     )
 
+    development_valuation_method: Literal["cost", "income", "auto"] = Field(
+        default="auto",
+        description=(
+            "Valuation method: 'cost' (land + costs), 'income' (NOI/cap rate), "
+            "or 'auto' (detect phase and select method)."
+        ),
+    )
+    development_phase_noi_threshold: FloatBetween0And1 = Field(
+        default=0.70,
+        description=(
+            "NOI threshold for phase detection (as fraction of stabilized NOI). "
+            "Higher = stay in cost mode longer. Only used when method='auto'."
+        ),
+    )
+    development_phase_capex_threshold: FloatBetween0And1 = Field(
+        default=0.01,
+        description=(
+            "Monthly cost growth threshold for phase detection (as fraction). "
+            "Active capital deployment keeps cost method. Only used when method='auto'."
+        ),
+    )
+
+
+class FinancingSettings(Model):
+    """Settings for debt and equity financing behavior."""
+
+    default_sweep_mode: Optional[SweepMode] = Field(
+        default=None,
+        description=(
+            "Default cash sweep mode for debt facilities. "
+            "None = no sweep, TRAP = escrow until release, PREPAY = mandatory prepayment. "
+            "Individual facilities can override this setting."
+        ),
+    )
+
+    # TODO: Future financing settings
+    # - default_loan_term_years: Optional[PositiveInt]
+    # - default_amortization_years: Optional[PositiveInt]
+    # - default_preferred_return_rate: Optional[PositiveFloat]
+    # - default_promote_structure: Optional[str]
+
 
 # --- Main Global Settings Class ---
 
@@ -259,6 +298,7 @@ class GlobalSettings(Model):
     inflation: InflationSettings = Field(default_factory=InflationSettings)
     recoveries: RecoverySettings = Field(default_factory=RecoverySettings)
     valuation: ValuationSettings = Field(default_factory=ValuationSettings)
+    financing: FinancingSettings = Field(default_factory=FinancingSettings)
     percentage_rent: PercentageRentSettings = Field(
         default_factory=PercentageRentSettings
     )

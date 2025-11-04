@@ -138,6 +138,10 @@ class PivotTableReport(BaseReport):
         """
         Aggregate data by time periods and create pivot table structure.
 
+        Uses appropriate aggregation functions based on row type:
+        - Flows (Revenue, Expense, etc.): Sum across period (total activity)
+        - Stocks (Valuation, Balance Sheet): Last value in period (point-in-time)
+
         Args:
             df: Prepared ledger DataFrame
             frequency: Aggregation frequency ('M', 'Q', 'A')
@@ -154,22 +158,54 @@ class PivotTableReport(BaseReport):
         # Create hierarchical index for categories and subcategories
         df["line_item"] = df["category"] + " → " + df["subcategory"]
 
-        # Aggregate by period and line item
-        pivot_df = df.pivot_table(
-            index="line_item",
-            columns="period",
-            values="amount",
-            aggfunc="sum",
-            fill_value=0.0,
-        )
+        # Separate stocks from flows
+        stock_categories = ["Valuation"]  # Point-in-time values
+
+        flow_df = df[~df["category"].isin(stock_categories)]
+        stock_df = df[df["category"].isin(stock_categories)]
+
+        # Aggregate flows (sum within period)
+        if not flow_df.empty:
+            flow_pivot = flow_df.pivot_table(
+                index="line_item",
+                columns="period",
+                values="amount",
+                aggfunc="sum",  # Sum for flows (total activity)
+                fill_value=0.0,
+            )
+        else:
+            flow_pivot = pd.DataFrame()
+
+        # Aggregate stocks (last value in period)
+        if not stock_df.empty:
+            stock_pivot = stock_df.pivot_table(
+                index="line_item",
+                columns="period",
+                values="amount",
+                aggfunc="last",  # Last value for stocks (point-in-time)
+                fill_value=0.0,
+            )
+        else:
+            stock_pivot = pd.DataFrame()
+
+        # Combine flows and stocks
+        if not flow_pivot.empty and not stock_pivot.empty:
+            pivot_df = pd.concat([flow_pivot, stock_pivot], axis=0)
+        elif not flow_pivot.empty:
+            pivot_df = flow_pivot
+        elif not stock_pivot.empty:
+            pivot_df = stock_pivot
+        else:
+            pivot_df = pd.DataFrame()
 
         # Sort periods chronologically
-        pivot_df = pivot_df.reindex(sorted(pivot_df.columns), axis=1)
+        if not pivot_df.empty:
+            pivot_df = pivot_df.reindex(sorted(pivot_df.columns), axis=1)
 
-        # Sort line items logically (Revenue first, then Expenses)
-        line_items = pivot_df.index.tolist()
-        sorted_line_items = self._sort_line_items(line_items)
-        pivot_df = pivot_df.reindex(sorted_line_items)
+            # Sort line items logically (Revenue first, then Expenses)
+            line_items = pivot_df.index.tolist()
+            sorted_line_items = self._sort_line_items(line_items)
+            pivot_df = pivot_df.reindex(sorted_line_items)
 
         return pivot_df
 
@@ -247,7 +283,10 @@ class PivotTableReport(BaseReport):
 
     def _add_totals_column(self, pivot_df: pd.DataFrame) -> pd.DataFrame:
         """
-        Add totals column showing row sums.
+        Add totals column with appropriate aggregation based on row type.
+
+        For flows (Revenue, Expense): Sum across all periods (total activity)
+        For stocks (Valuation): Last value (ending balance)
 
         Args:
             pivot_df: Pivot table DataFrame
@@ -256,7 +295,32 @@ class PivotTableReport(BaseReport):
             DataFrame with 'Total' column added
         """
         df_with_totals = pivot_df.copy()
-        df_with_totals["Total"] = pivot_df.sum(axis=1)
+
+        # Determine which rows are stocks vs flows based on line item name
+        stock_categories = ["Valuation"]  # Point-in-time values
+
+        totals = []
+        for line_item in pivot_df.index:
+            # Extract category from line item (format: "Category → Subcategory")
+            if " → " in line_item:
+                category = line_item.split(" → ")[0]
+            else:
+                category = line_item.split()[0]  # Fallback for subtotals
+
+            # Apply appropriate aggregation
+            if category in stock_categories:
+                # For stocks: show ending value (last non-zero value)
+                row_values = pivot_df.loc[line_item]
+                # Get last non-zero value, or last value if all zeros
+                non_zero = row_values[row_values != 0]
+                total = non_zero.iloc[-1] if not non_zero.empty else row_values.iloc[-1]
+            else:
+                # For flows: sum across all periods
+                total = pivot_df.loc[line_item].sum()
+
+            totals.append(total)
+
+        df_with_totals["Total"] = totals
         return df_with_totals
 
     def _format_for_display(self, pivot_df: pd.DataFrame) -> pd.DataFrame:

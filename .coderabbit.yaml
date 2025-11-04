@@ -1,0 +1,43 @@
+# CodeRabbit Configuration
+# Documentation: https://docs.coderabbit.ai/getting-started/configure-coderabbit
+
+# Language and review settings
+language: en-US
+early_access: false
+enable_free_tier: true
+
+# Review configuration
+reviews:
+  # Request changes workflow
+  request_changes_workflow: false
+  
+  # High-level review settings
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  
+  # GitHub Checks timeout (default: 90000ms, max: 900000ms = 15 minutes)
+  tools:
+    github-checks:
+      enabled: true
+      timeout_ms: 600000  # 10 minutes timeout
+  
+  # Auto-review settings
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+
+# Chat configuration
+chat:
+  auto_reply: true
+
+# Knowledge base settings
+knowledge_base:
+  learnings:
+    scope: global
+
+# Code-specific settings
+tone_instructions: "Be direct and technical. Focus on correctness, performance, maintainability, financial precision. Validate cash-flow signs, DSCR formula correctness, ledger accuracy, and interest calculations. Flag potential bugs, edge cases, and test coverage gaps."

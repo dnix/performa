@@ -73,11 +73,9 @@ def sample_analysis_context(sample_global_settings: GlobalSettings) -> AnalysisC
 
     # Create required losses structure
     general_vacancy = ResidentialGeneralVacancyLoss(
-        name="General Vacancy",
         rate=0.05,  # 5% vacancy
     )
     collection_loss = ResidentialCreditLoss(
-        name="Collection Loss",
         rate=0.02,  # 2% collection loss
     )
     losses = ResidentialLosses(
@@ -334,11 +332,9 @@ def test_rollover_multiple_periods_iterative(sample_analysis_context: AnalysisCo
 
     # Create required losses structure
     general_vacancy = ResidentialGeneralVacancyLoss(
-        name="General Vacancy",
         rate=0.05,  # 5% vacancy
     )
     collection_loss = ResidentialCreditLoss(
-        name="Collection Loss",
         rate=0.02,  # 2% collection loss
     )
     losses = ResidentialLosses(

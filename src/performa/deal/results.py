@@ -69,6 +69,11 @@ class DealResults:  # noqa: PLR0904
         return self._timeline
 
     @property
+    def ledger(self) -> "Ledger":
+        """Access to the underlying Ledger instance."""
+        return self._ledger
+
+    @property
     def ledger_df(self) -> pd.DataFrame:
         """Direct access to the ledger DataFrame for reporting and analysis."""
         return self._ledger.ledger_df()
@@ -365,69 +370,162 @@ class DealResults:  # noqa: PLR0904
     # ==========================================================================
 
     @cached_property
-    def minimum_dscr(self) -> Optional[float]:
-        """Minimum Debt Service Coverage Ratio across all periods."""
+    def stabilized_dscr(self) -> Optional[float]:
+        """
+        Stabilized DSCR - trailing 12-month average for lender underwriting.
+
+        This is the PRIMARY DSCR metric for permanent loan underwriting and
+        should be used in investor presentations. It excludes:
+        - Construction/lease-up ramp periods
+        - Post-payoff periods
+        - One-time refinancing events
+
+        Returns:
+            Trailing 12-month average DSCR, or None if insufficient operating history
+        """
         dscr_series = self._calculate_dscr_series()
-        return dscr_series.min() if not dscr_series.empty else None
+        noi_series = self.noi
+        debt_service_series = self._queries.recurring_debt_service()
+
+        # Align series to noi_series index (avoid misaligned boolean masking)
+        dscr_aligned = dscr_series.reindex(noi_series.index)
+        debt_service_aligned = debt_service_series.reindex(noi_series.index)
+
+        # Filter to operating periods only (NOI > 0, recurring DS ≠ 0)
+        # NaNs in aligned series are treated as non-operating
+        operating_mask = (
+            (noi_series > 0)
+            & (debt_service_aligned.notna())
+            & (debt_service_aligned != 0)
+        )
+        operating_dscr = dscr_aligned[operating_mask].dropna()
+
+        if operating_dscr.empty or len(operating_dscr) < 12:
+            return None
+
+        # Return trailing 12-month average
+        return float(operating_dscr.tail(12).mean())
 
     @cached_property
-    def average_dscr(self) -> Optional[float]:
-        """Average Debt Service Coverage Ratio across periods with debt."""
+    def minimum_operating_dscr(self) -> Optional[float]:
+        """
+        Minimum DSCR during operating periods (worst-case covenant breach).
+
+        Excludes construction periods and focuses on actual operations.
+        This shows the worst DSCR a lender would experience during normal
+        operations (not including one-time refinancing events).
+
+        Returns:
+            Minimum DSCR across operating periods, or None if no operations
+        """
         dscr_series = self._calculate_dscr_series()
-        # Only average periods with actual debt service
-        non_zero_dscr = dscr_series[dscr_series > 0]
-        return non_zero_dscr.mean() if not non_zero_dscr.empty else None
+        noi_series = self.noi
+        debt_service_series = self._queries.recurring_debt_service()
+
+        # Align series to noi_series index (avoid misaligned boolean masking)
+        dscr_aligned = dscr_series.reindex(noi_series.index)
+        debt_service_aligned = debt_service_series.reindex(noi_series.index)
+
+        # Filter to operating periods only
+        # NaNs in aligned series are treated as non-operating
+        operating_mask = (
+            (noi_series > 0)
+            & (debt_service_aligned.notna())
+            & (debt_service_aligned != 0)
+        )
+        operating_dscr = dscr_aligned[operating_mask].dropna()
+
+        if operating_dscr.empty:
+            return None
+
+        return float(operating_dscr.min())
+
+    @cached_property
+    def covenant_compliance_rate(self) -> Optional[float]:
+        """
+        Percentage of operating periods meeting 1.25x DSCR covenant.
+
+        Industry-standard multifamily covenant is typically 1.25x DSCR.
+        This metric shows what percentage of operating periods would meet
+        that covenant, critical for lender approval.
+
+        Returns:
+            Percentage (0-100) of operating periods with DSCR >= 1.25x
+        """
+        dscr_series = self._calculate_dscr_series()
+        noi_series = self.noi
+        debt_service_series = self._queries.recurring_debt_service()
+
+        # Align series to noi_series index (avoid misaligned boolean masking)
+        dscr_aligned = dscr_series.reindex(noi_series.index)
+        debt_service_aligned = debt_service_series.reindex(noi_series.index)
+
+        # Filter to operating periods only
+        # NaNs in aligned series are treated as non-operating
+        operating_mask = (
+            (noi_series > 0)
+            & (debt_service_aligned.notna())
+            & (debt_service_aligned != 0)
+        )
+        operating_dscr = dscr_aligned[operating_mask].dropna()
+
+        if operating_dscr.empty:
+            return None
+
+        covenant_threshold = 1.25
+        periods_above = (operating_dscr >= covenant_threshold).sum()
+
+        return float((periods_above / len(operating_dscr)) * 100)
 
     @cached_property
     def dscr_metrics(self) -> Dict[str, Any]:
         """
-        Get comprehensive DSCR metrics including covenant monitoring.
-
-        THIS IS CRITICAL FOR LENDER COVENANT MONITORING!
+        Comprehensive DSCR metrics for lender covenant monitoring.
 
         Returns:
             Dict containing:
             - dscr_series: Full time series of DSCR values
-            - minimum_dscr: Minimum DSCR value
-            - average_dscr: Average DSCR value
-            - covenant_analysis: Periods below various thresholds
-            - trend_direction: Whether DSCR is improving/declining
+            - stabilized_dscr: Trailing 12-month average (primary metric)
+            - minimum_operating_dscr: Worst-case during operations
+            - covenant_compliance_rate: % of periods with DSCR >= 1.25x
+            - covenant_analysis: Detailed covenant breach analysis
+            - trend_slope: Linear regression slope of DSCR over time
+            - trend_direction: "improving", "declining", or "stable"
         """
-        # Calculate DSCR series directly from ledger (no circular dependencies)
         dscr_series = self._calculate_dscr_series()
 
         if dscr_series.empty or dscr_series.sum() == 0:
             return {
                 "dscr_series": None,
-                "minimum_dscr": None,
-                "average_dscr": None,
-                "median_dscr": None,
+                "stabilized_dscr": None,
+                "minimum_operating_dscr": None,
+                "covenant_compliance_rate": None,
                 "covenant_analysis": {},
                 "trend_slope": None,
                 "trend_direction": None,
             }
 
-        # Calculate comprehensive metrics directly
-        non_zero_dscr = dscr_series[dscr_series > 0]
-
         return {
             "dscr_series": dscr_series,
-            "minimum_dscr": float(dscr_series.min()) if not dscr_series.empty else None,
-            "average_dscr": float(non_zero_dscr.mean())
-            if not non_zero_dscr.empty
-            else None,
-            "median_dscr": float(dscr_series.median())
-            if not dscr_series.empty
-            else None,
+            "stabilized_dscr": self.stabilized_dscr,
+            "minimum_operating_dscr": self.minimum_operating_dscr,
+            "covenant_compliance_rate": self.covenant_compliance_rate,
             "covenant_analysis": self._calculate_covenant_analysis(dscr_series),
             "trend_slope": self._calculate_dscr_trend_slope(dscr_series),
             "trend_direction": self._determine_dscr_trend_direction(dscr_series),
         }
 
     def _calculate_dscr_series(self) -> pd.Series:
-        """Calculate DSCR for each period with comprehensive coverage."""
+        """
+        Calculate DSCR for each period using recurring debt service only.
+
+        Uses recurring_debt_service() to exclude one-time payoff events
+        (refinancing payoffs, prepayments at disposition) which distort
+        covenant monitoring. Lenders care about NOI coverage of RECURRING
+        obligations (I+P), not one-time financing events.
+        """
         noi_series = self.noi
-        debt_service_series = self._queries.debt_service()
+        debt_service_series = self._queries.recurring_debt_service()
 
         # Align indices
         index = self._timeline.period_index
@@ -792,8 +890,9 @@ class DealResults:  # noqa: PLR0904
             "equity_multiple": self.equity_multiple,
             "unlevered_return_on_cost": self.unlevered_return_on_cost,
             "net_profit": self.net_profit,
-            "minimum_dscr": self.minimum_dscr,
-            "average_dscr": self.average_dscr,
+            "stabilized_dscr": self.stabilized_dscr,
+            "minimum_operating_dscr": self.minimum_operating_dscr,
+            "covenant_compliance_rate": self.covenant_compliance_rate,
             "total_investment": total_investment,
             "total_distributions": total_distributions,
         }
@@ -833,8 +932,6 @@ class DealResults:  # noqa: PLR0904
             "total_debt_service": debt_service_series.sum()
             if not debt_service_series.empty
             else 0.0,
-            "minimum_dscr": self.minimum_dscr,
-            "average_dscr": self.average_dscr,
             "facility_count": len(self._deal.financing.facilities),
             "dscr_metrics": self.dscr_metrics,
         }

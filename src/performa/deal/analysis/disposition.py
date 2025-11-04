@@ -134,9 +134,9 @@ class DispositionAnalyzer(AnalysisSpecialist):
         disp_period = gross_proceeds[gross_proceeds > 0].index[0]
         net_proceeds[disp_period] = transaction.net_to_equity
 
-        # CRITICAL FIX: Record net proceeds as equity distribution to ledger
-        # ALWAYS record the disposition distribution, even if it's zero
-        # This ensures the transaction is properly recorded in the ledger
+        # Record net proceeds as equity distribution to ledger
+        # Always record the disposition distribution (even if zero) to ensure
+        # the transaction appears properly in the ledger for audit trail
         self._record_equity_distribution(
             ledger=self.ledger,
             amount=transaction.net_to_equity,
@@ -282,8 +282,9 @@ class DispositionAnalyzer(AnalysisSpecialist):
         """
         Get outstanding balance for a debt facility at disposition.
 
-        CRITICAL: This now properly checks if a facility was already paid off
-        (e.g., construction loan paid during refinancing) by querying the ledger.
+        This method queries the ledger to determine actual outstanding balance,
+        accounting for facilities that were paid off during refinancing
+        (e.g., construction loans replaced by permanent financing).
 
         Args:
             facility: Debt facility to get balance for
@@ -293,9 +294,9 @@ class DispositionAnalyzer(AnalysisSpecialist):
         Returns:
             Outstanding balance amount (0 if already paid off)
         """
-        # CRITICAL FIX: Check ledger for actual outstanding balance
-        # Don't rely on facility's get_outstanding_balance which may not
-        # account for refinancing payoffs
+        # Query ledger for actual outstanding balance
+        # This accounts for refinancing payoffs that may not be reflected
+        # in the facility's internal balance tracking
 
         try:
             ledger_df = ledger.ledger_df()
@@ -327,9 +328,17 @@ class DispositionAnalyzer(AnalysisSpecialist):
                     return 0.0
 
             # Get loan proceeds for this facility
+            # Check for both initial loan proceeds and refinancing proceeds
+            # Permanent loans originated via refinancing use REFINANCING_PROCEEDS subcategory
             proceeds_mask = (
                 ledger_df["item_name"].str.contains(facility.name, na=False)
-            ) & (ledger_df["subcategory"] == FinancingSubcategoryEnum.LOAN_PROCEEDS)
+            ) & (
+                (ledger_df["subcategory"] == FinancingSubcategoryEnum.LOAN_PROCEEDS)
+                | (
+                    ledger_df["subcategory"]
+                    == FinancingSubcategoryEnum.REFINANCING_PROCEEDS
+                )
+            )
             proceeds = ledger_df[proceeds_mask]["amount"].sum()
 
             # Get all debt service payments using disaggregated I&P approach
@@ -354,7 +363,7 @@ class DispositionAnalyzer(AnalysisSpecialist):
 
             # For permanent loans, calculate actual remaining balance after principal payments
             if "Permanent" in facility.name or hasattr(facility, "amortization_months"):
-                # NEW: Calculate remaining balance after principal payments
+                # Calculate remaining balance after principal payments
                 # Get principal payments that have reduced the loan balance
                 principal_mask = (
                     ledger_df["item_name"].str.contains(facility.name, na=False)

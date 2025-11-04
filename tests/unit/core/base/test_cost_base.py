@@ -8,7 +8,6 @@ from datetime import date
 import pytest
 
 from performa.core.base import (
-    CommissionTier,
     LeasingCommissionBase,
     TenantImprovementAllowanceBase,
 )
@@ -28,8 +27,7 @@ def test_leasing_commission_base_instantiation(sample_timeline: Timeline):
     item = LeasingCommissionBase(
         name="Standard LC",
         timeline=sample_timeline,
-        value=0,  # Simplified for base test
-        tiers=[CommissionTier(year_start=1, year_end=5, rate=0.06)],
+        value=5000.0,  # Simplified for base test
     )
     assert item.name == "Standard LC"
 

@@ -50,7 +50,7 @@ class TestDealAnalyzeValidation:
             rent_roll=OfficeRentRoll(
                 leases=[], vacant_suites=[]
             ),  # Empty for simplicity
-            expenses=OfficeExpenses(opex_psf=15.0),
+            expenses=OfficeExpenses(),
             losses=OfficeLosses(),
         )
 
@@ -64,7 +64,6 @@ class TestDealAnalyzeValidation:
                 name="Test Acquisition",
                 timeline=timeline,
                 value=10_000_000,
-                purchase_price=10_000_000,
                 acquisition_date=date(2024, 1, 1),
             ),
         )

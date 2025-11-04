@@ -231,8 +231,13 @@ class ResidentialLease(LeaseBase):
             # Default fallback to blended terms
             lease_terms = profile.blend_lease_terms()
 
-        # Calculate next rent based on chosen terms
-        next_rent = lease_terms.market_rent
+        # Calculate next rent based on chosen terms, with growth applied
+        # CRITICAL FIX: Use _calculate_rent() to apply market_rent_growth, not raw market_rent
+        next_rent = profile._calculate_rent(
+            terms=lease_terms,
+            as_of_date=next_start_date,
+            global_settings=context.settings,
+        )
 
         # === LEASE TERM CONFIGURATION ===
         # Use lease term from chosen terms, or fallback to rollover profile default

@@ -48,6 +48,9 @@ dependencies = [
     "pyxirr",
     "pyobsplot",
     "squarify",
+    "marimo>=0.16.0",
+    "plotly>=5.24.1",
+    "altair>=5.4.0",
     "duckdb>=0.9.0",
 ]
 
@@ -59,12 +62,13 @@ dev = [
     "pytest-cov",
     "deptry",
     "vulture",
+    # "complexipy",
+]
+notebooks = [
+    "ipykernel",  # For Jupyter Notebooks
+    "nbformat",  # For Jupyter Notebooks
     "marimo",
-    "streamlit",
-    "streamlit-extras",
-    "streamlit-pydantic @ git+https://github.com/HIL340/streamlit-pydantic.git@pydantic-2.7",
     "watchdog",
-    "complexipy",
 ]
 
 [project.urls]

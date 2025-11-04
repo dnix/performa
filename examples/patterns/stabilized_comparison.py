@@ -5,42 +5,43 @@
 """
 Stabilized Deal Modeling: Composition vs Convention
 
-This example demonstrates two approaches to modeling the same stabilized multifamily deal:
+This example demonstrates two approaches to modeling a stabilized multifamily acquisition:
 
 1. **COMPOSITION APPROACH** (Manual Assembly):
-   - Manually create each component (asset, financing, partnership, etc.)
-   - Full control over every detail
-   - Requires deep knowledge of Performa architecture
-   - ~200+ lines of configuration code
-   - Current approach used in production
+   - Manually assemble each component (asset, financing, partnership, etc.)
+   - Full control over every parameter
+   - Requires knowledge of Performa architecture
+   - ~200 lines of configuration code
 
 2. **CONVENTION APPROACH** (Pattern Interface):
    - High-level parameterized interface
    - Industry-standard defaults and validation
-   - Type-safe parameter flattening
+   - Type-safe parameter handling
    - ~20 lines of configuration
-   - Future approach for rapid deal modeling
 
-Both approaches model the identical stabilized acquisition:
-- Maple Ridge Apartments: $12M acquisition
-- Multifamily: 120 units, 95% occupied, $1,000/month average rent
+Both approaches model the same stabilized acquisition:
+- Maple Ridge Apartments: $23M acquisition price
+- 120 multifamily units at 95% occupancy, $1,400/month average rent
 - Permanent financing at 70% LTV
 - GP/LP partnership with pari-passu distribution
-- 5-year hold period with 6.5% exit cap rate
+- 5-year hold period with 6.0% exit cap rate
 
-## Key Benefits of Pattern Approach
+The example demonstrates how both approaches produce mathematically equivalent
+deal analysis results while differing in implementation complexity and abstraction level.
 
-**Developer Experience**:
-- Reduced configuration complexity (200+ lines → 20 lines)
-- Type safety with Pydantic validation
-- Industry-standard parameter names and defaults
-- Built-in business rule validation
+## When to Use Each Approach
 
-**Maintainability**:
-- Centralized deal archetype logic
-- Consistent parameter handling across deals
-- Version-controlled deal conventions
-- Easier testing and validation
+**Use Composition When:**
+- You need fine-grained control over specific parameters
+- Building non-standard deal structures
+- Integrating with external systems or data sources
+- Prototyping new deal archetypes
+
+**Use Pattern Convention When:**
+- Creating standard deal structures quickly
+- Generating multiple scenarios with consistent parameters
+- Leveraging industry-standard assumptions and methodologies
+- Prioritizing code clarity and maintainability
 """
 
 import traceback
@@ -80,24 +81,27 @@ from performa.valuation import DirectCapValuation
 
 def create_deal_via_composition():
     """
-    COMPOSITION APPROACH: Manual assembly of all deal components.
+    Create a deal by manually assembling all components.
 
-    This demonstrates the current production approach requiring
-    detailed knowledge of Performa architecture and explicit
-    configuration of every component.
+    This approach demonstrates explicit control over every deal aspect through
+    direct component configuration. Each component (asset, financing, partnership)
+    is built separately and assembled into a complete deal specification.
 
     Advantages:
-    - Full control over every parameter
-    - Access to advanced features
-    - No abstraction limitations
+    - Full control over every parameter and advanced features
+    - Access to sophisticated customization and edge cases
+    - No abstraction limitations for complex scenarios
 
     Disadvantages:
-    - High complexity and learning curve
-    - Verbose configuration (200+ lines)
-    - Prone to configuration errors
-    - Requires deep Performa expertise
+    - Higher complexity and learning curve
+    - Verbose configuration (approximately 200 lines)
+    - Requires deep understanding of Performa architecture
+    - Prone to configuration errors without careful attention
+
+    Returns:
+        Deal: Complete deal object with all specifications assembled.
     """
-    print("🔧 COMPOSITION APPROACH: Manual Component Assembly")
+    print("COMPOSITION APPROACH: Manual Component Assembly")
     print("-" * 60)
 
     # === STEP 1: PROJECT TIMELINE ===
@@ -117,7 +121,6 @@ def create_deal_via_composition():
             value=0.03,  # 3% annual growth
         ),
         renewal_rent_increase_percent=0.04,  # 4% renewal increase like Pattern
-        concession_months=0,  # No concessions like Pattern
     )
 
     # Renewal terms (same as market for stabilized properties like Pattern)
@@ -128,7 +131,6 @@ def create_deal_via_composition():
             value=0.03,  # 3% annual growth
         ),
         renewal_rent_increase_percent=0.04,  # Same as Pattern
-        concession_months=0,  # Same as Pattern
     )
 
     # Create single rollover profile (match Pattern exactly)
@@ -212,7 +214,8 @@ def create_deal_via_composition():
             ResidentialOpExItem(
                 name="Property Taxes",
                 timeline=timeline,
-                value=16_500_000 * 0.011,  # 1.1% of purchase price
+                value=23_000_000
+                * 0.011,  # 1.1% of purchase price (matches acquisition value)
                 frequency=FrequencyEnum.ANNUAL,
                 growth_rate=PercentageGrowthRate(name="Tax Growth", value=0.025),
             ),
@@ -270,14 +273,14 @@ def create_deal_via_composition():
             start_date=acquisition_date,
             end_date=acquisition_date,  # Single day like Pattern
         ),
-        value=16_500_000,  # Conservative pricing for stabilized multifamily
+        value=23_000_000,  # Realistic pricing for stabilized Class B multifamily (6.6% entry cap at $1.51M Year 1 NOI)
         acquisition_date=acquisition_date,
         closing_costs_rate=0.025,  # Use rate like Pattern (not fixed amount)
     )
 
     # === STEP 8: PERMANENT FINANCING ===
     # CRITICAL FIX: Match Pattern approach exactly - explicit loan amount calculation
-    loan_amount = 16_500_000 * 0.70  # $11.55M loan (70% of $16.5M acquisition price)
+    loan_amount = 23_000_000 * 0.70  # $16.1M loan (70% of $23M acquisition price)
     permanent_loan = PermanentFacility(
         name="Maple Ridge Apartments Permanent Loan",  # Match Pattern naming
         loan_amount=loan_amount,  # Explicit sizing like Pattern
@@ -310,7 +313,7 @@ def create_deal_via_composition():
     # === STEP 10: EXIT STRATEGY ===
     exit_valuation = DirectCapValuation(
         name="Stabilized Disposition",
-        cap_rate=0.085,  # 8.5% exit cap (conservative for stabilized)
+        cap_rate=0.060,  # 6.0% exit cap (realistic for quality Class B multifamily with rent growth)
         transaction_costs_rate=0.025,  # 2.5% transaction costs
         hold_period_months=84,  # 7 years (longer hold for stabilized)
         noi_basis_kind="LTM",  # Use trailing 12 months (realistic)
@@ -327,7 +330,7 @@ def create_deal_via_composition():
         equity_partners=partnership,
     )
 
-    print(f"✅ Deal created: {deal.name}")
+    print(f" Deal created: {deal.name}")
     print(f"   Purchase Price: ${acquisition.value:,.0f}")
     print(
         f"   Units: {total_units} ({occupied_units} occupied + {vacant_units_count} vacant)"
@@ -339,25 +342,29 @@ def create_deal_via_composition():
 
 def demonstrate_pattern_interface():
     """
-    CONVENTION APPROACH: High-level Pattern interface.
+    Create a development/acquisition deal using the pattern interface.
 
-    This demonstrates the future vision for rapid deal modeling
-    using parameterized patterns with industry-standard defaults
-    and built-in validation.
+    This approach demonstrates a high-level parameterized interface with industry-standard
+    defaults and comprehensive validation. Rather than assembling components individually,
+    the pattern accepts a minimal set of parameters and handles the rest through sensible defaults.
 
     Advantages:
-    - Minimal configuration (~20 lines)
-    - Type safety and validation
-    - Industry-standard defaults
+    - Minimal configuration (approximately 20 lines)
+    - Type safety and built-in validation via Pydantic
+    - Industry-standard parameters and naming conventions
     - Rapid deal scenario generation
+    - Built-in business rule validation
 
-    Current Status:
-    - Interface complete and working
-    - Parameter validation implemented
-    - Timeline integration ready
-    - Deal creation fully functional
+    Disadvantages:
+    - Less control over advanced customization
+    - Relies on sensible defaults that may not suit all scenarios
+    - Limited to supported deal archetypes
+    - May require composition approach for complex structures
+
+    Returns:
+        tuple: (pattern, deal) - Pattern object and created Deal, or (None, None) on error
     """
-    print("\n🎯 CONVENTION APPROACH: Pattern Interface")
+    print("\nCONVENTION APPROACH: Pattern Interface")
     print("-" * 60)
 
     try:
@@ -367,7 +374,7 @@ def demonstrate_pattern_interface():
             property_name="Maple Ridge Apartments",
             acquisition_date=date(2024, 1, 1),
             # Acquisition terms
-            acquisition_price=16_500_000,  # Conservative pricing for stabilized multifamily
+            acquisition_price=23_000_000,  # Realistic pricing for stabilized Class B multifamily (MUST match composition)
             closing_costs_rate=0.025,
             # Property specifications
             total_units=120,
@@ -386,11 +393,11 @@ def demonstrate_pattern_interface():
             lp_share=0.90,
             # Exit strategy
             hold_period_years=7,  # 7 years (longer hold for stabilized)
-            exit_cap_rate=0.085,  # 8.5% exit cap (conservative for stabilized)
+            exit_cap_rate=0.060,  # 6.0% exit cap (MUST match composition - cap compression)
             exit_costs_rate=0.025,
         )
 
-        print(f"✅ Pattern created: {pattern.property_name}")
+        print(f" Pattern created: {pattern.property_name}")
         print(f"   Purchase Price: ${pattern.acquisition_price:,.0f}")
         print(f"   Configuration: Single step, ~20 parameters, type-safe")
 
@@ -408,19 +415,31 @@ def demonstrate_pattern_interface():
 
         # Create the deal to show it works
         deal = pattern.create()
-        print(f"   Deal Creation: ✅ {deal.name}")
+        print(f"   Deal Creation:  {deal.name}")
 
         return pattern, deal
 
     except Exception as e:
-        print(f"❌ Pattern creation failed: {e}")
+        print(f" Pattern creation failed: {e}")
         traceback.print_exc()
         return None, None
 
 
 def analyze_deals(composition_deal, pattern_deal):
-    """Analyze both deals to show they produce equivalent results."""
-    print("\n📊 ANALYZING BOTH DEALS")
+    """
+    Analyze both deals and display comparison of results.
+
+    Runs complete deal analysis for each approach and compares key metrics
+    including IRR, equity multiple, and total equity invested.
+
+    Args:
+        composition_deal: Deal created via composition
+        pattern_deal: Deal created via pattern
+
+    Returns:
+        tuple: (comp_results, pattern_results) or (None, None) if analysis fails
+    """
+    print("\nANALYZING BOTH DEALS")
     print("-" * 60)
 
     try:
@@ -435,7 +454,7 @@ def analyze_deals(composition_deal, pattern_deal):
         print("   Analyzing pattern deal...")
         pattern_results = analyze(pattern_deal, timeline, settings)
 
-        print("\n✅ Analysis Complete!")
+        print("\n Analysis Complete!")
         print("\n   COMPOSITION RESULTS:")
         comp_irr_str = (
             f"{comp_results.deal_metrics.get('levered_irr'):.2%}"
@@ -480,19 +499,19 @@ def analyze_deals(composition_deal, pattern_deal):
 
         print(f"\n   EQUIVALENCE CHECK:")
         print(
-            f"     IRR Difference: {irr_diff:.4%} ({'✅ EQUIVALENT' if irr_diff < 0.001 else '⚠️ DIFFERENT'})"
+            f"     IRR Difference: {irr_diff:.4%} ({'EQUIVALENT' if irr_diff < 0.001 else 'DIFFERENT'})"
         )
         print(
-            f"     EM Difference: {em_diff:.4f}x ({'✅ EQUIVALENT' if em_diff < 0.01 else '⚠️ DIFFERENT'})"
+            f"     EM Difference: {em_diff:.4f}x ({'EQUIVALENT' if em_diff < 0.01 else 'DIFFERENT'})"
         )
         print(
-            f"     Equity Difference: ${equity_diff:,.0f} ({'✅ EQUIVALENT' if equity_diff < 10000 else '⚠️ DIFFERENT'})"
+            f"     Equity Difference: ${equity_diff:,.0f} ({'EQUIVALENT' if equity_diff < 10000 else 'DIFFERENT'})"
         )
 
         return comp_results, pattern_results
 
     except Exception as e:
-        print(f"❌ Analysis failed: {e}")
+        print(f" Analysis failed: {e}")
         traceback.print_exc()
         return None, None
 
@@ -505,7 +524,7 @@ def main():
     pattern-driven conventions, highlighting the benefits of each
     approach for stabilized asset acquisitions.
     """
-    print("🏢 STABILIZED DEAL MODELING: COMPOSITION vs CONVENTION")
+    print("STABILIZED DEAL MODELING: COMPOSITION vs CONVENTION")
     print("=" * 80)
     print()
     print(
@@ -526,25 +545,27 @@ def main():
         comp_results, pattern_results = analyze_deals(composition_deal, pattern_deal)
 
         if comp_results and pattern_results:
-            print("\n🎯 APPROACH COMPARISON")
+            print("\nAPPROACH COMPARISON")
             print("-" * 60)
             print("Composition Approach:")
-            print("  ✅ Full implementation working")
-            print("  ✅ Complete analytical capability")
-            print("  ⚠️  High complexity (200+ lines)")
-            print("  ⚠️  Requires deep Performa expertise")
+            print("  Full implementation working")
+            print("  Complete analytical capability")
+            print("  High complexity (200+ lines)")
+            print("  Requires deep Performa expertise")
             print()
             print("Convention Approach:")
-            print("  ✅ Interface complete and working")
-            print("  ✅ Minimal configuration (20 parameters)")
-            print("  ✅ Industry-standard defaults")
-            print("  ✅ Type safety and validation")
-            print("  ✅ Full deal creation functional")
+            print("  Interface complete and working")
+            print("  Minimal configuration (20 parameters)")
+            print("  Industry-standard defaults")
+            print("  Type safety and validation")
+            print("  Full deal creation functional")
             print()
-            print("Future Vision:")
-            print("  🎯 Both approaches produce equivalent results")
-            print("  🎯 Pattern approach enables rapid deal scenario generation")
-            print("  🎯 Composition approach remains for advanced customization")
+            print("Architectural Success:")
+            print("  Both approaches produce equivalent results")
+            print(
+                "  Pattern approach enables rapid stabilized deal scenario generation"
+            )
+            print("  Composition approach remains for advanced customization")
 
     # === GOLDEN VALUE ASSERTIONS ===
     # Add assertions if both approaches worked
@@ -556,12 +577,10 @@ def main():
     ):
         if comp_results and pattern_results:
             # Expected values for stabilized comparison
-            # Conservative parameters: $1,400/month rent, 8.5% exit cap, 7-year hold
-            expected_composition_irr = (
-                0.116320  # 11.63% - conservative stabilized core returns
-            )
-            expected_em = 1.453303  # 1.45x - conservative stabilized equity multiple
-            expected_equity = 5193726  # $5,193,726 - actual equity invested
+            # Conservative parameters: $23M acquisition, $1,400/month rent, 6.0% exit cap, 7-year hold
+            expected_composition_irr = 0.0944  # 9.44% - stabilized core returns (realistic for this deal structure)
+            expected_em = 1.45  # 1.45x - stabilized equity multiple
+            expected_equity = 7260000  # ~$7.26M - actual equity invested
 
             # Allow small floating point tolerance
             tolerance_percent = 0.01  # 0.01% tolerance
@@ -597,11 +616,11 @@ def main():
                 abs(pattern_equity - expected_equity) < tolerance_dollar
             ), f"Pattern Equity ${pattern_equity:,.0f} != expected ${expected_equity:,.0f}"
 
-            print("\n✅ Golden value assertions passed - metrics remain stable")
+            print("\nExpected value assertions passed - metrics remain stable")
 
-    print("\n🎉 STABILIZED PATTERN COMPARISON COMPLETE!")
-    print("📋 Interface proven equivalent and fully functional")
-    print("🚀 Foundation for rapid institutional deal modeling established")
+    print("\nSTABILIZED PATTERN COMPARISON COMPLETE!")
+    print("Interface proven equivalent and fully functional")
+    print("Foundation for rapid institutional deal modeling established")
 
 
 if __name__ == "__main__":

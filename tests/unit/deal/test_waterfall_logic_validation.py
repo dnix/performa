@@ -79,8 +79,7 @@ class TestWaterfallLogicValidation:
 
             timeline = Timeline(
                 start_date=periods[0],
-                end_date=periods[-1],
-                duration_months=len(periods) - 1,
+                duration_months=len(periods),
             )
 
             # Calculate distributions
@@ -104,7 +103,7 @@ class TestWaterfallLogicValidation:
                 abs(deal_total_dist - total_positive_cash) < 0.01
             ), f"Deal total mismatch: {deal_total_dist} != {total_positive_cash}"
 
-        print("✅ Cash flow conservation principle validated across all scenarios")
+        print(" Cash flow conservation principle validated across all scenarios")
 
     def test_preferred_return_priority_principle(self):
         """
@@ -137,8 +136,7 @@ class TestWaterfallLogicValidation:
 
         timeline = Timeline(
             start_date=periods[0],
-            end_date=periods[-1],
-            duration_months=len(periods) - 1,
+            duration_months=len(periods),
         )
 
         # Calculate distributions
@@ -166,7 +164,7 @@ class TestWaterfallLogicValidation:
             gp_actual_share >= gp_pro_rata_share * 1.05
         ), f"GP should get promote beyond pro-rata: {gp_actual_share:.2%} vs {gp_pro_rata_share:.2%}"
 
-        print("✅ Preferred return priority principle validated")
+        print(" Preferred return priority principle validated")
         print(f"   LP IRR: {lp_irr:.2%} (targeting 8.0% preferred)")
         print(
             f"   GP promote: {gp_actual_share:.1%} vs {gp_pro_rata_share:.1%} pro-rata"
@@ -212,8 +210,7 @@ class TestWaterfallLogicValidation:
 
         timeline = Timeline(
             start_date=periods[0],
-            end_date=periods[-1],
-            duration_months=len(periods) - 1,
+            duration_months=len(periods),
         )
 
         # Calculate distributions
@@ -245,7 +242,7 @@ class TestWaterfallLogicValidation:
             gp_irr > lp_irr
         ), f"GP IRR should exceed LP IRR due to promote: GP {gp_irr:.2%} vs LP {lp_irr:.2%}"
 
-        print("✅ Hurdle progression logic validated")
+        print(" Hurdle progression logic validated")
         print(f"   LP achieved: {lp_irr:.2%} IRR (multiple hurdles hit)")
         print(f"   GP achieved: {gp_irr:.2%} IRR (promote working)")
         print(f"   GP promote level: {gp_distribution_ratio:.1%}")
@@ -284,8 +281,7 @@ class TestWaterfallLogicValidation:
 
         timeline1 = Timeline(
             start_date=periods1[0],
-            end_date=periods1[-1],
-            duration_months=len(periods1) - 1,
+            duration_months=len(periods1),
         )
 
         results1 = calculator.calculate_distributions(cash_flows1, timeline1)
@@ -303,8 +299,7 @@ class TestWaterfallLogicValidation:
 
         timeline2 = Timeline(
             start_date=periods2[0],
-            end_date=periods2[-1],
-            duration_months=len(periods2) - 1,
+            duration_months=len(periods2),
         )
 
         results2 = calculator.calculate_distributions(cash_flows2, timeline2)
@@ -331,8 +326,7 @@ class TestWaterfallLogicValidation:
 
         timeline3 = Timeline(
             start_date=periods3[0],
-            end_date=periods3[-1],
-            duration_months=len(periods3) - 1,
+            duration_months=len(periods3),
         )
 
         results3 = calculator.calculate_distributions(cash_flows3, timeline3)
@@ -344,7 +338,7 @@ class TestWaterfallLogicValidation:
             0.075 <= lp_irr <= 0.085
         ), f"LP IRR should be close to 8% when exactly hitting preferred: {lp_irr:.2%}"
 
-        print("✅ Edge case scenarios validated")
+        print(" Edge case scenarios validated")
         print("   ✓ Total loss scenario handled")
         print("   ✓ Extreme returns scenario handled")
         print("   ✓ Exact hurdle achievement handled")
@@ -383,8 +377,7 @@ class TestWaterfallLogicValidation:
 
         timeline = Timeline(
             start_date=periods[0],
-            end_date=periods[-1],
-            duration_months=len(periods) - 1,
+            duration_months=len(periods),
         )
 
         base_results = calculator.calculate_distributions(base_cash_flows, timeline)
@@ -442,7 +435,7 @@ class TestWaterfallLogicValidation:
             abs(tiny_total_dist - 1_000_001) < 0.01
         ), "Should handle tiny profits without numerical issues (total distributions)"
 
-        print("✅ Mathematical precision and consistency validated")
+        print(" Mathematical precision and consistency validated")
         print(f"   Extra $10K distributed: GP +${extra_gp:,.0f}, LP +${extra_lp:,.0f}")
         print("   ✓ Numerical stability confirmed")
         print("   ✓ Proportional response to input changes")
@@ -461,14 +454,14 @@ if __name__ == "__main__":
         test_suite.test_edge_case_scenarios()
         test_suite.test_mathematical_precision_consistency()
 
-        print("\n🎉 All waterfall logic validation tests passed!")
-        print("   ✅ Cash flow conservation principle")
-        print("   ✅ Preferred return priority principle")
-        print("   ✅ Hurdle progression logic")
-        print("   ✅ Edge case scenarios")
-        print("   ✅ Mathematical precision consistency")
+        print("\n All waterfall logic validation tests passed!")
+        print("    Cash flow conservation principle")
+        print("    Preferred return priority principle")
+        print("    Hurdle progression logic")
+        print("    Edge case scenarios")
+        print("    Mathematical precision consistency")
         print("\n🏆 Our waterfall logic is mathematically sound!")
 
     except Exception as e:
-        print(f"\n❌ Waterfall logic validation failed: {e}")
+        print(f"\n Waterfall logic validation failed: {e}")
         raise

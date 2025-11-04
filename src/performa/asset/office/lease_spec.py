@@ -9,7 +9,7 @@ from typing import List, Optional, Union
 import pandas as pd
 
 from ...core.base import LeaseSpecBase
-from ...core.primitives import LeaseTypeEnum, UponExpirationEnum
+from ...core.primitives import LeaseTypeEnum, ProgramUseEnum, UponExpirationEnum
 from .lc import OfficeLeasingCommission
 from .recovery import OfficeRecoveryMethod
 from .rent_abatement import OfficeRentAbatement
@@ -23,7 +23,10 @@ class OfficeLeaseSpec(LeaseSpecBase):
     Office-specific lease terms specification.
     """
 
-    lease_type: LeaseTypeEnum
+    # Office-specific field with override for use_type default
+    use_type: ProgramUseEnum = ProgramUseEnum.OFFICE
+
+    lease_type: LeaseTypeEnum = LeaseTypeEnum.NET
 
     # Multiple escalations support
     rent_escalations: Optional[
@@ -35,7 +38,7 @@ class OfficeLeaseSpec(LeaseSpecBase):
     ti_allowance: Optional[OfficeTenantImprovement] = None
     leasing_commission: Optional[OfficeLeasingCommission] = None
     rollover_profile: Optional[OfficeRolloverProfile] = None
-    upon_expiration: UponExpirationEnum
+    upon_expiration: UponExpirationEnum = UponExpirationEnum.MARKET
 
     # Term validation is now handled by LeaseSpecBase
 

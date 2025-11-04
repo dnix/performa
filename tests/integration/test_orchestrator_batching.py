@@ -429,7 +429,7 @@ class TestTransactionPerformanceComparison:
         ), "after_flush should be at least Phase 1 count"
         assert end_count > after_flush_count, "Should have more records after Phase 2"
 
-        print(f"✅ Record leakage prevention verified:")
+        print(f" Record leakage prevention verified:")
         print(f"   - Transaction start: {start_count} records")
         print(f"   - Before flush: {before_flush_count} records (buffered)")
         print(f"   - After flush: {after_flush_count} records (Phase 1 committed)")

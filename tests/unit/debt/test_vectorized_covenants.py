@@ -419,7 +419,7 @@ class TestVectorizedPerformance:
         ), "Should process all loans in portfolio"
 
         # Log portfolio performance
-        print("\n📊 Portfolio Performance Test:")
+        print("\n Portfolio Performance Test:")
         print(f"   Loans processed: {num_loans}")
         print(f"   Periods per loan: {len(timeline.period_index)}")
         print(f"   Total calculations: {total_calculations:,}")
@@ -509,7 +509,7 @@ def test_vectorized_integration_validation():
         or results.iloc[-1]["Outstanding_Balance"] < 1000
     )
 
-    print("✅ Vectorized covenant monitoring integration test passed:")
+    print(" Vectorized covenant monitoring integration test passed:")
     print(f"   Initial LTV: {initial_ltv:.3f} → Final LTV: {final_ltv:.3f}")
     print(f"   Initial DSCR: {initial_dscr:.2f} → Final DSCR: {final_dscr:.2f}")
     print(

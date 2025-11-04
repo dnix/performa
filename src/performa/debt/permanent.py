@@ -133,6 +133,33 @@ class PermanentFacility(DebtFacilityBase):
         None, ge=0, description="Minimum ongoing debt yield covenant"
     )
 
+    # TODO: Add cash sweep covenant support for permanent loans
+    # Cash sweeps are not just a construction loan concept - permanent loans
+    # often have covenant-triggered sweeps (e.g., DSCR violations, occupancy drops).
+    #
+    # Implementation approach:
+    #   1. Add: cash_sweep: Optional[CashSweep] field (similar to ConstructionFacility)
+    #   2. Override: process_covenants() method to delegate to cash_sweep.process()
+    #   3. Extend: CashSweep to support covenant-based triggers (not just timing)
+    #      - Add covenant_triggers: Optional[List[CovenantTrigger]] field
+    #      - Evaluate triggers each period using ledger queries (DSCR, LTV, etc.)
+    #      - Activate/deactivate sweep based on covenant compliance
+    #   4. Update: create_construction_to_permanent_plan() to accept permanent_sweep_mode
+    #
+    # Example future usage:
+    #   permanent = PermanentFacility(
+    #       ...,
+    #       cash_sweep=CashSweep(
+    #           mode=SweepMode.TRAP,
+    #           covenant_triggers=[
+    #               DSCRTrigger(min_dscr=1.20, grace_periods=2),
+    #               OccupancyTrigger(min_occupancy=0.85)
+    #           ]
+    #       )
+    #   )
+    #
+    # See: src/performa/debt/construction.py for current time-based sweep implementation
+
     @model_validator(mode="before")
     def auto_detect_sizing_method(cls, values):
         """Auto-detect sizing method based on provided parameters."""

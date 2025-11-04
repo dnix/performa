@@ -110,6 +110,15 @@ class DevelopmentPatternBase(PatternBase):
         le=40,
         description="Permanent loan amortization period in years",
     )
+    refinancing_trigger: Literal["occupancy", "stabilized", "aggressive"] = Field(
+        default="occupancy",
+        description=(
+            "Refinancing timing trigger method: "
+            "'occupancy' = 90% occupancy + 90-day seasoning (industry standard for multifamily), "
+            "'stabilized' = 100% occupancy + 12-month LTM NOI (conservative), "
+            "'aggressive' = construction end + 6 months (fast takeout)"
+        ),
+    )
 
     # === PARTNERSHIP STRUCTURE ===
     distribution_method: Literal["pari_passu", "waterfall"] = Field(

@@ -16,6 +16,7 @@ from performa.core.primitives import (
     FrequencyEnum,
     GlobalSettings,
     LeaseStatusEnum,
+    ProgramUseEnum,
     PropertyAttributeKey,
     Timeline,
     UponExpirationEnum,
@@ -31,6 +32,7 @@ def test_lease_spec_base_valid_instantiation():
         suite="101",
         floor="1",
         area=1000,
+        use_type=ProgramUseEnum.OFFICE,
         start_date=date(2024, 1, 1),
         end_date=date(2024, 12, 31),
         base_rent_value=50.0,
@@ -50,6 +52,7 @@ def test_lease_spec_base_term_validation():
             suite="1",
             floor="1",
             area=1,
+            use_type=ProgramUseEnum.OFFICE,
             start_date=date(2024, 1, 1),
             signing_date=date(2024, 2, 1),  # After start_date
             end_date=date(2024, 12, 31),
@@ -67,6 +70,7 @@ def test_lease_spec_computed_end_date():
         suite="s",
         floor="f",
         area=1,
+        use_type=ProgramUseEnum.OFFICE,
         base_rent_value=1,
     )
     assert spec1.computed_end_date == date(2024, 12, 31)
@@ -79,6 +83,7 @@ def test_lease_spec_computed_end_date():
         suite="s",
         floor="f",
         area=1,
+        use_type=ProgramUseEnum.OFFICE,
         base_rent_value=1,
     )
     assert spec2.computed_end_date == date(2024, 12, 31)

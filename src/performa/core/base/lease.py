@@ -16,6 +16,7 @@ from ..primitives.enums import (
     FrequencyEnum,
     LeaseStatusEnum,
     OrchestrationPass,
+    ProgramUseEnum,
     RevenueSubcategoryEnum,
     UponExpirationEnum,
 )
@@ -44,6 +45,7 @@ class LeaseSpecBase(Model, ABC):
     suite: str
     floor: str
     area: float
+    use_type: ProgramUseEnum
 
     # Base rent terms
     base_rent_value: float

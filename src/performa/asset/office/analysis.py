@@ -12,7 +12,6 @@ from performa.analysis.orchestrator import AnalysisContext, CashFlowOrchestrator
 from performa.core.base import LeaseSpecBase
 from performa.core.primitives import (
     CashFlowModel,
-    OrchestrationPass,
     PropertyAttributeKey,
     UnleveredAggregateLineKey,
 )
@@ -34,57 +33,40 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
     """
     Analysis scenario for office commercial properties.
 
-    OFFICE-SPECIFIC ASSEMBLER IMPLEMENTATION
-    =========================================
+    Implements the assembler pattern for office properties, handling office-specific
+    lease structures, recovery methods, and rollover scenarios.
 
-    This scenario implements the assembler pattern for commercial office properties,
-    handling office-specific lease structures, recovery methods, and rollover scenarios.
+    Core Components:
 
-    OFFICE-SPECIFIC LOGIC:
+    1. Recovery Method Resolution: Creates name-based lookup maps for office expense
+       recovery methods, supporting base year, net, fixed stop, and percentage-based
+       structures. Enables efficient access during cash flow calculations.
 
-    1. RECOVERY METHOD RESOLUTION
-       ===========================
-       - Creates name-based lookup maps for office expense recovery methods
-       - Supports base year, net, fixed stop, and percentage-based recovery structures
-       - Enables zero-lookup access during cash flow calculations
+    2. TI/LC Model Handling: Resolves UUID references to template objects, creates
+       lease-specific TI models with proper area calculations, and handles commission
+       payment timing.
 
-    2. TI/LC MODEL HANDLING
-       ====================
-       - Resolves UUID references to direct TI/LC template objects
-       - Creates lease-specific TI models with proper area calculations
-       - Handles commission payment timing (signing vs commencement)
-       - Generates realistic signing dates for speculative leases (3-month lead time)
+    3. Rollover Profile Management: Manages renewal vs market rate scenarios, supports
+       multi-tier commission structures, and handles rollover cost calculations.
 
-    3. ROLLOVER PROFILE MANAGEMENT
-       ============================
-       - Manages complex renewal vs market rate scenarios
-       - Supports multi-tier commission structures
-       - Handles rollover cost calculations and lease transitions
-
-    IMPLEMENTATION DETAILS:
+    Implementation Details:
     - prepare_models() performs UUID resolution and object injection
     - AnalysisContext provides direct object access during runtime
     - Maintains compatibility with existing office property models
-    - Supports properties ranging from single tenant to multi-tenant complexes
-
-    TESTED WITH:
-    - Single tenant office buildings
-    - Multi-tenant properties with varied lease structures
-    - Properties with multiple recovery methods and rollover profiles
-    - Complex commission structures and TI allowances
+    - Supports properties ranging from single-tenant to multi-tenant complexes
     """
 
     model: OfficeProperty
 
     def run(self) -> None:
         """
-        Process office property analysis.
+        Execute office property analysis.
 
-        Implements consistent architectural pattern:
-        1. Recovery states pre-calculation (office-specific)
-        2. AnalysisContext serves as universal data bus
-        3. One-time UUID resolution during assembly
-        4. Leases get direct object references (no runtime lookups)
+        Workflow:
+        1. Pre-calculate recovery states (office-specific)
+        2. Create AnalysisContext as universal data access layer
+        3. Perform one-time UUID resolution during assembly
+        4. Inject resolved objects into leases (eliminating runtime lookups)
         """
         # === 1. PRE-CALCULATE OFFICE-SPECIFIC STATES ===
         recovery_states = self._pre_calculate_recoveries()
@@ -113,8 +95,8 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
                     recovery_method_lookup[method.name] = method
 
         # Office-specific: TI/LC template lookup (if we add this feature later)
-        ti_template_lookup = {}  # Future enhancement
-        lc_template_lookup = {}  # Future enhancement
+        ti_template_lookup = {}
+        lc_template_lookup = {}
 
         # === 3. CREATE ANALYSIS CONTEXT ===
         context = AnalysisContext(
@@ -419,7 +401,6 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
                     timeline=self.timeline,
                     rate=self.model.losses.general_vacancy.rate,
                     reference_line=reference_line,
-                    calculation_pass=OrchestrationPass.DEPENDENT_MODELS,
                 )
                 models.append(vacancy_model)
 
@@ -458,7 +439,6 @@ class OfficeAnalysisScenario(CommercialAnalysisScenarioBase):
                     rate=self.model.losses.credit_loss.rate,
                     reference_line=basis_info["line"],
                     reference=basis_info["key"],
-                    calculation_pass=OrchestrationPass.DEPENDENT_MODELS,
                 )
                 models.append(credit_model)
 

@@ -186,24 +186,24 @@ class DebtFacilityBase(Model):
                 self, "amortization_months"
             ):
                 try:
-                    # Get detailed amortization schedule
+                    # Generate amortization schedule starting at funding period
+                    # For facilities with refinance timing (e.g., permanent loans in development deals),
+                    # this ensures amortization starts when the loan actually funds
                     amortization_schedule = self.generate_amortization(
-                        self.loan_amount, timeline.period_index[0]
+                        self.loan_amount, funding_period
                     )
 
-                    # Truncate to analysis timeline length
-                    analysis_periods = len(timeline.period_index)
-                    truncated_periods = min(
-                        len(amortization_schedule), analysis_periods
-                    )
+                    # Align amortization schedule with analysis timeline
+                    # The schedule index is already aligned to funding_period, so we reindex
+                    # to the full timeline to properly place transactions in time
 
                     # Record interest component (actual cash expense)
                     if "Interest" in amortization_schedule.columns:
-                        interest_series = pd.Series(
-                            amortization_schedule["Interest"].values[
-                                :truncated_periods
-                            ],
-                            index=timeline.period_index[:truncated_periods],
+                        interest_series = amortization_schedule["Interest"]
+
+                        # Reindex to full timeline, filling periods before funding with zero
+                        interest_series = interest_series.reindex(
+                            timeline.period_index, fill_value=0.0
                         )
 
                         interest_metadata = SeriesMetadata(
@@ -216,13 +216,13 @@ class DebtFacilityBase(Model):
                         )
                         context.ledger.add_series(-interest_series, interest_metadata)
 
-                    # Record principal component (for balance tracking only)
+                    # Record principal component (for balance tracking)
                     if "Principal" in amortization_schedule.columns:
-                        principal_series = pd.Series(
-                            amortization_schedule["Principal"].values[
-                                :truncated_periods
-                            ],
-                            index=timeline.period_index[:truncated_periods],
+                        principal_series = amortization_schedule["Principal"]
+
+                        # Reindex to full timeline, filling periods before funding with zero
+                        principal_series = principal_series.reindex(
+                            timeline.period_index, fill_value=0.0
                         )
 
                         principal_metadata = SeriesMetadata(
@@ -282,3 +282,20 @@ class DebtFacilityBase(Model):
             pass_num=CalculationPhase.FINANCING.value,
         )
         context.ledger.add_series(-zero_principal, principal_metadata)
+
+    def process_covenants(self, context: "DealContext") -> None:
+        """
+        Process debt covenant constraints for this facility.
+
+        Called after compute_cf() in a separate orchestrator phase to handle
+        covenant-based restrictions like cash sweeps, reserve requirements,
+        and distribution blocks.
+
+        Default implementation does nothing (no covenants). Subclasses with
+        covenant support (e.g., ConstructionFacility) should override this
+        method to delegate to composed covenant objects.
+
+        Args:
+            context: Deal context with ledger access
+        """
+        pass  # Default: no covenant processing

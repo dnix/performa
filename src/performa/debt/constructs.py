@@ -267,6 +267,7 @@ This debt construct architecture provides sophisticated financing structures whi
 
 from __future__ import annotations
 
+import logging
 from typing import Dict, Optional
 
 from .construction import ConstructionFacility
@@ -274,6 +275,8 @@ from .construction import ConstructionFacility
 # DebtTranche is actively used for multi-tranche construction financing
 from .permanent import PermanentFacility
 from .plan import FinancingPlan
+
+logger = logging.getLogger(__name__)
 
 
 def create_construction_to_permanent_plan(
@@ -288,9 +291,14 @@ def create_construction_to_permanent_plan(
     Phase 1 Implementation: Supports both explicit loan amounts and calculated amounts from ratios.
     Phase 2: Will restore complex multi-tranche functionality.
 
+    CRITICAL: If cash_sweep is configured in construction_terms, this helper
+    automatically synchronizes the sweep end_month with the permanent loan's
+    refinance_timing to prevent manual synchronization errors.
+
     Args:
         construction_terms: Parameters to instantiate a `ConstructionFacility`.
                             Phase 1: Either 'loan_amount' OR 'ltc_threshold' + project_value
+                            May include 'cash_sweep' dict (end_month will be auto-set if missing)
         permanent_terms: Parameters to instantiate a `PermanentFacility`.
                          Either 'loan_amount' OR 'ltv_ratio' + project_value
         project_value: Total project value for calculating loan amounts from ratios.
@@ -341,10 +349,12 @@ def create_construction_to_permanent_plan(
 
         if construction_duration:
             # Account for lease-up period before refinancing in development deals
-            # Development deals typically refinance after substantial occupancy, not immediately after construction
+            # Development deals should refinance after substantial stabilization for optimal loan sizing
             if lease_up_months and lease_up_months > 0:
-                # Refinance after construction + most of lease-up is complete (80% occupancy buffer)
-                stabilization_buffer = max(1, int(lease_up_months * 0.8))
+                # Refinance after full lease-up plus stabilization buffer
+                # The 2-month buffer allows for rent roll verification and ensures
+                # property value accurately reflects stabilized NOI
+                stabilization_buffer = lease_up_months + 2
                 permanent_params["refinance_timing"] = (
                     construction_duration + stabilization_buffer
                 )
@@ -374,6 +384,38 @@ def create_construction_to_permanent_plan(
         construction_params["loan_term_months"] = (
             construction_params.pop("loan_term_years") * 12
         )
+
+    # Remove fields that are not valid for PermanentFacility (extra="forbid")
+    permanent_params.pop("origination_fee_rate", None)
+
+    # Remove fields that are not valid for ConstructionFacility (extra="forbid")
+    construction_params.pop("origination_fee_rate", None)
+
+    # --- Auto-Synchronize Cash Sweep Timing ---
+    # CRITICAL: Prevent manual errors where sweep ends before/after refinancing
+    # This synchronization ensures sweep timing matches refinancing timing
+    if "cash_sweep" in construction_params:
+        sweep_config = construction_params["cash_sweep"]
+        refinance_timing = permanent_params.get("refinance_timing")
+
+        if refinance_timing is not None:
+            # If sweep is a dict without end_month, set it automatically
+            if isinstance(sweep_config, dict) and "end_month" not in sweep_config:
+                sweep_config["end_month"] = refinance_timing
+                logger.info(
+                    f"Auto-setting cash sweep end_month to {refinance_timing} "
+                    f"(matches refinance_timing)"
+                )
+
+            # If sweep is already a CashSweep object, validate synchronization
+            elif hasattr(sweep_config, "end_month"):
+                if sweep_config.end_month != refinance_timing:
+                    logger.warning(
+                        f"Cash sweep end_month ({sweep_config.end_month}) does not match "
+                        f"refinance_timing ({refinance_timing}). This may cause unexpected behavior. "
+                        f"Sweep will end at month {sweep_config.end_month}, but refinancing occurs "
+                        f"at month {refinance_timing}."
+                    )
 
     # --- Build Facilities ---
     construction_facility = ConstructionFacility(**construction_params)

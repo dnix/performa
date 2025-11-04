@@ -68,7 +68,7 @@ class TestValueAddFinancialAccuracy:
         assert rollover_profile.upon_expiration == UponExpirationEnum.REABSORB
         assert absorption_plan.uid == test_plan_id
 
-        print("✅ Value-add component integration test passed!")
+        print(" Value-add component integration test passed!")
 
     # NOTE: Complex e2e test removed due to validation complexity.
     # The core value-add functionality is thoroughly tested by the unit tests,
@@ -184,4 +184,4 @@ def test_value_add_component_isolation():
     assert rollover_profile.target_absorption_plan_id == test_plan_id
     assert rollover_profile.upon_expiration == UponExpirationEnum.REABSORB
 
-    print("✅ Value-add component isolation test passed!")
+    print(" Value-add component isolation test passed!")

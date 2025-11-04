@@ -57,6 +57,7 @@ DEBT_FUNDING_SUBCATEGORIES = [
 DEBT_PAYOFF_SUBCATEGORIES = [
     FinancingSubcategoryEnum.PREPAYMENT,  # Loan payoff at disposition
     FinancingSubcategoryEnum.REFINANCING_PAYOFF,  # Refinancing payoff
+    FinancingSubcategoryEnum.SWEEP_PREPAYMENT,  # Cash sweep mandatory prepayment
 ]
 
 # All debt cash outflows: recurring service + one-time payoffs [NEGATIVE AMOUNTS]
@@ -73,6 +74,10 @@ EQUITY_PARTNER_SUBCATEGORIES = [
     FinancingSubcategoryEnum.EQUITY_DISTRIBUTION,  # Distributions (-)
     FinancingSubcategoryEnum.PREFERRED_RETURN,  # Preferred returns (-)
     FinancingSubcategoryEnum.PROMOTE,  # Promote payments (-)
+    # NOTE: Cash sweep deposits/releases are NOT equity partner flows!
+    # They are lender covenant flows that affect available cash but don't
+    # represent money moving to/from investors. Including them here would
+    # cause them to appear as distributions in levered_cash_flow, which is incorrect.
 ]
 
 # Debt balance tracking
@@ -81,6 +86,7 @@ DEBT_DECREASE_SUBCATEGORIES = [  # [NEGATIVE AMOUNTS]
     FinancingSubcategoryEnum.PRINCIPAL_PAYMENT,  # Principal reduces balance
     FinancingSubcategoryEnum.PREPAYMENT,  # Full payoff
     FinancingSubcategoryEnum.REFINANCING_PAYOFF,  # Refinancing payoff
+    FinancingSubcategoryEnum.SWEEP_PREPAYMENT,  # Sweep-triggered prepayment
 ]
 
 # === REVENUE SUBCATEGORY GROUPINGS ===
@@ -826,6 +832,86 @@ class LedgerQueries:  # noqa: PLR0904
         """
         return self._execute_query_to_series(
             sql, "period", "total", "Recurring Debt Service"
+        )
+
+    def sweep_deposits(self) -> pd.Series:
+        """
+        Cash sweep deposits (trapped excess cash).
+
+        Returns cash that has been swept/trapped by lender covenants, reducing
+        cash available for equity distributions. These are outflows from the deal's
+        perspective (cash trapped in escrow).
+
+        **Usage:**
+        Used by PartnershipAnalyzer to calculate distributable cash:
+        ```python
+        noi = queries.noi()
+        debt_service = queries.recurring_debt_service()
+        sweep_deposits = queries.sweep_deposits()  # negative outflows
+        available = noi + debt_service + sweep_deposits  # sweep reduces available cash
+        ```
+
+        **Note:** Only includes deposits (CASH_SWEEP_DEPOSIT), not releases.
+        Releases are handled separately when sweep ends.
+
+        Returns:
+            Time series of sweep deposits by period (negative values)
+
+        See Also:
+            - PartnershipAnalyzer: Uses this to prevent double-distribution
+            - CashSweep: Posts these transactions via covenant processing
+        """
+        sql = f"""
+            SELECT 
+                DATE_TRUNC('month', date) AS period,
+                SUM(amount) AS total
+            FROM {self.table_name}
+            WHERE category = '{enum_to_string(CashFlowCategoryEnum.FINANCING)}'
+              AND subcategory = '{enum_to_string(FinancingSubcategoryEnum.CASH_SWEEP_DEPOSIT)}'
+            GROUP BY period
+            
+        """
+        return self._execute_query_to_series(sql, "period", "total", "Sweep Deposits")
+
+    def sweep_prepayments(self) -> pd.Series:
+        """
+        Cash sweep mandatory prepayments.
+
+        Returns cash that has been applied to mandatory principal prepayment
+        via sweep covenants, reducing cash available for equity distributions.
+        These are outflows from the deal's perspective (cash used to pay down debt).
+
+        **Usage:**
+        Used by PartnershipAnalyzer to calculate distributable cash:
+        ```python
+        noi = queries.noi()
+        debt_service = queries.recurring_debt_service()
+        sweep_prepayments = queries.sweep_prepayments()  # negative outflows
+        available = noi + debt_service + sweep_prepayments  # prepayments reduce available cash
+        ```
+
+        **Note:** Only includes prepayments (SWEEP_PREPAYMENT), not regular debt service.
+        Unlike TRAP mode deposits, prepayments immediately reduce loan balance.
+
+        Returns:
+            Time series of sweep prepayments by period (negative values)
+
+        See Also:
+            - PartnershipAnalyzer: Uses this to prevent double-distribution
+            - CashSweep: Posts these transactions via covenant processing
+        """
+        sql = f"""
+            SELECT 
+                DATE_TRUNC('month', date) AS period,
+                SUM(amount) AS total
+            FROM {self.table_name}
+            WHERE category = '{enum_to_string(CashFlowCategoryEnum.FINANCING)}'
+              AND subcategory = '{enum_to_string(FinancingSubcategoryEnum.SWEEP_PREPAYMENT)}'
+            GROUP BY period
+            
+        """
+        return self._execute_query_to_series(
+            sql, "period", "total", "Sweep Prepayments"
         )
 
     def equity_contributions(self) -> pd.Series:

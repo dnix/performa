@@ -87,11 +87,11 @@ construction_loan = ConstructionFacility(
 )
 ```
 
-#### `InterestCalculationMethod.ITERATIVE` 
-**Use Case**: Multi-pass iteration for maximum precision (future enhancement)
+#### `InterestCalculationMethod.ITERATIVE`
+**Use Case**: Multi-pass iteration for maximum precision
 - Full iterative calculation with feedback loops
 - Maximum precision for complex scenarios
-- Planned for future implementation
+- Not yet implemented
 
 ### Loan-to-Cost (LTC) vs Loan-to-Value (LTV)
 

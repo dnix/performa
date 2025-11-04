@@ -26,11 +26,15 @@ marimo run showcase_03_office_absorption.py
 # Demo 1.4: Partnership waterfall & promote structures
 marimo run showcase_04_partnership_waterfall.py
 
+# Demo 1.5: Complete residential development (NEW!)  
+marimo run showcase_05_residential_development.py
+
 # Alternative: Run as Python script (no browser, just output)
 python showcase_01_draw_schedules.py
 python showcase_02_single_schedule_builder.py
 python showcase_03_office_absorption.py
 python showcase_04_partnership_waterfall.py
+python showcase_05_residential_development.py
 ```
 
 ### Open in Browser
@@ -103,6 +107,43 @@ Explore sophisticated real estate equity distribution mechanisms:
 - **Interactive Tables**: Detailed distribution breakdowns with cumulative tracking
 
 **Controls**: Partnership percentages, preferred returns, promote rates, cash flow scenarios
+
+### 🏙️ Demo 1.5: Pattern Unfurling Showcase (NEW!)
+
+**File**: `showcase_05_residential_development.py`
+
+**The flagship demonstration of Performa's Pattern architecture:**
+
+This notebook showcases the "magic" of Pattern unfurling—how a few simple parameters transform into a complete institutional-grade financial model.
+
+- **Pattern → Analysis**: Watch `ResidentialDevelopmentPattern` generate a complete deal from 7 parameters
+- **Real Results, No Hardcoding**: All metrics and displays use actual analysis results
+- **Glass Box Transparency**: Complete ledger displayed as annual pivot table using `results.reporting.pivot_table()`
+- **Top-Level Metrics**: Levered/unlevered IRR, equity multiple, net profit from `DealResults`
+- **Partnership Analysis**: Partner-level returns with GP/LP waterfall distributions
+- **Cash Flow Visualization**: Annual equity flows with investment vs distribution breakdown
+
+**What Gets Generated Automatically**:
+- 120-unit multifamily property with detailed unit mix (1BR/2BR)
+- Construction-to-permanent financing structure
+- GP/LP partnership with waterfall and promote
+- Complete transactional ledger with every cash flow
+- Multi-year projections and performance metrics
+
+**Key Architecture Demonstrations**:
+- `marimo.ui.dictionary` for clean parameter entry
+- Pattern `.analyze()` method generating full `DealResults`
+- `results.reporting.pivot_table()` for ledger display
+- `marimo.ui.table()` for interactive data tables
+- Real-time reactive updates across all visualizations
+
+**Controls**: Project name, land cost, units, construction cost/duration, hold period, exit cap rate
+
+**Real-World Applications**:
+- Teaching the Pattern abstraction to new users
+- Demonstrating Performa's "simple parameters → complex model" philosophy
+- Interactive investment committee presentations
+- Developer education on institutional modeling standards
 
 ## Features Showcased
 

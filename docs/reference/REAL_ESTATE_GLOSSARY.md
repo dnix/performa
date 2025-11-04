@@ -1,8 +1,8 @@
 # Real Estate Financial Modeling Glossary
 
 **Purpose:** Comprehensive mapping of industry standard real estate financial terms to Performa concepts and code implementations  
-**Last Updated:** October 2, 2025  
-**Status:** Post-fix implementation (all bugs resolved)
+**Last Updated:** October 6, 2025  
+**Status:** Post-fix implementation (all bugs resolved) + Cash Sweep covenants
 
 ---
 
@@ -113,6 +113,36 @@ This glossary provides:
 
 ---
 
+### Capitalized Interest
+**Industry Definition:** Interest on a construction loan that is added to the loan principal rather than paid in cash during the construction period.
+
+**Performa Implementation:**
+- **Ledger**: `Financing / Interest Reserve`
+- **Flow Purpose**: `Capital Use` (special case!)
+- **Sign**: Negative (adds to project costs)
+- **Classification Rationale:**
+  - **Semantically**: It IS interest → `Financing` category ✓
+  - **Mechanically**: Must be `Capital Use` to:
+    1. Include in total project costs (LTC calculation)
+    2. Exclude from `debt_service()` queries (not a cash payment)
+    3. Add to depreciable basis
+- **Code Reference**: `src/performa/debt/construction.py`, `src/performa/core/ledger/mapper.py`
+
+**Key Distinction:**
+```
+Paid Interest:        Financing / Interest Payment / Financing Service (cash paid monthly)
+Capitalized Interest: Financing / Interest Reserve / Capital Use (added to loan balance)
+```
+
+**Industry Standard:**
+- Shown as a separate line item in sources & uses tables
+- Paid at refinancing or disposition when loan is paid off
+- Common in development and bridge financing
+
+**Related Terms:** Interest Reserve, Accrued Interest, Soft Costs (historical classification)
+
+---
+
 ### Cash-on-Cash Return
 **Industry Definition:** Annual cash distributed to equity divided by total equity invested.
 
@@ -151,6 +181,57 @@ Cash-Out:             $2.0M  → Distributed to equity
 ```
 
 **Related Terms:** Refinancing, Recapitalization, Return of Capital
+
+---
+
+### Cash Sweep (Lender Cash Sweep Covenant)
+**Industry Definition:** Lender covenant requiring borrower to deposit or apply excess operating cash flow to debt service or principal reduction until specific conditions are met (e.g., stabilization, DSCR threshold). Common in construction and bridge loans to mitigate risk during lease-up.
+
+**Performa Implementation:**
+- **Modes**:
+  - **TRAP**: Excess cash held in lender-controlled escrow, released when covenant satisfied
+  - **PREPAY**: Excess cash mandatorily applied to principal prepayment immediately
+- **Ledger Categories**:
+  - `Financing / Cash Sweep Deposit` (negative, traps cash in escrow)
+  - `Financing / Cash Sweep Release` (positive, releases trapped cash)
+  - `Financing / Sweep Prepayment` (negative, prepays principal)
+- **Flow Purpose**: `Financing Service` (all sweep transactions)
+- **Classes**: `CashSweep` (covenant object), composed into `ConstructionFacility`
+- **Code Reference**: `src/performa/debt/covenants.py`, `src/performa/debt/construction.py`
+
+**Economic Impact:**
+- **TRAP Mode**: Delays cash to equity (timing drag on IRR), but full cash eventually returned
+- **PREPAY Mode**: Reduces loan balance → lower interest expense → higher returns
+
+**Example:**
+```python
+from performa.debt.covenants import CashSweep, SweepMode
+
+# Create cash sweep covenant
+sweep = CashSweep(
+    mode=SweepMode.TRAP,  # or SweepMode.PREPAY
+    end_month=42  # Release at refinancing month
+)
+
+# Attach to construction loan
+construction = ConstructionFacility(
+    name="Construction Loan",
+    ltc_ratio=0.70,
+    interest_rate=0.07,
+    cash_sweep=sweep  # Compose covenant into facility
+)
+```
+
+**Query Methods:**
+- `sweep_deposits()` - Cash trapped in escrow (TRAP mode)
+- `sweep_prepayments()` - Principal prepayments from sweep (PREPAY mode)
+
+**Integration:**
+- **PartnershipAnalyzer**: Respects sweeps when calculating distributable cash
+- **DebtAnalyzer**: Processes covenants after debt service calculation
+- **Auto-sync**: Helper `create_construction_to_permanent_plan()` syncs sweep end with refinancing
+
+**Related Terms:** Cash Trap, Lockbox, Debt Service Reserve, Mandatory Prepayment, Covenant
 
 ---
 
@@ -1155,14 +1236,14 @@ levered_cf = investor_flows              # Now contributions -, Dist +
 - Legal and accounting
 - Permits and entitlements
 - Financing fees
-- Capitalized interest
 - Developer fees
+- **Note:** Capitalized interest is tracked separately as `Financing / Interest Reserve`, not as soft costs
 
 **Performa Implementation:**
 - **Ledger**: `Capital / Soft Costs`
 - **Flow Purpose**: `Capital Use`
 - **Sign**: Negative (capital outflow)
-- **Special**: Capitalized interest posted as soft costs by `ConstructionFacility`
+- **Special**: Capitalized interest is posted separately as `Financing / Interest Reserve` (not soft costs)
 - **Code Reference**: `src/performa/debt/construction.py` (capitalized interest), asset capital plans
 
 **Typical Percentage:** 20-30% of total development cost

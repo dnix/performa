@@ -62,18 +62,12 @@ def test_e2e_institutional_scale_residential():
         market_terms=ResidentialRolloverLeaseTerms(
             market_rent=2800.0,
             term_months=12,
-            renewal_rent_increase=0.045,
-            concessions_months=0,
-            turnover_make_ready_cost=2500.0,
-            turnover_leasing_fee=1000.0,
+            renewal_rent_increase_percent=0.045,
         ),
         renewal_terms=ResidentialRolloverLeaseTerms(
             market_rent=2800.0,
             term_months=12,
-            renewal_rent_increase=0.035,
-            concessions_months=0,
-            turnover_make_ready_cost=1200.0,
-            turnover_leasing_fee=500.0,
+            renewal_rent_increase_percent=0.035,
         ),
     )
 
@@ -85,18 +79,12 @@ def test_e2e_institutional_scale_residential():
         market_terms=ResidentialRolloverLeaseTerms(
             market_rent=2200.0,
             term_months=12,
-            renewal_rent_increase=0.035,
-            concessions_months=1,
-            turnover_make_ready_cost=2200.0,
-            turnover_leasing_fee=800.0,
+            renewal_rent_increase_percent=0.035,
         ),
         renewal_terms=ResidentialRolloverLeaseTerms(
             market_rent=2200.0,
             term_months=12,
-            renewal_rent_increase=0.030,
-            concessions_months=0,
-            turnover_make_ready_cost=1000.0,
-            turnover_leasing_fee=400.0,
+            renewal_rent_increase_percent=0.030,
         ),
     )
 
@@ -297,10 +285,10 @@ def test_e2e_institutional_scale_residential():
     analysis_time = time.time() - start_time
 
     print("\n🏢 Institutional Scale Analysis Results:")
-    print(f"   📊 Property Size: {property_model.unit_count} units")
+    print(f"    Property Size: {property_model.unit_count} units")
     print(f"   💰 Monthly Income: ${expected_income:,.0f}")
     print(f"   📐 Total NRA: {property_model.net_rentable_area:,.0f} SF")
-    print(f"   ⚡ Analysis Time: {analysis_time:.3f} seconds")
+    print(f"    Analysis Time: {analysis_time:.3f} seconds")
     print(
         f"   🚀 Processing Rate: {property_model.unit_count / analysis_time:.0f} units/second"
     )
@@ -315,8 +303,8 @@ def test_e2e_institutional_scale_residential():
     ]
     assert len(lease_models) == 250  # One lease per unit
 
-    print(f"   ✅ Successfully created {len(lease_models)} lease models")
-    print(f"   📋 Total models: {len(scenario.models)}")
+    print(f"    Successfully created {len(lease_models)} lease models")
+    print(f"    Total models: {len(scenario.models)}")
 
 
 def test_e2e_performance_stress_test():
@@ -383,11 +371,11 @@ def test_e2e_performance_stress_test():
     analysis_time = time.time() - start_time
     units_per_second = property_model.unit_count / analysis_time
 
-    print("\n⚡ Performance Stress Test Results:")
-    print(f"   📊 Property Size: {property_model.unit_count} units")
-    print(f"   ⏱️  Analysis Time: {analysis_time:.3f} seconds")
+    print("\n Performance Stress Test Results:")
+    print(f"    Property Size: {property_model.unit_count} units")
+    print(f"   ⏱  Analysis Time: {analysis_time:.3f} seconds")
     print(f"   🚀 Processing Rate: {units_per_second:.0f} units/second")
-    print(f"   📋 Models Created: {len(scenario.models)}")
+    print(f"    Models Created: {len(scenario.models)}")
 
     # Performance assertions
     assert scenario is not None
@@ -402,7 +390,7 @@ def test_e2e_performance_stress_test():
     ]
     assert len(lease_models) == 500
 
-    print(f"   ✅ Performance test PASSED - {units_per_second:.0f} units/sec")
+    print(f"    Performance test PASSED - {units_per_second:.0f} units/sec")
 
 
 def test_e2e_value_add_positioning_strategy():
@@ -425,18 +413,12 @@ def test_e2e_value_add_positioning_strategy():
         market_terms=ResidentialRolloverLeaseTerms(
             market_rent=2300.0,
             term_months=12,
-            renewal_rent_increase=0.025,
-            concessions_months=1,
-            turnover_make_ready_cost=3200.0,
-            turnover_leasing_fee=1100.0,
+            renewal_rent_increase_percent=0.025,
         ),
         renewal_terms=ResidentialRolloverLeaseTerms(
             market_rent=2300.0,
             term_months=12,
-            renewal_rent_increase=0.020,
-            concessions_months=0,
-            turnover_make_ready_cost=1800.0,
-            turnover_leasing_fee=600.0,
+            renewal_rent_increase_percent=0.020,
         ),
     )
 
@@ -449,18 +431,12 @@ def test_e2e_value_add_positioning_strategy():
         market_terms=ResidentialRolloverLeaseTerms(
             market_rent=2990.0,  # 30% premium post-renovation
             term_months=12,
-            renewal_rent_increase=0.040,
-            concessions_months=0,
-            turnover_make_ready_cost=2500.0,
-            turnover_leasing_fee=800.0,
+            renewal_rent_increase_percent=0.040,
         ),
         renewal_terms=ResidentialRolloverLeaseTerms(
             market_rent=2990.0,
             term_months=12,
-            renewal_rent_increase=0.035,
-            concessions_months=0,
-            turnover_make_ready_cost=1200.0,
-            turnover_leasing_fee=400.0,
+            renewal_rent_increase_percent=0.035,
         ),
     )
 
@@ -549,13 +525,13 @@ def test_e2e_value_add_positioning_strategy():
 
     analysis_time = time.time() - start_time
 
-    print("\n📈 Value-Add Analysis Results:")
+    print("\n Value-Add Analysis Results:")
     print(f"   🏢 Property: {property_model.unit_count} units")
     print(f"   💰 Current Income: ${current_income:,.0f}/month")
-    print(f"   🎯 Market Potential: ${market_potential:,.0f}/month")
-    print(f"   📊 Monthly Upside: ${upside_potential:,.0f}")
-    print(f"   📈 Rent Premium: {((market_potential / current_income) - 1) * 100:.1f}%")
-    print(f"   ⚡ Analysis Time: {analysis_time:.3f} seconds")
+    print(f"    Market Potential: ${market_potential:,.0f}/month")
+    print(f"    Monthly Upside: ${upside_potential:,.0f}")
+    print(f"    Rent Premium: {((market_potential / current_income) - 1) * 100:.1f}%")
+    print(f"    Analysis Time: {analysis_time:.3f} seconds")
 
     assert scenario is not None
     assert analysis_time < 1.0
@@ -566,7 +542,7 @@ def test_e2e_value_add_positioning_strategy():
     ]
     assert len(lease_models) == 120
 
-    print("   ✅ Value-add analysis PASSED")
+    print("    Value-add analysis PASSED")
 
 
 def test_e2e_test_discovery_validation():
@@ -616,9 +592,9 @@ def test_e2e_test_discovery_validation():
 
     assert scenario is not None
     print("\n🧪 Test Discovery: PASSED")
-    print("   ✅ Scenario registry working")
-    print("   ✅ ResidentialProperty analysis enabled")
-    print("   ✅ Framework integration complete")
+    print("    Scenario registry working")
+    print("    ResidentialProperty analysis enabled")
+    print("    Framework integration complete")
 
 
 def test_e2e_vacant_units_lease_up_scenario():
@@ -646,18 +622,12 @@ def test_e2e_vacant_units_lease_up_scenario():
         market_terms=ResidentialRolloverLeaseTerms(
             market_rent=2400.0,  # Higher market rent for stabilized units
             term_months=12,
-            renewal_rent_increase=0.035,  # 3.5% annual increase
-            concessions_months=1,  # 1 month free for new leases
-            turnover_make_ready_cost=2200.0,
-            turnover_leasing_fee=800.0,
+            renewal_rent_increase_percent=0.035,  # 3.5% annual increase
         ),
         renewal_terms=ResidentialRolloverLeaseTerms(
             market_rent=2400.0,
             term_months=12,
-            renewal_rent_increase=0.040,  # 4% for renewals
-            concessions_months=0,
-            turnover_make_ready_cost=1200.0,  # Lower cost for renewals
-            turnover_leasing_fee=400.0,
+            renewal_rent_increase_percent=0.040,  # 4% for renewals
         ),
     )
 
@@ -670,18 +640,12 @@ def test_e2e_vacant_units_lease_up_scenario():
         market_terms=ResidentialRolloverLeaseTerms(
             market_rent=2300.0,  # Slight discount for lease-up
             term_months=12,
-            renewal_rent_increase=0.030,
-            concessions_months=2,  # 2 months free for initial lease-up
-            turnover_make_ready_cost=3500.0,  # Higher initial make-ready
-            turnover_leasing_fee=1200.0,
+            renewal_rent_increase_percent=0.030,
         ),
         renewal_terms=ResidentialRolloverLeaseTerms(
             market_rent=2300.0,
             term_months=12,
-            renewal_rent_increase=0.030,
-            concessions_months=0,
-            turnover_make_ready_cost=3500.0,
-            turnover_leasing_fee=1200.0,
+            renewal_rent_increase_percent=0.030,
         ),
     )
 
@@ -841,11 +805,11 @@ def test_e2e_vacant_units_lease_up_scenario():
 
     analysis_time = time.time() - start_time
     print("\n🏢 Lease-Up Analysis Performance:")
-    print(f"   📊 Property Size: {property_model.unit_count} units")
+    print(f"    Property Size: {property_model.unit_count} units")
     print(f"   🏠 Occupied Units: {property_model.unit_mix.occupied_units}")
     print(f"   🔲 Vacant Units: {property_model.unit_mix.vacant_unit_count}")
-    print(f"   📈 Occupancy Rate: {property_model.occupancy_rate:.1%}")
-    print(f"   ⚡ Analysis Time: {analysis_time:.3f} seconds")
+    print(f"    Occupancy Rate: {property_model.occupancy_rate:.1%}")
+    print(f"    Analysis Time: {analysis_time:.3f} seconds")
     print(
         f"   🚀 Processing Rate: {property_model.unit_count / analysis_time:.0f} units/second"
     )
@@ -876,40 +840,40 @@ def test_e2e_vacant_units_lease_up_scenario():
 
     # Financial metrics validation
     total_models = len(lease_models) + len(expense_models) + len(misc_income_models)
-    print(f"   📋 Total Models Created: {total_models}")
+    print(f"    Total Models Created: {total_models}")
     print(f"   🏠 Lease Models: {len(lease_models)}")
     print(f"   💰 Expense Models: {len(expense_models)}")
-    print(f"   📈 Income Models: {len(misc_income_models)}")
+    print(f"    Income Models: {len(misc_income_models)}")
 
     # Income potential analysis
     print("\n💰 Income Analysis:")
-    print(f"   📊 Current Monthly Income: ${current_income:,.0f}")
-    print(f"   🎯 Total Income Potential: ${total_potential:,.0f}")
-    print(f"   📈 Lease-Up Upside: ${total_potential - current_income:,.0f}")
-    print(f"   📊 Income Per Unit (Current): ${current_income / 75:,.0f}")
-    print(f"   🎯 Income Per Unit (Potential): ${total_potential / 100:,.0f}")
+    print(f"    Current Monthly Income: ${current_income:,.0f}")
+    print(f"    Total Income Potential: ${total_potential:,.0f}")
+    print(f"    Lease-Up Upside: ${total_potential - current_income:,.0f}")
+    print(f"    Income Per Unit (Current): ${current_income / 75:,.0f}")
+    print(f"    Income Per Unit (Potential): ${total_potential / 100:,.0f}")
 
     # Property efficiency metrics
-    print("\n🏗️ Property Efficiency:")
+    print("\n🏗 Property Efficiency:")
     print(f"   📐 Total Rentable SF: {property_model.net_rentable_area:,.0f}")
     print(f"   🏠 Average Unit Size: {property_model.net_rentable_area / 100:.0f} SF")
     print(
         f"   💰 Current $/SF/Month: ${current_income / (property_model.net_rentable_area * 0.75):.2f}"
     )
     print(
-        f"   🎯 Potential $/SF/Month: ${total_potential / property_model.net_rentable_area:.2f}"
+        f"    Potential $/SF/Month: ${total_potential / property_model.net_rentable_area:.2f}"
     )
 
     # Assert that the analysis handles vacant units properly
     assert scenario.scenario is not None
     assert len(scenario.models) > 0
 
-    print("\n✅ Vacant Units E2E Test: PASSED")
+    print("\n Vacant Units E2E Test: PASSED")
     print(
-        f"   🎯 Successfully modeled {property_model.unit_mix.vacant_unit_count} vacant units"
+        f"    Successfully modeled {property_model.unit_mix.vacant_unit_count} vacant units"
     )
-    print(f"   📊 {property_model.occupancy_rate:.1%} occupancy properly calculated")
-    print(f"   ⚡ Analysis completed in {analysis_time:.3f}s")
+    print(f"    {property_model.occupancy_rate:.1%} occupancy properly calculated")
+    print(f"    Analysis completed in {analysis_time:.3f}s")
 
 
 if __name__ == "__main__":

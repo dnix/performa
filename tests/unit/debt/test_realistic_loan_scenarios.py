@@ -158,7 +158,7 @@ class TestRealisticCovenantMonitoring:
         ), f"Expected no breaches for compliant scenario, found {breach_count}"
 
         print(
-            f"✅ Stabilized Office Scenario: LTV={actual_ltv:.3f}, DSCR={actual_dscr:.2f}, Breaches={breach_count}"
+            f" Stabilized Office Scenario: LTV={actual_ltv:.3f}, DSCR={actual_dscr:.2f}, Breaches={breach_count}"
         )
 
     def test_value_add_multifamily_compliant_scenario(self):
@@ -207,7 +207,7 @@ class TestRealisticCovenantMonitoring:
         ), f"DSCR {actual_dscr:.3f} should be healthy for conservative deal"
 
         print(
-            f"✅ Value-Add Multifamily: LTV={actual_ltv:.3f}, DSCR={actual_dscr:.2f}, Breaches={breach_count}"
+            f" Value-Add Multifamily: LTV={actual_ltv:.3f}, DSCR={actual_dscr:.2f}, Breaches={breach_count}"
         )
 
     def test_distressed_retail_breach_scenario(self):
@@ -260,7 +260,7 @@ class TestRealisticCovenantMonitoring:
         ), f"DSCR {actual_dscr:.3f} outside distressed range {dscr_min}-{dscr_max}"
 
         print(
-            f"✅ Distressed Retail (Breaches Expected): LTV={actual_ltv:.3f}, DSCR={actual_dscr:.2f}, Breaches={breach_count}"
+            f" Distressed Retail (Breaches Expected): LTV={actual_ltv:.3f}, DSCR={actual_dscr:.2f}, Breaches={breach_count}"
         )
 
     def test_vectorized_performance_with_realistic_data(self):
@@ -327,7 +327,7 @@ class TestRealisticCovenantMonitoring:
                 ), "Compliant scenario should not have breaches"
 
         print(
-            f"✅ Portfolio Performance Test: {len(scenarios)} realistic scenarios processed successfully"
+            f" Portfolio Performance Test: {len(scenarios)} realistic scenarios processed successfully"
         )
 
 
@@ -338,4 +338,4 @@ if __name__ == "__main__":
     test_suite.test_value_add_multifamily_compliant_scenario()
     test_suite.test_distressed_retail_breach_scenario()
     test_suite.test_vectorized_performance_with_realistic_data()
-    print("All realistic scenario tests passed! 🎉")
+    print("All realistic scenario tests passed! ")

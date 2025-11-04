@@ -46,4 +46,4 @@ results = scenario.get_development_summary()
 ```
 
 The development module integrates with asset modules to provide comprehensive
-project modeling from groundbreaking through stabilized operations. 
+project modeling from land acquisition through stabilized operations.

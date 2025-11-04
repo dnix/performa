@@ -29,7 +29,7 @@ from performa.debt.rates import FixedRate, FloatingRate, InterestRate, RateIndex
 
 def test_debt_service_with_interest_only():
     """Test debt service calculations with interest-only periods."""
-    print("🔧 Testing Debt Service with Interest-Only Periods")
+    print(" Testing Debt Service with Interest-Only Periods")
     print("-" * 50)
 
     # Create permanent facility with interest-only periods
@@ -77,7 +77,7 @@ def test_debt_service_with_interest_only():
 
 def test_floating_rate_calculations():
     """Test floating rate calculations with time-varying indices."""
-    print("\n🔧 Testing Floating Rate Calculations")
+    print("\n Testing Floating Rate Calculations")
     print("-" * 50)
 
     # Create floating rate facility
@@ -114,7 +114,7 @@ def test_floating_rate_calculations():
 
 def test_construction_to_permanent_refinancing():
     """Test construction-to-permanent loan refinancing with automatic sizing."""
-    print("\n🔧 Testing Construction-to-Permanent Refinancing")
+    print("\n Testing Construction-to-Permanent Refinancing")
     print("-" * 50)
 
     # Create construction facility
@@ -197,7 +197,7 @@ def test_construction_to_permanent_refinancing():
 
 def test_loan_covenant_monitoring():
     """Test loan covenant monitoring functionality."""
-    print("\n🔧 Testing Loan Covenant Monitoring")
+    print("\n Testing Loan Covenant Monitoring")
     print("-" * 50)
 
     # Create permanent facility with covenant monitoring
@@ -269,7 +269,7 @@ def test_loan_covenant_monitoring():
 
 def test_interest_rate_caps():
     """Test that interest rate caps are properly enforced."""
-    print("\n🔧 Testing Interest Rate Cap Enforcement")
+    print("\n Testing Interest Rate Cap Enforcement")
     print("-" * 50)
 
     # Create floating rate with restrictive cap
@@ -325,22 +325,22 @@ def run_all_integration_tests():
             passed += 1
         except Exception as e:
             failed += 1
-            print(f"❌ {test.__name__} failed with error: {str(e)}")
+            print(f" {test.__name__} failed with error: {str(e)}")
             traceback.print_exc()
 
     print("\n" + "=" * 60)
-    print("🎯 Integration Test Summary")
+    print(" Integration Test Summary")
     print("=" * 60)
     print(f"Tests Passed: {passed}")
     print(f"Tests Failed: {failed}")
     print(f"Success Rate: {passed / (passed + failed):.1%}")
 
     if failed == 0:
-        print("\n🎉 All integration tests passed!")
+        print("\n All integration tests passed!")
         print("Debt module features are working correctly!")
         return True
     else:
-        print(f"\n❌ {failed} integration tests failed")
+        print(f"\n {failed} integration tests failed")
         return False
 
 

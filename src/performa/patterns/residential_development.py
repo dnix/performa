@@ -10,7 +10,7 @@ metrics and residential-specific leasing assumptions.
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
 from pydantic import Field, field_validator, model_validator
 
@@ -21,6 +21,7 @@ from ..asset.residential import (
     ResidentialExpenses,
     ResidentialGeneralVacancyLoss,
     ResidentialLosses,
+    ResidentialOpExItem,
     ResidentialRolloverLeaseTerms,
     ResidentialRolloverProfile,
     ResidentialVacantUnit,
@@ -32,25 +33,30 @@ from ..asset.residential.absorption import (
 from ..core.capital import CapitalItem, CapitalPlan
 from ..core.primitives import (
     AssetTypeEnum,
+    ExpenseSubcategoryEnum,
     FloatBetween0And1,
+    FrequencyEnum,
     InterestCalculationMethod,
+    PercentageGrowthRate,
     PositiveFloat,
     PositiveInt,
+    PropertyAttributeKey,
     SCurveDrawSchedule,
     StartDateAnchorEnum,
     Timeline,
     UniformDrawSchedule,
+    UnleveredAggregateLineKey,
     UponExpirationEnum,
 )
+from ..core.primitives.enums import SweepMode
 from ..deal import (
     AcquisitionTerms,
     Deal,
     create_gp_lp_waterfall,
     create_simple_partnership,
 )
-
-# No direct debt facility imports needed - using construct
 from ..debt.constructs import create_construction_to_permanent_plan
+from ..debt.covenants import CashSweep
 from ..development import DevelopmentProject
 from ..valuation import DirectCapValuation
 from .base import DevelopmentPatternBase
@@ -144,6 +150,21 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         description="Frequency of lease executions (typically monthly for residential)",
     )
 
+    # === REFINANCING TIMING ===
+    refinancing_timing_months: PositiveInt = Field(
+        default=40,
+        ge=18,
+        le=120,
+        description=(
+            "Month to refinance construction loan into permanent financing. "
+            "User must explicitly consider: (1) lease-up duration, (2) stabilization period "
+            "to 90%+ occupancy, (3) first lease turnover cycle, and (4) lender T12 NOI requirements. "
+            "CRITICAL: Account for turnover! With aggressive absorption, all leases may expire together. "
+            "Typical: leasing_start + absorption + full_lease_term + T12_NOI (e.g., 15 + 6 + 12 + 7 = 40). "
+            "Industry standard approach (Argus/Rockport): users set timing explicitly."
+        ),
+    )
+
     # === CONSTRUCTION COST MODEL ===
     construction_cost_per_unit: PositiveFloat = Field(
         default=None,
@@ -172,6 +193,15 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
     construction_ltc_max: FloatBetween0And1 = Field(
         default=0.80,
         description="Maximum LTC threshold - lender's hard gate (typically 0.75-0.85)",
+    )
+    construction_sweep_mode: Optional[SweepMode] = Field(
+        default=SweepMode.TRAP,
+        description=(
+            "Cash sweep mode for construction loan covenant. "
+            "TRAP = hold excess cash in escrow until refinancing, "
+            "PREPAY = apply excess cash to mandatory principal prepayment. "
+            "Set to None to disable sweep (unrealistic for most deals)."
+        ),
     )
 
     # Removed duplicate _derive_timeline() method - using the one below with proper development logic
@@ -242,13 +272,15 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         Derive timeline from hold_period_years (stabilized hold after construction + lease-up).
 
         Residential Development Timeline: Acquisition → Construction → Lease-up → Stabilized Hold Period
-        - Total timeline = construction_start_months + construction_duration_months + 18 (lease-up) + hold_period_years * 12
+        - Total timeline = construction_start_months + construction_duration_months + lease_up + hold_period_years * 12
         """
         # Calculate total development timeline
         construction_period_months = (
             self.construction_start_months + self.construction_duration_months
         )
-        lease_up_months = 18  # Longer residential lease-up period vs 12 for office
+        # Calculate actual lease-up duration from absorption parameters
+        # This ensures timeline and refinancing use consistent lease-up duration
+        lease_up_months = int(self.total_units / self.absorption_pace_units_per_month)
         stabilized_hold_months = self.hold_period_years * 12
 
         total_timeline_months = (
@@ -268,27 +300,27 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         """
 
         # === STEP 1: CONSTRUCTION CAPITAL PLAN ===
+        # Construction timeline (uses parameter, not hardcoded)
+        construction_timeline = Timeline(
+            start_date=self.acquisition_date,
+            duration_months=self.construction_duration_months,
+        )
+
         construction_item = CapitalItem(
             name=f"{self.project_name} Construction",
             work_type="construction",
             value=self.total_construction_cost,
-            timeline=Timeline(
-                start_date=self.acquisition_date,
-                duration_months=18,  # Typical residential construction timeline
-            ),
+            timeline=construction_timeline,  # Use parameterized timeline
             draw_schedule=SCurveDrawSchedule(
                 sigma=1.0
-            ),  # Realistic S-curve construction draws over 18 months
+            ),  # Realistic S-curve construction draws
         )
 
         developer_fee_item = CapitalItem(
             name=f"{self.project_name} Developer Fee",
             work_type="developer",
             value=self.developer_fee,
-            timeline=Timeline(
-                start_date=self.acquisition_date,
-                duration_months=18,  # Same timeline as construction
-            ),
+            timeline=construction_timeline,  # Use same parameterized timeline
             draw_schedule=UniformDrawSchedule(),  # Flat monthly payments (industry standard)
         )
 
@@ -333,9 +365,97 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         )
         avg_rent = total_rent_weight / self.total_units
 
-        # For now, skip operating expenses until we fix the timeline issue
-        # TODO: Add proper operating expenses with timeline
-        stabilized_expenses = ResidentialExpenses(operating_expenses=[])
+        # === OPERATING EXPENSES ===
+        # Typical multifamily operating expenses for new development
+        # These represent stabilized operating costs once property is fully occupied
+
+        # Get timeline for expenses (same as overall project timeline)
+        project_timeline = self._derive_timeline()
+
+        stabilized_expenses = ResidentialExpenses(
+            operating_expenses=[
+                # Property Management: 4-5% of Effective Gross Income (industry standard)
+                ResidentialOpExItem(
+                    name="Property Management",
+                    category="Expense",
+                    subcategory=ExpenseSubcategoryEnum.OPEX,
+                    timeline=project_timeline,
+                    value=0.04,  # 4% of EGI (competitive for institutional quality)
+                    frequency=FrequencyEnum.MONTHLY,
+                    reference=UnleveredAggregateLineKey.EFFECTIVE_GROSS_INCOME,
+                ),
+                # Maintenance & Repairs: $500-600/unit annually (new construction baseline)
+                ResidentialOpExItem(
+                    name="Maintenance & Repairs",
+                    category="Expense",
+                    subcategory=ExpenseSubcategoryEnum.OPEX,
+                    timeline=project_timeline,
+                    value=500.0,  # $500/unit annually (new construction, lower initial maintenance)
+                    frequency=FrequencyEnum.ANNUAL,
+                    reference=PropertyAttributeKey.UNIT_COUNT,
+                    growth_rate=PercentageGrowthRate(
+                        name="Maintenance Inflation",
+                        value=0.03,  # 3% annual growth
+                    ),
+                ),
+                # Insurance: $350-400/unit annually (property and liability)
+                ResidentialOpExItem(
+                    name="Property Insurance",
+                    category="Expense",
+                    subcategory=ExpenseSubcategoryEnum.OPEX,
+                    timeline=project_timeline,
+                    value=400.0,  # $400/unit annually (comprehensive coverage)
+                    frequency=FrequencyEnum.ANNUAL,
+                    reference=PropertyAttributeKey.UNIT_COUNT,
+                    growth_rate=PercentageGrowthRate(
+                        name="Insurance Inflation",
+                        value=0.04,  # 4% annual growth (typically higher than CPI)
+                    ),
+                ),
+                # Property Taxes: $3,500/unit annually (varies by location, adjust per market)
+                ResidentialOpExItem(
+                    name="Property Taxes",
+                    category="Expense",
+                    subcategory=ExpenseSubcategoryEnum.OPEX,
+                    timeline=project_timeline,
+                    value=3500.0,  # $3,500/unit annually (typical for mid-market)
+                    frequency=FrequencyEnum.ANNUAL,
+                    reference=PropertyAttributeKey.UNIT_COUNT,
+                    growth_rate=PercentageGrowthRate(
+                        name="Property Tax Growth",
+                        value=0.025,  # 2.5% annual growth
+                    ),
+                ),
+                # Utilities: $200/unit annually (common area only, units typically separately metered)
+                ResidentialOpExItem(
+                    name="Utilities",
+                    category="Expense",
+                    subcategory=ExpenseSubcategoryEnum.OPEX,
+                    timeline=project_timeline,
+                    value=200.0,  # $200/unit annually (common areas, hallways, amenities)
+                    frequency=FrequencyEnum.ANNUAL,
+                    reference=PropertyAttributeKey.UNIT_COUNT,
+                    growth_rate=PercentageGrowthRate(
+                        name="Utility Inflation",
+                        value=0.035,  # 3.5% annual growth
+                    ),
+                ),
+                # General & Administrative: $150/unit annually (accounting, legal, admin)
+                ResidentialOpExItem(
+                    name="General & Administrative",
+                    category="Expense",
+                    subcategory=ExpenseSubcategoryEnum.OPEX,
+                    timeline=project_timeline,
+                    value=150.0,  # $150/unit annually
+                    frequency=FrequencyEnum.ANNUAL,
+                    reference=PropertyAttributeKey.UNIT_COUNT,
+                    growth_rate=PercentageGrowthRate(
+                        name="G&A Inflation",
+                        value=0.03,  # 3% annual growth
+                    ),
+                ),
+            ]
+        )
         stabilized_losses = ResidentialLosses(
             general_vacancy=ResidentialGeneralVacancyLoss(
                 rate=self.stabilized_vacancy_rate,
@@ -345,10 +465,15 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
             ),
         )
 
+        # CRITICAL FIX: Use actual leasing_start_months parameter
+        # The pattern explicitly specifies when leasing starts (may be during construction)
+        # Don't recalculate based on construction completion - use what user specified
+        leasing_offset = self.leasing_start_months
+
         absorption_plan = ResidentialAbsorptionPlan(
             name=f"{self.project_name} Residential Leasing",
             start_date_anchor=StartDateAnchorEnum.ANALYSIS_START,
-            start_offset_months=self.leasing_start_months,  # Start leasing after construction
+            start_offset_months=leasing_offset,  # User-specified offset; may begin during or after construction
             pace=FixedQuantityPace(
                 quantity=self.absorption_pace_units_per_month,
                 unit="Units",
@@ -391,7 +516,7 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
             ),
             value=self.land_cost,
             acquisition_date=self.acquisition_date,
-            closing_costs_rate=0.03,  # 3% default closing costs
+            closing_costs_rate=self.land_closing_costs_rate,  # Use pattern parameter
         )
 
         # === STEP 7: CONSTRUCTION-TO-PERMANENT FINANCING ===
@@ -405,21 +530,42 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
         # Feasibility checks now handled by auto-sizing logic and market-driven validation
         # The sophisticated architecture ensures deals are appropriately structured
 
+        # Calculate lease-up duration from absorption parameters
+        # Ensures refinancing timing accounts for actual stabilization period
+        actual_lease_up_months = int(
+            self.total_units / self.absorption_pace_units_per_month
+        )
+
+        # Use explicit refinancing timing set by user
+        # This follows industry standard practice (Argus/Rockport) where users
+        # manually determine refinancing timing based on their specific assumptions
+        # about lease-up pace, stabilization, and lender requirements.
+        actual_refinance_timing = self.refinancing_timing_months
+
+        # Create cash sweep covenant if enabled
+        # Prevents unrealistic distributions during construction/lease-up
+        cash_sweep_covenant = None
+        if self.construction_sweep_mode is not None:
+            cash_sweep_covenant = CashSweep(
+                mode=self.construction_sweep_mode,
+                end_month=actual_refinance_timing,  # Synchronized with refinancing timing
+            )
+
         financing = create_construction_to_permanent_plan(
             construction_terms={
                 "name": "Construction Facility",
                 "ltc_ratio": self.construction_ltc_ratio,  # Use base class LTC parameter for loan sizing
                 "ltc_max": self.construction_ltc_max,  # Lender's hard gate
                 "interest_rate": self.construction_interest_rate,
-                "loan_term_months": self.construction_duration_months,  # Use actual construction duration
-                "fund_interest_from_reserve": True,  # Match composition approach
-                "interest_reserve_rate": 0.10
-                if self.interest_reserve_rate is None
-                else self.interest_reserve_rate,  # 10% reserve
+                "loan_term_months": actual_refinance_timing,  # CRITICAL: Extend through refinancing, not just construction
                 "interest_calculation_method": getattr(
                     InterestCalculationMethod, self.interest_calculation_method
                 ),
-                "simple_reserve_rate": 0.10,  # Required for SIMPLE method
+                # SCHEDULED method: Interest capitalizes dynamically - no upfront reserve
+                # SIMPLE method requires simple_reserve_rate parameter
+                "simple_reserve_rate": 0.10,  # Required for SIMPLE method (ignored for SCHEDULED)
+                # NEW: Attach cash sweep covenant
+                "cash_sweep": cash_sweep_covenant,
             },
             permanent_terms={
                 "name": "Permanent Facility",
@@ -430,11 +576,11 @@ class ResidentialDevelopmentPattern(DevelopmentPatternBase):
                 "interest_rate": self.permanent_interest_rate,
                 "loan_term_years": self.permanent_loan_term_years,  # Use years form for construct
                 "amortization_years": self.permanent_amortization_years,  # Use years form for construct
-                "origination_fee_rate": 0.005,
-                # Smart refinance timing: construct will calculate from construction_duration_months + lease_up
+                # CRITICAL: Pass explicit refinance timing based on actual leasing start
+                "refinance_timing": actual_refinance_timing,  # Accounts for leasing offset + lease-up + buffer
             },
             project_value=self.total_project_cost,
-            lease_up_months=18,  # DEVELOPMENT FIX: Account for 18-month residential lease-up before refinancing
+            lease_up_months=actual_lease_up_months,  # Calculate from absorption pace, not hardcoded
         )
 
         # === STEP 8: ARCHITECTURAL IMPROVEMENT ===
