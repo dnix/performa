@@ -93,15 +93,15 @@ class TestWaterfallLogicValidation:
                 for partner in results["partner_distributions"].values()
             )
 
-            assert (
-                abs(total_distributions - total_positive_cash) < 0.01
-            ), f"Cash flow conservation violated: {total_distributions} != {total_positive_cash}"
+            assert abs(total_distributions - total_positive_cash) < 0.01, (
+                f"Cash flow conservation violated: {total_distributions} != {total_positive_cash}"
+            )
 
             # Validate total deal metrics match sum of partners
             deal_total_dist = results["total_metrics"]["total_distributions"]
-            assert (
-                abs(deal_total_dist - total_positive_cash) < 0.01
-            ), f"Deal total mismatch: {deal_total_dist} != {total_positive_cash}"
+            assert abs(deal_total_dist - total_positive_cash) < 0.01, (
+                f"Deal total mismatch: {deal_total_dist} != {total_positive_cash}"
+            )
 
         print(" Cash flow conservation principle validated across all scenarios")
 
@@ -148,9 +148,9 @@ class TestWaterfallLogicValidation:
         lp_irr = lp_result["irr"]
 
         # With 30% return, LP should achieve good IRR (but less than 30% due to GP promote)
-        assert (
-            lp_irr >= 0.15
-        ), f"LP should achieve good IRR with strong performance: {lp_irr:.2%}"
+        assert lp_irr >= 0.15, (
+            f"LP should achieve good IRR with strong performance: {lp_irr:.2%}"
+        )
 
         # Validate GP gets promote (more than pro-rata share)
         gp_result = results["partner_distributions"]["GP"]
@@ -160,9 +160,9 @@ class TestWaterfallLogicValidation:
 
         # GP should get more than their pro-rata contribution (due to promote)
         # Allow small tolerance for edge cases
-        assert (
-            gp_actual_share >= gp_pro_rata_share * 1.05
-        ), f"GP should get promote beyond pro-rata: {gp_actual_share:.2%} vs {gp_pro_rata_share:.2%}"
+        assert gp_actual_share >= gp_pro_rata_share * 1.05, (
+            f"GP should get promote beyond pro-rata: {gp_actual_share:.2%} vs {gp_pro_rata_share:.2%}"
+        )
 
         print(" Preferred return priority principle validated")
         print(f"   LP IRR: {lp_irr:.2%} (targeting 8.0% preferred)")
@@ -222,9 +222,9 @@ class TestWaterfallLogicValidation:
         lp_irr = lp_result["irr"]
 
         # With this cash flow pattern, LP should achieve well above preferred return
-        assert (
-            lp_irr >= 0.12
-        ), f"LP should achieve high IRR in strong scenario: {lp_irr:.2%}"
+        assert lp_irr >= 0.12, (
+            f"LP should achieve high IRR in strong scenario: {lp_irr:.2%}"
+        )
 
         # Validate that GP gets substantial promote due to hitting higher tiers
         gp_result = results["partner_distributions"]["GP"]
@@ -232,15 +232,15 @@ class TestWaterfallLogicValidation:
         gp_distribution_ratio = gp_result["total_distributions"] / total_positive_cash
 
         # GP should get significant promote in high-performing scenario
-        assert (
-            gp_distribution_ratio > 0.10
-        ), f"GP should get significant promote in high-performing scenario: {gp_distribution_ratio:.1%}"
+        assert gp_distribution_ratio > 0.10, (
+            f"GP should get significant promote in high-performing scenario: {gp_distribution_ratio:.1%}"
+        )
 
         # GP IRR should be very high due to promote
         gp_irr = gp_result["irr"]
-        assert (
-            gp_irr > lp_irr
-        ), f"GP IRR should exceed LP IRR due to promote: GP {gp_irr:.2%} vs LP {lp_irr:.2%}"
+        assert gp_irr > lp_irr, (
+            f"GP IRR should exceed LP IRR due to promote: GP {gp_irr:.2%} vs LP {lp_irr:.2%}"
+        )
 
         print(" Hurdle progression logic validated")
         print(f"   LP achieved: {lp_irr:.2%} IRR (multiple hurdles hit)")
@@ -314,9 +314,9 @@ class TestWaterfallLogicValidation:
         # GP should get massive promote due to extreme performance
         gp_result = results2["partner_distributions"]["GP"]
         gp_distribution_ratio = gp_result["total_distributions"] / 10_000_000
-        assert (
-            gp_distribution_ratio > 0.40
-        ), f"GP should get large promote in extreme scenario: {gp_distribution_ratio:.1%}"
+        assert gp_distribution_ratio > 0.40, (
+            f"GP should get large promote in extreme scenario: {gp_distribution_ratio:.1%}"
+        )
 
         # Edge Case 3: Exactly hit hurdle rate
         periods3 = pd.period_range("2024-01", periods=25, freq="M")
@@ -334,9 +334,9 @@ class TestWaterfallLogicValidation:
         # Should handle exact hurdle achievement
         lp_irr = results3["partner_distributions"]["LP"]["irr"]
         # Should be close to 8% (allowing for small numerical precision)
-        assert (
-            0.075 <= lp_irr <= 0.085
-        ), f"LP IRR should be close to 8% when exactly hitting preferred: {lp_irr:.2%}"
+        assert 0.075 <= lp_irr <= 0.085, (
+            f"LP IRR should be close to 8% when exactly hitting preferred: {lp_irr:.2%}"
+        )
 
         print(" Edge case scenarios validated")
         print("   ✓ Total loss scenario handled")
@@ -404,18 +404,18 @@ class TestWaterfallLogicValidation:
         extra_gp = higher_gp_total - base_gp_total
         extra_lp = higher_lp_total - base_lp_total
 
-        assert (
-            abs((extra_gp + extra_lp) - 10_000) < 1.0
-        ), "Extra distributions should sum to extra cash flow"
+        assert abs((extra_gp + extra_lp) - 10_000) < 1.0, (
+            "Extra distributions should sum to extra cash flow"
+        )
 
         # Validate that distributions are reasonable (GP should get some promote)
-        assert (
-            extra_gp > 0 and extra_lp > 0
-        ), "Both partners should benefit from additional returns"
+        assert extra_gp > 0 and extra_lp > 0, (
+            "Both partners should benefit from additional returns"
+        )
 
-        assert (
-            extra_gp > 1_500
-        ), f"GP should get meaningful promote from extra returns: ${extra_gp:,.0f}"
+        assert extra_gp > 1_500, (
+            f"GP should get meaningful promote from extra returns: ${extra_gp:,.0f}"
+        )
 
         # Test numerical stability with very small amounts
         tiny_cash_flows = base_cash_flows.copy()
@@ -431,9 +431,9 @@ class TestWaterfallLogicValidation:
 
         # NOTE: Our waterfall correctly separates return of capital from profit distribution
         # See DistributionCalculator.calculate_waterfall_distribution() Steps 1 & 2
-        assert (
-            abs(tiny_total_dist - 1_000_001) < 0.01
-        ), "Should handle tiny profits without numerical issues (total distributions)"
+        assert abs(tiny_total_dist - 1_000_001) < 0.01, (
+            "Should handle tiny profits without numerical issues (total distributions)"
+        )
 
         print(" Mathematical precision and consistency validated")
         print(f"   Extra $10K distributed: GP +${extra_gp:,.0f}, LP +${extra_lp:,.0f}")

@@ -62,9 +62,9 @@ def test_residential_pattern_with_trap_sweep():
     assert len(construction_facilities) > 0, "Should have construction facility"
     construction_facility = construction_facilities[0]
     assert construction_facility.cash_sweep is not None, "Should have cash sweep"
-    assert (
-        construction_facility.cash_sweep.mode == SweepMode.TRAP
-    ), "Should be TRAP mode"
+    assert construction_facility.cash_sweep.mode == SweepMode.TRAP, (
+        "Should be TRAP mode"
+    )
 
     # Verify sweep timing is synchronized with refinancing
     permanent_facilities = deal.financing.permanent_facilities
@@ -72,9 +72,9 @@ def test_residential_pattern_with_trap_sweep():
     permanent_facility = permanent_facilities[0]
     refinance_timing = permanent_facility.refinance_timing
     sweep_end = construction_facility.cash_sweep.end_month
-    assert (
-        sweep_end == refinance_timing
-    ), f"Sweep end ({sweep_end}) should match refinance timing ({refinance_timing})"
+    assert sweep_end == refinance_timing, (
+        f"Sweep end ({sweep_end}) should match refinance timing ({refinance_timing})"
+    )
 
     print(f"✓ Construction facility has TRAP sweep ending at month {sweep_end}")
     print(f"✓ Refinancing occurs at month {refinance_timing} (synchronized)")
@@ -104,9 +104,9 @@ def test_residential_pattern_with_trap_sweep():
     # Verify balance: total deposits should equal total releases
     total_trapped = abs(deposits["amount"].sum())
     total_released = releases["amount"].sum()
-    assert (
-        abs(total_trapped - total_released) < 1.0
-    ), "Trapped amount should equal released amount"
+    assert abs(total_trapped - total_released) < 1.0, (
+        "Trapped amount should equal released amount"
+    )
     print(
         f"✓ Sweep balance verified: ${total_trapped:,.0f} trapped = ${total_released:,.0f} released"
     )
@@ -162,9 +162,9 @@ def test_residential_pattern_with_prepay_sweep():
     assert len(construction_facilities) > 0, "Should have construction facility"
     construction_facility = construction_facilities[0]
     assert construction_facility.cash_sweep is not None, "Should have cash sweep"
-    assert (
-        construction_facility.cash_sweep.mode == SweepMode.PREPAY
-    ), "Should be PREPAY mode"
+    assert construction_facility.cash_sweep.mode == SweepMode.PREPAY, (
+        "Should be PREPAY mode"
+    )
 
     print(f"✓ Construction facility has PREPAY sweep")
 

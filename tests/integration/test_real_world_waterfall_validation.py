@@ -94,15 +94,15 @@ class TestRealWorldCarryPromoteValidation:
         expected_gp_multiple = (
             1.65  # Approximately 1.7x due to carry (revised from unrealistic 2.0x)
         )
-        assert (
-            gp_results["equity_multiple"] > expected_gp_multiple
-        ), f"GP multiple {gp_results['equity_multiple']:.2f}x should be > {expected_gp_multiple}x"
+        assert gp_results["equity_multiple"] > expected_gp_multiple, (
+            f"GP multiple {gp_results['equity_multiple']:.2f}x should be > {expected_gp_multiple}x"
+        )
 
         # LP should get modest return, mostly at preferred level
         expected_lp_multiple = 1.40  # Approximately 1.43x (revised from 1.35x)
-        assert (
-            abs(lp_results["equity_multiple"] - expected_lp_multiple) < 0.10
-        ), f"LP multiple {lp_results['equity_multiple']:.2f}x should be ~{expected_lp_multiple}x"
+        assert abs(lp_results["equity_multiple"] - expected_lp_multiple) < 0.10, (
+            f"LP multiple {lp_results['equity_multiple']:.2f}x should be ~{expected_lp_multiple}x"
+        )
 
         # Validate investment amounts
         assert gp_results["total_investment"] == 2_500_000  # 25% of $10M
@@ -110,17 +110,17 @@ class TestRealWorldCarryPromoteValidation:
 
         # Validate that GP gets more than pro rata share of distributions
         gp_pro_rata_share = 15_000_000 * 0.25  # $3.75M
-        assert (
-            gp_results["total_distributions"] > gp_pro_rata_share
-        ), "GP should get more than pro rata due to carry"
+        assert gp_results["total_distributions"] > gp_pro_rata_share, (
+            "GP should get more than pro rata due to carry"
+        )
 
         # Validate that total distributions sum correctly
         total_calculated = (
             gp_results["total_distributions"] + lp_results["total_distributions"]
         )
-        assert (
-            abs(total_calculated - 15_000_000) < 1
-        ), "Total distributions should sum to $15M"
+        assert abs(total_calculated - 15_000_000) < 1, (
+            "Total distributions should sum to $15M"
+        )
 
         print(" PE Carry Test Results:")
         print(
@@ -289,9 +289,9 @@ class TestRealWorldWaterfallPromoteValidation:
         expected_gp_min_multiple = (
             2.0  # At least 2.0x due to promote (revised from unrealistic 2.5x)
         )
-        assert (
-            gp_results["equity_multiple"] > expected_gp_min_multiple
-        ), f"GP multiple {gp_results['equity_multiple']:.2f}x should be > {expected_gp_min_multiple}x"
+        assert gp_results["equity_multiple"] > expected_gp_min_multiple, (
+            f"GP multiple {gp_results['equity_multiple']:.2f}x should be > {expected_gp_min_multiple}x"
+        )
 
         # LP should get solid but lower return
         expected_lp_multiple_range = (1.5, 1.8)  # Between 1.5x and 1.8x
@@ -299,12 +299,14 @@ class TestRealWorldWaterfallPromoteValidation:
             expected_lp_multiple_range[0]
             < lp_results["equity_multiple"]
             < expected_lp_multiple_range[1]
-        ), f"LP multiple {lp_results['equity_multiple']:.2f}x should be between {expected_lp_multiple_range}"
+        ), (
+            f"LP multiple {lp_results['equity_multiple']:.2f}x should be between {expected_lp_multiple_range}"
+        )
 
         # GP should significantly outperform LP due to promote structure
-        assert (
-            gp_results["equity_multiple"] > lp_results["equity_multiple"] + 0.35
-        ), "GP should outperform LP by significant margin (revised to 0.35x)"
+        assert gp_results["equity_multiple"] > lp_results["equity_multiple"] + 0.35, (
+            "GP should outperform LP by significant margin (revised to 0.35x)"
+        )
 
         # Validate investment amounts
         assert gp_results["total_investment"] == 5_000_000  # 25% of $20M
@@ -314,16 +316,16 @@ class TestRealWorldWaterfallPromoteValidation:
         total_calculated = (
             gp_results["total_distributions"] + lp_results["total_distributions"]
         )
-        assert (
-            abs(total_calculated - 35_000_000) < 1
-        ), "Total distributions should sum to $35M"
+        assert abs(total_calculated - 35_000_000) < 1, (
+            "Total distributions should sum to $35M"
+        )
 
         # Validate that GP gets much more than pro rata share
         gp_pro_rata_share = 35_000_000 * 0.25  # $8.75M
         gp_excess = gp_results["total_distributions"] - gp_pro_rata_share
-        assert (
-            gp_excess > 1_000_000
-        ), f"GP should get > $1M more than pro rata, got ${gp_excess:,.0f} (revised from $2M)"
+        assert gp_excess > 1_000_000, (
+            f"GP should get > $1M more than pro rata, got ${gp_excess:,.0f} (revised from $2M)"
+        )
 
         print(" Real Estate Waterfall Test Results:")
         print(
@@ -421,17 +423,17 @@ class TestRealWorldWaterfallPromoteValidation:
         multiple_difference = (
             gp_results["equity_multiple"] - lp_results["equity_multiple"]
         )
-        assert (
-            0.1 < multiple_difference < 0.4
-        ), f"GP should modestly outperform LP, difference: {multiple_difference:.2f}x"
+        assert 0.1 < multiple_difference < 0.4, (
+            f"GP should modestly outperform LP, difference: {multiple_difference:.2f}x"
+        )
 
         # Validate that total distributions sum correctly
         total_calculated = (
             gp_results["total_distributions"] + lp_results["total_distributions"]
         )
-        assert (
-            abs(total_calculated - 13_000_000) < 1
-        ), "Total distributions should sum to $13M"
+        assert abs(total_calculated - 13_000_000) < 1, (
+            "Total distributions should sum to $13M"
+        )
 
         print(" Moderate Returns Waterfall Test Results:")
         print(

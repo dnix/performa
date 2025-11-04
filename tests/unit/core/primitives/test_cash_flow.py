@@ -177,9 +177,9 @@ def test_per_unit_residential_calculation_fix(sample_timeline: Timeline):
 
     # Verify annual total
     annual_total = cash_flow.sum()
-    assert (
-        abs(annual_total - expected_annual_value) < 12.0
-    ), f"Expected ~${expected_annual_value}/year but got ${annual_total}/year"
+    assert abs(annual_total - expected_annual_value) < 12.0, (
+        f"Expected ~${expected_annual_value}/year but got ${annual_total}/year"
+    )
 
 
 def test_per_unit_office_calculation_unchanged(sample_timeline: Timeline):
@@ -226,9 +226,9 @@ def test_per_unit_office_calculation_unchanged(sample_timeline: Timeline):
 
     # Verify annual total
     annual_total = cash_flow.sum()
-    assert (
-        abs(annual_total - expected_annual_value) < 12.0
-    ), f"Expected ~${expected_annual_value}/year but got ${annual_total}/year"
+    assert abs(annual_total - expected_annual_value) < 12.0, (
+        f"Expected ~${expected_annual_value}/year but got ${annual_total}/year"
+    )
 
 
 def test_per_unit_edge_case_zero_unit_count(sample_timeline: Timeline):
@@ -264,6 +264,6 @@ def test_per_unit_edge_case_zero_unit_count(sample_timeline: Timeline):
     expected_annual_value = 100.0 * 50000.0  # Uses area as requested
     expected_monthly_value = expected_annual_value / 12
 
-    assert (
-        abs(cash_flow.iloc[0] - expected_monthly_value) < 1.0
-    ), "Should use area calculation when NET_RENTABLE_AREA is explicitly requested"
+    assert abs(cash_flow.iloc[0] - expected_monthly_value) < 1.0, (
+        "Should use area calculation when NET_RENTABLE_AREA is explicitly requested"
+    )

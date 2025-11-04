@@ -372,9 +372,9 @@ class TestSystematicDependencyScenarios:
 
         # Basic sanity checks (detailed math would be complex with multiple iterations)
         assert mgmt_result.sum() > 0, "Management fee should be calculated"
-        assert (
-            admin_result.sum() < 0
-        ), "Admin fee should be calculated (negative: 8% of negative Total OpEx)"
+        assert admin_result.sum() < 0, (
+            "Admin fee should be calculated (negative: 8% of negative Total OpEx)"
+        )
         assert asset_result.sum() > 0, "Asset management fee should be calculated"
 
         # Validate fees are reasonable percentages

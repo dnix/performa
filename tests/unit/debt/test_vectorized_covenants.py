@@ -191,17 +191,17 @@ class TestVectorizedCovenantMonitoring:
 
         # Should detect DSCR breaches with corrected calculations
         # Note: For permanent loan with constant NOI/debt service, DSCR is constant across periods
-        assert results[
-            "DSCR_Breach"
-        ].any(), "Should detect DSCR breaches with corrected math"
+        assert results["DSCR_Breach"].any(), (
+            "Should detect DSCR breaches with corrected math"
+        )
 
         # Should detect debt yield breaches ($96k annual NOI / $1M loan = 0.096 < 0.10 min - breach!)
         assert results["Debt_Yield_Breach"].any(), "Should detect debt yield breaches"
 
         # Overall status should show breaches in original scenario
-        assert (
-            results["Covenant_Status"] == "BREACH"
-        ).any(), "Should show breach status"
+        assert (results["Covenant_Status"] == "BREACH").any(), (
+            "Should show breach status"
+        )
 
     def test_vectorized_covenant_status_logic(self):
         """Test the vectorized covenant status calculation logic."""
@@ -234,9 +234,9 @@ class TestVectorizedCovenantMonitoring:
 
         # Should have PAID_OFF status for periods after loan maturity
         paid_off_periods = results[results["Covenant_Status"] == "PAID_OFF"]
-        assert (
-            len(paid_off_periods) > 0
-        ), "Should have PAID_OFF status after loan matures"
+        assert len(paid_off_periods) > 0, (
+            "Should have PAID_OFF status after loan matures"
+        )
 
         # Should have zero outstanding balance for PAID_OFF periods
         for period in paid_off_periods.index:
@@ -335,9 +335,9 @@ class TestVectorizedPerformance:
 
         # Performance validation
         assert len(vectorized_results) == len(timeline.period_index)
-        assert (
-            vectorized_time < 1.0
-        ), f"Vectorized calculation should be fast, took {vectorized_time:.4f}s"
+        assert vectorized_time < 1.0, (
+            f"Vectorized calculation should be fast, took {vectorized_time:.4f}s"
+        )
 
         # Log performance results
         print("\n🚀 Performance Test Results:")
@@ -411,12 +411,12 @@ class TestVectorizedPerformance:
         total_calculations = num_loans * len(timeline.period_index)
 
         # Performance validation for portfolio scale
-        assert (
-            portfolio_time < 30.0
-        ), f"Portfolio analysis should complete in reasonable time, took {portfolio_time:.2f}s"
-        assert (
-            len(portfolio_results) == num_loans
-        ), "Should process all loans in portfolio"
+        assert portfolio_time < 30.0, (
+            f"Portfolio analysis should complete in reasonable time, took {portfolio_time:.2f}s"
+        )
+        assert len(portfolio_results) == num_loans, (
+            "Should process all loans in portfolio"
+        )
 
         # Log portfolio performance
         print("\n Portfolio Performance Test:")
@@ -499,9 +499,9 @@ def test_vectorized_integration_validation():
 
     # Should not have any breaches with these conservative parameters
     breach_count = (results["Covenant_Status"] == "BREACH").sum()
-    assert (
-        breach_count == 0
-    ), f"Should not have breaches with conservative parameters, found {breach_count}"
+    assert breach_count == 0, (
+        f"Should not have breaches with conservative parameters, found {breach_count}"
+    )
 
     # Should have PAID_OFF status at the end
     assert (

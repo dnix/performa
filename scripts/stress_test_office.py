@@ -139,9 +139,9 @@ def test_office_fundamental_sanity() -> bool:
     )
 
     cf_result = lease.compute_cf(context)
-    assert isinstance(
-        cf_result, dict
-    ), f"compute_cf should return dict, got {type(cf_result)}"
+    assert isinstance(cf_result, dict), (
+        f"compute_cf should return dict, got {type(cf_result)}"
+    )
     assert "base_rent" in cf_result, "compute_cf should have base_rent component"
 
     # Debug the cash flow structure
@@ -157,16 +157,16 @@ def test_office_fundamental_sanity() -> bool:
 
     # The office lease calculation might be different - just validate it's reasonable
     assert actual_total > 0, f"Base rent should be positive, got {actual_total}"
-    assert (
-        actual_total <= annual_rent * 2
-    ), f"Base rent seems too high: {actual_total} vs max expected {annual_rent * 2}"
+    assert actual_total <= annual_rent * 2, (
+        f"Base rent seems too high: {actual_total} vs max expected {annual_rent * 2}"
+    )
 
     # Test 2: Component aggregation
     print("  Test 2: Component aggregation...")
     project_result = lease.project_future_cash_flows(context)
-    assert hasattr(
-        project_result, "columns"
-    ), "project_future_cash_flows should return DataFrame"
+    assert hasattr(project_result, "columns"), (
+        "project_future_cash_flows should return DataFrame"
+    )
     assert "base_rent" in project_result.columns, "Should have base_rent column"
     print("    ✅ Component aggregation: PASS")
 
@@ -426,9 +426,9 @@ def test_multi_tenant_office() -> Dict[str, Any]:
 
     # Fundamental sanity checks
     assert len(lease_models) == 8, f"Expected 8 lease models, got {len(lease_models)}"
-    assert (
-        len(expense_models) == 3
-    ), f"Expected 3 expense models, got {len(expense_models)}"
+    assert len(expense_models) == 3, (
+        f"Expected 3 expense models, got {len(expense_models)}"
+    )
     assert actual_pgr > 0, f"PGR should be positive, got {actual_pgr}"
 
     return {
@@ -631,18 +631,18 @@ def test_institutional_office_complex() -> Dict[str, Any]:
     )
 
     # Performance assertions for institutional scale
-    assert (
-        execution_time < 10.0
-    ), f"Institutional office analysis should complete in <10s, took {execution_time:.3f}s"
+    assert execution_time < 10.0, (
+        f"Institutional office analysis should complete in <10s, took {execution_time:.3f}s"
+    )
 
     # Fundamental sanity checks
     assert len(lease_models) == 20, f"Expected 20 lease models, got {len(lease_models)}"
-    assert (
-        len(expense_models) == 5
-    ), f"Expected 5 expense models, got {len(expense_models)}"
-    assert (
-        len(misc_models) == 2
-    ), f"Expected 2 misc income models, got {len(misc_models)}"
+    assert len(expense_models) == 5, (
+        f"Expected 5 expense models, got {len(expense_models)}"
+    )
+    assert len(misc_models) == 2, (
+        f"Expected 2 misc income models, got {len(misc_models)}"
+    )
     assert actual_pgr > 0, f"PGR should be positive, got {actual_pgr}"
     assert actual_misc > 0, f"Misc income should be positive, got {actual_misc}"
 
@@ -1271,9 +1271,9 @@ def complex_office_stress_test():
 
     # Validate performance targets
     assert performance > 25, f"Performance too slow: {performance:.1f} tenants/second"
-    assert (
-        len(scenario.models) > 50
-    ), f"Not enough models created: {len(scenario.models)}"  # Realistic for 43 tenants
+    assert len(scenario.models) > 50, (
+        f"Not enough models created: {len(scenario.models)}"
+    )  # Realistic for 43 tenants
     assert first_month_pgr > 1000000, f"PGR too low: ${first_month_pgr:,.0f}"
 
     print("  ✅ Complex stress test: PASSED")

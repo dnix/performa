@@ -591,30 +591,30 @@ def main():
             comp_em = comp_results.deal_metrics.get("equity_multiple")
             comp_equity = comp_results.deal_metrics.get("total_investment")
 
-            assert (
-                abs(comp_irr - expected_composition_irr) < tolerance_percent
-            ), f"Composition IRR {comp_irr:.6f} != expected {expected_composition_irr:.6f}"
-            assert (
-                abs(comp_em - expected_em) < tolerance_percent
-            ), f"Composition EM {comp_em:.4f} != expected {expected_em:.4f}"
-            assert (
-                abs(comp_equity - expected_equity) < tolerance_dollar
-            ), f"Composition Equity ${comp_equity:,.0f} != expected ${expected_equity:,.0f}"
+            assert abs(comp_irr - expected_composition_irr) < tolerance_percent, (
+                f"Composition IRR {comp_irr:.6f} != expected {expected_composition_irr:.6f}"
+            )
+            assert abs(comp_em - expected_em) < tolerance_percent, (
+                f"Composition EM {comp_em:.4f} != expected {expected_em:.4f}"
+            )
+            assert abs(comp_equity - expected_equity) < tolerance_dollar, (
+                f"Composition Equity ${comp_equity:,.0f} != expected ${expected_equity:,.0f}"
+            )
 
             # Assert pattern results match composition (parity validation)
             pattern_irr = pattern_results.deal_metrics.get("levered_irr")
             pattern_em = pattern_results.deal_metrics.get("equity_multiple")
             pattern_equity = pattern_results.deal_metrics.get("total_investment")
 
-            assert (
-                abs(pattern_irr - expected_composition_irr) < tolerance_percent
-            ), f"Pattern IRR {pattern_irr:.6f} != expected {expected_composition_irr:.6f}"
-            assert (
-                abs(pattern_em - expected_em) < tolerance_percent
-            ), f"Pattern EM {pattern_em:.4f} != expected {expected_em:.4f}"
-            assert (
-                abs(pattern_equity - expected_equity) < tolerance_dollar
-            ), f"Pattern Equity ${pattern_equity:,.0f} != expected ${expected_equity:,.0f}"
+            assert abs(pattern_irr - expected_composition_irr) < tolerance_percent, (
+                f"Pattern IRR {pattern_irr:.6f} != expected {expected_composition_irr:.6f}"
+            )
+            assert abs(pattern_em - expected_em) < tolerance_percent, (
+                f"Pattern EM {pattern_em:.4f} != expected {expected_em:.4f}"
+            )
+            assert abs(pattern_equity - expected_equity) < tolerance_dollar, (
+                f"Pattern Equity ${pattern_equity:,.0f} != expected ${expected_equity:,.0f}"
+            )
 
             print("\nExpected value assertions passed - metrics remain stable")
 

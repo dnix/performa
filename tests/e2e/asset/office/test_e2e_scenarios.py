@@ -248,12 +248,12 @@ def test_full_scenario_kitchen_sink(complex_property_fixture):
     # PGR should include base rent from all 3 tenants plus recoveries
     # Base rents: 10000*62 + 5000*58 + 7500*60 = 1,360,000/year = 113,333/month
     # Plus recoveries (CAM + taxes)
-    assert (
-        pgr_2024_06 > 113000
-    ), f"PGR should include all tenant rent plus recoveries, got {pgr_2024_06}"
-    assert (
-        noi_2024_06 > 0
-    ), f"NOI should be positive with 90% occupancy, got {noi_2024_06}"
+    assert pgr_2024_06 > 113000, (
+        f"PGR should include all tenant rent plus recoveries, got {pgr_2024_06}"
+    )
+    assert noi_2024_06 > 0, (
+        f"NOI should be positive with 90% occupancy, got {noi_2024_06}"
+    )
 
     # === 2. VALIDATE RENEWAL OCCURRED (Dec 2024) ===
     # In Jan 2025, Renewing Tenant should be at new rate ($60/SF instead of $58/SF)
@@ -283,14 +283,14 @@ def test_full_scenario_kitchen_sink(complex_property_fixture):
     ]
 
     # PGR should drop when Departing Tenant leaves (loses 7500 SF * $60 = $37,500/month)
-    assert (
-        pgr_2026_01 < pgr_2025_12 - 30000
-    ), f"PGR should drop significantly after departure"
+    assert pgr_2026_01 < pgr_2025_12 - 30000, (
+        f"PGR should drop significantly after departure"
+    )
 
     # Expense reimbursements should increase due to gross-up (occupancy drops to 60%, below 95% threshold)
-    assert (
-        reimb_2026_02 > reimb_2025_06 * 1.2
-    ), "Reimbursements should increase with gross-up at low occupancy"
+    assert reimb_2026_02 > reimb_2025_06 * 1.2, (
+        "Reimbursements should increase with gross-up at low occupancy"
+    )
 
     # === 4. VALIDATE ABSORPTION WORKS ===
     # Absorption should start absorbing vacant space after tenant departure (Jan 2026)
@@ -307,19 +307,19 @@ def test_full_scenario_kitchen_sink(complex_property_fixture):
 
     # PGR should increase over time as absorption occurs
     # By June 2026 (6 months after departure), first 5,000 SF should be absorbed
-    assert (
-        pgr_2026_06 > pgr_2026_01
-    ), "PGR should increase by June 2026 due to absorption (5k SF)"
+    assert pgr_2026_06 > pgr_2026_01, (
+        "PGR should increase by June 2026 due to absorption (5k SF)"
+    )
 
     # By Jan 2027 (12 months after departure), second 5,000 SF should be absorbed
-    assert (
-        pgr_2027_01 > pgr_2026_06
-    ), "PGR should continue increasing as more space is absorbed"
+    assert pgr_2027_01 > pgr_2026_06, (
+        "PGR should continue increasing as more space is absorbed"
+    )
 
     # By June 2028, significant absorption should have occurred (up to 10k+ SF)
-    assert (
-        pgr_2028_06 > pgr_2026_01 + 25000
-    ), "PGR should show significant recovery from absorption over time"
+    assert pgr_2028_06 > pgr_2026_01 + 25000, (
+        "PGR should show significant recovery from absorption over time"
+    )
 
     # === 5. VALIDATE FINANCIAL RELATIONSHIPS ===
     # Throughout the analysis, basic financial relationships should hold
@@ -341,9 +341,9 @@ def test_full_scenario_kitchen_sink(complex_property_fixture):
         assert egi <= pgr, f"{period}: EGI should be ≤ PGR (due to losses)"
         assert noi < egi, f"{period}: NOI should be < EGI (due to expenses)"
         assert opex < 0, f"{period}: Operating expenses should be negative (costs)"
-        assert noi == pytest.approx(
-            egi + opex, rel=0.01
-        ), f"{period}: NOI should equal EGI + OpEx (OpEx is negative costs)"
+        assert noi == pytest.approx(egi + opex, rel=0.01), (
+            f"{period}: NOI should equal EGI + OpEx (OpEx is negative costs)"
+        )
 
 
 def test_e2e_recovery_gross_up_proves_phased_execution(complex_property_fixture):
@@ -367,19 +367,21 @@ def test_e2e_recovery_gross_up_proves_phased_execution(complex_property_fixture)
     reimbursements = summary_df[UnleveredAggregateLineKey.EXPENSE_REIMBURSEMENTS.value]
 
     # Validate both periods have positive recoveries
-    assert (
-        reimbursements.loc[low_occupancy_period] > 0
-    ), "Low occupancy period should have positive recoveries"
-    assert (
-        reimbursements.loc[high_occupancy_period] > 0
-    ), "High occupancy period should have positive recoveries"
+    assert reimbursements.loc[low_occupancy_period] > 0, (
+        "Low occupancy period should have positive recoveries"
+    )
+    assert reimbursements.loc[high_occupancy_period] > 0, (
+        "High occupancy period should have positive recoveries"
+    )
 
     # The gross-up mechanism should increase recoveries when occupancy drops below 95%
     # This is a key validation that the phased execution is working correctly
     assert (
         reimbursements.loc[low_occupancy_period]
         > reimbursements.loc[high_occupancy_period]
-    ), f"Expected gross-up to increase recoveries: {reimbursements.loc[low_occupancy_period]} vs {reimbursements.loc[high_occupancy_period]}"
+    ), (
+        f"Expected gross-up to increase recoveries: {reimbursements.loc[low_occupancy_period]} vs {reimbursements.loc[high_occupancy_period]}"
+    )
 
 
 def test_pgr_calculation_for_jan_2025(complex_property_fixture):
@@ -408,6 +410,6 @@ def test_pgr_calculation_for_jan_2025(complex_property_fixture):
     actual_pgr = summary_df.loc[
         "2025-01", UnleveredAggregateLineKey.POTENTIAL_GROSS_REVENUE.value
     ]
-    assert (
-        actual_pgr == pytest.approx(EXPECTED_PGR_2025_01, rel=1e-6)
-    ), f"PGR calculation must be precise: expected {EXPECTED_PGR_2025_01}, got {actual_pgr}"
+    assert actual_pgr == pytest.approx(EXPECTED_PGR_2025_01, rel=1e-6), (
+        f"PGR calculation must be precise: expected {EXPECTED_PGR_2025_01}, got {actual_pgr}"
+    )

@@ -43,9 +43,9 @@ class TestRefinancingIntegration:
         refinancing_payoffs = ledger_df[
             ledger_df["subcategory"] == "Refinancing Payoff"
         ]
-        assert (
-            not refinancing_payoffs.empty
-        ), "Construction loan must be paid off via refinancing"
+        assert not refinancing_payoffs.empty, (
+            "Construction loan must be paid off via refinancing"
+        )
 
         # Verify payoff amount equals construction proceeds + capitalized interest
         construction_proceeds = ledger_df[
@@ -65,18 +65,18 @@ class TestRefinancingIntegration:
         refinancing_payoff = abs(refinancing_payoffs["amount"].sum())
 
         # Payoff should equal initial proceeds + capitalized interest (within tolerance)
-        assert (
-            abs(expected_payoff - refinancing_payoff) < 1000
-        ), f"Refinancing payoff ${refinancing_payoff:,.0f} must equal construction proceeds ${construction_proceeds:,.0f} + capitalized interest ${capitalized_interest:,.0f} = ${expected_payoff:,.0f}"
+        assert abs(expected_payoff - refinancing_payoff) < 1000, (
+            f"Refinancing payoff ${refinancing_payoff:,.0f} must equal construction proceeds ${construction_proceeds:,.0f} + capitalized interest ${capitalized_interest:,.0f} = ${expected_payoff:,.0f}"
+        )
 
         # Verify construction loan NOT paid off at disposition
         disposition_payoffs = ledger_df[
             (ledger_df["subcategory"] == "Prepayment")
             & (ledger_df["item_name"].str.contains("Construction", na=False))
         ]
-        assert (
-            disposition_payoffs.empty
-        ), "Construction loan must NOT be paid off at disposition"
+        assert disposition_payoffs.empty, (
+            "Construction loan must NOT be paid off at disposition"
+        )
 
     def test_office_development_refinancing_works(self):
         """Test that construction loan is paid off when permanent arrives (office)."""
@@ -99,18 +99,18 @@ class TestRefinancingIntegration:
         refinancing_payoffs = ledger_df[
             ledger_df["subcategory"] == "Refinancing Payoff"
         ]
-        assert (
-            not refinancing_payoffs.empty
-        ), "Construction loan must be paid off via refinancing"
+        assert not refinancing_payoffs.empty, (
+            "Construction loan must be paid off via refinancing"
+        )
 
         # Verify construction loan NOT paid off at disposition
         disposition_payoffs = ledger_df[
             (ledger_df["subcategory"] == "Prepayment")
             & (ledger_df["item_name"].str.contains("Construction", na=False))
         ]
-        assert (
-            disposition_payoffs.empty
-        ), "Construction loan must NOT be paid off at disposition"
+        assert disposition_payoffs.empty, (
+            "Construction loan must NOT be paid off at disposition"
+        )
 
     def test_leverage_never_exceeds_reasonable_bounds(self):
         """Test that total leverage stays within reasonable bounds."""
@@ -168,14 +168,14 @@ class TestRefinancingIntegration:
         max_leverage = (
             0.9 if property_valuations > 0 else 1.5
         )  # 90% LTV or 150% of cost
-        assert (
-            leverage_ratio < max_leverage
-        ), f"Leverage ratio {leverage_ratio:.1%} exceeds reasonable bounds ({max_leverage:.0%})"
+        assert leverage_ratio < max_leverage, (
+            f"Leverage ratio {leverage_ratio:.1%} exceeds reasonable bounds ({max_leverage:.0%})"
+        )
 
         # Leverage should be substantial (> 30%) to justify using debt
-        assert (
-            leverage_ratio > 0.3
-        ), f"Leverage ratio {leverage_ratio:.1%} too low - may indicate financing issue"
+        assert leverage_ratio > 0.3, (
+            f"Leverage ratio {leverage_ratio:.1%} too low - may indicate financing issue"
+        )
 
     def test_leveraged_returns_exceed_unleveraged(self):
         """Test that leverage enhances returns as expected."""
@@ -201,13 +201,13 @@ class TestRefinancingIntegration:
         results = pattern.analyze()
 
         # Leveraged returns should be positive and meaningful
-        assert (
-            results.levered_irr > 0.02
-        ), f"Leveraged IRR {results.levered_irr:.2%} should be positive with proper refinancing"
+        assert results.levered_irr > 0.02, (
+            f"Leveraged IRR {results.levered_irr:.2%} should be positive with proper refinancing"
+        )
 
-        assert (
-            results.equity_multiple > 1.0
-        ), f"Equity Multiple {results.equity_multiple:.2f}x should exceed 1.0x with proper financing"
+        assert results.equity_multiple > 1.0, (
+            f"Equity Multiple {results.equity_multiple:.2f}x should exceed 1.0x with proper financing"
+        )
 
     def test_refinancing_timing_is_correct(self):
         """Test that refinancing happens at the explicitly specified time."""
@@ -260,9 +260,9 @@ class TestRefinancingIntegration:
         )
 
         # Refinancing should occur at the explicitly specified month (within 1 month tolerance for period alignment)
-        assert (
-            abs(months_elapsed - explicit_refi_month) <= 1
-        ), f"Refinancing at month {months_elapsed} should match explicit timing {explicit_refi_month} (within 1 month)"
+        assert abs(months_elapsed - explicit_refi_month) <= 1, (
+            f"Refinancing at month {months_elapsed} should match explicit timing {explicit_refi_month} (within 1 month)"
+        )
 
     def test_no_construction_interest_after_refinancing(self):
         """Test that construction loan stops accruing interest after refinancing."""
@@ -301,4 +301,6 @@ class TestRefinancingIntegration:
                 construction_interest["date"] > refinancing_date
             ]
 
-            assert post_refinancing_interest.empty, f"Construction loan must stop accruing interest after refinancing at {refinancing_date}"
+            assert post_refinancing_interest.empty, (
+                f"Construction loan must stop accruing interest after refinancing at {refinancing_date}"
+            )

@@ -140,15 +140,15 @@ class TestSystematicValidation:
         expected_noi = expected_rent + expected_opex  # $25,000 + (-$6,667) = $18,333
 
         # Validate with perfect precision
-        assert jan_pgr == pytest.approx(
-            expected_rent, rel=1e-6
-        ), f"PGR must be exact: {jan_pgr} vs {expected_rent}"
-        assert jan_opex == pytest.approx(
-            expected_opex, rel=1e-6
-        ), f"OpEx must be exact: {jan_opex} vs {expected_opex}"
-        assert jan_noi == pytest.approx(
-            expected_noi, rel=1e-6
-        ), f"NOI must be exact: {jan_noi} vs {expected_noi}"
+        assert jan_pgr == pytest.approx(expected_rent, rel=1e-6), (
+            f"PGR must be exact: {jan_pgr} vs {expected_rent}"
+        )
+        assert jan_opex == pytest.approx(expected_opex, rel=1e-6), (
+            f"OpEx must be exact: {jan_opex} vs {expected_opex}"
+        )
+        assert jan_noi == pytest.approx(expected_noi, rel=1e-6), (
+            f"NOI must be exact: {jan_noi} vs {expected_noi}"
+        )
 
     def test_2_basic_recovery(self):
         """
@@ -572,24 +572,24 @@ class TestSystematicValidation:
         )  # $47,530 - $490 + (-$13,333) = $33,707
 
         # Validate with perfect precision - this tests our loss calculation fix!
-        assert jan_pgr == pytest.approx(
-            expected_pgr, rel=1e-6
-        ), "PGR calculation must be exact"
-        assert jan_vacancy == pytest.approx(
-            vacancy_loss, rel=1e-6
-        ), "Vacancy loss must be exact"
-        assert jan_collection == pytest.approx(
-            collection_loss, rel=1e-6
-        ), "Collection loss must be exact"
-        assert jan_recovery == pytest.approx(
-            recovery, rel=1e-6
-        ), "Recovery calculation must be exact"
-        assert jan_opex == pytest.approx(
-            total_opex, rel=1e-6
-        ), "OpEx calculation must be exact"
-        assert jan_noi == pytest.approx(
-            expected_noi, rel=1e-6
-        ), "NOI calculation must be exact"
+        assert jan_pgr == pytest.approx(expected_pgr, rel=1e-6), (
+            "PGR calculation must be exact"
+        )
+        assert jan_vacancy == pytest.approx(vacancy_loss, rel=1e-6), (
+            "Vacancy loss must be exact"
+        )
+        assert jan_collection == pytest.approx(collection_loss, rel=1e-6), (
+            "Collection loss must be exact"
+        )
+        assert jan_recovery == pytest.approx(recovery, rel=1e-6), (
+            "Recovery calculation must be exact"
+        )
+        assert jan_opex == pytest.approx(total_opex, rel=1e-6), (
+            "OpEx calculation must be exact"
+        )
+        assert jan_noi == pytest.approx(expected_noi, rel=1e-6), (
+            "NOI calculation must be exact"
+        )
 
     def test_5_lease_renewals(self):
         """
@@ -671,12 +671,12 @@ class TestSystematicValidation:
         new_rent = 10000 * 30 / 12  # $25,000
 
         # Validate perfect renewal transition
-        assert dec_2024_pgr == pytest.approx(
-            old_rent, rel=1e-6
-        ), "Pre-renewal rent must be exact"
-        assert jan_2025_pgr == pytest.approx(
-            new_rent, rel=1e-6
-        ), "Post-renewal rent must be exact"
+        assert dec_2024_pgr == pytest.approx(old_rent, rel=1e-6), (
+            "Pre-renewal rent must be exact"
+        )
+        assert jan_2025_pgr == pytest.approx(new_rent, rel=1e-6), (
+            "Post-renewal rent must be exact"
+        )
 
     def test_6_full_market_scenario(self):
         """
@@ -842,15 +842,15 @@ class TestSystematicValidation:
         expected_pgr = total_base_rent + jan_recovery  # Base rent + recovery revenue
 
         # Validate calculated values are close to manual estimates
-        assert jan_pgr == pytest.approx(
-            expected_pgr, rel=0.01
-        ), "PGR should include base rent + recoveries per industry standard"
-        assert (
-            jan_recovery > 30000
-        ), "Recovery should be substantial for multi-tenant property"
-        assert (
-            jan_opex < -50000
-        ), "OpEx should be realistic for 50k SF property (negative cost)"
+        assert jan_pgr == pytest.approx(expected_pgr, rel=0.01), (
+            "PGR should include base rent + recoveries per industry standard"
+        )
+        assert jan_recovery > 30000, (
+            "Recovery should be substantial for multi-tenant property"
+        )
+        assert jan_opex < -50000, (
+            "OpEx should be realistic for 50k SF property (negative cost)"
+        )
         assert jan_noi > 80000, "NOI should be strong and positive"
 
         # Per SF analysis - validate market reasonableness
@@ -858,12 +858,12 @@ class TestSystematicValidation:
         rent_psf_annual = (jan_pgr * 12) / 43000  # Occupied SF
 
         # Market reasonableness checks (enterprise-grade validation)
-        assert (
-            15 <= noi_psf_annual <= 40
-        ), f"NOI/SF should be realistic: ${noi_psf_annual:.2f}"
-        assert (
-            25 <= rent_psf_annual <= 45
-        ), f"Rent/SF should be realistic: ${rent_psf_annual:.2f}"
+        assert 15 <= noi_psf_annual <= 40, (
+            f"NOI/SF should be realistic: ${noi_psf_annual:.2f}"
+        )
+        assert 25 <= rent_psf_annual <= 45, (
+            f"Rent/SF should be realistic: ${rent_psf_annual:.2f}"
+        )
 
         # Validate losses are being applied correctly
         jan_vacancy_loss = summary.loc[
@@ -883,9 +883,9 @@ class TestSystematicValidation:
             jan_pgr * 0.005
         )  # Collection loss based on tenant revenue (PGR = rent + recoveries)
 
-        assert jan_vacancy_loss == pytest.approx(
-            expected_vacancy_loss, rel=1e-6
-        ), "Vacancy loss calculation must be exact"
+        assert jan_vacancy_loss == pytest.approx(expected_vacancy_loss, rel=1e-6), (
+            "Vacancy loss calculation must be exact"
+        )
         assert jan_collection_loss == pytest.approx(
             expected_collection_loss, rel=1e-6
         ), "Collection loss calculation must be exact"
@@ -991,15 +991,15 @@ class TestSystematicValidation:
         expected_noi = expected_rent + expected_total_opex  # Revenue + (negative costs)
 
         # Validate with perfect precision
-        assert jan_pgr == pytest.approx(
-            expected_rent, rel=1e-6
-        ), f"PGR: {jan_pgr} vs {expected_rent}"
-        assert jan_total_opex == pytest.approx(
-            expected_total_opex, rel=1e-6
-        ), f"Total OpEx: {jan_total_opex} vs {expected_total_opex}"
-        assert jan_noi == pytest.approx(
-            expected_noi, rel=1e-6
-        ), f"NOI: {jan_noi} vs {expected_noi}"
+        assert jan_pgr == pytest.approx(expected_rent, rel=1e-6), (
+            f"PGR: {jan_pgr} vs {expected_rent}"
+        )
+        assert jan_total_opex == pytest.approx(expected_total_opex, rel=1e-6), (
+            f"Total OpEx: {jan_total_opex} vs {expected_total_opex}"
+        )
+        assert jan_noi == pytest.approx(expected_noi, rel=1e-6), (
+            f"NOI: {jan_noi} vs {expected_noi}"
+        )
 
         # Note: Admin fee calculation has circular dependency issues but sign consistency is correct
 
@@ -1306,9 +1306,9 @@ class TestSystematicValidation:
 
         # Validate recovery state was created
         recovery_uid = base_year_recovery.uid
-        assert (
-            recovery_uid in recovery_states
-        ), "Recovery state should be created for base year recovery"
+        assert recovery_uid in recovery_states, (
+            "Recovery state should be created for base year recovery"
+        )
 
         recovery_state = recovery_states[recovery_uid]
         assert recovery_state.recovery_uid == recovery_uid
@@ -1319,12 +1319,12 @@ class TestSystematicValidation:
         expected_base_year_expenses = 20000 * 8.0 / 1.03
         actual_base_year_expenses = recovery_state.calculated_annual_base_year_stop
 
-        assert (
-            actual_base_year_expenses is not None
-        ), "Base year expenses should be calculated"
-        assert (
-            abs(actual_base_year_expenses - expected_base_year_expenses) < 1.0
-        ), f"Base year expenses should be ~${expected_base_year_expenses:,.0f}, got ${actual_base_year_expenses:,.0f}"
+        assert actual_base_year_expenses is not None, (
+            "Base year expenses should be calculated"
+        )
+        assert abs(actual_base_year_expenses - expected_base_year_expenses) < 1.0, (
+            f"Base year expenses should be ~${expected_base_year_expenses:,.0f}, got ${actual_base_year_expenses:,.0f}"
+        )
 
         # Test different base year structures
         plus1_recovery = Recovery(
@@ -1342,16 +1342,16 @@ class TestSystematicValidation:
         # Test plus1 calculation (should be current year amount)
         plus1_amount = scenario._calculate_base_year_expenses(plus1_recovery)
         expected_plus1 = 20000 * 8.0  # No growth adjustment for current year
-        assert (
-            abs(plus1_amount - expected_plus1) < 1.0
-        ), f"Base year plus1 should be ${expected_plus1:,.0f}, got ${plus1_amount:,.0f}"
+        assert abs(plus1_amount - expected_plus1) < 1.0, (
+            f"Base year plus1 should be ${expected_plus1:,.0f}, got ${plus1_amount:,.0f}"
+        )
 
         # Test minus1 calculation (should be two years back)
         minus1_amount = scenario._calculate_base_year_expenses(minus1_recovery)
         expected_minus1 = 20000 * 8.0 / (1.03**2)  # Two years back
-        assert (
-            abs(minus1_amount - expected_minus1) < 1.0
-        ), f"Base year minus1 should be ~${expected_minus1:,.0f}, got ${minus1_amount:,.0f}"
+        assert abs(minus1_amount - expected_minus1) < 1.0, (
+            f"Base year minus1 should be ~${expected_minus1:,.0f}, got ${minus1_amount:,.0f}"
+        )
 
     def test_11_computed_field_recoverability_pattern(self):
         """
@@ -1556,9 +1556,9 @@ class TestSystematicValidation:
 
         # Validate with perfect precision
         assert jan_pgr == pytest.approx(expected_pgr, rel=1e-6)
-        assert jan_recovery == pytest.approx(
-            expected_recovery, rel=1e-6
-        ), f"Recovery should be excess only: {jan_recovery} vs {expected_recovery}"
+        assert jan_recovery == pytest.approx(expected_recovery, rel=1e-6), (
+            f"Recovery should be excess only: {jan_recovery} vs {expected_recovery}"
+        )
         assert jan_opex == pytest.approx(expected_current_opex, rel=1e-6)
         assert jan_noi == pytest.approx(expected_noi, rel=1e-6)
 
@@ -1681,16 +1681,16 @@ class TestSystematicValidation:
 
         # Validate with perfect precision
         assert jan_pgr == pytest.approx(expected_pgr, rel=1e-6)
-        assert jan_recovery == pytest.approx(
-            expected_recovery, rel=1e-6
-        ), f"Recovery should be excess only: {jan_recovery} vs {expected_recovery}"
+        assert jan_recovery == pytest.approx(expected_recovery, rel=1e-6), (
+            f"Recovery should be excess only: {jan_recovery} vs {expected_recovery}"
+        )
         assert jan_opex == pytest.approx(expected_current_opex, rel=1e-6)
         assert jan_noi == pytest.approx(expected_noi, rel=1e-6)
 
         # Verify base year calculation is reasonable (should be ~$120,000 for 15k SF @ $8/SF)
-        assert (
-            115000 <= actual_base_year_stop <= 125000
-        ), f"Base year stop should be ~$120k, got ${actual_base_year_stop:,.0f}"
+        assert 115000 <= actual_base_year_stop <= 125000, (
+            f"Base year stop should be ~$120k, got ${actual_base_year_stop:,.0f}"
+        )
 
         print(
             f" Base year recovery with larger property: ${jan_recovery:,.0f} monthly recovery"
@@ -1860,9 +1860,9 @@ class TestSystematicValidation:
 
         # REAL ESTATE VALIDATION:
         # 1. Base year should be realistic (lower than current due to inflation)
-        assert (
-            calculated_base_year < abs(jan_opex * 12)
-        ), f"Base year ${calculated_base_year:,.0f} should be less than current ${abs(jan_opex * 12):,.0f}"
+        assert calculated_base_year < abs(jan_opex * 12), (
+            f"Base year ${calculated_base_year:,.0f} should be less than current ${abs(jan_opex * 12):,.0f}"
+        )
 
         # 2. Check if gross-up is working (this may reveal a library limitation)
         if jan_recovery == jan_recovery_no_gross_up:
@@ -1876,18 +1876,18 @@ class TestSystematicValidation:
             gross_up_premium = (
                 jan_recovery - jan_recovery_no_gross_up
             ) / jan_recovery_no_gross_up
-            assert (
-                jan_recovery > jan_recovery_no_gross_up
-            ), f"Gross-up recovery ${jan_recovery:,.0f} should exceed no gross-up ${jan_recovery_no_gross_up:,.0f}"
-            assert (
-                gross_up_premium > 0.05
-            ), f"Gross-up should create meaningful premium: {gross_up_premium:.1%}"
+            assert jan_recovery > jan_recovery_no_gross_up, (
+                f"Gross-up recovery ${jan_recovery:,.0f} should exceed no gross-up ${jan_recovery_no_gross_up:,.0f}"
+            )
+            assert gross_up_premium > 0.05, (
+                f"Gross-up should create meaningful premium: {gross_up_premium:.1%}"
+            )
 
         # 4. Both recoveries should be positive (current exceeds base year)
         assert jan_recovery > 0, "Should have positive recovery with gross-up"
-        assert (
-            jan_recovery_no_gross_up > 0
-        ), "Should have positive recovery without gross-up"
+        assert jan_recovery_no_gross_up > 0, (
+            "Should have positive recovery without gross-up"
+        )
 
         print(" Gross-up validation:")
         print(f"   Base Year 2023: ${calculated_base_year:,.0f} annually")
@@ -2125,21 +2125,21 @@ class TestSystematicValidation:
         expected_pgr = (
             total_rent + jan_recovery
         )  # Industry standard: PGR includes base rent + recoveries
-        assert jan_pgr == pytest.approx(
-            expected_pgr, rel=1e-6
-        ), "PGR should equal base rent + recoveries per industry standard"
+        assert jan_pgr == pytest.approx(expected_pgr, rel=1e-6), (
+            "PGR should equal base rent + recoveries per industry standard"
+        )
         assert jan_opex <= -25000, "OpEx should be substantial (negative cost)"
         assert jan_recovery > 0, "Should have positive recovery from excess expenses"
 
         # 2. Base year calculations should be realistic
         assert base_2022_stop > 0, "2022 base year should be calculated"
         assert base_2023_stop > 0, "2023 base year should be calculated"
-        assert (
-            base_2022_stop < base_2023_stop
-        ), f"2022 base year ${base_2022_stop:,.0f} should be less than 2023 ${base_2023_stop:,.0f}"
-        assert (
-            base_2023_stop < abs(jan_opex * 12)
-        ), f"2023 base year ${base_2023_stop:,.0f} should be less than current ${abs(jan_opex * 12):,.0f}"
+        assert base_2022_stop < base_2023_stop, (
+            f"2022 base year ${base_2022_stop:,.0f} should be less than 2023 ${base_2023_stop:,.0f}"
+        )
+        assert base_2023_stop < abs(jan_opex * 12), (
+            f"2023 base year ${base_2023_stop:,.0f} should be less than current ${abs(jan_opex * 12):,.0f}"
+        )
 
         # 3. Different base years should produce different recoveries
         assert recovery_a > 0, "Tenant A (2022 base) should have positive recovery"
@@ -2153,9 +2153,9 @@ class TestSystematicValidation:
         recovery_b_per_sf = (
             recovery_b * 12 / 10000
         )  # Annual recovery per SF for Tenant B
-        assert (
-            recovery_a_per_sf > recovery_b_per_sf
-        ), f"Tenant A (2022 base) recovery ${recovery_a_per_sf:.2f}/SF should exceed Tenant B ${recovery_b_per_sf:.2f}/SF"
+        assert recovery_a_per_sf > recovery_b_per_sf, (
+            f"Tenant A (2022 base) recovery ${recovery_a_per_sf:.2f}/SF should exceed Tenant B ${recovery_b_per_sf:.2f}/SF"
+        )
 
         # 5. Total recovery should approximate sum of individual recoveries (scaled)
         expected_total_recovery = (recovery_a + recovery_b) * (
@@ -2386,24 +2386,24 @@ class TestSystematicValidation:
         # 1. Base year calculations should be realistic
         assert capped_base_year > 0, "Capped base year should be calculated"
         assert uncapped_base_year > 0, "Uncapped base year should be calculated"
-        assert (
-            capped_base_year == uncapped_base_year
-        ), "Base year calculation shouldn't depend on cap"
-        assert (
-            capped_base_year < abs(jan_opex * 12)
-        ), f"Base year ${capped_base_year:,.0f} should be less than current total ${abs(jan_opex * 12):,.0f}"
+        assert capped_base_year == uncapped_base_year, (
+            "Base year calculation shouldn't depend on cap"
+        )
+        assert capped_base_year < abs(jan_opex * 12), (
+            f"Base year ${capped_base_year:,.0f} should be less than current total ${abs(jan_opex * 12):,.0f}"
+        )
 
         # 2. Total OpEx should include capital expenses but recovery should exclude them
         # Note: Growth rates affect actual amounts vs base rates
-        assert (
-            abs(jan_opex) > base_recoverable_opex / 12
-        ), "Total OpEx should be substantial with growth"
-        assert (
-            abs(jan_opex_no_capital) > (base_recoverable_opex * 0.9) / 12
-        ), "OpEx without capital should be reasonable"
-        assert abs(jan_opex) > abs(
-            jan_opex_no_capital
-        ), "Total OpEx should exceed OpEx without capital"
+        assert abs(jan_opex) > base_recoverable_opex / 12, (
+            "Total OpEx should be substantial with growth"
+        )
+        assert abs(jan_opex_no_capital) > (base_recoverable_opex * 0.9) / 12, (
+            "OpEx without capital should be reasonable"
+        )
+        assert abs(jan_opex) > abs(jan_opex_no_capital), (
+            "Total OpEx should exceed OpEx without capital"
+        )
 
         # 3. Check if cap is working (this may reveal a library limitation)
         if jan_recovery == jan_recovery_uncapped:
@@ -2417,13 +2417,13 @@ class TestSystematicValidation:
             # 4. Cap should create meaningful savings for tenant
             cap_savings = jan_recovery_uncapped - jan_recovery
             cap_savings_percent = cap_savings / jan_recovery_uncapped
-            assert (
-                jan_recovery < jan_recovery_uncapped
-            ), f"Capped recovery ${jan_recovery:,.0f} should be less than uncapped ${jan_recovery_uncapped:,.0f}"
+            assert jan_recovery < jan_recovery_uncapped, (
+                f"Capped recovery ${jan_recovery:,.0f} should be less than uncapped ${jan_recovery_uncapped:,.0f}"
+            )
             assert cap_savings > 0, "Cap should create savings for tenant"
-            assert (
-                cap_savings_percent > 0.05
-            ), f"Cap should create meaningful savings: {cap_savings_percent:.1%}"
+            assert cap_savings_percent > 0.05, (
+                f"Cap should create meaningful savings: {cap_savings_percent:.1%}"
+            )
 
         # 5. Recovery should be based only on recoverable expenses, not capital
         # This is validated by the fact that capital_expense has recoverable_ratio=0.0
@@ -2683,12 +2683,12 @@ class TestSystematicValidation:
         base_year_standard_psf = base_year_standard / 20000  # Per SF
         base_year_market_psf = base_year_market / 15000  # Per SF
 
-        assert (
-            abs(base_year_conservative_psf - base_year_standard_psf) < 0.50
-        ), "Base years per SF should be similar (same 2021 base)"
-        assert (
-            abs(base_year_conservative_psf - base_year_market_psf) < 0.50
-        ), "Base years per SF should be similar (same 2021 base)"
+        assert abs(base_year_conservative_psf - base_year_standard_psf) < 0.50, (
+            "Base years per SF should be similar (same 2021 base)"
+        )
+        assert abs(base_year_conservative_psf - base_year_market_psf) < 0.50, (
+            "Base years per SF should be similar (same 2021 base)"
+        )
 
         # 2. Base year should reflect 2021 levels (~$6.50/SF)
         expected_2021_base_psf = 6.50  # Per SF
@@ -2696,14 +2696,18 @@ class TestSystematicValidation:
             abs(base_year_conservative_psf - expected_2021_base_psf)
             / expected_2021_base_psf
             < 0.10
-        ), f"Base year ${base_year_conservative_psf:.2f}/SF should be close to ${expected_2021_base_psf:.2f}/SF"
+        ), (
+            f"Base year ${base_year_conservative_psf:.2f}/SF should be close to ${expected_2021_base_psf:.2f}/SF"
+        )
 
         # 3. Current expenses should reflect 2024 market levels (~$7.74/SF)
         expected_2024_market = 15000 * 7.74 / 12  # Monthly for 15k SF
         assert (
             abs(abs(opex_conservative) - expected_2024_market) / expected_2024_market
             < 0.10
-        ), f"Current OpEx ${abs(opex_conservative):,.0f} should be close to ${expected_2024_market:,.0f}"
+        ), (
+            f"Current OpEx ${abs(opex_conservative):,.0f} should be close to ${expected_2024_market:,.0f}"
+        )
 
         # 4. Multi-year cap effects: Lower caps should create more savings
         # After 3 years from 2021 to 2024:
@@ -2715,12 +2719,12 @@ class TestSystematicValidation:
         recovery_standard_psf = recovery_standard * 12 / 20000  # Annual per SF
         recovery_market_psf = recovery_market * 12 / 15000  # Annual per SF
 
-        assert (
-            recovery_conservative_psf < recovery_standard_psf
-        ), f"3% cap (${recovery_conservative_psf:.2f}/SF) should be less than 5% cap (${recovery_standard_psf:.2f}/SF)"
-        assert (
-            recovery_standard_psf < recovery_market_psf
-        ), f"5% cap (${recovery_standard_psf:.2f}/SF) should be less than no cap (${recovery_market_psf:.2f}/SF)"
+        assert recovery_conservative_psf < recovery_standard_psf, (
+            f"3% cap (${recovery_conservative_psf:.2f}/SF) should be less than 5% cap (${recovery_standard_psf:.2f}/SF)"
+        )
+        assert recovery_standard_psf < recovery_market_psf, (
+            f"5% cap (${recovery_standard_psf:.2f}/SF) should be less than no cap (${recovery_market_psf:.2f}/SF)"
+        )
 
         # 5. Savings calculations for real estate analysis
         market_baseline = recovery_market_psf
@@ -2729,15 +2733,15 @@ class TestSystematicValidation:
         ) / market_baseline
         standard_savings = (market_baseline - recovery_standard_psf) / market_baseline
 
-        assert (
-            conservative_savings > standard_savings
-        ), f"3% cap should create more savings ({conservative_savings:.1%}) than 5% cap ({standard_savings:.1%})"
-        assert (
-            conservative_savings > 0.05
-        ), f"3% cap should create meaningful savings: {conservative_savings:.1%}"
-        assert (
-            standard_savings > 0.02
-        ), f"5% cap should create some savings: {standard_savings:.1%}"
+        assert conservative_savings > standard_savings, (
+            f"3% cap should create more savings ({conservative_savings:.1%}) than 5% cap ({standard_savings:.1%})"
+        )
+        assert conservative_savings > 0.05, (
+            f"3% cap should create meaningful savings: {conservative_savings:.1%}"
+        )
+        assert standard_savings > 0.02, (
+            f"5% cap should create some savings: {standard_savings:.1%}"
+        )
 
         # 6. Multi-year compound effect validation
         # Expected capped amounts for 2024 (3 years from 2021 base):
@@ -2756,9 +2760,9 @@ class TestSystematicValidation:
             recovery_standard * 12 / 20000
         ) + base_year_standard_psf
 
-        assert (
-            abs(conservative_effective_rate - expected_3pct_cap_2024) < 0.20
-        ), f"3% cap effective rate ${conservative_effective_rate:.2f}/SF should be near ${expected_3pct_cap_2024:.2f}/SF"
+        assert abs(conservative_effective_rate - expected_3pct_cap_2024) < 0.20, (
+            f"3% cap effective rate ${conservative_effective_rate:.2f}/SF should be near ${expected_3pct_cap_2024:.2f}/SF"
+        )
 
         print(" Real-world multi-year cap validation:")
         print(f"   2021 Base Year: ${base_year_conservative_psf:.2f}/SF")
@@ -2976,12 +2980,12 @@ class TestSystematicValidation:
         standard_effective = results[1]["recovery_psf"] + results[1]["base_year_psf"]
         liberal_effective = results[2]["recovery_psf"] + results[2]["base_year_psf"]
 
-        assert (
-            conservative_effective < standard_effective
-        ), "Conservative cap should be lower than standard"
-        assert (
-            standard_effective < liberal_effective
-        ), "Standard cap should be lower than liberal"
+        assert conservative_effective < standard_effective, (
+            "Conservative cap should be lower than standard"
+        )
+        assert standard_effective < liberal_effective, (
+            "Standard cap should be lower than liberal"
+        )
 
         print()
         print("    Portfolio Cap Policy Hierarchy Working Correctly:")
@@ -3052,12 +3056,12 @@ class TestSystematicValidation:
         )
 
         # Test consistent property calculations
-        assert (
-            consistent_property.occupied_area == 10000
-        ), "Occupied area should be 10,000 SF"
-        assert (
-            consistent_property.vacant_area == 5000
-        ), "Vacant area should be 5,000 SF (from explicit suites)"
+        assert consistent_property.occupied_area == 10000, (
+            "Occupied area should be 10,000 SF"
+        )
+        assert consistent_property.vacant_area == 5000, (
+            "Vacant area should be 5,000 SF (from explicit suites)"
+        )
         assert consistent_property.occupancy_rate == pytest.approx(
             10000 / 15000, rel=1e-6
         ), "Occupancy rate should be 66.67%"
@@ -3101,20 +3105,20 @@ class TestSystematicValidation:
         )
 
         # Verify area calculations are working correctly
-        assert (
-            inconsistent_property.rent_roll.total_area == 15000
-        ), "Rent roll total should be 15,000 SF"
-        assert (
-            inconsistent_property.net_rentable_area == 20000
-        ), "NRA should be 20,000 SF"
+        assert inconsistent_property.rent_roll.total_area == 15000, (
+            "Rent roll total should be 15,000 SF"
+        )
+        assert inconsistent_property.net_rentable_area == 20000, (
+            "NRA should be 20,000 SF"
+        )
 
         # Test that calculations still work correctly even with area mismatch
-        assert (
-            inconsistent_property.occupied_area == 10000
-        ), "Occupied area should be 10,000 SF"
-        assert (
-            inconsistent_property.vacant_area == 5000
-        ), "Vacant area should be 5,000 SF (from explicit suites, not math)"
+        assert inconsistent_property.occupied_area == 10000, (
+            "Occupied area should be 10,000 SF"
+        )
+        assert inconsistent_property.vacant_area == 5000, (
+            "Vacant area should be 5,000 SF (from explicit suites, not math)"
+        )
         assert inconsistent_property.occupancy_rate == pytest.approx(
             10000 / 20000, rel=1e-6
         ), "Occupancy rate uses NRA: 50%"
@@ -3131,12 +3135,12 @@ class TestSystematicValidation:
         new_robust_calculation = inconsistent_property.vacant_area
 
         assert old_fragile_calculation == 10000, "Old calculation would give 10,000 SF"
-        assert (
-            new_robust_calculation == 5000
-        ), "New calculation correctly gives 5,000 SF"
-        assert (
-            old_fragile_calculation != new_robust_calculation
-        ), "Demonstrates improvement"
+        assert new_robust_calculation == 5000, (
+            "New calculation correctly gives 5,000 SF"
+        )
+        assert old_fragile_calculation != new_robust_calculation, (
+            "Demonstrates improvement"
+        )
 
         print(" Area calculation and validation improvements:")
         print(

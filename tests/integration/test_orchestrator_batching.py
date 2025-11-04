@@ -105,9 +105,9 @@ class TestOrchestratorTransactionBatching:
         orchestrator.execute()
 
         # Verify transactions were used (Phase 1 and Phase 2)
-        assert (
-            len(transaction_calls) >= 2
-        ), "Expected at least two transactions (Phase 1 and Phase 2)"
+        assert len(transaction_calls) >= 2, (
+            "Expected at least two transactions (Phase 1 and Phase 2)"
+        )
 
     def test_strategic_flush_between_phases(self):
         """Test that flush is called between Phase 1 and intermediate aggregation."""
@@ -177,9 +177,9 @@ class TestOrchestratorTransactionBatching:
         final_count = len(duckdb_ledger)
         expected_count = 10 * 12  # 10 models * 12 periods each
 
-        assert (
-            final_count == expected_count
-        ), f"Expected {expected_count} transactions, got {final_count}"
+        assert final_count == expected_count, (
+            f"Expected {expected_count} transactions, got {final_count}"
+        )
 
         # Verify the data can be queried correctly using LedgerQueries
         queries = LedgerQueries(duckdb_ledger)
@@ -210,9 +210,9 @@ class TestOrchestratorTransactionBatching:
             orchestrator.execute()
 
         # Verify ledger is empty (transaction was rolled back)
-        assert (
-            len(self.ledger) == 0
-        ), "Ledger should be empty after transaction rollback"
+        assert len(self.ledger) == 0, (
+            "Ledger should be empty after transaction rollback"
+        )
 
     def test_dependency_graph_preserved_with_transactions(self):
         """Test that dependency relationships are maintained with transaction batching."""
@@ -251,17 +251,17 @@ class TestOrchestratorTransactionBatching:
         dependent_model.compute_cf.assert_called_once()
 
         # Verify data is in ledger
-        assert (
-            len(self.ledger) > 0
-        ), "Ledger should contain data after successful execution"
+        assert len(self.ledger) > 0, (
+            "Ledger should contain data after successful execution"
+        )
 
         # Verify summary data was generated
-        assert (
-            orchestrator.summary_df is not None
-        ), "Summary DataFrame should be generated"
-        assert (
-            not orchestrator.summary_df.empty
-        ), "Summary DataFrame should not be empty"
+        assert orchestrator.summary_df is not None, (
+            "Summary DataFrame should be generated"
+        )
+        assert not orchestrator.summary_df.empty, (
+            "Summary DataFrame should not be empty"
+        )
 
 
 class TestTransactionPerformanceComparison:
@@ -315,9 +315,9 @@ class TestTransactionPerformanceComparison:
         batched_time = time.perf_counter() - start_time
 
         # Verify both ledgers have the same data
-        assert len(ledger1) == len(
-            ledger2
-        ), "Both ledgers should have the same number of records"
+        assert len(ledger1) == len(ledger2), (
+            "Both ledgers should have the same number of records"
+        )
 
         # Performance should be better with batching (though with small datasets, the difference might be minimal)
         print(f"Non-batched time: {non_batched_time:.4f}s")
@@ -326,9 +326,9 @@ class TestTransactionPerformanceComparison:
 
         # The batched version should be at least as fast (sometimes much faster)
         # With small datasets, overhead might make them similar, so we just verify no regression
-        assert (
-            batched_time <= non_batched_time * 2.0
-        ), "Batched operations should not be significantly slower"
+        assert batched_time <= non_batched_time * 2.0, (
+            "Batched operations should not be significantly slower"
+        )
 
     def test_no_record_leakage_during_orchestrator_transaction(self):
         """Test that orchestrator transactions prevent record leakage during execution."""
@@ -421,12 +421,12 @@ class TestTransactionPerformanceComparison:
 
         # Critical assertions for record leakage prevention
         assert start_count == 0, "Should start with empty ledger"
-        assert (
-            before_flush_count > 0
-        ), "Phase 1 records should be visible before flush() call"
-        assert (
-            after_flush_count >= before_flush_count
-        ), "after_flush should be at least Phase 1 count"
+        assert before_flush_count > 0, (
+            "Phase 1 records should be visible before flush() call"
+        )
+        assert after_flush_count >= before_flush_count, (
+            "after_flush should be at least Phase 1 count"
+        )
         assert end_count > after_flush_count, "Should have more records after Phase 2"
 
         print(f" Record leakage prevention verified:")

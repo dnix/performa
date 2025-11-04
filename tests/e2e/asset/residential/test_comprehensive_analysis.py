@@ -280,9 +280,9 @@ class TestLargeScaleProperties:
         lease_models = [
             m for m in orchestrator.models if m.__class__.__name__ == "ResidentialLease"
         ]
-        assert (
-            len(lease_models) == 250
-        ), f"Expected 250 lease models, got {len(lease_models)}"
+        assert len(lease_models) == 250, (
+            f"Expected 250 lease models, got {len(lease_models)}"
+        )
 
         # Verify cash flow generation
         summary_df = result.summary_df
@@ -427,9 +427,9 @@ class TestLargeScaleProperties:
         lease_models = [
             m for m in orchestrator.models if m.__class__.__name__ == "ResidentialLease"
         ]
-        assert (
-            len(lease_models) == 500
-        ), f"Expected 500 lease models, got {len(lease_models)}"
+        assert len(lease_models) == 500, (
+            f"Expected 500 lease models, got {len(lease_models)}"
+        )
 
         # Generate summary
         summary_df = result.summary_df
@@ -444,9 +444,9 @@ class TestLargeScaleProperties:
         print(f"   - Performance: {500 / execution_time:.0f} units per second")
 
         # Performance assertion - should complete large properties quickly
-        assert (
-            execution_time < 30
-        ), f"Large property analysis should complete in <30s, took {execution_time:.2f}s"
+        assert execution_time < 30, (
+            f"Large property analysis should complete in <30s, took {execution_time:.2f}s"
+        )
 
 
 class TestComplexScenarios:
@@ -619,12 +619,12 @@ class TestComplexScenarios:
         premium_leases = [m for m in lease_models if "Premium" in m.suite]
         standard_leases = [m for m in lease_models if "Standard" in m.suite]
 
-        assert (
-            len(premium_leases) == 45
-        ), f"Expected 45 premium leases, got {len(premium_leases)}"
-        assert (
-            len(standard_leases) == 75
-        ), f"Expected 75 standard leases, got {len(standard_leases)}"
+        assert len(premium_leases) == 45, (
+            f"Expected 45 premium leases, got {len(premium_leases)}"
+        )
+        assert len(standard_leases) == 75, (
+            f"Expected 75 standard leases, got {len(standard_leases)}"
+        )
 
         # Validate different rent levels
         premium_avg_rent = sum(lease.value for lease in premium_leases) / len(
@@ -641,9 +641,9 @@ class TestComplexScenarios:
             f"   - Rent premium: {(premium_avg_rent / standard_avg_rent - 1) * 100:.1f}%"
         )
 
-        assert (
-            premium_avg_rent > standard_avg_rent
-        ), "Premium units should have higher rents"
+        assert premium_avg_rent > standard_avg_rent, (
+            "Premium units should have higher rents"
+        )
 
 
 # Quick smoke test to ensure all comprehensive tests are discoverable

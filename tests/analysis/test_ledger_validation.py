@@ -242,9 +242,9 @@ class TestLedgerAccuracy:
         for date in ledger_noi.index[:3]:  # Check first 3 months
             ledger_value = ledger_noi[date]
             result_value = result_noi[date] if date in result_noi.index else 0
-            assert (
-                abs(ledger_value - result_value) < 0.01
-            ), f"NOI mismatch for {date}: ledger={ledger_value}, result={result_value}"
+            assert abs(ledger_value - result_value) < 0.01, (
+                f"NOI mismatch for {date}: ledger={ledger_value}, result={result_value}"
+            )
 
     def test_revenue_transactions_make_sense(
         self, simple_residential_property, analysis_timeline, global_settings
@@ -271,9 +271,9 @@ class TestLedgerAccuracy:
 
         # Check first month (should be close to expected)
         first_month_revenue = monthly_revenue.iloc[0]
-        assert (
-            15000 <= first_month_revenue <= 25000
-        ), f"Unexpected first month revenue: {first_month_revenue}"
+        assert 15000 <= first_month_revenue <= 25000, (
+            f"Unexpected first month revenue: {first_month_revenue}"
+        )
 
 
 class TestLedgerMetadata:
@@ -293,9 +293,9 @@ class TestLedgerMetadata:
 
         # All transactions should have source IDs
         transactions_with_ids = ledger_df[ledger_df["source_id"].notna()]
-        assert len(transactions_with_ids) == len(
-            ledger_df
-        ), "All transactions should have source IDs"
+        assert len(transactions_with_ids) == len(ledger_df), (
+            "All transactions should have source IDs"
+        )
 
     def test_transactions_have_pass_numbers(
         self, simple_residential_property, analysis_timeline, global_settings
@@ -327,9 +327,9 @@ class TestLedgerMetadata:
 
         # All transactions should have same asset ID
         unique_asset_ids = ledger_df["asset_id"].unique()
-        assert (
-            len(unique_asset_ids) == 1
-        ), f"Expected 1 asset ID, got {len(unique_asset_ids)}"
+        assert len(unique_asset_ids) == 1, (
+            f"Expected 1 asset ID, got {len(unique_asset_ids)}"
+        )
 
         # Should match the property UID (convert to string for DuckDB comparison)
         expected_asset_id = simple_residential_property.uid

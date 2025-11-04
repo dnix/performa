@@ -165,9 +165,9 @@ def test_unit_mix_unrolling(
 
     # Verify correct number of lease instances (one per unit)
     expected_lease_count = sample_residential_property.unit_count
-    assert (
-        len(lease_models) == expected_lease_count
-    ), f"Expected {expected_lease_count} lease models, got {len(lease_models)}"
+    assert len(lease_models) == expected_lease_count, (
+        f"Expected {expected_lease_count} lease models, got {len(lease_models)}"
+    )
 
     # Verify we have expense models
     assert len(expense_models) > 0, "Should have expense models"
@@ -206,9 +206,9 @@ def test_cash_flow_generation(
     if pgr_col in first_month_data:
         pgr = first_month_data[pgr_col]
         expected_pgr = (12 * 1800) + (8 * 2400)  # 1BR + 2BR monthly income
-        assert pgr == pytest.approx(
-            expected_pgr, rel=0.01
-        ), f"Expected PGR ~{expected_pgr}, got {pgr}"
+        assert pgr == pytest.approx(expected_pgr, rel=0.01), (
+            f"Expected PGR ~{expected_pgr}, got {pgr}"
+        )
 
 
 def test_analysis_scenario_properties(
@@ -243,14 +243,14 @@ def test_analysis_scenario_properties(
     expected_lease_count = sample_residential_property.unit_count  # 20 leases
     expected_expense_count = 1  # 1 operating expense item
     expected_total = expected_lease_count + expected_expense_count
-    assert (
-        len(models) == expected_total
-    ), f"Expected {expected_total} total models, got {len(models)}"
+    assert len(models) == expected_total, (
+        f"Expected {expected_total} total models, got {len(models)}"
+    )
 
     for model in models:
-        assert isinstance(
-            model, CashFlowModel
-        ), f"Expected CashFlowModel, got {type(model)}"
+        assert isinstance(model, CashFlowModel), (
+            f"Expected CashFlowModel, got {type(model)}"
+        )
 
 
 def test_minimal_property_analysis():

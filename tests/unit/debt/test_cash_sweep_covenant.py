@@ -211,9 +211,9 @@ class TestTrapModeDeposits:
         # Verify total balance: deposits + release should net to zero
         total_deposited = abs(deposits["amount"].sum())
         total_released = releases["amount"].sum()
-        assert (
-            abs(total_deposited - total_released) < 1.0
-        ), f"Deposits ({total_deposited}) and releases ({total_released}) should balance"
+        assert abs(total_deposited - total_released) < 1.0, (
+            f"Deposits ({total_deposited}) and releases ({total_released}) should balance"
+        )
 
 
 class TestTrapModeRelease:
@@ -271,16 +271,16 @@ class TestTrapModeRelease:
         # Check release
         release_amount = releases["amount"].iloc[0]
         assert release_amount > 0, "Release should be positive"
-        assert (
-            release_amount == 50_000
-        ), f"Release should equal deposit, got {release_amount}"
+        assert release_amount == 50_000, (
+            f"Release should equal deposit, got {release_amount}"
+        )
 
         # Verify release occurs at end_month (month 2, index 1)
         release_date = pd.Timestamp(releases["date"].iloc[0])
         expected_date = timeline.period_index[1].to_timestamp()
-        assert (
-            release_date == expected_date
-        ), f"Release should occur at {expected_date}, got {release_date}"
+        assert release_date == expected_date, (
+            f"Release should occur at {expected_date}, got {release_date}"
+        )
 
 
 class TestNoSweepOnZeroExcess:
@@ -470,17 +470,17 @@ class TestPrepaySweepInterestSignConvention:
         ]
 
         # CRITICAL ASSERTIONS: Sign Convention
-        assert (
-            len(interest_from_sweep) > 0
-        ), "Should have interest from sweep (NOI pays interest)"
+        assert len(interest_from_sweep) > 0, (
+            "Should have interest from sweep (NOI pays interest)"
+        )
 
-        assert (
-            interest_from_sweep["amount"] < 0
-        ).all(), "Interest from sweep MUST be negative (debt service outflow)"
+        assert (interest_from_sweep["amount"] < 0).all(), (
+            "Interest from sweep MUST be negative (debt service outflow)"
+        )
 
-        assert (
-            interest_from_sweep["subcategory"].iloc[0] == "Interest Payment"
-        ), "Should be categorized as Interest Payment"
+        assert interest_from_sweep["subcategory"].iloc[0] == "Interest Payment", (
+            "Should be categorized as Interest Payment"
+        )
 
         total_interest_from_sweep = interest_from_sweep["amount"].sum()
         print(f"\n✓ Interest from sweep correctly recorded as NEGATIVE")
@@ -614,12 +614,12 @@ class TestPrepaySweepInterestSignConvention:
 
         if len(interest_sweep_items) > 0:
             # Both types of interest should be negative
-            assert (
-                interest_reserve["amount"] < 0
-            ).all(), "Interest from reserve must be negative"
-            assert (
-                interest_sweep_items["amount"] < 0
-            ).all(), "Interest from sweep must be negative"
+            assert (interest_reserve["amount"] < 0).all(), (
+                "Interest from reserve must be negative"
+            )
+            assert (interest_sweep_items["amount"] < 0).all(), (
+                "Interest from sweep must be negative"
+            )
 
             print("\n✓ Sign parity confirmed:")
             print(f"  Interest from reserve: NEGATIVE ✓")

@@ -219,9 +219,9 @@ def validate_distribution_results_structure(results: dict) -> bool:
         assert key in results, f"Missing key: {key}"
 
     # Check partner_distributions structure
-    assert isinstance(
-        results["partner_distributions"], dict
-    ), "partner_distributions must be dict"
+    assert isinstance(results["partner_distributions"], dict), (
+        "partner_distributions must be dict"
+    )
 
     for partner_name, partner_data in results["partner_distributions"].items():
         partner_required_keys = [
@@ -266,9 +266,9 @@ def validate_cash_flow_conservation(
     positive_cash_flows = original_cash_flows[original_cash_flows > 0].sum()
 
     # Allow small rounding errors
-    assert (
-        abs(total_distributions - positive_cash_flows) < 1.0
-    ), f"Conservation error: {total_distributions} vs {positive_cash_flows}"
+    assert abs(total_distributions - positive_cash_flows) < 1.0, (
+        f"Conservation error: {total_distributions} vs {positive_cash_flows}"
+    )
 
     return True
 

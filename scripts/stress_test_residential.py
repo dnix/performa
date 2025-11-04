@@ -162,9 +162,9 @@ def test_small_developer_scale() -> Dict[str, Any]:
 
     # Fundamental sanity checks
     assert len(lease_models) == 3, f"Expected 3 lease models, got {len(lease_models)}"
-    assert (
-        abs(actual_pgr - expected_pgr) < 10
-    ), f"PGR mismatch: expected {expected_pgr}, got {actual_pgr}"
+    assert abs(actual_pgr - expected_pgr) < 10, (
+        f"PGR mismatch: expected {expected_pgr}, got {actual_pgr}"
+    )
 
     return {
         "scale": "Small Developer",
@@ -279,15 +279,15 @@ def test_regional_investor_scale() -> Dict[str, Any]:
 
     # Fundamental sanity checks - Updated for new architecture
     # Note: New architecture may create additional models for better granularity
-    assert (
-        len(lease_models) >= 75
-    ), f"Expected at least 75 lease models, got {len(lease_models)}"
-    assert (
-        abs(actual_pgr - expected_pgr) < 100
-    ), f"PGR mismatch: expected {expected_pgr}, got {actual_pgr}"
-    assert (
-        len(expense_models) >= 2
-    ), f"Expected at least 2 expense models, got {len(expense_models)}"
+    assert len(lease_models) >= 75, (
+        f"Expected at least 75 lease models, got {len(lease_models)}"
+    )
+    assert abs(actual_pgr - expected_pgr) < 100, (
+        f"PGR mismatch: expected {expected_pgr}, got {actual_pgr}"
+    )
+    assert len(expense_models) >= 2, (
+        f"Expected at least 2 expense models, got {len(expense_models)}"
+    )
 
     return {
         "scale": "Regional Investor",
@@ -452,24 +452,24 @@ def test_institutional_scale() -> Dict[str, Any]:
     print(f"  Performance: {len(lease_models) / execution_time:.0f} units/second")
 
     # Performance assertions for institutional scale
-    assert (
-        execution_time < 5.0
-    ), f"Institutional analysis should complete in <5s, took {execution_time:.3f}s"
-    assert (
-        len(lease_models) / execution_time > 80
-    ), f"Should process >80 units/sec, got {len(lease_models) / execution_time:.0f}"
+    assert execution_time < 5.0, (
+        f"Institutional analysis should complete in <5s, took {execution_time:.3f}s"
+    )
+    assert len(lease_models) / execution_time > 80, (
+        f"Should process >80 units/sec, got {len(lease_models) / execution_time:.0f}"
+    )
 
     # Fundamental sanity checks - Updated for new architecture
-    assert (
-        len(lease_models) >= 400
-    ), f"Expected at least 400 lease models, got {len(lease_models)}"
-    assert (
-        abs(actual_pgr - expected_pgr) < 500
-    ), f"PGR mismatch: expected {expected_pgr}, got {actual_pgr}"
+    assert len(lease_models) >= 400, (
+        f"Expected at least 400 lease models, got {len(lease_models)}"
+    )
+    assert abs(actual_pgr - expected_pgr) < 500, (
+        f"PGR mismatch: expected {expected_pgr}, got {actual_pgr}"
+    )
     assert actual_misc > 0, f"Misc income should be positive, got {actual_misc}"
-    assert (
-        len(misc_models) >= 2
-    ), f"Expected at least 2 misc income models, got {len(misc_models)}"
+    assert len(misc_models) >= 2, (
+        f"Expected at least 2 misc income models, got {len(misc_models)}"
+    )
 
     return {
         "scale": "Institutional",
@@ -513,21 +513,21 @@ def test_fundamental_sanity() -> bool:
     )
 
     cf_result = lease.compute_cf(context)
-    assert isinstance(
-        cf_result, dict
-    ), f"compute_cf should return dict, got {type(cf_result)}"
+    assert isinstance(cf_result, dict), (
+        f"compute_cf should return dict, got {type(cf_result)}"
+    )
     assert "base_rent" in cf_result, "compute_cf should have base_rent component"
-    assert (
-        cf_result["base_rent"].sum() == 6000.0
-    ), f"Expected $6,000 total, got {cf_result['base_rent'].sum()}"
+    assert cf_result["base_rent"].sum() == 6000.0, (
+        f"Expected $6,000 total, got {cf_result['base_rent'].sum()}"
+    )
     print("    ✅ Basic lease cash flow: PASS")
 
     # Test 2: Component aggregation
     print("  Test 2: Component aggregation...")
     project_result = lease.project_future_cash_flows(context)
-    assert hasattr(
-        project_result, "columns"
-    ), "project_future_cash_flows should return DataFrame"
+    assert hasattr(project_result, "columns"), (
+        "project_future_cash_flows should return DataFrame"
+    )
     assert "base_rent" in project_result.columns, "Should have base_rent column"
     print("    ✅ Component aggregation: PASS")
 
@@ -883,9 +883,9 @@ def test_comprehensive_performance_suite() -> List[Dict[str, Any]]:
         })
 
         # Sanity check - Updated for new architecture
-        assert (
-            len(lease_models) >= scenario["units"]
-        ), f"Expected at least {scenario['units']} lease models, got {len(lease_models)}"
+        assert len(lease_models) >= scenario["units"], (
+            f"Expected at least {scenario['units']} lease models, got {len(lease_models)}"
+        )
 
     return results
 

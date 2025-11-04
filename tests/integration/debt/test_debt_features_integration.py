@@ -59,16 +59,16 @@ def test_debt_service_with_interest_only():
 
     # Verify interest-only periods
     first_24_months = schedule.iloc[:24]
-    assert (
-        first_24_months["Principal"] == 0
-    ).all(), "First 24 months should be interest-only"
+    assert (first_24_months["Principal"] == 0).all(), (
+        "First 24 months should be interest-only"
+    )
     assert (first_24_months["Interest"] > 0).all(), "Should have interest payments"
 
     # Verify amortizing periods start after I/O period
     amortizing_months = schedule.iloc[24:]
-    assert (
-        amortizing_months["Principal"] > 0
-    ).all(), "Should have principal payments after I/O period"
+    assert (amortizing_months["Principal"] > 0).all(), (
+        "Should have principal payments after I/O period"
+    )
 
     print("✓ Interest-only period verified: 24 months")
     print(f"✓ I/O payment: ${first_24_months['Payment'].iloc[0]:,.0f}")
@@ -175,9 +175,9 @@ def test_construction_to_permanent_refinancing():
         financing_cash_flows=None,
     )
 
-    assert (
-        len(refinancing_transactions) == 1
-    ), "Should generate one refinancing transaction"
+    assert len(refinancing_transactions) == 1, (
+        "Should generate one refinancing transaction"
+    )
 
     transaction = refinancing_transactions[0]
     assert transaction["transaction_type"] == "construction_to_permanent_refinancing"
@@ -258,9 +258,9 @@ def test_loan_covenant_monitoring():
     breach_summary_bad = permanent_facility.get_covenant_breach_summary(results_bad)
 
     # Verify covenant monitoring detects breaches
-    assert (
-        breach_summary_good["Breach_Rate"] < breach_summary_bad["Breach_Rate"]
-    ), "Should detect more breaches in stressed scenario"
+    assert breach_summary_good["Breach_Rate"] < breach_summary_bad["Breach_Rate"], (
+        "Should detect more breaches in stressed scenario"
+    )
 
     print(f"✓ Compliant scenario breach rate: {breach_summary_good['Breach_Rate']:.1%}")
     print(f"✓ Stressed scenario breach rate: {breach_summary_bad['Breach_Rate']:.1%}")

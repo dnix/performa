@@ -810,15 +810,15 @@ def main():
     actual_equity = pattern_results.deal_metrics.get("total_investment", 0) or 0
 
     # Validate pattern results match expected values (tolerance for floating point precision)
-    assert (
-        abs(actual_irr - expected_pattern_irr) < 0.01
-    ), f"Pattern IRR {actual_irr} != expected {expected_pattern_irr}"
-    assert (
-        abs(actual_em - expected_pattern_em) < 0.1
-    ), f"Pattern EM {actual_em} != expected {expected_pattern_em}"
-    assert (
-        abs(actual_equity - expected_pattern_equity) < 200000
-    ), f"Pattern Equity ${actual_equity} != expected ${expected_pattern_equity}"
+    assert abs(actual_irr - expected_pattern_irr) < 0.01, (
+        f"Pattern IRR {actual_irr} != expected {expected_pattern_irr}"
+    )
+    assert abs(actual_em - expected_pattern_em) < 0.1, (
+        f"Pattern EM {actual_em} != expected {expected_pattern_em}"
+    )
+    assert abs(actual_equity - expected_pattern_equity) < 200000, (
+        f"Pattern Equity ${actual_equity} != expected ${expected_pattern_equity}"
+    )
 
     # Validate composition results
     comp_irr = composition_results.deal_metrics.get("levered_irr", 0) or 0
@@ -826,15 +826,15 @@ def main():
     comp_equity = composition_results.deal_metrics.get("total_investment", 0) or 0
 
     # Validate composition matches expected values (tolerance for floating point precision)
-    assert (
-        abs(comp_irr - expected_composition_irr) < 0.01
-    ), f"Composition IRR {comp_irr} != expected {expected_composition_irr}"
-    assert (
-        abs(comp_em - expected_composition_em) < 0.1
-    ), f"Composition EM {comp_em} != expected {expected_composition_em}"
-    assert (
-        abs(comp_equity - expected_composition_equity) < 200000
-    ), f"Composition Equity ${comp_equity} != expected ${expected_composition_equity}"
+    assert abs(comp_irr - expected_composition_irr) < 0.01, (
+        f"Composition IRR {comp_irr} != expected {expected_composition_irr}"
+    )
+    assert abs(comp_em - expected_composition_em) < 0.1, (
+        f"Composition EM {comp_em} != expected {expected_composition_em}"
+    )
+    assert abs(comp_equity - expected_composition_equity) < 200000, (
+        f"Composition Equity ${comp_equity} != expected ${expected_composition_equity}"
+    )
 
     print(f"\nRESIDENTIAL DEVELOPMENT COMPARISON COMPLETE!")
     print("Both approaches working with mathematical parity")

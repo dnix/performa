@@ -171,9 +171,9 @@ class TestMultiTrancheFundingIntegration:
         # Business concept validation: Multi-tranche structure enables higher LTC
         # Single tranche typically limited to 60-65%, multi-tranche can go to 75%+
         single_tranche_limit = project_costs * 0.65
-        assert (
-            total_proceeds > single_tranche_limit
-        ), f"Multi-tranche should exceed single-tranche capacity: ${total_proceeds:,.0f} > ${single_tranche_limit:,.0f}"
+        assert total_proceeds > single_tranche_limit, (
+            f"Multi-tranche should exceed single-tranche capacity: ${total_proceeds:,.0f} > ${single_tranche_limit:,.0f}"
+        )
 
         print(f" Multi-Tranche Proceeds: ${total_proceeds:,.0f}")
         print(f" Effective LTC: {total_proceeds / project_costs:.1%}")
@@ -307,12 +307,12 @@ class TestMultiTrancheFundingIntegration:
         max_allowed_with_fees = base_loan * 1.02  # 2% tolerance for fees
 
         assert total_proceeds > 0, "Should have positive loan proceeds"
-        assert (
-            total_proceeds >= base_loan * 0.95
-        ), f"Proceeds ${total_proceeds:,.0f} should be close to base loan amount ${base_loan:,.0f}"
-        assert (
-            total_proceeds <= max_allowed_with_fees
-        ), f"Proceeds ${total_proceeds:,.0f} should not significantly exceed base LTC ${base_loan:,.0f}"
+        assert total_proceeds >= base_loan * 0.95, (
+            f"Proceeds ${total_proceeds:,.0f} should be close to base loan amount ${base_loan:,.0f}"
+        )
+        assert total_proceeds <= max_allowed_with_fees, (
+            f"Proceeds ${total_proceeds:,.0f} should not significantly exceed base LTC ${base_loan:,.0f}"
+        )
 
         print(f" LTC Constraint: {total_proceeds / project_costs:.1%} (expected ~50%)")
         print(f" Loan Proceeds: ${total_proceeds:,.0f}")
@@ -376,18 +376,18 @@ class TestFundingCascadeComponentIntegration:
         # For construction loans, proceeds should equal draws
         # (They represent the same transaction from different perspectives)
         if draws != 0:
-            assert (
-                abs(proceeds - abs(draws)) < 1000
-            ), f"Proceeds ${proceeds:,.0f} should equal draws ${abs(draws):,.0f}"
+            assert abs(proceeds - abs(draws)) < 1000, (
+                f"Proceeds ${proceeds:,.0f} should equal draws ${abs(draws):,.0f}"
+            )
 
         # Validate proceeds are reasonable (including origination fees)
         base_loan = 6_000_000 * 0.65  # $3.9M base
         max_expected_with_fees = (
             base_loan * 1.04
         )  # 4% tolerance for fees and calculations
-        assert (
-            proceeds <= max_expected_with_fees
-        ), f"Proceeds ${proceeds:,.0f} should not significantly exceed ${base_loan:,.0f} (base LTC)"
+        assert proceeds <= max_expected_with_fees, (
+            f"Proceeds ${proceeds:,.0f} should not significantly exceed ${base_loan:,.0f} (base LTC)"
+        )
 
         print(f" Loan Proceeds: ${proceeds:,.0f}")
         print(f" Component integration validated")
@@ -458,14 +458,14 @@ class TestEndToEndFundingValidation:
         # Allow for origination fees (senior 1% + mezz 2.5% blended)
         max_expected_with_fees = base_loan * 1.06  # 6% tolerance for fees
 
-        assert (
-            total_proceeds <= max_expected_with_fees
-        ), f"Total proceeds ${total_proceeds:,.0f} should not significantly exceed ${base_loan:,.0f} (base LTC + fees)"
+        assert total_proceeds <= max_expected_with_fees, (
+            f"Total proceeds ${total_proceeds:,.0f} should not significantly exceed ${base_loan:,.0f} (base LTC + fees)"
+        )
 
         # Should be significant funding (at least 75% of base)
-        assert (
-            total_proceeds >= base_loan * 0.75
-        ), f"Should utilize substantial debt capacity: ${total_proceeds:,.0f}"
+        assert total_proceeds >= base_loan * 0.75, (
+            f"Should utilize substantial debt capacity: ${total_proceeds:,.0f}"
+        )
 
         print(f" Development Project: ${project_costs:,.0f}")
         print(f" Total Debt Proceeds: ${total_proceeds:,.0f}")
@@ -638,9 +638,9 @@ class TestFundingCascadeEdgeCases:
             total_proceeds = 0
 
         # Validate that proceeds are non-negative (zero is acceptable)
-        assert (
-            total_proceeds >= 0
-        ), f"Proceeds should be non-negative, got ${total_proceeds:,.0f}"
+        assert total_proceeds >= 0, (
+            f"Proceeds should be non-negative, got ${total_proceeds:,.0f}"
+        )
 
         print(f" Empty ledger handled gracefully")
         print(f" Proceeds with no capital uses: ${total_proceeds:,.0f}")

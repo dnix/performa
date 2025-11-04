@@ -74,9 +74,9 @@ def test_simple_method_unchanged():
     interest_from_sweep = ledger_df[
         ledger_df["item_name"].str.contains("Interest from Sweep", case=False, na=False)
     ]
-    assert (
-        len(interest_from_sweep) == 0
-    ), "SIMPLE should NOT have synchronous 'Interest from Sweep' artifacts"
+    assert len(interest_from_sweep) == 0, (
+        "SIMPLE should NOT have synchronous 'Interest from Sweep' artifacts"
+    )
     print(f"✓ No 'Interest from Sweep' transactions (confirms legacy path)")
 
     # CRITICAL CHECK 3: Sweep prepayments should work

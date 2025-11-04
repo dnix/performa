@@ -135,18 +135,18 @@ def test_per_unit_capex_residential_vs_cashflow_model():
     expected_monthly_value = expected_annual_value / 12  # $5,000
 
     # Verify CapEx calculation
-    assert (
-        abs(capex_cf.iloc[0] - expected_monthly_value) < 1.0
-    ), f"CapEx: Expected ~${expected_monthly_value}/month but got ${capex_cf.iloc[0]}/month"
+    assert abs(capex_cf.iloc[0] - expected_monthly_value) < 1.0, (
+        f"CapEx: Expected ~${expected_monthly_value}/month but got ${capex_cf.iloc[0]}/month"
+    )
 
     # CapEx should NOT have growth applied, so CashFlow might differ if it has growth
     # But for PER_UNIT base calculation, they should be the same
     capex_annual = capex_cf.sum()
 
     # The base calculation should be identical (before any growth)
-    assert (
-        abs(capex_annual - expected_annual_value) < 12.0
-    ), f"CapEx annual total: Expected ~${expected_annual_value} but got ${capex_annual}"
+    assert abs(capex_annual - expected_annual_value) < 12.0, (
+        f"CapEx annual total: Expected ~${expected_annual_value} but got ${capex_annual}"
+    )
 
 
 def test_per_unit_capex_office_vs_cashflow_model():
@@ -185,14 +185,14 @@ def test_per_unit_capex_office_vs_cashflow_model():
     expected_monthly_value = expected_annual_value / 12  # $1,250
 
     # Verify calculation
-    assert (
-        abs(capex_cf.iloc[0] - expected_monthly_value) < 1.0
-    ), f"Office CapEx: Expected ~${expected_monthly_value}/month but got ${capex_cf.iloc[0]}/month"
+    assert abs(capex_cf.iloc[0] - expected_monthly_value) < 1.0, (
+        f"Office CapEx: Expected ~${expected_monthly_value}/month but got ${capex_cf.iloc[0]}/month"
+    )
 
     capex_annual = capex_cf.sum()
-    assert (
-        abs(capex_annual - expected_annual_value) < 12.0
-    ), f"Office CapEx annual: Expected ~${expected_annual_value} but got ${capex_annual}"
+    assert abs(capex_annual - expected_annual_value) < 12.0, (
+        f"Office CapEx annual: Expected ~${expected_annual_value} but got ${capex_annual}"
+    )
 
 
 def test_capex_now_applies_growth_rates():
@@ -242,20 +242,20 @@ def test_capex_now_applies_growth_rates():
     print(f"Year 2 total: ${year2_total:,.0f}")
 
     # Verify growth is applied correctly
-    assert (
-        year2_total > year1_total
-    ), "CapEx should now grow year over year (industry standard)"
+    assert year2_total > year1_total, (
+        "CapEx should now grow year over year (industry standard)"
+    )
 
     # Verify the year-over-year growth rate is approximately correct
     growth_rate = (year2_total / year1_total) - 1
-    assert (
-        abs(growth_rate - 0.03) < 0.005
-    ), f"Growth rate should be ~3%, got {growth_rate:.1%}"
+    assert abs(growth_rate - 0.03) < 0.005, (
+        f"Growth rate should be ~3%, got {growth_rate:.1%}"
+    )
 
     # Verify we're in the right ballpark (with compounding)
-    assert (
-        year1_total > 30000
-    ), "Year 1 should be above base due to continuous compounding"
+    assert year1_total > 30000, (
+        "Year 1 should be above base due to continuous compounding"
+    )
     assert year1_total < 32000, "Year 1 shouldn't be too much above base"
     assert year2_total > 31000, "Year 2 should show continued growth"
 

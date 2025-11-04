@@ -222,22 +222,22 @@ class TestExtendedDowntimeScenarios:
         # New lease starts December 2025 (month 24, index 23)
 
         # Should have original rent before expiration
-        assert (
-            pgr_series.iloc[4] == 2000.0
-        ), "Should have original rent in month 5 (May 2024)"
+        assert pgr_series.iloc[4] == 2000.0, (
+            "Should have original rent in month 5 (May 2024)"
+        )
 
         # Should have zero revenue during expiration + downtime (months 6-23)
         for month_idx in range(5, 23):  # Months 6-23 (0-indexed)
             if month_idx < len(pgr_series):
-                assert (
-                    pgr_series.iloc[month_idx] == 0.0
-                ), f"Should have zero revenue during downtime (month {month_idx + 1})"
+                assert pgr_series.iloc[month_idx] == 0.0, (
+                    f"Should have zero revenue during downtime (month {month_idx + 1})"
+                )
 
         # Verify premium rent after extended renovation (month 24+)
         if len(pgr_series) > 23:
-            assert (
-                pgr_series.iloc[23] == 3000.0
-            ), "Should have premium rent after extended renovation (month 24)"
+            assert pgr_series.iloc[23] == 3000.0, (
+                "Should have premium rent after extended renovation (month 24)"
+            )
 
 
 class TestLeaseExpirationBeyondAnalysis:
@@ -329,15 +329,15 @@ class TestLeaseExpirationBeyondAnalysis:
 
         # No revenue before lease starts (months 1-17)
         for month_idx in range(17):  # months 1-17 (0-indexed 0-16)
-            assert (
-                pgr_series.iloc[month_idx] == 0.0
-            ), f"Should have no revenue before lease starts (month {month_idx + 1})"
+            assert pgr_series.iloc[month_idx] == 0.0, (
+                f"Should have no revenue before lease starts (month {month_idx + 1})"
+            )
 
         # Revenue from lease start through analysis end (months 18-24)
         for month_idx in range(17, len(pgr_series)):  # months 18-24 (0-indexed 17-23)
-            assert (
-                pgr_series.iloc[month_idx] == 2000.0
-            ), f"Should have original rent from lease start (month {month_idx + 1})"
+            assert pgr_series.iloc[month_idx] == 2000.0, (
+                f"Should have original rent from lease start (month {month_idx + 1})"
+            )
 
         # This documents expected behavior: transformations beyond analysis period don't affect projections
         # Since the lease doesn't expire until June 2026 (beyond Dec 2025 analysis end), no transformation occurs
@@ -580,18 +580,18 @@ class TestEdgeCaseDocumentation:
 
         # Revenue transformation should occur per lease schedule (June 2024)
         # regardless of when capital was spent (Jan-Mar 2024)
-        assert (
-            pgr_series.iloc[4] == 2000.0
-        ), "Should have original rent in month 5 (before expiration)"
-        assert (
-            pgr_series.iloc[5] == 0.0
-        ), "Should have no revenue in month 6 (expiration + downtime)"
-        assert (
-            pgr_series.iloc[6] == 0.0
-        ), "Should have no revenue in month 7 (downtime continues)"
-        assert (
-            pgr_series.iloc[7] == 2500.0
-        ), "Should have premium rent in month 8 (after transformation)"
+        assert pgr_series.iloc[4] == 2000.0, (
+            "Should have original rent in month 5 (before expiration)"
+        )
+        assert pgr_series.iloc[5] == 0.0, (
+            "Should have no revenue in month 6 (expiration + downtime)"
+        )
+        assert pgr_series.iloc[6] == 0.0, (
+            "Should have no revenue in month 7 (downtime continues)"
+        )
+        assert pgr_series.iloc[7] == 2500.0, (
+            "Should have premium rent in month 8 (after transformation)"
+        )
 
         # This documents expected behavior: Users control timing coordination
         # The system doesn't enforce timing alignment between capital and leases

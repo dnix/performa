@@ -477,14 +477,14 @@ def test_effective_gross_income_bug_reproduction():
 
     # REGRESSION TEST: These must all pass now
     assert pgr == pytest.approx(expected_pgr, abs=0.01)
-    assert egi == pytest.approx(
-        expected_egi, abs=0.01
-    ), f"EGI was {egi}, expected {expected_egi}"
-    assert total_opex == pytest.approx(
-        expected_total_opex, abs=0.01
-    ), f"Total OpEx was {total_opex}, expected {expected_total_opex}"
-    assert noi == pytest.approx(
-        expected_noi, abs=0.01
-    ), f"NOI was {noi}, expected {expected_noi}"
+    assert egi == pytest.approx(expected_egi, abs=0.01), (
+        f"EGI was {egi}, expected {expected_egi}"
+    )
+    assert total_opex == pytest.approx(expected_total_opex, abs=0.01), (
+        f"Total OpEx was {total_opex}, expected {expected_total_opex}"
+    )
+    assert noi == pytest.approx(expected_noi, abs=0.01), (
+        f"NOI was {noi}, expected {expected_noi}"
+    )
 
     print(" REGRESSION TEST PASSED - Original bug scenario now works correctly")

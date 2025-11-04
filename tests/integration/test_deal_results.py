@@ -165,24 +165,24 @@ class TestDealResultsCore:
         # TODO: Fix equity contribution recording in partnership architecture
         # For now, verify equity cash flow property exists and is accessible
         equity_cf_sum = results.equity_cash_flow.sum()
-        assert isinstance(
-            equity_cf_sum, (int, float)
-        ), f"Equity cash flow should be numeric, got {type(equity_cf_sum)}"
+        assert isinstance(equity_cf_sum, (int, float)), (
+            f"Equity cash flow should be numeric, got {type(equity_cf_sum)}"
+        )
 
         # IRR should be calculable (even if equity flows aren't properly recorded yet)
         assert results.levered_irr is not None, "IRR should be calculable"
         # Very broad range while frequency bugs are fixed
-        assert (
-            -2.0 <= results.levered_irr <= 5.0
-        ), f"IRR {results.levered_irr:.2%} should be calculable (note: may be inflated due to frequency bugs)"
+        assert -2.0 <= results.levered_irr <= 5.0, (
+            f"IRR {results.levered_irr:.2%} should be calculable (note: may be inflated due to frequency bugs)"
+        )
 
         # Equity multiple should be positive
-        assert (
-            results.equity_multiple is not None
-        ), "Equity multiple should be calculable"
-        assert (
-            results.equity_multiple > 0.8
-        ), f"Equity multiple {results.equity_multiple:.2f}x should be positive"
+        assert results.equity_multiple is not None, (
+            "Equity multiple should be calculable"
+        )
+        assert results.equity_multiple > 0.8, (
+            f"Equity multiple {results.equity_multiple:.2f}x should be positive"
+        )
 
 
 class TestArchetypeDetection:
@@ -212,9 +212,9 @@ class TestArchetypeDetection:
         results = pattern.analyze()
 
         # Should detect as development from ledger transactions
-        assert (
-            results.archetype == "Development"
-        ), f"Expected 'Development' archetype, got '{results.archetype}'"
+        assert results.archetype == "Development", (
+            f"Expected 'Development' archetype, got '{results.archetype}'"
+        )
 
     def test_stabilized_archetype_detection(self):
         """Stabilized deals should be detected from lack of construction."""
@@ -230,9 +230,9 @@ class TestArchetypeDetection:
         results = pattern.analyze()
 
         # Should detect as stabilized (no construction or renovation)
-        assert (
-            results.archetype == "Stabilized"
-        ), f"Expected 'Stabilized' archetype, got '{results.archetype}'"
+        assert results.archetype == "Stabilized", (
+            f"Expected 'Stabilized' archetype, got '{results.archetype}'"
+        )
 
 
 class TestCashFlowHierarchy:
@@ -434,18 +434,18 @@ class TestValidationFramework:
         assert capital.get("purchase_price", 0) > 0, "Should have land acquisition cost"
 
         financing = validation["financing_analysis"]
-        assert (
-            financing.get("loan_proceeds", 0) > 0
-        ), "Should have construction financing"
+        assert financing.get("loan_proceeds", 0) > 0, (
+            "Should have construction financing"
+        )
 
         # Should calculate meaningful metrics
         overall = validation["overall_analysis"]
-        assert (
-            overall.get("irr") is not None
-        ), "Should calculate IRR for development deal"
-        assert (
-            overall.get("equity_multiple") is not None
-        ), "Should calculate equity multiple"
+        assert overall.get("irr") is not None, (
+            "Should calculate IRR for development deal"
+        )
+        assert overall.get("equity_multiple") is not None, (
+            "Should calculate equity multiple"
+        )
 
         print(
             f"Development validation completed - IRR: {overall.get('irr', 'N/A')}, EM: {overall.get('equity_multiple', 'N/A')}"
@@ -496,15 +496,15 @@ class TestValidationFramework:
         # Validate that validation functions run without error
         assert "overall_analysis" in validation, "Should include overall analysis"
         assert "irr" in validation["overall_analysis"], "Should analyze IRR"
-        assert (
-            "equity_multiple" in validation["overall_analysis"]
-        ), "Should analyze equity multiple"
+        assert "equity_multiple" in validation["overall_analysis"], (
+            "Should analyze equity multiple"
+        )
 
         # Validate basic ledger consistency
         assert "balance_checks" in ledger_analysis, "Should include balance checks"
-        assert (
-            "total_net_flow" in ledger_analysis["balance_checks"]
-        ), "Should calculate net flow"
+        assert "total_net_flow" in ledger_analysis["balance_checks"], (
+            "Should calculate net flow"
+        )
 
         # The actual values may be inflated due to NOI frequency bug,
         # but the validation framework should still work

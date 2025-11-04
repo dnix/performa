@@ -140,22 +140,22 @@ class TestRealisticCovenantMonitoring:
         # LTV should be close to expected
         actual_ltv = results.iloc[0]["LTV"]
         expected_ltv = scenario["expected_ltv"]
-        assert (
-            abs(actual_ltv - expected_ltv) < 0.05
-        ), f"LTV {actual_ltv:.3f} vs expected {expected_ltv:.3f}"
+        assert abs(actual_ltv - expected_ltv) < 0.05, (
+            f"LTV {actual_ltv:.3f} vs expected {expected_ltv:.3f}"
+        )
 
         # DSCR should be in healthy range
         actual_dscr = results.iloc[0]["DSCR"]
         dscr_min, dscr_max = scenario["expected_dscr_range"]
-        assert (
-            dscr_min <= actual_dscr <= dscr_max
-        ), f"DSCR {actual_dscr:.3f} outside range {dscr_min}-{dscr_max}"
+        assert dscr_min <= actual_dscr <= dscr_max, (
+            f"DSCR {actual_dscr:.3f} outside range {dscr_min}-{dscr_max}"
+        )
 
         # Should not have covenant breaches
         breach_count = (results["Covenant_Status"] == "BREACH").sum()
-        assert (
-            breach_count == 0
-        ), f"Expected no breaches for compliant scenario, found {breach_count}"
+        assert breach_count == 0, (
+            f"Expected no breaches for compliant scenario, found {breach_count}"
+        )
 
         print(
             f" Stabilized Office Scenario: LTV={actual_ltv:.3f}, DSCR={actual_dscr:.2f}, Breaches={breach_count}"
@@ -199,12 +199,12 @@ class TestRealisticCovenantMonitoring:
         actual_dscr = results.iloc[0]["DSCR"]
         breach_count = (results["Covenant_Status"] == "BREACH").sum()
 
-        assert (
-            breach_count == 0
-        ), f"Conservative multifamily scenario should be compliant, found {breach_count} breaches"
-        assert (
-            actual_dscr >= 1.25
-        ), f"DSCR {actual_dscr:.3f} should be healthy for conservative deal"
+        assert breach_count == 0, (
+            f"Conservative multifamily scenario should be compliant, found {breach_count} breaches"
+        )
+        assert actual_dscr >= 1.25, (
+            f"DSCR {actual_dscr:.3f} should be healthy for conservative deal"
+        )
 
         print(
             f" Value-Add Multifamily: LTV={actual_ltv:.3f}, DSCR={actual_dscr:.2f}, Breaches={breach_count}"
@@ -255,9 +255,9 @@ class TestRealisticCovenantMonitoring:
 
         # DSCR should be in the expected distressed range
         dscr_min, dscr_max = scenario["expected_dscr_range"]
-        assert (
-            dscr_min <= actual_dscr <= dscr_max
-        ), f"DSCR {actual_dscr:.3f} outside distressed range {dscr_min}-{dscr_max}"
+        assert dscr_min <= actual_dscr <= dscr_max, (
+            f"DSCR {actual_dscr:.3f} outside distressed range {dscr_min}-{dscr_max}"
+        )
 
         print(
             f" Distressed Retail (Breaches Expected): LTV={actual_ltv:.3f}, DSCR={actual_dscr:.2f}, Breaches={breach_count}"
@@ -318,13 +318,13 @@ class TestRealisticCovenantMonitoring:
         # Validate that compliant scenarios remain compliant and breach scenarios breach
         for result in portfolio_results:
             if result["expected_breaches"]:
-                assert (
-                    result["breach_count"] > 0
-                ), "Breach scenario should have breaches"
+                assert result["breach_count"] > 0, (
+                    "Breach scenario should have breaches"
+                )
             else:
-                assert (
-                    result["breach_count"] == 0
-                ), "Compliant scenario should not have breaches"
+                assert result["breach_count"] == 0, (
+                    "Compliant scenario should not have breaches"
+                )
 
         print(
             f" Portfolio Performance Test: {len(scenarios)} realistic scenarios processed successfully"

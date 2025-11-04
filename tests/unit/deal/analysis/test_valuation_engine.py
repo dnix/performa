@@ -550,9 +550,9 @@ class TestIntegrationScenarios:
 
         # First month uses only its own NOI: 70k monthly * 12 = 840k annual / 6.5% = ~$12.92M
         first_expected = (70000.0 * 12) / 0.065
-        assert (
-            abs(context.refi_property_value.iloc[0] - first_expected) < 50000
-        ), f"First month ${context.refi_property_value.iloc[0]:,.0f} != expected ${first_expected:,.0f}"
+        assert abs(context.refi_property_value.iloc[0] - first_expected) < 50000, (
+            f"First month ${context.refi_property_value.iloc[0]:,.0f} != expected ${first_expected:,.0f}"
+        )
 
         # Last month uses LTM: average of last 12 months of the growing series
         last_12_avg = (
@@ -561,9 +561,9 @@ class TestIntegrationScenarios:
             else context.noi_series.mean()
         )
         last_expected = (last_12_avg * 12) / 0.065
-        assert (
-            abs(context.refi_property_value.iloc[-1] - last_expected) < 50000
-        ), f"Last month ${context.refi_property_value.iloc[-1]:,.0f} != expected ${last_expected:,.0f}"
+        assert abs(context.refi_property_value.iloc[-1] - last_expected) < 50000, (
+            f"Last month ${context.refi_property_value.iloc[-1]:,.0f} != expected ${last_expected:,.0f}"
+        )
 
         # NOI should show growth
         assert context.noi_series.iloc[0] < context.noi_series.iloc[-1]

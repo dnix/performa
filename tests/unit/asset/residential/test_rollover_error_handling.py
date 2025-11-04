@@ -107,9 +107,9 @@ class TestRolloverErrorHandling:
         # Should have revenue before expiration, none after (unit didn't transform)
         assert month_2_revenue > 0, "Should have revenue before lease expires"
         assert month_3_revenue == 0, "Should have no revenue when lease expires"
-        assert (
-            month_6_revenue == 0
-        ), "Should have no revenue later (unit didn't transform)"
+        assert month_6_revenue == 0, (
+            "Should have no revenue later (unit didn't transform)"
+        )
 
     def test_nonexistent_target_absorption_plan_id(self):
         """Test REABSORB with target_absorption_plan_id that doesn't exist."""

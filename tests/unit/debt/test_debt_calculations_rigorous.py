@@ -186,9 +186,9 @@ class TestDebtCalculationsAgainstBenchmarks:
             annual_rate=benchmark["annual_rate"],
             term_months=benchmark["amortization_years"] * 12,
         )
-        assert (
-            abs(actual_payment - expected_payment) < 0.01
-        ), f"Payment calculation mismatch: actual={actual_payment:.2f}, expected={expected_payment:.2f}"
+        assert abs(actual_payment - expected_payment) < 0.01, (
+            f"Payment calculation mismatch: actual={actual_payment:.2f}, expected={expected_payment:.2f}"
+        )
 
         print(f"✓ Payment validation: ${actual_payment:.2f} vs ${expected_payment:.2f}")
 
@@ -261,13 +261,13 @@ class TestDebtCalculationsAgainstBenchmarks:
         expected_dscr_manual = manual_dscr_calculation(
             benchmark["annual_noi"], annual_debt_service
         )
-        assert (
-            abs(actual_dscr - expected_dscr_manual) < 0.001
-        ), f"DSCR calculation mismatch: actual={actual_dscr:.3f}, expected={expected_dscr_manual:.3f}"
+        assert abs(actual_dscr - expected_dscr_manual) < 0.001, (
+            f"DSCR calculation mismatch: actual={actual_dscr:.3f}, expected={expected_dscr_manual:.3f}"
+        )
 
-        assert (
-            abs(actual_dscr - benchmark["expected_dscr"]) < 0.01
-        ), f"DSCR should be {benchmark['expected_dscr']}, got {actual_dscr:.3f}"
+        assert abs(actual_dscr - benchmark["expected_dscr"]) < 0.01, (
+            f"DSCR should be {benchmark['expected_dscr']}, got {actual_dscr:.3f}"
+        )
 
         print(f"✓ DSCR validation: {actual_dscr:.3f} vs {expected_dscr:.3f}")
 
@@ -306,21 +306,21 @@ class TestDebtCalculationsAgainstBenchmarks:
 
         for i, row in io_payments.iterrows():
             # Principal should be zero during I/O
-            assert (
-                row["Principal"] == 0
-            ), f"Principal should be 0 in I/O period, got {row['Principal']}"
+            assert row["Principal"] == 0, (
+                f"Principal should be 0 in I/O period, got {row['Principal']}"
+            )
 
             # Interest should match manual calculation
             actual_interest = row["Interest"]
-            assert (
-                abs(actual_interest - expected_io_payment) < 0.01
-            ), f"I/O interest mismatch: expected ${expected_io_payment:.2f}, got ${actual_interest:.2f}"
+            assert abs(actual_interest - expected_io_payment) < 0.01, (
+                f"I/O interest mismatch: expected ${expected_io_payment:.2f}, got ${actual_interest:.2f}"
+            )
 
         # Validate transition to amortizing
         amort_payment = schedule.iloc[io_months]["Payment"]
-        assert (
-            amort_payment > expected_io_payment
-        ), "Amortizing payment should be higher than I/O payment"
+        assert amort_payment > expected_io_payment, (
+            "Amortizing payment should be higher than I/O payment"
+        )
 
         print(
             f"✓ I/O payment validation: ${io_payments.iloc[0]['Payment']:.2f} vs ${expected_io_payment:.2f}"
@@ -386,9 +386,9 @@ class TestDebtCalculationsAgainstBenchmarks:
         expected_with_fees = (
             base_loan_amount * 1.05
         )  # 5% tolerance for fees and calculations
-        assert (
-            loan_proceeds <= expected_with_fees
-        ), f"Loan proceeds ${loan_proceeds:,.0f} should not significantly exceed base ${base_loan_amount:,.0f}"
+        assert loan_proceeds <= expected_with_fees, (
+            f"Loan proceeds ${loan_proceeds:,.0f} should not significantly exceed base ${base_loan_amount:,.0f}"
+        )
 
         # Validate first month interest (if any interest transactions exist)
         interest_txns = ledger[ledger["item_name"] == "Construction Interest"]
@@ -397,9 +397,9 @@ class TestDebtCalculationsAgainstBenchmarks:
             # Interest calculated on actual loan proceeds (which include fees)
             expected_first_interest = loan_proceeds * (benchmark["senior_rate"] / 12)
 
-            assert (
-                abs(first_interest - expected_first_interest) < 100
-            ), f"Interest mismatch: expected ${expected_first_interest:.2f}, got ${first_interest:.2f}"
+            assert abs(first_interest - expected_first_interest) < 100, (
+                f"Interest mismatch: expected ${expected_first_interest:.2f}, got ${first_interest:.2f}"
+            )
 
         print(
             f"✓ Construction loan validation: ${loan_proceeds:,.0f} at {benchmark['senior_rate']:.1%}"
@@ -476,17 +476,17 @@ class TestDebtCalculationsAgainstBenchmarks:
             f"Debug: Monthly-based Debt Yield: ${monthly_noi:,.0f} / ${benchmark['loan_amount']:,.0f} = {monthly_debt_yield:.3%}"
         )
 
-        assert (
-            abs(actual_ltv - expected_ltv) < 0.001
-        ), f"LTV mismatch: expected {expected_ltv:.3%}, got {actual_ltv:.3%}"
+        assert abs(actual_ltv - expected_ltv) < 0.001, (
+            f"LTV mismatch: expected {expected_ltv:.3%}, got {actual_ltv:.3%}"
+        )
 
         # If library uses monthly NOI, adjust our expectation
         if abs(actual_debt_yield - monthly_debt_yield) < 0.001:
             print("✓ Library uses monthly NOI for debt yield (expected behavior)")
         else:
-            assert (
-                abs(actual_debt_yield - expected_debt_yield) < 0.001
-            ), f"Debt Yield mismatch: expected {expected_debt_yield:.3%}, got {actual_debt_yield:.3%}"
+            assert abs(actual_debt_yield - expected_debt_yield) < 0.001, (
+                f"Debt Yield mismatch: expected {expected_debt_yield:.3%}, got {actual_debt_yield:.3%}"
+            )
 
         print(f"✓ LTV validation: {actual_ltv:.3%} vs {expected_ltv:.3%}")
         print(
@@ -525,9 +525,9 @@ class TestDebtCalculationsAgainstBenchmarks:
         manual_most_restrictive = min(
             ltv_constraint, dscr_loan_amount, debt_yield_constraint
         )
-        assert (
-            manual_most_restrictive == dscr_loan_amount
-        ), "DSCR should be most restrictive"
+        assert manual_most_restrictive == dscr_loan_amount, (
+            "DSCR should be most restrictive"
+        )
 
         # Test with library
         facility = PermanentFacility(
@@ -547,9 +547,9 @@ class TestDebtCalculationsAgainstBenchmarks:
         )
 
         # Should match our manual DSCR constraint calculation
-        assert (
-            abs(actual_loan_amount - dscr_loan_amount) < 1000
-        ), f"Auto-sizing mismatch: expected ${dscr_loan_amount:,.0f}, got ${actual_loan_amount:,.0f}"
+        assert abs(actual_loan_amount - dscr_loan_amount) < 1000, (
+            f"Auto-sizing mismatch: expected ${dscr_loan_amount:,.0f}, got ${actual_loan_amount:,.0f}"
+        )
 
         print(
             f"✓ Manual constraints: LTV=${ltv_constraint:,.0f}, DSCR=${dscr_loan_amount:,.0f}, DY=${debt_yield_constraint:,.0f}"

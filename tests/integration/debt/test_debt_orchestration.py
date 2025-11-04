@@ -346,9 +346,9 @@ class TestCovenantMonitoringIntegration:
         assert "Min_Debt_Yield" in breach_summary_bad
 
         # Verify the breach scenario actually has breaches
-        assert (
-            breach_summary_bad["Breach_Periods"] > 0
-        ), "Should have some breach periods"
+        assert breach_summary_bad["Breach_Periods"] > 0, (
+            "Should have some breach periods"
+        )
 
         print(
             f"✓ Compliant scenario breach rate: {breach_summary_good['Breach_Rate']:.1%}"

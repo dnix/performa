@@ -196,9 +196,9 @@ def test_absorption_plan_generates_progressive_specs(progressive_development_pro
             f"Spec {i + 1} has start date {spec.lease_start_date}, "
             f"expected {expected_start_dates[i]}"
         )
-        assert (
-            spec.unit_count == 10
-        ), f"Spec {i + 1} has {spec.unit_count} units, expected 10"
+        assert spec.unit_count == 10, (
+            f"Spec {i + 1} has {spec.unit_count} units, expected 10"
+        )
 
     print(" Absorption plan generates progressive unit specs correctly")
 
@@ -235,35 +235,35 @@ def test_development_framework_progressive_revenue(progressive_development_proje
         print(f"  Month {i + 1}: ${revenue:,.0f}")
 
     # Month 1-2: Construction period, no revenue
-    assert (
-        month_revenues[0] == 0
-    ), f"Month 1 should have $0 revenue, got ${month_revenues[0]:,.0f}"
-    assert (
-        month_revenues[1] == 0
-    ), f"Month 2 should have $0 revenue, got ${month_revenues[1]:,.0f}"
+    assert month_revenues[0] == 0, (
+        f"Month 1 should have $0 revenue, got ${month_revenues[0]:,.0f}"
+    )
+    assert month_revenues[1] == 0, (
+        f"Month 2 should have $0 revenue, got ${month_revenues[1]:,.0f}"
+    )
 
     # Month 3: First 10 units come online
     expected_month3 = 10 * 2000.0  # 10 units × $2,000/month
-    assert (
-        month_revenues[2] == pytest.approx(expected_month3, rel=0.05)
-    ), f"Month 3 should have ~${expected_month3:,.0f} revenue, got ${month_revenues[2]:,.0f}"
+    assert month_revenues[2] == pytest.approx(expected_month3, rel=0.05), (
+        f"Month 3 should have ~${expected_month3:,.0f} revenue, got ${month_revenues[2]:,.0f}"
+    )
 
     # Month 4: 20 units total (progressive growth)
     expected_month4 = 20 * 2000.0  # 20 units × $2,000/month
-    assert (
-        month_revenues[3] == pytest.approx(expected_month4, rel=0.05)
-    ), f"Month 4 should have ~${expected_month4:,.0f} revenue, got ${month_revenues[3]:,.0f}"
+    assert month_revenues[3] == pytest.approx(expected_month4, rel=0.05), (
+        f"Month 4 should have ~${expected_month4:,.0f} revenue, got ${month_revenues[3]:,.0f}"
+    )
 
     # Month 5: 30 units total
     expected_month5 = 30 * 2000.0  # 30 units × $2,000/month
-    assert (
-        month_revenues[4] == pytest.approx(expected_month5, rel=0.05)
-    ), f"Month 5 should have ~${expected_month5:,.0f} revenue, got ${month_revenues[4]:,.0f}"
+    assert month_revenues[4] == pytest.approx(expected_month5, rel=0.05), (
+        f"Month 5 should have ~${expected_month5:,.0f} revenue, got ${month_revenues[4]:,.0f}"
+    )
 
     # Validate progressive growth pattern
-    assert (
-        month_revenues[2] < month_revenues[3] < month_revenues[4]
-    ), "Revenue should grow progressively: Month 3 < Month 4 < Month 5"
+    assert month_revenues[2] < month_revenues[3] < month_revenues[4], (
+        "Revenue should grow progressively: Month 3 < Month 4 < Month 5"
+    )
 
     print(" Development framework produces correct progressive revenue pattern")
 

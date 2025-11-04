@@ -304,12 +304,12 @@ class TestAnalyzeDeal:
         assert default_summary.equals(annual_summary)  # Default should equal annual
 
         # Test that we have financial metrics (L3 patterns generate realistic data)
-        assert (
-            annual_summary.shape[0] >= 5
-        ), f"Expected multiple financial metrics, got {annual_summary.shape[0]}"
-        assert (
-            annual_summary.shape[1] >= 5
-        ), f"Expected multiple time periods, got {annual_summary.shape[1]}"
+        assert annual_summary.shape[0] >= 5, (
+            f"Expected multiple financial metrics, got {annual_summary.shape[0]}"
+        )
+        assert annual_summary.shape[1] >= 5, (
+            f"Expected multiple time periods, got {annual_summary.shape[1]}"
+        )
 
     def test_analyze_with_different_asset_types(
         self, sample_acquisition, sample_timeline, sample_settings

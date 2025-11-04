@@ -650,15 +650,15 @@ def main():
 
             # Validate composition results match expected values
             assert comp_irr is not None, f"Composition IRR should not be None"
-            assert (
-                abs(comp_irr - expected_composition_irr) < 0.01
-            ), f"Composition IRR {comp_irr} != expected {expected_composition_irr}"
-            assert (
-                abs(comp_em - expected_em) < 0.1
-            ), f"Composition EM {comp_em} != expected {expected_em}"
-            assert (
-                abs(comp_equity - expected_equity) < 150000
-            ), f"Composition Equity ${comp_equity} != expected ${expected_equity}"
+            assert abs(comp_irr - expected_composition_irr) < 0.01, (
+                f"Composition IRR {comp_irr} != expected {expected_composition_irr}"
+            )
+            assert abs(comp_em - expected_em) < 0.1, (
+                f"Composition EM {comp_em} != expected {expected_em}"
+            )
+            assert abs(comp_equity - expected_equity) < 150000, (
+                f"Composition Equity ${comp_equity} != expected ${expected_equity}"
+            )
 
             # Validate pattern results match composition
             pattern_irr = pattern_results.levered_irr
@@ -667,15 +667,15 @@ def main():
 
             # Pattern should match composition within financial calculation precision
             assert pattern_irr is not None, f"Pattern IRR should not be None"
-            assert (
-                abs(pattern_irr - comp_irr) < 1e-6
-            ), f"Pattern IRR {pattern_irr} != composition {comp_irr}"
-            assert (
-                abs(pattern_em - comp_em) < 1e-6
-            ), f"Pattern EM {pattern_em} != composition {comp_em}"
-            assert (
-                abs(pattern_equity - comp_equity) < 1.0
-            ), f"Pattern equity ${pattern_equity} != composition ${comp_equity}"
+            assert abs(pattern_irr - comp_irr) < 1e-6, (
+                f"Pattern IRR {pattern_irr} != composition {comp_irr}"
+            )
+            assert abs(pattern_em - comp_em) < 1e-6, (
+                f"Pattern EM {pattern_em} != composition {comp_em}"
+            )
+            assert abs(pattern_equity - comp_equity) < 1.0, (
+                f"Pattern equity ${pattern_equity} != composition ${comp_equity}"
+            )
 
             print(f" Composition validated: {comp_irr:.2%} IRR")
             print(f" Pattern validated: {pattern_irr:.2%} IRR")

@@ -71,9 +71,9 @@ def test_legacy_enum_removed():
     try:
         # This import should fail
         exec("from performa.core.primitives.enums import AggregateLineKey")
-        assert (
-            False
-        ), "AggregateLineKey should have been removed but is still importable"
+        assert False, (
+            "AggregateLineKey should have been removed but is still importable"
+        )
     except ImportError:
         pass  # This is expected
 

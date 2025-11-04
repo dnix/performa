@@ -198,9 +198,9 @@ def test_comprehensive_debt_integration():
         ltv_loan, sizing_analysis["dscr_constraint"], debt_yield_loan
     )
 
-    assert (
-        abs(transaction["new_loan_amount"] - most_restrictive_amount) < 1000
-    ), "Loan amount should equal most restrictive constraint"
+    assert abs(transaction["new_loan_amount"] - most_restrictive_amount) < 1000, (
+        "Loan amount should equal most restrictive constraint"
+    )
 
     # 7. Test Interest-Only Period Integration
     print("\n⏱  Testing Interest-Only Periods:")
@@ -227,15 +227,15 @@ def test_comprehensive_debt_integration():
 
     # Verify I/O periods have zero principal
     io_schedule = amortization.iloc[:io_periods]
-    assert (
-        io_schedule["Principal"] == 0
-    ).all(), "I/O periods should have zero principal payment"
+    assert (io_schedule["Principal"] == 0).all(), (
+        "I/O periods should have zero principal payment"
+    )
 
     # Verify amortizing periods have principal > 0
     amortizing_schedule = amortization.iloc[io_periods:]
-    assert (
-        amortizing_schedule["Principal"] > 0
-    ).all(), "Amortizing periods should have principal > 0"
+    assert (amortizing_schedule["Principal"] > 0).all(), (
+        "Amortizing periods should have principal > 0"
+    )
 
     # 8. Test Covenant Monitoring Integration
     print("\n⚖  Testing Covenant Monitoring:")
@@ -250,12 +250,12 @@ def test_comprehensive_debt_integration():
 
     # Verify covenant monitoring configuration
     assert covenant_monitoring["ongoing_ltv_max"] > 0, "Ongoing LTV should be positive"
-    assert (
-        covenant_monitoring["ongoing_dscr_min"] > 0
-    ), "Ongoing DSCR should be positive"
-    assert (
-        covenant_monitoring["ongoing_debt_yield_min"] > 0
-    ), "Ongoing debt yield should be positive"
+    assert covenant_monitoring["ongoing_dscr_min"] > 0, (
+        "Ongoing DSCR should be positive"
+    )
+    assert covenant_monitoring["ongoing_debt_yield_min"] > 0, (
+        "Ongoing debt yield should be positive"
+    )
 
     print("  ✓ Covenant hurdles are configured and reasonable")
 
@@ -273,9 +273,9 @@ def test_comprehensive_debt_integration():
 
     # Verify cash flow math
     expected_net = transaction["new_loan_amount"] - payoff_amount - closing_costs
-    assert (
-        abs(net_proceeds - expected_net) < 1
-    ), "Net proceeds calculation should be accurate"
+    assert abs(net_proceeds - expected_net) < 1, (
+        "Net proceeds calculation should be accurate"
+    )
 
     # 10. Integration Summary
     print("\n COMPREHENSIVE INTEGRATION TEST RESULTS:")

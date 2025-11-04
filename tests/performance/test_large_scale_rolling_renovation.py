@@ -222,20 +222,20 @@ class TestLargeScaleRollingRenovation:
         print(f"   Max Monthly Revenue: ${metrics['max_monthly_revenue']:,.0f}")
 
         # Performance assertions
-        assert (
-            metrics["total_duration"] < 60.0
-        ), f"Analysis took too long: {metrics['total_duration']:.2f}s"
-        assert (
-            metrics["memory_delta_mb"] < 500.0
-        ), f"Memory usage too high: {metrics['memory_delta_mb']:.1f} MB"
+        assert metrics["total_duration"] < 60.0, (
+            f"Analysis took too long: {metrics['total_duration']:.2f}s"
+        )
+        assert metrics["memory_delta_mb"] < 500.0, (
+            f"Memory usage too high: {metrics['memory_delta_mb']:.1f} MB"
+        )
 
         # Financial validation
         expected_max_revenue = unit_count * 2500.0  # All units at premium rent
         revenue_ratio = metrics["max_monthly_revenue"] / expected_max_revenue
 
-        assert (
-            0.7 <= revenue_ratio <= 1.1
-        ), f"Revenue seems incorrect: {revenue_ratio:.2%} of expected"
+        assert 0.7 <= revenue_ratio <= 1.1, (
+            f"Revenue seems incorrect: {revenue_ratio:.2%} of expected"
+        )
 
     def test_very_large_scale_stress_test(self):
         """Stress test with 1000+ units (if system can handle it)."""
@@ -445,9 +445,9 @@ class TestScalabilityLimits:
 
         # Should not have significant memory leaks
         memory_growth = final_memory - initial_memory
-        assert (
-            memory_growth < 100.0
-        ), f"Possible memory leak: {memory_growth:.1f} MB growth"
+        assert memory_growth < 100.0, (
+            f"Possible memory leak: {memory_growth:.1f} MB growth"
+        )
 
     def _create_value_add_property(self, unit_count: int, name_suffix: str = ""):
         """Helper method to create value-add property (duplicated for memory test)."""

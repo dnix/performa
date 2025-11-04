@@ -478,9 +478,9 @@ class TestLedgerQueries:
             assert hasattr(queries, method_name), f"Missing method: {method_name}"
             method = getattr(queries, method_name)
             result = method()
-            assert isinstance(
-                result, pd.Series
-            ), f"Method {method_name} should return Series"
+            assert isinstance(result, pd.Series), (
+                f"Method {method_name} should return Series"
+            )
 
         # List of methods that should return pd.DataFrame
         dataframe_methods = [
@@ -494,9 +494,9 @@ class TestLedgerQueries:
             assert hasattr(queries, method_name), f"Missing method: {method_name}"
             method = getattr(queries, method_name)
             result = method()
-            assert isinstance(
-                result, pd.DataFrame
-            ), f"Method {method_name} should return DataFrame"
+            assert isinstance(result, pd.DataFrame), (
+                f"Method {method_name} should return DataFrame"
+            )
 
         # Special methods
         assert hasattr(queries, "asset_value_at")

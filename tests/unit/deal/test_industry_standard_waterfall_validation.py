@@ -110,24 +110,24 @@ class TestIndustryStandardWaterfallValidation:
         lp_total = results["partner_distributions"]["LP"]["total_distributions"]
         total_positive_cash = cash_flows[cash_flows > 0].sum()
 
-        assert (
-            abs((gp_total + lp_total) - total_positive_cash) < 1.0
-        ), f"Distribution total mismatch: GP {gp_total} + LP {lp_total} != {total_positive_cash}"
+        assert abs((gp_total + lp_total) - total_positive_cash) < 1.0, (
+            f"Distribution total mismatch: GP {gp_total} + LP {lp_total} != {total_positive_cash}"
+        )
 
         # Validate LP gets preferred return first (institutional priority)
         lp_result = results["partner_distributions"]["LP"]
-        assert (
-            lp_result["irr"] >= 0.08
-        ), f"LP should achieve at least 8% preferred return, got {lp_result['irr']:.2%}"
+        assert lp_result["irr"] >= 0.08, (
+            f"LP should achieve at least 8% preferred return, got {lp_result['irr']:.2%}"
+        )
 
         # Validate GP gets reasonable promote (should be significant given the returns)
         gp_result = results["partner_distributions"]["GP"]
         gp_contribution_ratio = 0.10  # GP contributed 10%
         gp_distribution_ratio = gp_total / total_positive_cash
 
-        assert (
-            gp_distribution_ratio > gp_contribution_ratio
-        ), f"GP should get promoted beyond contribution ratio: {gp_distribution_ratio:.1%} vs {gp_contribution_ratio:.1%}"
+        assert gp_distribution_ratio > gp_contribution_ratio, (
+            f"GP should get promoted beyond contribution ratio: {gp_distribution_ratio:.1%} vs {gp_contribution_ratio:.1%}"
+        )
 
         print(" Industry-standard simple waterfall validation passed!")
         print(f"   LP IRR: {lp_result['irr']:.2%}")
@@ -200,24 +200,24 @@ class TestIndustryStandardWaterfallValidation:
         gp_result = results["partner_distributions"]["GP"]
 
         # LP should achieve good returns given strong performance
-        assert (
-            lp_result["irr"] >= 0.10
-        ), f"LP should achieve at least 10% IRR given strong performance, got {lp_result['irr']:.2%}"
+        assert lp_result["irr"] >= 0.10, (
+            f"LP should achieve at least 10% IRR given strong performance, got {lp_result['irr']:.2%}"
+        )
 
         # GP should achieve strong returns due to promote structure
         # With 5% equity contribution, 17-20% IRR is excellent performance
-        assert (
-            gp_result["irr"] >= 0.17
-        ), f"GP should achieve high IRR due to promote, got {gp_result['irr']:.2%}"
+        assert gp_result["irr"] >= 0.17, (
+            f"GP should achieve high IRR due to promote, got {gp_result['irr']:.2%}"
+        )
 
         # GP should get substantial promote beyond contribution
         gp_total = results["partner_distributions"]["GP"]["total_distributions"]
         total_positive_cash = cash_flows[cash_flows > 0].sum()
         gp_distribution_ratio = gp_total / total_positive_cash
 
-        assert (
-            gp_distribution_ratio > 0.06
-        ), f"GP should get promote beyond their contribution in multi-tier structure: {gp_distribution_ratio:.1%}"
+        assert gp_distribution_ratio > 0.06, (
+            f"GP should get promote beyond their contribution in multi-tier structure: {gp_distribution_ratio:.1%}"
+        )
 
         print(" Industry-standard multi-tier waterfall validation passed!")
         print(f"   LP IRR: {lp_result['irr']:.2%}")
@@ -245,9 +245,9 @@ class TestIndustryStandardWaterfallValidation:
 
         # Verify assumption: exactly one negative value
         negative_count = (cash_flows < 0).sum()
-        assert (
-            negative_count == 1
-        ), f"Single investment assumption violated: should have exactly 1 negative value, got {negative_count}"
+        assert negative_count == 1, (
+            f"Single investment assumption violated: should have exactly 1 negative value, got {negative_count}"
+        )
 
         # Create simple partnership for validation
         partners = [
@@ -284,9 +284,9 @@ class TestIndustryStandardWaterfallValidation:
         )
         total_positive_cash = cash_flows[cash_flows > 0].sum()
 
-        assert (
-            abs(total_distributions - total_positive_cash) < 1.0
-        ), "Cash flow conservation violated with single investment assumption"
+        assert abs(total_distributions - total_positive_cash) < 1.0, (
+            "Cash flow conservation violated with single investment assumption"
+        )
 
         print(" Single investment assumptions validation passed!")
         print("   Single negative value assumption: ✓")
@@ -350,7 +350,9 @@ class TestIndustryStandardWaterfallValidation:
         )  # 6-15% range (realistic for moderate performance)
         assert (
             expected_lp_irr_range[0] <= lp_result["irr"] <= expected_lp_irr_range[1]
-        ), f"LP IRR outside expected range {expected_lp_irr_range}: {lp_result['irr']:.2%}"
+        ), (
+            f"LP IRR outside expected range {expected_lp_irr_range}: {lp_result['irr']:.2%}"
+        )
 
         # GP should get reasonable returns (may not always achieve high promote in moderate performance)
         expected_gp_irr_range = (
@@ -359,16 +361,18 @@ class TestIndustryStandardWaterfallValidation:
         )  # 6-30% range (realistic for varying performance)
         assert (
             expected_gp_irr_range[0] <= gp_result["irr"] <= expected_gp_irr_range[1]
-        ), f"GP IRR outside expected range {expected_gp_irr_range}: {gp_result['irr']:.2%}"
+        ), (
+            f"GP IRR outside expected range {expected_gp_irr_range}: {gp_result['irr']:.2%}"
+        )
 
         # Validate equity multiples are reasonable
-        assert (
-            1.2 <= lp_result["equity_multiple"] <= 2.0
-        ), f"LP equity multiple outside reasonable range: {lp_result['equity_multiple']:.2f}x"
+        assert 1.2 <= lp_result["equity_multiple"] <= 2.0, (
+            f"LP equity multiple outside reasonable range: {lp_result['equity_multiple']:.2f}x"
+        )
 
-        assert (
-            1.2 <= gp_result["equity_multiple"] <= 3.0
-        ), f"GP equity multiple outside reasonable range: {gp_result['equity_multiple']:.2f}x"
+        assert 1.2 <= gp_result["equity_multiple"] <= 3.0, (
+            f"GP equity multiple outside reasonable range: {gp_result['equity_multiple']:.2f}x"
+        )
 
         print(" Performance benchmark validation passed!")
         print(

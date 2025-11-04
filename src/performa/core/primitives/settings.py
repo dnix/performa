@@ -59,7 +59,11 @@ class ReportingSettings(Model):
     reporting_frequency: FrequencyEnum = FrequencyEnum.ANNUAL
     # Use int with explicit constraints since fiscal months must be 1-12
     fiscal_year_start_month: int = Field(
-        default=1, ge=1, le=12, strict=True, description="Month the fiscal year begins (1=Jan)."
+        default=1,
+        ge=1,
+        le=12,
+        strict=True,
+        description="Month the fiscal year begins (1=Jan).",
     )
     # Use PositiveInt for precision
     decimal_precision: PositiveInt = Field(
