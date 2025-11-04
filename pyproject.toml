@@ -62,7 +62,6 @@ dev = [
     "pytest-cov",
     "deptry",
     "vulture",
-    # "complexipy",
 ]
 notebooks = [
     "ipykernel",  # For Jupyter Notebooks
@@ -143,6 +142,9 @@ extend-ignore = [
 # are consistent.
 filterwarnings = [
     "ignore:'M' is deprecated:FutureWarning",
+]
+markers = [
+    "integration: Integration tests that test multiple components together",
 ]
 
 [tool.ruff.lint.flake8-copyright]
